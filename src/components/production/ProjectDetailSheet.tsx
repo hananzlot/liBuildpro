@@ -50,7 +50,10 @@ import {
   X,
   Settings2,
   Send,
-  Camera
+  Camera,
+  ExternalLink,
+  Copy,
+  Link as LinkIcon
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
 import { DocumentsSection } from "./DocumentsSection";
@@ -59,6 +62,7 @@ import { PhotosSection } from "./PhotosSection";
 import { DebouncedInput, DebouncedTextarea, DebouncedNumberInput } from "@/components/ui/debounced-input";
 import { CustomLeadCostsDialog, WeightedAverageTooltip } from "./CustomLeadCostsDialog";
 import { CustomerPortalCard } from "./CustomerPortalCard";
+import { useShortLinks } from "@/hooks/useShortLinks";
 
 interface Project {
   id: string;
@@ -103,6 +107,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   const queryClient = useQueryClient();
   const { isAdmin, isSuperAdmin, user } = useAuth();
   const { companyId } = useCompanyContext();
+  const { isShortLinksEnabled, createPortalShortLink } = useShortLinks();
   const [activeTab, setActiveTab] = useState(initialTab || "overview");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
@@ -120,6 +125,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   const [leadSourcePopoverOpen, setLeadSourcePopoverOpen] = useState(false);
   const [newLeadSourceValue, setNewLeadSourceValue] = useState("");
   const [leadSourceSearch, setLeadSourceSearch] = useState("");
+  const [portalLinkCopied, setPortalLinkCopied] = useState(false);
+  const [headerPortalLink, setHeaderPortalLink] = useState<string | null>(null);
   // Auto-switch to finance tab and signal bill dialog open when returning from subcontractor add
   useEffect(() => {
     if (open && autoOpenBillDialog && project) {
@@ -224,6 +231,67 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
     },
     enabled: !!project?.id && open,
   });
+
+  // Fetch portal token for header display
+  const { data: headerPortalToken } = useQuery({
+    queryKey: ["project-portal-token-header", project?.id],
+    queryFn: async () => {
+      if (!project?.id) return null;
+      const { data, error } = await supabase
+        .from("client_portal_tokens")
+        .select("token, is_active")
+        .eq("project_id", project.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!project?.id && open,
+  });
+
+  // Fetch company base URL for portal links
+  const { data: appBaseUrl } = useQuery({
+    queryKey: ["company-base-url-header", companyId],
+    queryFn: async () => {
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from("company_settings")
+          .select("setting_value")
+          .eq("company_id", companyId)
+          .eq("setting_key", "app_base_url")
+          .maybeSingle();
+        if (companyData?.setting_value) return companyData.setting_value;
+      }
+      const { data } = await supabase
+        .from("app_settings")
+        .select("setting_value")
+        .eq("setting_key", "app_base_url")
+        .maybeSingle();
+      return data?.setting_value || window.location.origin;
+    },
+    staleTime: 1000 * 60 * 5,
+    enabled: open,
+  });
+
+  // Generate short link for header portal display
+  useEffect(() => {
+    async function generateHeaderPortalLink() {
+      if (!headerPortalToken?.token || !appBaseUrl) {
+        setHeaderPortalLink(null);
+        return;
+      }
+      const longLink = `${appBaseUrl}/portal?token=${headerPortalToken.token}`;
+      if (isShortLinksEnabled) {
+        const shortLink = await createPortalShortLink(longLink, project?.project_name || "Customer");
+        setHeaderPortalLink(shortLink);
+      } else {
+        setHeaderPortalLink(longLink);
+      }
+    }
+    generateHeaderPortalLink();
+  }, [headerPortalToken, appBaseUrl, isShortLinksEnabled, createPortalShortLink, project?.project_name]);
 
   // Fetch salespeople from the salespeople table
   const { data: existingSalespeople = [] } = useQuery({
@@ -629,7 +697,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
             <div className="rounded-lg bg-primary/10 p-2">
               <Building2 className="h-5 w-5 text-primary" />
             </div>
-            <div>
+            <div className="flex-1">
               <SheetTitle className="flex items-center gap-2">
                 #{project.project_number} - {project.project_name}
               </SheetTitle>
@@ -638,6 +706,41 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
               </SheetDescription>
             </div>
           </div>
+          {/* Portal Link - Above Status Badge */}
+          {headerPortalLink && (
+            <div className="flex items-center gap-2 mt-2">
+              <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              <a 
+                href={headerPortalLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-primary hover:underline truncate max-w-[300px]"
+              >
+                {headerPortalLink}
+              </a>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(headerPortalLink);
+                  setPortalLinkCopied(true);
+                  toast.success("Portal link copied!");
+                  setTimeout(() => setPortalLinkCopied(false), 2000);
+                }}
+              >
+                {portalLinkCopied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => window.open(headerPortalLink, "_blank")}
+              >
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
           <Badge 
             variant="outline" 
             className={`w-fit ${statusColors[fullProject?.project_status || project.project_status || "New Job"] || ""}`}
