@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Upload, Loader2, Trash2, Image, Link, Save, Download, ChevronDown } from "lucide-react";
+import { Upload, Loader2, Trash2, Image, Link, Save, Download, ChevronDown, Palette } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -14,6 +14,52 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+
+// Helper to determine if a color is dark (for text contrast)
+function isColorDark(color: string): boolean {
+  if (!color) return false;
+  
+  let r = 0, g = 0, b = 0;
+  
+  if (color.startsWith('#')) {
+    const hex = color.replace('#', '');
+    if (hex.length === 3) {
+      r = parseInt(hex[0] + hex[0], 16);
+      g = parseInt(hex[1] + hex[1], 16);
+      b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    }
+  } else if (color.startsWith('rgb')) {
+    const match = color.match(/\d+/g);
+    if (match && match.length >= 3) {
+      r = parseInt(match[0]);
+      g = parseInt(match[1]);
+      b = parseInt(match[2]);
+    }
+  }
+  
+  // Calculate relative luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.5;
+}
+
+const PRESET_COLORS = [
+  { name: "Default", value: "" },
+  { name: "White", value: "#ffffff" },
+  { name: "Light Gray", value: "#f8f9fa" },
+  { name: "Slate", value: "#f1f5f9" },
+  { name: "Blue", value: "#eff6ff" },
+  { name: "Green", value: "#f0fdf4" },
+  { name: "Purple", value: "#faf5ff" },
+  { name: "Amber", value: "#fffbeb" },
+  { name: "Rose", value: "#fff1f2" },
+  { name: "Dark", value: "#1e293b" },
+  { name: "Navy", value: "#1e3a5f" },
+];
+
 export function LogoUpload() {
   const { company } = useAuth();
   const companyId = company?.id;
@@ -22,6 +68,8 @@ export function LogoUpload() {
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [hasUrlChanges, setHasUrlChanges] = useState(false);
+  const [customColor, setCustomColor] = useState("");
+  const [hasColorChanges, setHasColorChanges] = useState(false);
 
   // Fetch current logo URL from company_settings first, fallback to app_settings
   const { data: logoSetting, isLoading } = useQuery({
@@ -52,6 +100,35 @@ export function LogoUpload() {
       return data ? { ...data, source: 'app' as const } : null;
     },
   });
+
+  // Fetch header background color setting
+  const { data: bgColorSetting } = useQuery({
+    queryKey: ["company-header-bg-color", companyId],
+    queryFn: async () => {
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from("company_settings")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("setting_key", "company_header_bg_color")
+          .maybeSingle();
+
+        if (companyData) {
+          return companyData.setting_value || "";
+        }
+      }
+
+      const { data } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("setting_key", "company_header_bg_color")
+        .maybeSingle();
+
+      return data?.setting_value || "";
+    },
+  });
+
+  const currentBgColor = bgColorSetting || "";
 
   const currentLogoUrl = logoSetting?.setting_value || "";
 
@@ -202,6 +279,77 @@ export function LogoUpload() {
     setUrlInput(currentLogoUrl);
   }
 
+  // Initialize custom color input when data loads
+  if (bgColorSetting !== undefined && customColor === "" && currentBgColor && !hasColorChanges) {
+    setCustomColor(currentBgColor);
+  }
+
+  const updateBgColor = useMutation({
+    mutationFn: async (color: string) => {
+      if (companyId) {
+        const { data: existing } = await supabase
+          .from("company_settings")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("setting_key", "company_header_bg_color")
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("company_settings")
+            .update({ 
+              setting_value: color, 
+              updated_at: new Date().toISOString() 
+            })
+            .eq("company_id", companyId)
+            .eq("setting_key", "company_header_bg_color");
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("company_settings")
+            .insert({ 
+              company_id: companyId,
+              setting_key: "company_header_bg_color",
+              setting_value: color
+            });
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await supabase
+          .from("app_settings")
+          .upsert({ 
+            setting_key: "company_header_bg_color",
+            setting_value: color, 
+            updated_at: new Date().toISOString() 
+          }, { onConflict: 'setting_key' });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-header-bg-color"] });
+      queryClient.invalidateQueries({ queryKey: ["company-info-header"] });
+      toast.success("Header background color updated");
+      setHasColorChanges(false);
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update color: ${error.message}`);
+    },
+  });
+
+  const handleColorSelect = (color: string) => {
+    setCustomColor(color);
+    updateBgColor.mutate(color);
+  };
+
+  const handleCustomColorChange = (value: string) => {
+    setCustomColor(value);
+    setHasColorChanges(value !== currentBgColor);
+  };
+
+  const handleCustomColorSave = () => {
+    updateBgColor.mutate(customColor);
+  };
+
   return (
     <Collapsible defaultOpen={false} className="group">
       <Card>
@@ -332,6 +480,90 @@ export function LogoUpload() {
             <Image className="h-8 w-8 text-muted-foreground/50" />
           </div>
         )}
+
+        {/* Header Background Color */}
+        <div className="space-y-3 pt-4 border-t">
+          <div className="flex items-center gap-2">
+            <Palette className="h-4 w-4 text-muted-foreground" />
+            <Label>Header Background Color</Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Choose a background color for the company header in proposals and estimates.
+          </p>
+          
+          {/* Preset Colors */}
+          <div className="flex flex-wrap gap-2">
+            {PRESET_COLORS.map((preset) => (
+              <button
+                key={preset.name}
+                type="button"
+                onClick={() => handleColorSelect(preset.value)}
+                className={`
+                  w-8 h-8 rounded-md border-2 transition-all
+                  ${currentBgColor === preset.value ? 'ring-2 ring-primary ring-offset-2' : 'hover:scale-110'}
+                  ${preset.value === '' ? 'bg-gradient-to-br from-gray-100 to-gray-300' : ''}
+                `}
+                style={{ backgroundColor: preset.value || undefined }}
+                title={preset.name}
+              />
+            ))}
+          </div>
+
+          {/* Custom Color Input */}
+          <div className="flex items-center gap-2">
+            <Input
+              type="color"
+              value={customColor || "#ffffff"}
+              onChange={(e) => handleCustomColorChange(e.target.value)}
+              className="w-12 h-10 p-1 cursor-pointer"
+            />
+            <Input
+              type="text"
+              value={customColor}
+              onChange={(e) => handleCustomColorChange(e.target.value)}
+              placeholder="#ffffff or rgb(255,255,255)"
+              className="flex-1"
+            />
+            {hasColorChanges && (
+              <Button
+                size="sm"
+                onClick={handleCustomColorSave}
+                disabled={updateBgColor.isPending}
+              >
+                {updateBgColor.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="h-3 w-3 mr-1" />
+                )}
+                Save
+              </Button>
+            )}
+          </div>
+
+          {/* Live Preview */}
+          {(currentLogoUrl || currentBgColor) && (
+            <div className="mt-4">
+              <Label className="text-xs text-muted-foreground">Preview</Label>
+              <div 
+                className="mt-2 p-4 rounded-lg border"
+                style={{ backgroundColor: currentBgColor || undefined }}
+              >
+                <div className="flex items-center gap-3">
+                  {currentLogoUrl && (
+                    <img 
+                      src={currentLogoUrl} 
+                      alt="Logo preview" 
+                      className="h-12 w-auto object-contain"
+                    />
+                  )}
+                  <span className={`font-semibold ${currentBgColor && isColorDark(currentBgColor) ? 'text-white' : 'text-foreground'}`}>
+                    {company?.name || "Company Name"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {isLoading && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
