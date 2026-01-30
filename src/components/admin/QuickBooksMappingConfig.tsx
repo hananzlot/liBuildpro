@@ -619,7 +619,7 @@ export function QuickBooksMappingConfig() {
                     const existingMapping = getSourceMapping("customer", contact.id);
                     
                     return (
-                      <div key={contact.id} className="flex items-center gap-3 p-2 rounded-md border bg-background">
+                      <div key={contact.id} className={`flex items-center gap-3 p-2 rounded-md border ${existingMapping ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : "bg-background"}`}>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{displayName}</p>
                           {contact.email && (
@@ -694,7 +694,7 @@ export function QuickBooksMappingConfig() {
                     const existingMapping = getSourceMapping("vendor", sub.id);
                     
                     return (
-                      <div key={sub.id} className="flex items-center gap-3 p-2 rounded-md border bg-background">
+                      <div key={sub.id} className={`flex items-center gap-3 p-2 rounded-md border ${existingMapping ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : "bg-background"}`}>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{sub.company_name || "Unnamed"}</p>
                         </div>
