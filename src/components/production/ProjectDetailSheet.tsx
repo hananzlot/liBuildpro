@@ -30,6 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
 import { 
@@ -316,6 +317,25 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   const [secondarySearch, setSecondarySearch] = useState("");
   const [tertiarySearch, setTertiarySearch] = useState("");
   const [quaternarySearch, setQuaternarySearch] = useState("");
+
+  // Auto-sync to QuickBooks mutation
+  const toggleAutoSyncMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (!project?.id) throw new Error("No project");
+      const { error } = await supabase
+        .from("projects")
+        .update({ auto_sync_to_quickbooks: enabled })
+        .eq("id", project.id);
+      if (error) throw error;
+    },
+    onSuccess: (_, enabled) => {
+      queryClient.invalidateQueries({ queryKey: ["project-detail", project?.id] });
+      toast.success(enabled ? "Auto-sync enabled" : "Auto-sync disabled");
+    },
+    onError: () => {
+      toast.error("Failed to update auto-sync setting");
+    },
+  });
 
   // Calculate total commission percentage
   const totalCommission = (fullProject?.primary_commission_pct || 0) + 
@@ -692,7 +712,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-6xl overflow-y-auto">
-        <SheetHeader>
+        <SheetHeader className="pb-2">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary/10 p-2">
               <Building2 className="h-5 w-5 text-primary" />
@@ -700,15 +720,21 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
             <div className="flex-1">
               <SheetTitle className="flex items-center gap-2">
                 #{project.project_number} - {project.project_name}
+                <Badge 
+                  variant="outline" 
+                  className={`text-[10px] px-1.5 py-0 ${statusColors[fullProject?.project_status || project.project_status || "New Job"] || ""}`}
+                >
+                  {fullProject?.project_status || project.project_status || "New Job"}
+                </Badge>
               </SheetTitle>
               <SheetDescription>
                 {project.customer_first_name} {project.customer_last_name}
               </SheetDescription>
             </div>
           </div>
-          {/* Portal Link - Above Status Badge */}
+          {/* Portal Link - Below Name */}
           {headerPortalLink && (
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-2 mt-1">
               <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
               <a 
                 href={headerPortalLink} 
@@ -741,15 +767,26 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
               </Button>
             </div>
           )}
-          <Badge 
-            variant="outline" 
-            className={`w-fit ${statusColors[fullProject?.project_status || project.project_status || "New Job"] || ""}`}
-          >
-            {fullProject?.project_status || project.project_status || "New Job"}
-          </Badge>
         </SheetHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+        {/* Compact Auto-Sync Toggle */}
+        <div className="flex items-center gap-2 mt-3 px-1">
+          <Switch
+            id="auto-sync-qb-header"
+            checked={fullProject?.auto_sync_to_quickbooks ?? false}
+            onCheckedChange={(checked) => toggleAutoSyncMutation.mutate(checked)}
+            disabled={toggleAutoSyncMutation.isPending}
+            className="scale-75"
+          />
+          <Label 
+            htmlFor="auto-sync-qb-header" 
+            className="text-[11px] text-muted-foreground cursor-pointer"
+          >
+            Auto-sync to QuickBooks
+          </Label>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-3">
           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview" className="text-xs">
               <Building2 className="h-3 w-3 mr-1" />
