@@ -892,8 +892,12 @@ Deno.serve(async (req) => {
                 ],
               },
             ],
-            PrivateNote: billPayment.payment_reference || null,
           };
+
+          // Add DocNumber (check/reference number) if provided
+          if (billPayment.payment_reference) {
+            qbBillPayment.DocNumber = billPayment.payment_reference;
+          }
 
           // Add bank account if bank_name is set and has a mapping
           if (billPayment.bank_name) {
@@ -915,6 +919,10 @@ Deno.serve(async (req) => {
                     name: bankMapping.qbo_name,
                   },
                 };
+                // Add check number if available
+                if (billPayment.payment_reference) {
+                  qbBillPayment.CheckPayment.CheckNum = billPayment.payment_reference;
+                }
               }
             }
           }
