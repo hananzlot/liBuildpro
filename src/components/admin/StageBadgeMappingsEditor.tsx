@@ -41,12 +41,25 @@ export function StageBadgeMappingsEditor() {
   const [newBadgeName, setNewBadgeName] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Fetch available pipeline stages
+  // Fetch available pipeline stages from the new UUID-based table
   const { data: pipelineStages = [] } = useQuery({
     queryKey: ["pipeline-stages-for-badges", companyId],
     enabled: !!companyId,
     queryFn: async () => {
       if (!companyId) return [];
+      
+      // First try the new pipeline_stages table
+      const { data: stagesData, error } = await supabase
+        .from("pipeline_stages")
+        .select("id, name, position")
+        .eq("company_id", companyId)
+        .order("position", { ascending: true });
+      
+      if (!error && stagesData && stagesData.length > 0) {
+        return stagesData.map(s => s.name);
+      }
+      
+      // Fallback to legacy company_settings
       const { data } = await supabase
         .from("company_settings")
         .select("setting_value")
