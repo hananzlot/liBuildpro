@@ -645,28 +645,30 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div 
-          className={`flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors ${isViewingOtherCompany ? 'bg-amber-500/5 border border-amber-500/30' : ''} ${noCompanyContext ? 'bg-destructive/5 border border-destructive/30' : ''}`}
+          className={`flex flex-col gap-2 px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors ${isViewingOtherCompany ? 'bg-amber-500/5 border border-amber-500/30' : ''} ${noCompanyContext ? 'bg-destructive/5 border border-destructive/30' : ''}`}
           onClick={() => {
             if (collapsed) {
               setOpen(true);
             }
           }}
         >
+          {/* Logo - full width */}
           {company?.logo_url ? (
             <img 
               src={company.logo_url} 
               alt={company.name || "Company"} 
-              className="h-8 w-8 rounded-lg object-contain shrink-0"
+              className={collapsed ? "h-8 w-8 rounded-lg object-contain mx-auto" : "h-12 w-full rounded-lg object-contain"}
             />
           ) : (
-            <div className={`flex h-8 w-8 items-center justify-center rounded-lg font-bold text-sm shrink-0 ${noCompanyContext ? 'bg-destructive/20 text-destructive' : isViewingOtherCompany ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'}`}>
+            <div className={`flex items-center justify-center rounded-lg font-bold text-sm ${collapsed ? 'h-8 w-8 mx-auto' : 'h-12 w-full'} ${noCompanyContext ? 'bg-destructive/20 text-destructive' : isViewingOtherCompany ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'}`}>
               {noCompanyContext ? "?" : (company?.name || "CO").substring(0, 2).toUpperCase()}
             </div>
           )}
+          {/* Company name - below logo */}
           {!collapsed && (
             <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1">
-                <span className={`text-sm font-semibold truncate ${noCompanyContext ? 'text-destructive' : ''}`}>
+              <div className="flex items-center gap-1 justify-center">
+                <span className={`text-sm font-semibold truncate text-center ${noCompanyContext ? 'text-destructive' : ''}`}>
                   {noCompanyContext ? "Select a Company" : company?.name || "Company"}
                 </span>
                 {isViewingOtherCompany && (
@@ -675,7 +677,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 justify-center">
                 {noCompanyContext ? (
                   <span className="text-xs text-muted-foreground">Use switcher below</span>
                 ) : (
