@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { QuickBooksCompanySelector } from "./QuickBooksCompanySelector";
 import { QuickBooksMappingConfig } from "./QuickBooksMappingConfig";
+import { QuickBooksFieldMappings } from "./QuickBooksFieldMappings";
 import { QuickBooksSyncDialog } from "./QuickBooksSyncDialog";
 
 export function QuickBooksIntegration() {
@@ -280,6 +281,7 @@ export function QuickBooksIntegration() {
         <>
           <QuickBooksCompanySelector />
           <QuickBooksMappingConfig />
+          <QuickBooksFieldMappings />
         </>
       )}
       
