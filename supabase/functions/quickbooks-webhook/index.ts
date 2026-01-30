@@ -500,45 +500,122 @@ async function processEntityChange(
   // For Create/Update operations
   if (operation === "Create" || operation === "Update") {
     if (syncLog) {
-      // For invoice updates, immediately fetch the latest invoice from QB and update locally.
-      // (Previously we only marked pending_refresh, but no worker consumed it, so updates never applied.)
-      if (operation === "Update" && entityType === "Invoice") {
-        // If this record was already deleted in QB, ignore subsequent updates.
-        if (syncLog.sync_status === "deleted_in_qb") {
-          log("info", `Ignoring update for Invoice ${qbId} because sync log is deleted_in_qb`);
-          return;
-        }
-
-        log("info", `Invoice update detected in QuickBooks - fetching latest invoice ${qbId}`);
-
-        try {
-          const fetchResult = await supabase.functions.invoke("quickbooks-fetch-invoice", {
-            body: {
-              companyId,
-              qbInvoiceId: qbId,
-              realmId,
-              action: "update-existing",
-            },
-          });
-
-          if (fetchResult.error) {
-            log("error", `Failed to invoke quickbooks-fetch-invoice for update`, { error: fetchResult.error });
-          } else if (fetchResult.data?.error) {
-            log("warn", `quickbooks-fetch-invoice returned error for update`, { error: fetchResult.data.error });
-          } else {
-            log("info", `✓ Updated local invoice from QB update webhook`, fetchResult.data);
-            return;
-          }
-        } catch (err) {
-          log("error", `Exception invoking quickbooks-fetch-invoice for update`, {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-
-        // Fallback: mark pending_refresh if the immediate fetch failed.
+      // If this record was already deleted in QB, ignore subsequent updates.
+      if (syncLog.sync_status === "deleted_in_qb") {
+        log("info", `Ignoring update for ${entityType} ${qbId} because sync log is deleted_in_qb`);
+        return;
       }
 
-      // We have this record - mark it as needing refresh
+      // For updates, immediately fetch the latest from QB and update locally.
+      if (operation === "Update") {
+        if (entityType === "Invoice") {
+          log("info", `Invoice update detected in QuickBooks - fetching latest invoice ${qbId}`);
+
+          try {
+            const fetchResult = await supabase.functions.invoke("quickbooks-fetch-invoice", {
+              body: {
+                companyId,
+                qbInvoiceId: qbId,
+                realmId,
+                action: "update-existing",
+              },
+            });
+
+            if (fetchResult.error) {
+              log("error", `Failed to invoke quickbooks-fetch-invoice for update`, { error: fetchResult.error });
+            } else if (fetchResult.data?.error) {
+              log("warn", `quickbooks-fetch-invoice returned error for update`, { error: fetchResult.data.error });
+            } else {
+              log("info", `✓ Updated local invoice from QB update webhook`, fetchResult.data);
+              return;
+            }
+          } catch (err) {
+            log("error", `Exception invoking quickbooks-fetch-invoice for update`, {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        } else if (entityType === "Payment") {
+          log("info", `Payment update detected in QuickBooks - fetching latest payment ${qbId}`);
+
+          try {
+            const fetchResult = await supabase.functions.invoke("quickbooks-fetch-payment", {
+              body: {
+                companyId,
+                qbPaymentId: qbId,
+                realmId,
+                action: "update-existing",
+              },
+            });
+
+            if (fetchResult.error) {
+              log("error", `Failed to invoke quickbooks-fetch-payment for update`, { error: fetchResult.error });
+            } else if (fetchResult.data?.error) {
+              log("warn", `quickbooks-fetch-payment returned error for update`, { error: fetchResult.data.error });
+            } else {
+              log("info", `✓ Updated local payment from QB update webhook`, fetchResult.data);
+              return;
+            }
+          } catch (err) {
+            log("error", `Exception invoking quickbooks-fetch-payment for update`, {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        } else if (entityType === "Bill") {
+          log("info", `Bill update detected in QuickBooks - fetching latest bill ${qbId}`);
+
+          try {
+            const fetchResult = await supabase.functions.invoke("quickbooks-fetch-bill", {
+              body: {
+                companyId,
+                qbBillId: qbId,
+                realmId,
+                action: "update-existing",
+              },
+            });
+
+            if (fetchResult.error) {
+              log("error", `Failed to invoke quickbooks-fetch-bill for update`, { error: fetchResult.error });
+            } else if (fetchResult.data?.error) {
+              log("warn", `quickbooks-fetch-bill returned error for update`, { error: fetchResult.data.error });
+            } else {
+              log("info", `✓ Updated local bill from QB update webhook`, fetchResult.data);
+              return;
+            }
+          } catch (err) {
+            log("error", `Exception invoking quickbooks-fetch-bill for update`, {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        } else if (entityType === "BillPayment") {
+          log("info", `Bill payment update detected in QuickBooks - fetching latest bill payment ${qbId}`);
+
+          try {
+            const fetchResult = await supabase.functions.invoke("quickbooks-fetch-bill-payment", {
+              body: {
+                companyId,
+                qbBillPaymentId: qbId,
+                realmId,
+                action: "update-existing",
+              },
+            });
+
+            if (fetchResult.error) {
+              log("error", `Failed to invoke quickbooks-fetch-bill-payment for update`, { error: fetchResult.error });
+            } else if (fetchResult.data?.error) {
+              log("warn", `quickbooks-fetch-bill-payment returned error for update`, { error: fetchResult.data.error });
+            } else {
+              log("info", `✓ Updated local bill payment from QB update webhook`, fetchResult.data);
+              return;
+            }
+          } catch (err) {
+            log("error", `Exception invoking quickbooks-fetch-bill-payment for update`, {
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+
+      // Fallback: mark as pending_refresh if the immediate fetch failed
       log("info", `Marking existing ${entityType} ${qbId} for refresh`);
       const { error: updateError } = await supabase
         .from("quickbooks_sync_log")
@@ -877,6 +954,52 @@ async function processEntityChange(
           }
         } catch (err) {
           log("error", `Exception updating payment ${qbId}`, { 
+            error: err instanceof Error ? err.message : String(err) 
+          });
+        }
+      } else if (entityType === "Bill") {
+        try {
+          const fetchResult = await supabase.functions.invoke("quickbooks-fetch-bill", {
+            body: {
+              companyId,
+              qbBillId: qbId,
+              realmId,
+              action: "update-existing"
+            }
+          });
+
+          if (fetchResult.error) {
+            log("error", `Failed to update bill ${qbId}`, { error: fetchResult.error });
+          } else if (fetchResult.data?.error) {
+            log("warn", `Bill update returned error`, { error: fetchResult.data.error });
+          } else {
+            log("info", `✓ Successfully updated bill ${qbId}`, fetchResult.data);
+          }
+        } catch (err) {
+          log("error", `Exception updating bill ${qbId}`, { 
+            error: err instanceof Error ? err.message : String(err) 
+          });
+        }
+      } else if (entityType === "BillPayment") {
+        try {
+          const fetchResult = await supabase.functions.invoke("quickbooks-fetch-bill-payment", {
+            body: {
+              companyId,
+              qbBillPaymentId: qbId,
+              realmId,
+              action: "update-existing"
+            }
+          });
+
+          if (fetchResult.error) {
+            log("error", `Failed to update bill payment ${qbId}`, { error: fetchResult.error });
+          } else if (fetchResult.data?.error) {
+            log("warn", `Bill payment update returned error`, { error: fetchResult.data.error });
+          } else {
+            log("info", `✓ Successfully updated bill payment ${qbId}`, fetchResult.data);
+          }
+        } catch (err) {
+          log("error", `Exception updating bill payment ${qbId}`, { 
             error: err instanceof Error ? err.message : String(err) 
           });
         }
