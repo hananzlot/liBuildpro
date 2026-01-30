@@ -6,12 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, FileText, Receipt, CreditCard, DollarSign, Save, RotateCcw, ArrowRight } from "lucide-react";
+import { Loader2, FileText, Receipt, CreditCard, DollarSign, Save, RotateCcw, ArrowRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Define the local database fields for each record type
 const INVOICE_FIELDS = [
@@ -138,6 +139,7 @@ export function QuickBooksFieldMappings() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("invoices");
   const [pendingChanges, setPendingChanges] = useState<Record<string, Record<string, string>>>({});
+  const [isOpen, setIsOpen] = useState(false);
 
   // Fetch existing field mappings
   const { data: fieldMappings, isLoading } = useQuery({
@@ -324,33 +326,46 @@ export function QuickBooksFieldMappings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-primary" />
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="group">
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Field Mappings</CardTitle>
+                  <CardDescription>
+                    Configure which local fields sync to QuickBooks
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {isOpen && hasPendingChanges && (
+                  <Button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      saveAllChanges();
+                    }} 
+                    disabled={saveMappingMutation.isPending}
+                  >
+                    {saveMappingMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save Changes
+                  </Button>
+                )}
+                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-lg">Field Mappings</CardTitle>
-              <CardDescription>
-                Configure which local fields sync to QuickBooks
-              </CardDescription>
-            </div>
-          </div>
-          {hasPendingChanges && (
-            <Button onClick={saveAllChanges} disabled={saveMappingMutation.isPending}>
-              {saveMappingMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              Save Changes
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="invoices" className="flex items-center gap-1.5">
@@ -451,7 +466,9 @@ export function QuickBooksFieldMappings() {
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
