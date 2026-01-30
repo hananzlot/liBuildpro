@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,7 +29,6 @@ interface AnalyticsSectionProps {
 
 export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, reopenARSheet, onARSheetOpened, initialTab, openPayablesOnLoad, initialKPI }: AnalyticsSectionProps) {
   const { isAdmin, isProduction } = useAuth();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   
@@ -339,9 +338,6 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
               const newParams = new URLSearchParams(searchParams);
               newParams.delete('section');
               setSearchParams(newParams, { replace: true });
-              if (!isAdmin) {
-                navigate('/production?view=projects', { replace: true });
-              }
             }}
             onPayablesSheetOpen={() => {
               // Add section to URL when opening
@@ -359,9 +355,6 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
               newParams.delete('section');
               newParams.delete('kpi');
               setSearchParams(newParams, { replace: true });
-              if (!isAdmin) {
-                navigate('/production?view=projects');
-              }
             }}
             onARSheetOpen={() => {
               // Add section to URL when opening
