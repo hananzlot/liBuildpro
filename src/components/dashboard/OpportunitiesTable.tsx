@@ -927,7 +927,7 @@ export function OpportunitiesTable({
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardHeader className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-styled pb-1">
             {/* Date Range Filter for Table */}
             <div className="flex items-center gap-2">
               <Select value={tableDateField} onValueChange={(v) => { setTableDateField(v as "updatedDate" | "createdDate"); setCurrentPage(1); }}>
