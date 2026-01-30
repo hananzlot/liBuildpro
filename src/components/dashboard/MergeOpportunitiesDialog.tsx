@@ -432,7 +432,12 @@ export function MergeOpportunitiesDialog({
                           }}
                           className="w-full p-3 text-left hover:bg-muted/50 transition-colors"
                         >
-                          <p className="font-medium text-sm truncate">{opp.name || "Unnamed"}</p>
+                          <p className="font-medium text-sm truncate">
+                            {opp.name || "Unnamed"}{" "}
+                            <span className="text-muted-foreground font-normal">
+                              ({opp.id.slice(-4)})
+                            </span>
+                          </p>
                           <p className="text-xs text-muted-foreground truncate">
                             {getContactName(opp)} • {opp.address || "No address"}
                           </p>
@@ -481,7 +486,12 @@ export function MergeOpportunitiesDialog({
                           }}
                           className="w-full p-3 text-left hover:bg-muted/50 transition-colors"
                         >
-                          <p className="font-medium text-sm truncate">{opp.name || "Unnamed"}</p>
+                          <p className="font-medium text-sm truncate">
+                            {opp.name || "Unnamed"}{" "}
+                            <span className="text-muted-foreground font-normal">
+                              ({opp.id.slice(-4)})
+                            </span>
+                          </p>
                           <p className="text-xs text-muted-foreground truncate">
                             {getContactName(opp)} • {opp.address || "No address"}
                           </p>
