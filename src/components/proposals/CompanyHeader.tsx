@@ -11,6 +11,38 @@ interface CompanyInfo {
   license_type?: string;
   license_number?: string;
   license_holder_name?: string;
+  header_bg_color?: string;
+}
+
+// Helper to determine if a color is dark (for text contrast)
+function isColorDark(color: string): boolean {
+  if (!color) return false;
+  
+  let r = 0, g = 0, b = 0;
+  
+  if (color.startsWith('#')) {
+    const hex = color.replace('#', '');
+    if (hex.length === 3) {
+      r = parseInt(hex[0] + hex[0], 16);
+      g = parseInt(hex[1] + hex[1], 16);
+      b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    }
+  } else if (color.startsWith('rgb')) {
+    const match = color.match(/\d+/g);
+    if (match && match.length >= 3) {
+      r = parseInt(match[0]);
+      g = parseInt(match[1]);
+      b = parseInt(match[2]);
+    }
+  }
+  
+  // Calculate relative luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.5;
 }
 
 interface CompanyHeaderProps {
@@ -30,6 +62,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
         'license_type',
         'license_number',
         'license_holder_name',
+        'company_header_bg_color',
       ];
 
       // Try company_settings first if we have a companyId
@@ -51,6 +84,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
             if (item.setting_key === 'license_type') settings.license_type = item.setting_value || undefined;
             if (item.setting_key === 'license_number') settings.license_number = item.setting_value || undefined;
             if (item.setting_key === 'license_holder_name') settings.license_holder_name = item.setting_value || undefined;
+            if (item.setting_key === 'company_header_bg_color') settings.header_bg_color = item.setting_value || undefined;
           });
           return settings;
         }
@@ -74,6 +108,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
         if (item.setting_key === 'license_type') settings.license_type = item.setting_value || undefined;
         if (item.setting_key === 'license_number') settings.license_number = item.setting_value || undefined;
         if (item.setting_key === 'license_holder_name') settings.license_holder_name = item.setting_value || undefined;
+        if (item.setting_key === 'company_header_bg_color') settings.header_bg_color = item.setting_value || undefined;
       });
 
       return settings;
@@ -85,8 +120,15 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
     return null;
   }
 
+  const isDark = companyInfo.header_bg_color ? isColorDark(companyInfo.header_bg_color) : false;
+  const textColorClass = isDark ? 'text-white' : 'text-foreground';
+  const mutedTextColorClass = isDark ? 'text-white/70' : 'text-muted-foreground';
+
   return (
-    <div className="bg-background border rounded-lg p-6 mb-6">
+    <div 
+      className="border rounded-lg p-6 mb-6"
+      style={{ backgroundColor: companyInfo.header_bg_color || undefined }}
+    >
       <div className="flex flex-col md:flex-row md:items-start gap-6">
         {/* Logo */}
         {companyInfo.logo_url && (
@@ -102,14 +144,14 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
         {/* Company Info */}
         <div className="flex-1 space-y-2">
           {companyInfo.company_name && (
-            <h2 className="text-xl font-bold">{companyInfo.company_name}</h2>
+            <h2 className={`text-xl font-bold ${textColorClass}`}>{companyInfo.company_name}</h2>
           )}
 
           {/* License Info */}
           {(companyInfo.license_type || companyInfo.license_number || companyInfo.license_holder_name) && (
-            <div className="text-sm text-muted-foreground space-y-0.5">
+            <div className={`text-sm ${mutedTextColorClass} space-y-0.5`}>
               {companyInfo.license_holder_name && (
-                <p className="font-medium text-foreground">{companyInfo.license_holder_name}</p>
+                <p className={`font-medium ${textColorClass}`}>{companyInfo.license_holder_name}</p>
               )}
               {(companyInfo.license_type || companyInfo.license_number) && (
                 <p>
@@ -122,7 +164,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
           )}
 
           {/* Contact Info */}
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground pt-1">
+          <div className={`flex flex-wrap gap-x-6 gap-y-2 text-sm ${mutedTextColorClass} pt-1`}>
             {companyInfo.company_address && (
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" />
