@@ -984,31 +984,13 @@ Deno.serve(async (req) => {
             qbBillPayment.CreditCardPayment = {};
           } else {
             // Check, ACH, Wire, Cash, Other all map to Check type in QB
+            // Note: QB will show these as "offline" payments because they weren't processed
+            // through QuickBooks Payments - this is expected behavior for manually recorded payments
             qbBillPayment.PayType = "Check";
             qbBillPayment.CheckPayment = {
               // If we have a reference number, mark as already printed
               PrintStatus: billPayment.payment_reference ? "PrintComplete" : "NeedToPrint",
             };
-            
-            // Add PaymentMethodRef to properly categorize the payment (not "offline")
-            const paymentMethodMapping = getMapping("payment_method", billPayment.payment_method || "Check");
-            if (paymentMethodMapping) {
-              console.log(`Using payment method mapping: ${paymentMethodMapping.qbo_name} (ID: ${paymentMethodMapping.qbo_id})`);
-              qbBillPayment.CheckPayment.PaymentMethodRef = {
-                value: paymentMethodMapping.qbo_id,
-                name: paymentMethodMapping.qbo_name,
-              };
-            } else if (mappings) {
-              // Try default payment method
-              const defaultPaymentMethod = mappings.find(m => m.mapping_type === "payment_method" && m.is_default);
-              if (defaultPaymentMethod) {
-                console.log(`Using default payment method: ${defaultPaymentMethod.qbo_name} (ID: ${defaultPaymentMethod.qbo_id})`);
-                qbBillPayment.CheckPayment.PaymentMethodRef = {
-                  value: defaultPaymentMethod.qbo_id,
-                  name: defaultPaymentMethod.qbo_name,
-                };
-              }
-            }
           }
 
           // Add bank account if bank_name is set and has a mapping (only for Check payments)
