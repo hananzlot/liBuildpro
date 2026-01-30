@@ -732,59 +732,61 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
               </SheetDescription>
             </div>
           </div>
-          {/* Portal Link - Below Name */}
-          {headerPortalLink && (
-            <div className="flex items-center gap-2 mt-1">
-              <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
-              <a 
-                href={headerPortalLink} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline truncate max-w-[300px]"
+          {/* Portal Link & Auto-Sync Toggle Row */}
+          <div className="flex items-center justify-between mt-1">
+            {headerPortalLink ? (
+              <div className="flex items-center gap-2">
+                <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                <a 
+                  href={headerPortalLink} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline truncate max-w-[250px]"
+                >
+                  {headerPortalLink}
+                </a>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(headerPortalLink);
+                    setPortalLinkCopied(true);
+                    toast.success("Portal link copied!");
+                    setTimeout(() => setPortalLinkCopied(false), 2000);
+                  }}
+                >
+                  {portalLinkCopied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => window.open(headerPortalLink, "_blank")}
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <div />
+            )}
+            <div className="flex items-center gap-1.5">
+              <Label 
+                htmlFor="auto-sync-qb-header" 
+                className="text-[10px] text-muted-foreground cursor-pointer"
               >
-                {headerPortalLink}
-              </a>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(headerPortalLink);
-                  setPortalLinkCopied(true);
-                  toast.success("Portal link copied!");
-                  setTimeout(() => setPortalLinkCopied(false), 2000);
-                }}
-              >
-                {portalLinkCopied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => window.open(headerPortalLink, "_blank")}
-              >
-                <ExternalLink className="h-3 w-3" />
-              </Button>
+                QB Sync
+              </Label>
+              <Switch
+                id="auto-sync-qb-header"
+                checked={fullProject?.auto_sync_to_quickbooks ?? false}
+                onCheckedChange={(checked) => toggleAutoSyncMutation.mutate(checked)}
+                disabled={toggleAutoSyncMutation.isPending}
+                className="scale-[0.6]"
+              />
             </div>
-          )}
+          </div>
         </SheetHeader>
-
-        {/* Compact Auto-Sync Toggle */}
-        <div className="flex items-center gap-2 mt-3 px-1">
-          <Switch
-            id="auto-sync-qb-header"
-            checked={fullProject?.auto_sync_to_quickbooks ?? false}
-            onCheckedChange={(checked) => toggleAutoSyncMutation.mutate(checked)}
-            disabled={toggleAutoSyncMutation.isPending}
-            className="scale-75"
-          />
-          <Label 
-            htmlFor="auto-sync-qb-header" 
-            className="text-[11px] text-muted-foreground cursor-pointer"
-          >
-            Auto-sync to QuickBooks
-          </Label>
-        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-3">
           <TabsList className="grid w-full grid-cols-6">
