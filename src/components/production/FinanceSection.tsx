@@ -3118,7 +3118,7 @@ function PaymentDialog({
               <SelectContent>
                 {invoices.map((inv) => (
                   <SelectItem key={inv.id} value={inv.id}>
-                    {inv.invoice_number} - Balance: {formatCurrency(inv.open_balance)}
+                    {inv.invoice_number} - Balance: {formatCurrency2(inv.open_balance)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -3140,7 +3140,7 @@ function PaymentDialog({
                 }} 
               />
               {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
-              {selectedInvoice && <p className="text-xs text-muted-foreground mt-1">Max: {formatCurrency(maxAmount)}</p>}
+              {selectedInvoice && <p className="text-xs text-muted-foreground mt-1">Max: {formatCurrency2(maxAmount)}</p>}
             </div>
             <div>
               <Label>Status</Label>
