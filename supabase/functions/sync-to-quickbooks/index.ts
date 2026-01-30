@@ -894,9 +894,9 @@ Deno.serve(async (req) => {
             ],
           };
 
-          // Add payment reference as PrivateNote (memo field)
+          // Add payment reference as DocNumber (check/ref number field)
           if (billPayment.payment_reference) {
-            qbBillPayment.PrivateNote = `Check/Ref: ${billPayment.payment_reference}`;
+            qbBillPayment.DocNumber = billPayment.payment_reference;
           }
 
           // Add bank account if bank_name is set and has a mapping
