@@ -646,6 +646,32 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
+  // Helper to sync deletion to QuickBooks
+  const syncDeleteToQuickBooks = async (recordType: string, recordId: string) => {
+    if (!companyId) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-quickbooks-record", {
+        body: {
+          companyId,
+          recordType,
+          recordId,
+          action: "void",
+        },
+      });
+      
+      if (error) {
+        console.error("QuickBooks sync error:", error);
+        // Don't throw - we still want the local delete to succeed
+      } else if (data?.success && !data?.skipped) {
+        console.log("QuickBooks record voided:", data.message);
+      }
+    } catch (err) {
+      console.error("Failed to sync delete to QuickBooks:", err);
+      // Don't throw - local operation should still succeed
+    }
+  };
+
   // Void bill mutation
   const voidBillMutation = useMutation({
     mutationFn: async ({ billId, reason, userId }: { billId: string; reason: string; userId: string }) => {
@@ -661,6 +687,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         const totalPaid = existingPayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
         throw new Error(`Cannot void bill: ${existingPayments.length} payment(s) totaling ${formatCurrency(totalPaid)} have been recorded against this bill. Please void or remove payments first.`);
       }
+
+      // Sync void to QuickBooks first
+      await syncDeleteToQuickBooks("bill", billId);
 
       const { error } = await supabase
         .from("project_bills")
@@ -695,6 +724,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   // Void payment mutation
   const voidPaymentMutation = useMutation({
     mutationFn: async ({ paymentId, reason, userId }: { paymentId: string; reason: string; userId: string }) => {
+      // Sync void to QuickBooks first
+      await syncDeleteToQuickBooks("payment", paymentId);
+
       const { error } = await supabase
         .from("project_payments")
         .update({
@@ -840,9 +872,17 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         : deleteTarget.type === "phase" ? "project_payment_phases"
         : "project_bills";
 
+      // Sync delete to QuickBooks for financial records
+      if (["invoice", "payment", "bill"].includes(deleteTarget.type)) {
+        await syncDeleteToQuickBooks(deleteTarget.type, deleteTarget.id);
+      }
+
       // If deleting an invoice with associated payments, delete payments first
       if (deleteTarget.type === "invoice" && invoicePaymentsToDelete.length > 0) {
         for (const payment of invoicePaymentsToDelete) {
+          // Sync each payment deletion to QuickBooks
+          await syncDeleteToQuickBooks("payment", payment.id);
+          
           await logAudit({
             tableName: "project_payments",
             recordId: payment.id,
