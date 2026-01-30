@@ -681,12 +681,24 @@ Deno.serve(async (req) => {
             results.newEntities?.push({ type: "vendor", name: vendorResult.name });
           }
 
+          // Check if this bill was already synced to QB
+          const { data: existingSync } = await supabase
+            .from("quickbooks_sync_log")
+            .select("quickbooks_id")
+            .eq("company_id", companyId)
+            .eq("record_type", "bill")
+            .eq("record_id", bill.id)
+            .eq("sync_status", "synced")
+            .single();
+
+          const existingQbId = existingSync?.quickbooks_id;
+
           // Get configured expense account mapping
           const expenseAccountMapping = getMapping("expense_account");
 
-          const qbBill = {
+          const qbBill: any = {
             VendorRef: { value: vendorResult.id },
-            TxnDate: bill.created_at?.split("T")[0], // Use created_at since no bill_date column
+            TxnDate: bill.created_at?.split("T")[0],
             Line: [
               {
                 Amount: bill.bill_amount || 0,
@@ -694,7 +706,7 @@ Deno.serve(async (req) => {
                 AccountBasedExpenseLineDetail: {
                   AccountRef: expenseAccountMapping
                     ? { value: expenseAccountMapping.qbo_id, name: expenseAccountMapping.qbo_name }
-                    : { value: "1" }, // Default expense account
+                    : { value: "1" },
                 },
                 Description: `${bill.category || "Bill"} - ${bill.projects?.project_name || "Project"} - Ref: ${bill.bill_ref || "N/A"}`,
               },
@@ -702,28 +714,73 @@ Deno.serve(async (req) => {
             PrivateNote: bill.memo || null,
           };
 
-          console.log(`Syncing bill to QB:`, JSON.stringify(qbBill));
+          let syncRes: Response;
+          let syncData: any;
 
-          const createRes = await fetch(`${QB_BASE_URL}/${realm_id}/bill`, {
-            method: "POST",
-            headers: qbHeaders,
-            body: JSON.stringify(qbBill),
-          });
+          if (existingQbId) {
+            // UPDATE existing bill - need to fetch SyncToken first
+            console.log(`Bill ${bill.bill_ref || bill.id} already exists in QB (ID: ${existingQbId}), updating...`);
+            
+            const fetchRes = await fetch(`${QB_BASE_URL}/${realm_id}/bill/${existingQbId}`, {
+              headers: qbHeaders,
+            });
+            
+            if (!fetchRes.ok) {
+              const errText = await fetchRes.text();
+              console.error(`Failed to fetch existing bill ${existingQbId}:`, errText);
+              results.failed++;
+              results.errors.push(`Bill ${bill.bill_ref || bill.id}: Failed to fetch existing QB record`);
+              continue;
+            }
+            
+            const existingData = await fetchRes.json();
+            const syncToken = existingData.Bill.SyncToken;
+            
+            // Add Id and SyncToken for update
+            qbBill.Id = existingQbId;
+            qbBill.SyncToken = syncToken;
+            qbBill.sparse = true;
+            
+            console.log(`Bill ${bill.bill_ref || bill.id} - Update payload:`, JSON.stringify(qbBill, null, 2));
+            
+            syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/bill`, {
+              method: "POST",
+              headers: qbHeaders,
+              body: JSON.stringify(qbBill),
+            });
+            
+            if (syncRes.ok) {
+              syncData = await syncRes.json();
+              console.log(`Updated bill in QB, ID: ${syncData.Bill.Id}`);
+            }
+          } else {
+            // CREATE new bill
+            console.log(`Bill ${bill.bill_ref || bill.id} - Creating new in QB:`, JSON.stringify(qbBill, null, 2));
+            
+            syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/bill`, {
+              method: "POST",
+              headers: qbHeaders,
+              body: JSON.stringify(qbBill),
+            });
+            
+            if (syncRes.ok) {
+              syncData = await syncRes.json();
+              console.log(`Created bill in QB, ID: ${syncData.Bill.Id}`);
+            }
+          }
 
-          if (createRes.ok) {
-            const created = await createRes.json();
-            console.log(`Bill synced successfully, QB ID: ${created.Bill.Id}`);
+          if (syncRes.ok && syncData) {
             await supabase.from("quickbooks_sync_log").upsert({
               company_id: companyId,
               record_type: "bill",
               record_id: bill.id,
-              quickbooks_id: created.Bill.Id,
+              quickbooks_id: syncData.Bill.Id,
               sync_status: "synced",
               synced_at: new Date().toISOString(),
             });
             results.synced++;
           } else {
-            const errText = await createRes.text();
+            const errText = await syncRes.text();
             console.error(`Failed to sync bill ${bill.id}:`, errText);
             results.failed++;
             results.errors.push(`Bill ${bill.bill_ref || bill.id}: ${errText}`);
