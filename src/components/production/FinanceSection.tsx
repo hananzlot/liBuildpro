@@ -501,20 +501,28 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       let savedRecordId: string | undefined;
       
       if (editingInvoice?.id) {
+        const { data: updatedInvoice, error } = await supabase
+          .from("project_invoices")
+          .update(invoice)
+          .eq("id", editingInvoice.id)
+          .select("id")
+          .single();
+
+        if (error) throw error;
+        if (!updatedInvoice?.id) {
+          throw new Error("Invoice not found (it may have been deleted). Refresh and try again.");
+        }
+
         await logAudit({
           tableName: 'project_invoices',
-          recordId: editingInvoice.id,
+          recordId: updatedInvoice.id,
           action: 'UPDATE',
           oldValues: editingInvoice,
           newValues: invoice,
           description: `Updated invoice ${invoice.invoice_number || editingInvoice.invoice_number}`,
         });
-        const { error } = await supabase
-          .from("project_invoices")
-          .update(invoice)
-          .eq("id", editingInvoice.id);
-        if (error) throw error;
-        savedRecordId = editingInvoice.id;
+
+        savedRecordId = updatedInvoice.id;
       } else {
         const { data: newInvoice, error } = await supabase
           .from("project_invoices")
