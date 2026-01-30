@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, X, Briefcase, FolderKanban, FileText } from "lucide-react";
+import { Search, X, Briefcase, FolderKanban, FileText, CalendarCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -42,6 +42,7 @@ interface Appointment {
   ghl_id: string;
   contact_id: string | null;
   address?: string | null;
+  start_time?: string | null;
 }
 
 interface Project {
@@ -106,16 +107,15 @@ export function GlobalAdminSearch() {
     staleTime: 60 * 1000,
   });
 
-  // Fetch appointments for address lookups
+  // Fetch appointments for address lookups and upcoming appointment checks
   const { data: appointments = [] } = useQuery({
     queryKey: ["global-search-appointments", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("ghl_id, contact_id, address")
+        .select("ghl_id, contact_id, address, start_time")
         .eq("company_id", companyId)
-        .not("address", "is", null)
-        .limit(500);
+        .limit(1000);
       if (error) throw error;
       return data as Appointment[];
     },
@@ -182,6 +182,17 @@ export function GlobalAdminSearch() {
     }
     
     return "";
+  };
+
+  // Check if contact has an upcoming appointment (today or future)
+  const hasUpcomingAppointment = (contactId: string | null): boolean => {
+    if (!contactId) return false;
+    const now = new Date();
+    return appointments.some(apt => 
+      apt.contact_id === contactId && 
+      apt.start_time && 
+      new Date(apt.start_time) >= now
+    );
   };
 
   const filteredOpportunities = useMemo(() => {
@@ -418,8 +429,13 @@ export function GlobalAdminSearch() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate text-sm">
-                              {getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address) || "No address"}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium truncate text-sm">
+                                {getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address) || "No address"}
+                              </span>
+                              {hasUpcomingAppointment(opp.contact_id) && (
+                                <CalendarCheck className="h-3.5 w-3.5 text-primary shrink-0" />
+                              )}
                             </div>
                             <div className="text-xs text-muted-foreground truncate">
                               {getContactName(opp.contact_id)}
