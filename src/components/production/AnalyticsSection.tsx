@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,6 +30,7 @@ interface AnalyticsSectionProps {
 export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, reopenARSheet, onARSheetOpened, initialTab, openPayablesOnLoad, initialKPI }: AnalyticsSectionProps) {
   const { isAdmin, isProduction } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   
   // Get section from URL for AR/Payables routing
@@ -334,10 +335,8 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             openPayablesOnLoad={openPayablesOnLoad || urlSection === 'payables'}
             onPayablesSheetOpened={onPayablesSheetOpened}
             onPayablesSheetClose={() => {
-              // Clear section from URL when closing
-              const newParams = new URLSearchParams(searchParams);
-              newParams.delete('section');
-              setSearchParams(newParams, { replace: true });
+              // Navigate back to main production page when closing
+              navigate('/production', { replace: true });
             }}
             onPayablesSheetOpen={() => {
               // Add section to URL when opening
@@ -350,11 +349,8 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             reopenARSheet={reopenARSheet}
             onARSheetOpened={onARSheetOpened}
             onARSheetClose={() => {
-              // Clear section from URL when closing
-              const newParams = new URLSearchParams(searchParams);
-              newParams.delete('section');
-              newParams.delete('kpi');
-              setSearchParams(newParams, { replace: true });
+              // Navigate back to main production page when closing
+              navigate('/production', { replace: true });
             }}
             onARSheetOpen={() => {
               // Add section to URL when opening
