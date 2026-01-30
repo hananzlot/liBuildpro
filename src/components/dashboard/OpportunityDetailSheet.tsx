@@ -2466,7 +2466,7 @@ export function OpportunityDetailSheet({
                 className="h-7" 
                 onClick={() => {
                   onOpenChange(false);
-                  navigate("/production");
+                  navigate(`/production/${associatedProjectId}`);
                 }}
               >
                 <FolderOpen className="h-3.5 w-3.5 mr-1" />
