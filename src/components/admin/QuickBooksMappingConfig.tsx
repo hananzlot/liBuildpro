@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertCircle, Loader2, RefreshCw, Settings2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
+import { DebouncedInput } from "@/components/ui/debounced-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 
@@ -121,16 +121,23 @@ export function QuickBooksMappingConfig() {
     enabled: !!companyId,
   });
 
-  // Fetch local contacts (customers)
-  const { data: contacts } = useQuery({
-    queryKey: ["contacts-for-mapping", companyId],
+  // Fetch local contacts (customers) - search dynamically to handle large datasets
+  const { data: contacts, isLoading: contactsLoading } = useQuery({
+    queryKey: ["contacts-for-mapping", companyId, customerSearch],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("contacts")
         .select("id, contact_name, first_name, last_name, email")
         .eq("company_id", companyId)
         .order("contact_name")
-        .limit(500);
+        .limit(100);
+      
+      // If there's a search term, filter server-side
+      if (customerSearch.trim()) {
+        query = query.or(`contact_name.ilike.%${customerSearch}%,first_name.ilike.%${customerSearch}%,last_name.ilike.%${customerSearch}%,email.ilike.%${customerSearch}%`);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -322,10 +329,8 @@ export function QuickBooksMappingConfig() {
     v.name.toLowerCase().includes(vendorSearch.toLowerCase())
   ) || [];
 
-  const filteredContacts = contacts?.filter(c => {
-    const name = c.contact_name || `${c.first_name || ""} ${c.last_name || ""}`.trim();
-    return name.toLowerCase().includes(customerSearch.toLowerCase());
-  }) || [];
+  // Contacts are already filtered server-side, so just use them directly
+  const filteredContacts = contacts || [];
 
   const filteredSubcontractors = subcontractors?.filter(s =>
     s.company_name?.toLowerCase().includes(vendorSearch.toLowerCase())
@@ -582,23 +587,34 @@ export function QuickBooksMappingConfig() {
               
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <DebouncedInput
                   placeholder="Search contacts or customers..."
                   value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  onSave={setCustomerSearch}
+                  debounceMs={400}
                   className="pl-9"
                 />
               </div>
             </div>
 
-            {customersLoading ? (
+            {contactsLoading || customersLoading ? (
               <div className="flex justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : (
               <ScrollArea className="h-[300px] border rounded-md p-3">
                 <div className="space-y-3">
-                  {filteredContacts.slice(0, 50).map((contact) => {
+                  {filteredContacts.length === 0 && !customerSearch && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Start typing to search your contacts
+                    </p>
+                  )}
+                  {filteredContacts.length === 0 && customerSearch && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No contacts found matching "{customerSearch}"
+                    </p>
+                  )}
+                  {filteredContacts.map((contact) => {
                     const displayName = contact.contact_name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || contact.email || "Unnamed";
                     const existingMapping = getSourceMapping("customer", contact.id);
                     
@@ -633,12 +649,9 @@ export function QuickBooksMappingConfig() {
                       </div>
                     );
                   })}
-                  {filteredContacts.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">No contacts found</p>
-                  )}
-                  {filteredContacts.length > 50 && (
+                  {filteredContacts.length >= 100 && (
                     <p className="text-xs text-muted-foreground text-center py-2">
-                      Showing first 50 results. Use search to find more.
+                      Showing first 100 results. Refine your search for more specific results.
                     </p>
                   )}
                 </div>
@@ -660,10 +673,11 @@ export function QuickBooksMappingConfig() {
               
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <DebouncedInput
                   placeholder="Search subcontractors or vendors..."
                   value={vendorSearch}
-                  onChange={(e) => setVendorSearch(e.target.value)}
+                  onSave={setVendorSearch}
+                  debounceMs={400}
                   className="pl-9"
                 />
               </div>
