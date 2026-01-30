@@ -23,6 +23,17 @@ interface WebhookPayload {
   }>;
 }
 
+// CloudEvents format (new QBO webhook format)
+interface CloudEventsPayload {
+  specversion: string;
+  id: string;
+  source: string;
+  type: string; // e.g., "qbo.invoice.created.v1"
+  time: string;
+  intuitentityid: string; // The QB entity ID
+  intuitaccountid: string; // The realm ID
+}
+
 Deno.serve(async (req) => {
   const startTime = Date.now();
   const requestId = crypto.randomUUID().slice(0, 8);
@@ -98,7 +109,7 @@ Deno.serve(async (req) => {
       }
 
       // Parse the webhook payload
-      let payload: WebhookPayload;
+      let payload: WebhookPayload | CloudEventsPayload;
       try {
         payload = JSON.parse(rawBody);
       } catch (parseError) {
@@ -109,23 +120,148 @@ Deno.serve(async (req) => {
         );
       }
 
-      const notificationCount = payload.eventNotifications?.length || 0;
-      const entityCount = payload.eventNotifications?.reduce(
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      // Detect CloudEvents format (new QBO webhook format)
+      if ('specversion' in payload && payload.specversion === '1.0') {
+        const cloudEvent = payload as CloudEventsPayload;
+        log("info", "Detected CloudEvents format", {
+          type: cloudEvent.type,
+          entityId: cloudEvent.intuitentityid,
+          realmId: cloudEvent.intuitaccountid
+        });
+        
+        // Parse the event type: "qbo.{entity}.{operation}.v1"
+        // e.g., "qbo.invoice.created.v1" -> entity: "Invoice", operation: "Create"
+        const typeMatch = cloudEvent.type.match(/^qbo\.(\w+)\.(\w+)\.v\d+$/);
+        if (!typeMatch) {
+          log("error", "Invalid CloudEvents type format", { type: cloudEvent.type });
+          return new Response(
+            JSON.stringify({ error: "Invalid event type format" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        const entityTypeLower = typeMatch[1]; // e.g., "invoice"
+        const operationLower = typeMatch[2]; // e.g., "created"
+        
+        // Map to expected format
+        const entityTypeMap: Record<string, string> = {
+          "invoice": "Invoice",
+          "payment": "Payment",
+          "bill": "Bill",
+          "billpayment": "BillPayment",
+          "customer": "Customer",
+          "vendor": "Vendor",
+        };
+        
+        const operationMap: Record<string, string> = {
+          "created": "Create",
+          "updated": "Update",
+          "deleted": "Delete",
+        };
+        
+        const entityType = entityTypeMap[entityTypeLower];
+        const operation = operationMap[operationLower];
+        
+        if (!entityType) {
+          log("info", `Skipping unsupported entity type: ${entityTypeLower}`);
+          return new Response(
+            JSON.stringify({ success: true, message: "Unsupported entity type" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        if (!operation) {
+          log("info", `Skipping unsupported operation: ${operationLower}`);
+          return new Response(
+            JSON.stringify({ success: true, message: "Unsupported operation" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        const realmId = cloudEvent.intuitaccountid;
+        const qbEntityId = cloudEvent.intuitentityid;
+        
+        // Find the company associated with this realmId
+        const { data: connection, error: connError } = await supabase
+          .from("quickbooks_connections")
+          .select("company_id")
+          .eq("realm_id", realmId)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (connError) {
+          log("error", `Database error looking up connection`, { realmId, error: connError.message });
+          return new Response(
+            JSON.stringify({ error: "Database error" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        if (!connection) {
+          log("warn", `No active QuickBooks connection found for realmId: ${realmId}`);
+          return new Response(
+            JSON.stringify({ success: true, message: "No connection found for realm" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const companyId = connection.company_id;
+        log("info", `Found company: ${companyId} for realmId: ${realmId}`);
+
+        // Convert to our internal entity format
+        const entity: WebhookNotification = {
+          realmId: realmId,
+          name: entityType,
+          id: qbEntityId,
+          operation: operation,
+          lastUpdated: cloudEvent.time
+        };
+
+        try {
+          await processEntityChange(supabase, companyId, realmId, entity, log);
+          const duration = Date.now() - startTime;
+          log("info", `✓ CloudEvents webhook processing complete`, {
+            duration: `${duration}ms`,
+            entityType,
+            entityId: qbEntityId,
+            operation
+          });
+          return new Response(
+            JSON.stringify({ success: true, processed: 1 }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        } catch (err) {
+          log("error", `Failed to process CloudEvents entity`, {
+            entityType,
+            entityId: qbEntityId,
+            error: err instanceof Error ? err.message : String(err)
+          });
+          return new Response(
+            JSON.stringify({ success: false, error: "Processing failed" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // Legacy format processing
+      const legacyPayload = payload as WebhookPayload;
+      const notificationCount = legacyPayload.eventNotifications?.length || 0;
+      const entityCount = legacyPayload.eventNotifications?.reduce(
         (sum, n) => sum + (n.dataChangeEvent?.entities?.length || 0), 0
       ) || 0;
       
-      log("info", `Processing webhook payload`, { 
+      log("info", `Processing legacy webhook payload`, { 
         notifications: notificationCount,
         totalEntities: entityCount 
       });
 
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      
       let processedCount = 0;
       let errorCount = 0;
 
       // Process each notification
-      for (const eventNotification of payload.eventNotifications || []) {
+      for (const eventNotification of legacyPayload.eventNotifications || []) {
         const realmId = eventNotification.realmId;
         
         log("info", `Processing notification for realmId: ${realmId}`);
