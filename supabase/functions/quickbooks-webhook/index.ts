@@ -306,7 +306,6 @@ async function processEntityChange(
 
           if (fetchResult.error) {
             log("error", `Failed to fetch invoice ${qbId}`, { error: fetchResult.error });
-            // Still create sync log entry for manual retry
             await supabase
               .from("quickbooks_sync_log")
               .insert({
@@ -320,7 +319,6 @@ async function processEntityChange(
               });
           } else if (fetchResult.data?.error) {
             log("warn", `Invoice import returned error`, { error: fetchResult.data.error });
-            // Create sync log for failed import (e.g., no matching project)
             await supabase
               .from("quickbooks_sync_log")
               .insert({
@@ -337,13 +335,74 @@ async function processEntityChange(
               invoiceId: fetchResult.data?.invoiceId,
               matchMethod: fetchResult.data?.matchMethod
             });
-            // Sync log is created by the fetch function
           }
         } catch (err) {
           log("error", `Exception importing invoice ${qbId}`, { 
             error: err instanceof Error ? err.message : String(err) 
           });
-          // Create placeholder sync log for manual retry
+          await supabase
+            .from("quickbooks_sync_log")
+            .insert({
+              company_id: companyId,
+              record_type: recordType,
+              record_id: null,
+              quickbooks_id: qbId,
+              sync_status: "created_in_qb",
+              last_sync_at: new Date().toISOString(),
+              error_message: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
+            });
+        }
+      } else if (entityType === "Payment") {
+        // For payments, automatically fetch and import
+        log("info", `Triggering automatic import for new payment ${qbId}`);
+        
+        try {
+          const fetchResult = await supabase.functions.invoke("quickbooks-fetch-payment", {
+            body: {
+              companyId,
+              qbPaymentId: qbId,
+              realmId,
+              action: "fetch-single"
+            }
+          });
+
+          if (fetchResult.error) {
+            log("error", `Failed to fetch payment ${qbId}`, { error: fetchResult.error });
+            await supabase
+              .from("quickbooks_sync_log")
+              .insert({
+                company_id: companyId,
+                record_type: recordType,
+                record_id: null,
+                quickbooks_id: qbId,
+                sync_status: "import_failed",
+                last_sync_at: new Date().toISOString(),
+                error_message: `Auto-import failed: ${fetchResult.error}`
+              });
+          } else if (fetchResult.data?.error) {
+            log("warn", `Payment import returned error`, { error: fetchResult.data.error });
+            await supabase
+              .from("quickbooks_sync_log")
+              .insert({
+                company_id: companyId,
+                record_type: recordType,
+                record_id: null,
+                quickbooks_id: qbId,
+                sync_status: "import_failed",
+                last_sync_at: new Date().toISOString(),
+                error_message: fetchResult.data.error
+              });
+          } else {
+            log("info", `✓ Successfully imported payment ${qbId}`, { 
+              paymentId: fetchResult.data?.paymentId,
+              matchMethod: fetchResult.data?.matchMethod,
+              invoiceId: fetchResult.data?.invoiceId
+            });
+          }
+        } catch (err) {
+          log("error", `Exception importing payment ${qbId}`, { 
+            error: err instanceof Error ? err.message : String(err) 
+          });
           await supabase
             .from("quickbooks_sync_log")
             .insert({
