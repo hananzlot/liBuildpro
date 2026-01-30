@@ -843,18 +843,21 @@ Deno.serve(async (req) => {
 
       for (const billPayment of billPayments || []) {
         try {
-          // Check if the parent bill was synced to QB
+          // Check if the parent bill was synced to QB (accept both 'synced' and 'pending_refresh' as valid)
           const { data: billSyncLog } = await supabase
             .from("quickbooks_sync_log")
             .select("quickbooks_id")
             .eq("company_id", companyId)
             .eq("record_type", "bill")
             .eq("record_id", billPayment.bill_id)
-            .eq("sync_status", "synced")
-            .single();
+            .in("sync_status", ["synced", "pending_refresh"])
+            .not("quickbooks_id", "is", null)
+            .limit(1)
+            .maybeSingle();
 
-          if (!billSyncLog?.quickbooks_id) {
-            console.log(`Bill ${billPayment.bill_id} not synced to QB, skipping bill payment`);
+          // Skip if bill not synced OR if it has an invalid backfill placeholder ID
+          if (!billSyncLog?.quickbooks_id || billSyncLog.quickbooks_id.startsWith("backfill-")) {
+            console.log(`Bill ${billPayment.bill_id} not synced to QB (qbId: ${billSyncLog?.quickbooks_id || 'none'}), skipping bill payment`);
             continue;
           }
 
