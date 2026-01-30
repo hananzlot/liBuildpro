@@ -490,6 +490,15 @@ Deno.serve(async (req) => {
         ? qbBillPayment.CheckPayment?.BankAccountRef?.name 
         : qbBillPayment.CreditCardPayment?.CCAccountRef?.name;
 
+      // Get the current bill_id before updating
+      const { data: currentPayment } = await supabase
+        .from("bill_payments")
+        .select("bill_id")
+        .eq("id", localBillPaymentId)
+        .single();
+
+      const billId = currentPayment?.bill_id;
+
       // Update the bill payment
       const { error: updateError } = await supabase
         .from("bill_payments")
@@ -510,6 +519,44 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Recalculate bill rollup fields (amount_paid, balance, status)
+      if (billId) {
+        const { data: bill } = await supabase
+          .from("project_bills")
+          .select("bill_amount")
+          .eq("id", billId)
+          .single();
+
+        if (bill) {
+          const { data: allPayments } = await supabase
+            .from("bill_payments")
+            .select("payment_amount")
+            .eq("bill_id", billId);
+
+          const totalPaid = (allPayments || []).reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+          const billAmount = bill.bill_amount || 0;
+          const newBalance = billAmount - totalPaid;
+          const newStatus = totalPaid >= billAmount ? "paid" : (totalPaid > 0 ? "partial" : "unpaid");
+
+          await supabase
+            .from("project_bills")
+            .update({
+              amount_paid: totalPaid,
+              balance: newBalance,
+              status: newStatus,
+            })
+            .eq("id", billId);
+
+          log("info", "Recalculated bill rollups", { 
+            billId, 
+            totalPaid, 
+            billAmount, 
+            newBalance, 
+            newStatus 
+          });
+        }
+      }
+
       // Upsert sync log entry
       await supabase
         .from("quickbooks_sync_log")
@@ -524,7 +571,7 @@ Deno.serve(async (req) => {
           onConflict: "company_id,record_type,quickbooks_id"
         });
 
-      log("info", "Updated bill payment successfully", { billPaymentId: localBillPaymentId });
+      log("info", "Updated bill payment successfully", { billPaymentId: localBillPaymentId, billId });
 
       const duration = Date.now() - startTime;
       return new Response(
