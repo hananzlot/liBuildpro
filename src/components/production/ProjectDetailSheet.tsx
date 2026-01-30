@@ -826,6 +826,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
               </div>
             ) : (
               <>
+                {/* Project Info & Customer Info - Two Columns */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Project Info */}
                 <Card>
                   <CardHeader className="py-3 px-4">
@@ -1402,6 +1404,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     </div>
                   </CardContent>
                 </Card>
+                </div>
 
                 {/* Salesperson Info */}
                 <Card>
