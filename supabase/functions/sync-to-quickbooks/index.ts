@@ -975,19 +975,24 @@ Deno.serve(async (req) => {
             qbBillPayment.DocNumber = billPayment.payment_reference;
           }
 
-          // Determine PayType based on payment_method or default to Check
-          const paymentMethod = billPayment.payment_method?.toLowerCase() || "";
-          
+          // Determine PayType based on payment_method from the record
           // QB BillPayment only supports Check or CreditCard
-          // Most vendor payments are Check, so default to that
-          qbBillPayment.PayType = "Check";
-          qbBillPayment.CheckPayment = {
-            // If we have a check/reference number, mark as already printed
-            PrintStatus: billPayment.payment_reference ? "PrintComplete" : "NeedToPrint",
-          };
+          const paymentMethod = billPayment.payment_method?.toLowerCase() || "check";
+          
+          if (paymentMethod === "credit card") {
+            qbBillPayment.PayType = "CreditCard";
+            qbBillPayment.CreditCardPayment = {};
+          } else {
+            // Check, ACH, Wire, Cash, Other all map to Check type in QB
+            qbBillPayment.PayType = "Check";
+            qbBillPayment.CheckPayment = {
+              // If we have a reference number, mark as already printed
+              PrintStatus: billPayment.payment_reference ? "PrintComplete" : "NeedToPrint",
+            };
+          }
 
-          // Add bank account if bank_name is set and has a mapping
-          if (billPayment.bank_name) {
+          // Add bank account if bank_name is set and has a mapping (only for Check payments)
+          if (billPayment.bank_name && qbBillPayment.PayType === "Check") {
             const { data: bankRecord } = await supabase
               .from("banks")
               .select("id")

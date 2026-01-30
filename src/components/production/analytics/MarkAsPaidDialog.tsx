@@ -52,7 +52,7 @@ export function MarkAsPaidDialog({
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [amount, setAmount] = useState<string>("");
   const [bankName, setBankName] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<string>("");
+  const [paymentMethod, setPaymentMethod] = useState<string>("Check");
   const [paymentReference, setPaymentReference] = useState<string>("");
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [bankSearch, setBankSearch] = useState("");
@@ -107,7 +107,7 @@ export function MarkAsPaidDialog({
       setPaymentDate(new Date());
       setAmount((payable.scheduled_payment_amount || payable.amount_due).toString());
       setBankName("");
-      setPaymentMethod("");
+      setPaymentMethod("Check");
       setPaymentReference("");
       setBankSearch("");
     }
