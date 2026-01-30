@@ -76,12 +76,11 @@ export function BankManagement() {
 
   // Count usage of each bank across payment tables
   const { data: bankUsage = {} } = useQuery({
-    queryKey: ["bank-usage", companyId],
+    queryKey: ["bank-usage", companyId, banks.map(b => b.name).join(",")],
     queryFn: async () => {
-      if (!companyId) return {};
+      if (!companyId || banks.length === 0) return {};
       
       const bankNames = banks.map(b => b.name);
-      if (bankNames.length === 0) return {};
 
       // Get counts from each payment table
       const [billPayments, projectPayments, commissionPayments] = await Promise.all([
