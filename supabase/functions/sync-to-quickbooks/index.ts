@@ -362,7 +362,7 @@ Deno.serve(async (req) => {
       } else {
         let billQuery = supabase
           .from("project_bills")
-          .select("*, projects!inner(project_name, company_id), subcontractors(company_name)")
+          .select("*, projects!inner(project_name, company_id)")
           .eq("projects.company_id", companyId)
           .eq("exclude_from_qb", false);
 
@@ -372,15 +372,20 @@ Deno.serve(async (req) => {
           billQuery = billQuery.eq("id", recordId);
         }
 
-        const { data: bills } = await billQuery;
+        const { data: bills, error: billsError } = await billQuery;
+        
+        console.log(`Found ${bills?.length || 0} bills to sync`, billsError ? `Error: ${billsError.message}` : "");
 
       for (const bill of bills || []) {
         try {
-          const vendorName = bill.subcontractors?.name || bill.vendor_name || "Unknown Vendor";
+          // Use installer_company as the vendor name
+          const vendorName = bill.installer_company || "Unknown Vendor";
+          console.log(`Processing bill ${bill.id} for vendor: ${vendorName}`);
+          
           const vendorId = await findOrCreateVendor(vendorName);
           if (!vendorId) {
             results.failed++;
-            results.errors.push(`Bill ${bill.id}: Failed to find/create vendor`);
+            results.errors.push(`Bill ${bill.bill_ref || bill.id}: Failed to find/create vendor "${vendorName}"`);
             continue;
           }
 
@@ -389,22 +394,23 @@ Deno.serve(async (req) => {
 
           const qbBill = {
             VendorRef: { value: vendorId },
-            TxnDate: bill.bill_date?.split("T")[0],
-            DueDate: bill.due_date?.split("T")[0],
+            TxnDate: bill.created_at?.split("T")[0], // Use created_at since no bill_date column
             Line: [
               {
-                Amount: bill.amount || 0,
+                Amount: bill.bill_amount || 0,
                 DetailType: "AccountBasedExpenseLineDetail",
                 AccountBasedExpenseLineDetail: {
                   AccountRef: expenseAccountMapping
                     ? { value: expenseAccountMapping.qbo_id, name: expenseAccountMapping.qbo_name }
                     : { value: "1" }, // Default expense account
                 },
-                Description: bill.description || `Bill for ${bill.projects?.project_name || "Project"}`,
+                Description: `${bill.category || "Bill"} - ${bill.projects?.project_name || "Project"} - Ref: ${bill.bill_ref || "N/A"}`,
               },
             ],
-            PrivateNote: bill.notes,
+            PrivateNote: bill.memo || null,
           };
+
+          console.log(`Syncing bill to QB:`, JSON.stringify(qbBill));
 
           const createRes = await fetch(`${QB_BASE_URL}/${realm_id}/bill`, {
             method: "POST",
@@ -414,6 +420,7 @@ Deno.serve(async (req) => {
 
           if (createRes.ok) {
             const created = await createRes.json();
+            console.log(`Bill synced successfully, QB ID: ${created.Bill.Id}`);
             await supabase.from("quickbooks_sync_log").upsert({
               company_id: companyId,
               record_type: "bill",
@@ -424,11 +431,15 @@ Deno.serve(async (req) => {
             });
             results.synced++;
           } else {
+            const errText = await createRes.text();
+            console.error(`Failed to sync bill ${bill.id}:`, errText);
             results.failed++;
+            results.errors.push(`Bill ${bill.bill_ref || bill.id}: ${errText}`);
           }
         } catch (err: unknown) {
           results.failed++;
           const errMsg = err instanceof Error ? err.message : "Unknown error";
+          console.error(`Error syncing bill ${bill.id}:`, errMsg);
           results.errors.push(`Bill ${bill.id}: ${errMsg}`);
         }
         }
