@@ -1238,10 +1238,12 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
         queryClient.invalidateQueries({ queryKey: ["all-project-invoices"] });
         queryClient.invalidateQueries({ queryKey: ["sidebar-ar-total"] });
-        // Warn user about QuickBooks manual deletion
-        toast.warning("Payment deletions are not automatically synced to QuickBooks. Please delete this payment manually in QuickBooks.", {
-          duration: 8000,
-        });
+        // Only warn if QB void failed - if it succeeded, we already showed success message
+        if (!result?.qbSynced) {
+          toast.warning("Payment could not be voided in QuickBooks. Please void or delete this payment manually in QuickBooks.", {
+            duration: 8000,
+          });
+        }
       } else if (deleteTarget?.type === "bill") {
         queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
         queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
