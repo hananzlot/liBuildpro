@@ -295,7 +295,7 @@ export function BankManagement() {
                     {bankUsage[bank.name] || 0}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {format(new Date(bank.created_at), "MMM d, yyyy")}
+                    {bank.created_at ? format(new Date(bank.created_at), "MMM d, yyyy") : "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
