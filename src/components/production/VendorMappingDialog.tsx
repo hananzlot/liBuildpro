@@ -20,9 +20,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 
 interface QBVendor {
-  Id: string;
-  DisplayName: string;
-  CompanyName?: string;
+  id: string;
+  name: string;
+  type?: string;
+  subType?: string | null;
 }
 
 interface VendorMappingDialogProps {
@@ -126,7 +127,7 @@ export function VendorMappingDialog({
 
   const handleConfirm = () => {
     if (selectedOption === "search" && selectedVendor) {
-      createMappingMutation.mutate({ qboId: selectedVendor.Id, qboName: selectedVendor.DisplayName });
+      createMappingMutation.mutate({ qboId: selectedVendor.id, qboName: selectedVendor.name });
     } else if (selectedOption === "create") {
       createMappingMutation.mutate({ createNew: true });
     }
@@ -203,16 +204,16 @@ export function VendorMappingDialog({
                           <div className="p-2 space-y-1">
                             {qbVendors.map((vendor) => (
                               <div
-                                key={vendor.Id}
+                                key={vendor.id}
                                 className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${
-                                  selectedVendor?.Id === vendor.Id
+                                  selectedVendor?.id === vendor.id
                                     ? "bg-primary text-primary-foreground"
                                     : "hover:bg-muted"
                                 }`}
                                 onClick={() => setSelectedVendor(vendor)}
                               >
-                                <span className="truncate">{vendor.DisplayName}</span>
-                                {selectedVendor?.Id === vendor.Id && (
+                                <span className="truncate">{vendor.name}</span>
+                                {selectedVendor?.id === vendor.id && (
                                   <Badge variant="secondary" className="ml-2">
                                     Selected
                                   </Badge>
