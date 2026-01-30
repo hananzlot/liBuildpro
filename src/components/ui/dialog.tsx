@@ -46,7 +46,7 @@ interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof Dialo
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, onFocusOutside, onInteractOutside, hideCloseButton, ...props }, ref) => (
+>(({ className, children, onFocusOutside, onInteractOutside, onEscapeKeyDown, hideCloseButton, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -68,6 +68,11 @@ const DialogContent = React.forwardRef<
         if (!e.defaultPrevented && shouldPreventDismissOnWindowBlur(originalEvent as Event | undefined)) {
           e.preventDefault();
         }
+      }}
+      onEscapeKeyDown={(e) => {
+        onEscapeKeyDown?.(e);
+        // Prevent Escape key from closing dialogs by default
+        if (!e.defaultPrevented) e.preventDefault();
       }}
       {...props}
     >
