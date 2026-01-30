@@ -5013,6 +5013,7 @@ export type Database = {
         Row: {
           agreement_signed_date: string | null
           alt_phone: string | null
+          auto_sync_to_quickbooks: boolean
           branch: string | null
           cell_phone: string | null
           commission_split_pct: number | null
@@ -5080,6 +5081,7 @@ export type Database = {
         Insert: {
           agreement_signed_date?: string | null
           alt_phone?: string | null
+          auto_sync_to_quickbooks?: boolean
           branch?: string | null
           cell_phone?: string | null
           commission_split_pct?: number | null
@@ -5147,6 +5149,7 @@ export type Database = {
         Update: {
           agreement_signed_date?: string | null
           alt_phone?: string | null
+          auto_sync_to_quickbooks?: boolean
           branch?: string | null
           cell_phone?: string | null
           commission_split_pct?: number | null
