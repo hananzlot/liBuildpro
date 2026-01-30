@@ -203,6 +203,16 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const [voidPaymentDialogOpen, setVoidPaymentDialogOpen] = useState(false);
   const [voidingPayment, setVoidingPayment] = useState<Payment | null>(null);
   const [voidPaymentReason, setVoidPaymentReason] = useState("");
+  
+  // QuickBooks new entity confirmation state
+  const [qbConfirmDialogOpen, setQbConfirmDialogOpen] = useState(false);
+  const [pendingQbSync, setPendingQbSync] = useState<{
+    recordType: "invoice" | "payment" | "bill";
+    recordId: string;
+    pendingEntities: { type: string; name: string }[];
+    onConfirm: () => void;
+    onCancel: () => void;
+  } | null>(null);
 
   // Auto-open bill dialog when returning from subcontractor add
   useEffect(() => {
@@ -366,8 +376,37 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       .reduce((sum, p) => sum + (p.amount || 0), 0);
   };
 
+  // Helper to check if QB sync will create new entities (customer/vendor)
+  const checkQbSyncEntities = async (recordType: "invoice" | "payment" | "bill", recordId: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[] }> => {
+    if (!companyId) return { requiresConfirmation: false, pendingEntities: [] };
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
+        body: {
+          companyId,
+          syncType: recordType,
+          recordId,
+          checkOnly: true,
+        },
+      });
+      
+      if (error) {
+        console.error("QuickBooks check error:", error);
+        return { requiresConfirmation: false, pendingEntities: [] };
+      }
+      
+      return { 
+        requiresConfirmation: data?.requiresConfirmation || false, 
+        pendingEntities: data?.pendingEntities || [] 
+      };
+    } catch (err) {
+      console.error("Failed to check QuickBooks entities:", err);
+      return { requiresConfirmation: false, pendingEntities: [] };
+    }
+  };
+
   // Helper to sync a record to QuickBooks after create/update - returns true if synced successfully
-  const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill", recordId: string): Promise<{ synced: boolean; message?: string }> => {
+  const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill", recordId: string): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
     if (!companyId) return { synced: false };
     
     try {
@@ -384,13 +423,48 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         return { synced: false };
       } else if (data?.synced > 0) {
         console.log("QuickBooks record synced:", recordType, recordId);
-        return { synced: true };
+        return { synced: true, newEntities: data?.newEntities || [] };
       }
       return { synced: false };
     } catch (err) {
       console.error("Failed to sync to QuickBooks:", err);
       return { synced: false };
     }
+  };
+
+  // Helper to sync with confirmation for new entities
+  const syncWithConfirmation = async (
+    recordType: "invoice" | "payment" | "bill", 
+    recordId: string
+  ): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
+    // First check if sync would create new entities
+    const check = await checkQbSyncEntities(recordType, recordId);
+    
+    if (check.requiresConfirmation && check.pendingEntities.length > 0) {
+      // Show confirmation dialog and wait for user response
+      return new Promise((resolve) => {
+        setPendingQbSync({
+          recordType,
+          recordId,
+          pendingEntities: check.pendingEntities,
+          onConfirm: async () => {
+            setQbConfirmDialogOpen(false);
+            setPendingQbSync(null);
+            const result = await syncRecordToQuickBooks(recordType, recordId);
+            resolve(result);
+          },
+          onCancel: () => {
+            setQbConfirmDialogOpen(false);
+            setPendingQbSync(null);
+            resolve({ synced: false, message: "Sync cancelled by user" });
+          },
+        });
+        setQbConfirmDialogOpen(true);
+      });
+    }
+    
+    // No new entities - sync directly
+    return syncRecordToQuickBooks(recordType, recordId);
   };
 
   // Helper to sync deletion to QuickBooks - returns true if synced successfully
@@ -458,19 +532,26 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         savedRecordId = newInvoice.id;
       }
 
-      // Sync to QuickBooks if connected
+      // Sync to QuickBooks if connected (with confirmation for new customers)
       let qbSynced = false;
+      let qbNewEntities: { type: string; name: string }[] = [];
       if (savedRecordId) {
-        const qbResult = await syncRecordToQuickBooks("invoice", savedRecordId);
+        const qbResult = await syncWithConfirmation("invoice", savedRecordId);
         qbSynced = qbResult.synced;
+        qbNewEntities = qbResult.newEntities || [];
       }
 
-      return { qbSynced, isEdit: !!editingInvoice?.id };
+      return { qbSynced, isEdit: !!editingInvoice?.id, qbNewEntities };
     },
     onSuccess: (result) => {
       const baseMsg = result?.isEdit ? "Invoice updated" : "Invoice created";
       if (result?.qbSynced) {
-        toast.success(`${baseMsg} and synced to QuickBooks`);
+        const newCustomer = result.qbNewEntities?.find(e => e.type === "customer");
+        if (newCustomer) {
+          toast.success(`${baseMsg} and synced to QuickBooks (new customer "${newCustomer.name}" created)`);
+        } else {
+          toast.success(`${baseMsg} and synced to QuickBooks`);
+        }
       } else {
         toast.success(baseMsg);
       }
@@ -549,19 +630,26 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         }
       }
 
-      // Sync to QuickBooks if connected
+      // Sync to QuickBooks if connected (with confirmation for new customers)
       let qbSynced = false;
+      let qbNewEntities: { type: string; name: string }[] = [];
       if (savedRecordId) {
-        const qbResult = await syncRecordToQuickBooks("payment", savedRecordId);
+        const qbResult = await syncWithConfirmation("payment", savedRecordId);
         qbSynced = qbResult.synced;
+        qbNewEntities = qbResult.newEntities || [];
       }
 
-      return { qbSynced, isEdit: !!editingPayment?.id };
+      return { qbSynced, isEdit: !!editingPayment?.id, qbNewEntities };
     },
     onSuccess: (result) => {
       const baseMsg = result?.isEdit ? "Payment updated" : "Payment created";
       if (result?.qbSynced) {
-        toast.success(`${baseMsg} and synced to QuickBooks`);
+        const newCustomer = result.qbNewEntities?.find(e => e.type === "customer");
+        if (newCustomer) {
+          toast.success(`${baseMsg} and synced to QuickBooks (new customer "${newCustomer.name}" created)`);
+        } else {
+          toast.success(`${baseMsg} and synced to QuickBooks`);
+        }
       } else {
         toast.success(baseMsg);
       }
@@ -678,19 +766,26 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         }
       }
 
-      // Sync to QuickBooks if connected
+      // Sync to QuickBooks if connected (with confirmation for new vendors)
       let qbSynced = false;
+      let qbNewEntities: { type: string; name: string }[] = [];
       if (savedRecordId) {
-        const qbResult = await syncRecordToQuickBooks("bill", savedRecordId);
+        const qbResult = await syncWithConfirmation("bill", savedRecordId);
         qbSynced = qbResult.synced;
+        qbNewEntities = qbResult.newEntities || [];
       }
 
-      return { qbSynced, isEdit: !!editingBill?.id };
+      return { qbSynced, isEdit: !!editingBill?.id, qbNewEntities };
     },
     onSuccess: (result) => {
       const baseMsg = result?.isEdit ? "Bill updated" : "Bill created";
       if (result?.qbSynced) {
-        toast.success(`${baseMsg} and synced to QuickBooks`);
+        const newVendor = result.qbNewEntities?.find(e => e.type === "vendor");
+        if (newVendor) {
+          toast.success(`${baseMsg} and synced to QuickBooks (new vendor "${newVendor.name}" created)`);
+        } else {
+          toast.success(`${baseMsg} and synced to QuickBooks`);
+        }
       } else {
         toast.success(baseMsg);
       }
@@ -2423,6 +2518,40 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         fileUrl={selectedAttachment?.url || ""}
         fileName={selectedAttachment?.name || ""}
       />
+
+      {/* QuickBooks New Entity Confirmation Dialog */}
+      <AlertDialog open={qbConfirmDialogOpen} onOpenChange={(open) => {
+        if (!open && pendingQbSync) {
+          pendingQbSync.onCancel();
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create New QuickBooks Entry?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                {pendingQbSync?.pendingEntities.map((entity, idx) => (
+                  <span key={idx} className="block">
+                    {entity.type === "customer" 
+                      ? `Customer "${entity.name}" does not exist in QuickBooks and will be created.`
+                      : `Vendor "${entity.name}" does not exist in QuickBooks and will be created.`
+                    }
+                  </span>
+                ))}
+                <span className="block mt-2">Do you want to proceed?</span>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => pendingQbSync?.onCancel()}>
+              Skip QB Sync
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => pendingQbSync?.onConfirm()}>
+              Create & Sync
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
