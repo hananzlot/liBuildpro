@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn, formatCurrencyWithDecimals } from "@/lib/utils";
-import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2 } from "lucide-react";
+import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2, Info } from "lucide-react";
 import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
 import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -729,7 +729,10 @@ export function PayablesSheet({
                           "text-center font-semibold",
                           group.cash_if_all_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
                         )}>
-                          {formatCurrencyWithDecimals(group.cash_if_all_paid)}
+                          <div className="flex items-center justify-center gap-1">
+                            {formatCurrencyWithDecimals(group.cash_if_all_paid)}
+                            <span className="text-muted-foreground text-xs" title="If all outstanding bills were paid in full">*</span>
+                          </div>
                         </TableCell>
                         <TableCell className="font-semibold" colSpan={2}>
                           <div className="flex flex-col">
