@@ -224,21 +224,40 @@ export function QuickBooksMappingConfig() {
            digitsOnly.length / str.replace(/\s/g, "").length > 0.5;
   };
 
-  // Fetch local contacts (customers) - only those with projects in the system
+  // Fetch local contacts (customers) - only those with projects that have invoices
   // Includes opportunity address for searching
   const { data: contactsRaw, isLoading: contactsLoading } = useQuery({
-    queryKey: ["contacts-for-mapping-with-projects", companyId, customerSearch],
+    queryKey: ["contacts-for-mapping-with-invoices", companyId, customerSearch],
     queryFn: async () => {
-      // First, get all contact_uuids that have projects
+      // First, get all project IDs that have invoices
+      const { data: invoiceProjects, error: invoiceError } = await supabase
+        .from("project_invoices")
+        .select("project_id")
+        .eq("company_id", companyId);
+      
+      if (invoiceError) throw invoiceError;
+      
+      const projectIdsWithInvoices = [...new Set(
+        (invoiceProjects || [])
+          .map((i) => i.project_id)
+          .filter(Boolean) as string[]
+      )];
+      
+      if (projectIdsWithInvoices.length === 0) {
+        return [];
+      }
+      
+      // Get contact_uuids from projects that have invoices
       const { data: projectContacts, error: projectError } = await supabase
         .from("projects")
         .select("contact_uuid")
         .eq("company_id", companyId)
+        .in("id", projectIdsWithInvoices)
         .not("contact_uuid", "is", null);
       
       if (projectError) throw projectError;
       
-      // Get unique contact IDs from projects
+      // Get unique contact IDs from projects with invoices
       const projectContactIds = [...new Set(
         (projectContacts || [])
           .map((p) => p.contact_uuid)
