@@ -473,11 +473,11 @@ export function MergeOpportunitiesDialog({
     const isCopyEnabled = copyFromSecondary[field.key] ?? false;
 
     return (
-      <div key={field.key} className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center py-3">
+      <div key={field.key} className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center py-1.5">
         <button
           onClick={() => setFieldSelections((prev) => ({ ...prev, [field.key]: "A" }))}
           className={cn(
-            "p-3 rounded-lg border text-left transition-all",
+            "p-2 rounded-lg border text-left transition-all",
             selected === "A"
               ? "border-primary bg-primary/5 ring-2 ring-primary/20"
               : "border-muted hover:border-primary/50"
@@ -514,7 +514,7 @@ export function MergeOpportunitiesDialog({
         <button
           onClick={() => setFieldSelections((prev) => ({ ...prev, [field.key]: "B" }))}
           className={cn(
-            "p-3 rounded-lg border text-left transition-all",
+            "p-2 rounded-lg border text-left transition-all",
             selected === "B"
               ? "border-primary bg-primary/5 ring-2 ring-primary/20"
               : "border-muted hover:border-primary/50"
@@ -548,7 +548,7 @@ export function MergeOpportunitiesDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Merge className="h-5 w-5" />
@@ -672,8 +672,8 @@ export function MergeOpportunitiesDialog({
             </div>
           </div>
         ) : (
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            <div className="space-y-4 py-4">
+          <ScrollArea className="flex-1 -mx-6 px-6 h-[500px] scrollbar-styled">
+            <div className="space-y-3 py-4">
               {/* Primary Selection */}
               <div className="grid md:grid-cols-2 gap-4">
                 {oppA && renderOpportunityCard(oppA, "A")}
