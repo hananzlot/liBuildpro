@@ -1,12 +1,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, ExternalLink, Settings, Link2, RefreshCw, Filter, Calendar, Ban, Eye, HelpCircle } from "lucide-react";
+import { CheckCircle2, ExternalLink, Settings, Link2, RefreshCw, Filter, Calendar, Ban, Eye, HelpCircle, Users, Trash2, MapPin, FileText } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 const sections = [
   { id: "prerequisites", label: "Before You Start" },
   { id: "connection-guide", label: "Connection Guide" },
   { id: "what-syncs", label: "What Gets Synced" },
+  { id: "mappings", label: "Account & Entity Mappings" },
+  { id: "vendor-matching", label: "Vendor Matching" },
   { id: "sync-controls", label: "Sync Controls" },
+  { id: "deletions", label: "Deletions & Voids" },
   { id: "switching-companies", label: "Switching Companies" },
   { id: "troubleshooting", label: "Troubleshooting" },
   { id: "faq", label: "FAQ" },
@@ -28,7 +31,7 @@ export default function QuickBooksHelp() {
             QuickBooks Online Integration
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Sync your invoices, payments, and bills automatically with QuickBooks Online
+            Sync your invoices, payments, bills, and bill payments automatically with QuickBooks Online
           </p>
         </div>
 
@@ -171,7 +174,7 @@ export default function QuickBooksHelp() {
                   <div className="flex-1">
                     <h3 className="font-semibold mb-1">Configure Mappings</h3>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Once connected, configure how your accounts, items, and payment methods map to QuickBooks. This ensures data syncs correctly.
+                      Once connected, configure how your accounts, customers, vendors, items, and payment methods map to QuickBooks. This ensures data syncs correctly.
                     </p>
                   </div>
                 </div>
@@ -187,34 +190,163 @@ export default function QuickBooksHelp() {
                 What Gets Synced
               </CardTitle>
               <CardDescription>
-                Data automatically syncs when created or updated
+                Data automatically syncs when created, updated, or deleted
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-2 gap-4">
                 <div className="p-4 rounded-lg bg-muted/50">
                   <h4 className="font-semibold mb-2">Invoices</h4>
                   <p className="text-sm text-muted-foreground">
-                    Customer invoices are created in QuickBooks with matching line items and amounts.
+                    Customer invoices are created in QuickBooks with matching line items, amounts, and customer references.
                   </p>
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
-                  <h4 className="font-semibold mb-2">Payments</h4>
+                  <h4 className="font-semibold mb-2">Payments (Collections)</h4>
                   <p className="text-sm text-muted-foreground">
-                    Customer payments are recorded against their invoices in QuickBooks.
+                    Customer payments are recorded against their invoices in QuickBooks, including payment method and deposit account.
                   </p>
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
                   <h4 className="font-semibold mb-2">Bills</h4>
                   <p className="text-sm text-muted-foreground">
-                    Subcontractor and vendor bills are synced to track payables.
+                    Subcontractor and vendor bills are synced to QuickBooks with vendor matching and expense account categorization.
                   </p>
                 </div>
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <h4 className="font-semibold mb-2">Bill Payments</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Payments made to vendors are recorded against their bills in QuickBooks, tracking your accounts payable.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 bg-primary/5 rounded-lg p-4">
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Deletions & Voids Sync Too
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  When you delete or void a financial record locally, it's automatically voided or deleted in QuickBooks as well, keeping both systems in sync.
+                </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Sync Controls - NEW SECTION */}
+          {/* Account & Entity Mappings */}
+          <Card id="mappings">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                Account & Entity Mappings
+              </CardTitle>
+              <CardDescription>
+                Configure how your data maps to QuickBooks
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* GL Account Mappings */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">General Ledger Accounts</h4>
+                <p className="text-sm text-muted-foreground">
+                  Map your income, expense, and liability accounts to ensure transactions post to the correct accounts in QuickBooks:
+                </p>
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
+                  <li><strong>Income Account</strong> — Where invoice revenue is recorded</li>
+                  <li><strong>Expense Account</strong> — Default account for bills and expenses</li>
+                  <li><strong>Unearned Revenue (Deposits)</strong> — For customer deposits before work is completed</li>
+                  <li><strong>Deposit Account</strong> — Bank account where payments are deposited</li>
+                </ul>
+              </div>
+
+              <Separator />
+
+              {/* Customer Mappings */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">Customer Mappings</h4>
+                <p className="text-sm text-muted-foreground">
+                  Link your contacts to existing QuickBooks customers, or let the system create them automatically during sync:
+                </p>
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
+                  <li>Search and match existing QuickBooks customers</li>
+                  <li>Unmapped contacts show "Not in QB" indicator</li>
+                  <li>Auto-creation option available during sync</li>
+                </ul>
+              </div>
+
+              <Separator />
+
+              {/* Vendor Mappings */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">Vendor Mappings</h4>
+                <p className="text-sm text-muted-foreground">
+                  Map your subcontractors to QuickBooks vendors for accurate bill tracking:
+                </p>
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
+                  <li>Search existing QuickBooks vendors by name</li>
+                  <li>Mark vendors for auto-creation on next sync</li>
+                  <li>Unmapped vendors show a "Not in QB" badge when creating bills</li>
+                </ul>
+              </div>
+
+              <Separator />
+
+              {/* Field-Level Mappings */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <h4 className="font-semibold">Field-Level Mappings</h4>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Configure how individual fields map between systems for fine-grained control:
+                </p>
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
+                  <li><strong>Invoice Fields</strong> — Invoice number, amounts, line items, memo</li>
+                  <li><strong>Payment Fields</strong> — Payment reference, amount, date, method</li>
+                  <li><strong>Bill Fields</strong> — Bill number, vendor, amount, due date</li>
+                  <li><strong>Bill Payment Fields</strong> — Payment reference, amount, bank account</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Vendor Matching */}
+          <Card id="vendor-matching">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Vendor Matching
+              </CardTitle>
+              <CardDescription>
+                Handle unmapped vendors when creating bills
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                When you create a bill for a subcontractor that isn't mapped to a QuickBooks vendor, you'll be prompted to resolve the mapping:
+              </p>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg border border-border">
+                  <h4 className="font-semibold mb-2">Search & Match</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Search for an existing vendor in QuickBooks by name. If found, the system creates a permanent mapping for future use.
+                  </p>
+                </div>
+                <div className="p-4 rounded-lg border border-border">
+                  <h4 className="font-semibold mb-2">Mark for Creation</h4>
+                  <p className="text-sm text-muted-foreground">
+                    If the vendor doesn't exist in QuickBooks, mark them to be automatically created during the next sync.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                <strong>Visual Indicator:</strong> Subcontractors without a QuickBooks mapping show a "Not in QB" badge in the vendor dropdown when creating bills.
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sync Controls */}
           <Card id="sync-controls">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -233,7 +365,7 @@ export default function QuickBooksHelp() {
                   <h4 className="font-semibold">Transaction Picker</h4>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  When you click <strong>Sync Now</strong>, a dialog opens showing all pending invoices, payments, and bills. You can:
+                  When you click <strong>Sync Now</strong>, a dialog opens showing all pending invoices, payments, bills, and bill payments. You can:
                 </p>
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
                   <li>Select individual transactions to sync</li>
@@ -293,11 +425,59 @@ export default function QuickBooksHelp() {
                   Before executing any sync, you'll see a complete preview of all selected transactions with:
                 </p>
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
-                  <li>Transaction type (Invoice, Payment, or Bill)</li>
+                  <li>Transaction type (Invoice, Payment, Bill, or Bill Payment)</li>
                   <li>Associated project name</li>
                   <li>Amount and date</li>
                   <li>Total count and value of what will be synced</li>
                 </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Deletions & Voids */}
+          <Card id="deletions">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5 text-primary" />
+                Deletions & Voids
+              </CardTitle>
+              <CardDescription>
+                Keep QuickBooks in sync when you remove or void records
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                When you delete or void a financial record that was previously synced to QuickBooks, the system automatically updates QuickBooks:
+              </p>
+              
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-destructive/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Voiding Records</p>
+                    <p className="text-sm text-muted-foreground">
+                      When you void an invoice, payment, bill, or bill payment locally, it's automatically voided in QuickBooks. This preserves the audit trail in both systems.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-destructive/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Ban className="h-3 w-3 text-destructive" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Deleting Records</p>
+                    <p className="text-sm text-muted-foreground">
+                      When you delete a record, the corresponding QuickBooks entry is voided or deleted (depending on the record type). The sync log is updated to reflect the change.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                <strong>Note:</strong> If QuickBooks is disconnected when you delete a record, it will be marked as "deleted locally" in the sync log. Reconnecting won't automatically delete it from QuickBooks—you may need to handle it manually.
               </div>
             </CardContent>
           </Card>
@@ -318,10 +498,10 @@ export default function QuickBooksHelp() {
                 <li>Go to Admin Settings → Integrations</li>
                 <li>Click the <strong>Switch Company</strong> button next to your current connection</li>
                 <li>Sign in to QuickBooks and select the new company you want to use</li>
-                <li>Re-configure your account mappings for the new company</li>
+                <li>Re-configure your account and entity mappings for the new company</li>
               </ol>
               <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                <strong>Note:</strong> If you're already signed into QuickBooks with multiple companies, you may need to first go to{" "}
+                <strong>Note:</strong> The system will force a new company selection screen. If you're already signed into QuickBooks with multiple companies, you may need to first go to{" "}
                 <a href="https://qbo.intuit.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
                   qbo.intuit.com <ExternalLink className="h-3 w-3" />
                 </a>{" "}
@@ -342,34 +522,48 @@ export default function QuickBooksHelp() {
               <div>
                 <h4 className="font-semibold mb-1">Connection expired or disconnected?</h4>
                 <p className="text-sm text-muted-foreground">
-                  QuickBooks connections can expire after extended periods of inactivity. Simply click "Connect to QuickBooks" again to re-authorize.
+                  QuickBooks connections can expire after extended periods of inactivity. Simply click "Connect to QuickBooks" again to re-authorize. The system will automatically attempt to refresh tokens before prompting for reconnection.
                 </p>
               </div>
               <Separator />
               <div>
                 <h4 className="font-semibold mb-1">Sync errors?</h4>
                 <p className="text-sm text-muted-foreground">
-                  Check that your account mappings are correctly configured. Missing mappings for accounts or items can cause sync failures.
+                  Check that your account and entity mappings are correctly configured. Missing mappings for accounts, customers, or vendors can cause sync failures. Look for "Not in QB" badges on records.
                 </p>
               </div>
               <Separator />
               <div>
                 <h4 className="font-semibold mb-1">Connected to the wrong company?</h4>
                 <p className="text-sm text-muted-foreground">
-                  Use the "Switch Company" button to disconnect and reconnect to a different QuickBooks company.
+                  Use the "Switch Company" button to disconnect and reconnect to a different QuickBooks company. The system displays the connected company name so you can verify you're connected to the right one.
                 </p>
               </div>
               <Separator />
               <div>
                 <h4 className="font-semibold mb-1">Transactions not appearing in sync list?</h4>
                 <p className="text-sm text-muted-foreground">
-                  Check if the transaction has been marked as "Exclude from QB" or if it falls outside your selected date range. Already-synced transactions also won't appear.
+                  Check if the transaction has been marked as "Exclude from QB" or if it falls outside your selected date range. Already-synced transactions also won't appear in the sync list.
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="font-semibold mb-1">Vendor not found when creating a bill?</h4>
+                <p className="text-sm text-muted-foreground">
+                  If a subcontractor shows "Not in QB", use the vendor matching dialog to search for an existing QuickBooks vendor or mark them for auto-creation on the next sync.
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="font-semibold mb-1">Sandbox vs Production environment?</h4>
+                <p className="text-sm text-muted-foreground">
+                  The system automatically detects and handles both sandbox and production QuickBooks environments. If you're using a sandbox account for testing, it will work seamlessly.
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* FAQ - NEW SECTION */}
+          {/* FAQ */}
           <Card id="faq">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -395,21 +589,35 @@ export default function QuickBooksHelp() {
               <div>
                 <h4 className="font-semibold mb-1">What happens if I sync the same transaction twice?</h4>
                 <p className="text-sm text-muted-foreground">
-                  The system tracks which transactions have been synced. Already-synced transactions won't appear in the sync list and won't create duplicates in QuickBooks.
+                  The system tracks which transactions have been synced in the sync log. Already-synced transactions won't appear in the sync list and won't create duplicates in QuickBooks.
                 </p>
               </div>
               <Separator />
               <div>
-                <h4 className="font-semibold mb-1">Do I need to map every account?</h4>
+                <h4 className="font-semibold mb-1">Do I need to map every account and vendor?</h4>
                 <p className="text-sm text-muted-foreground">
-                  You should map at least your primary income account, expense account, and payment methods. Unmapped items may cause sync failures or use default accounts.
+                  You should map at least your primary income account, expense account, and payment methods. For vendors, you can map them as needed or use the "Mark for Creation" option when creating bills.
                 </p>
               </div>
               <Separator />
               <div>
-                <h4 className="font-semibold mb-1">How often does automatic syncing occur?</h4>
+                <h4 className="font-semibold mb-1">What happens when I delete a synced record?</h4>
                 <p className="text-sm text-muted-foreground">
-                  Transactions sync automatically when created or updated. You can also trigger a manual sync at any time using the "Sync Now" button.
+                  The system automatically voids or deletes the corresponding record in QuickBooks. If QuickBooks is disconnected, the record is marked for manual cleanup.
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="font-semibold mb-1">How do bill payments sync?</h4>
+                <p className="text-sm text-muted-foreground">
+                  Bill payments are synced as BillPayment transactions in QuickBooks, linked to their corresponding bills. The payment method and bank account are included based on your mappings.
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="font-semibold mb-1">Can I connect to a QuickBooks sandbox?</h4>
+                <p className="text-sm text-muted-foreground">
+                  Yes, the system supports both sandbox and production QuickBooks environments. It automatically detects which environment you're connected to and routes API calls accordingly.
                 </p>
               </div>
             </CardContent>
