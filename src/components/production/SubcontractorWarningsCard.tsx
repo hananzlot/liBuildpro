@@ -119,14 +119,14 @@ export function SubcontractorWarningsCard() {
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card className="border-amber-500/30 bg-amber-500/5">
-        <CollapsibleTrigger asChild>
-          <CardHeader className="pb-3 cursor-pointer hover:bg-amber-500/10 transition-colors">
+      <CollapsibleTrigger asChild>
+          <CardHeader className="pb-1 pt-3 px-4 cursor-pointer hover:bg-amber-500/10 transition-colors">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <ShieldAlert className="h-5 w-5 text-amber-500" />
-                Subcontractor Document Warnings
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-amber-500" />
+                <CardTitle className="text-sm">Subcontractor Document Warnings</CardTitle>
                 <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-              </CardTitle>
+              </div>
               <div className="flex gap-2">
                 {expiredCount > 0 && (
                   <Badge variant="destructive">
