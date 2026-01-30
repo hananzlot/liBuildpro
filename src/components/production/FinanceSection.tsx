@@ -5128,7 +5128,7 @@ function BillPaymentHistoryDialog({
                     "text-lg font-bold",
                     isPaid ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"
                   )}>
-                    {formatCurrency(bill?.bill_amount)}
+                    {formatCurrency2(bill?.bill_amount)}
                   </span>
                 </div>
                 {!isPaid && (
@@ -5191,15 +5191,15 @@ function BillPaymentHistoryDialog({
                 <CardContent className="px-4 pb-3 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Original Amount:</span>
-                    <span className="font-medium">{formatCurrency(bill?.original_bill_amount || bill?.bill_amount)}</span>
+                    <span className="font-medium">{formatCurrency2(bill?.original_bill_amount || bill?.bill_amount)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Current Bill Amount:</span>
-                    <span className="font-medium">{formatCurrency(bill?.bill_amount)}</span>
+                    <span className="font-medium">{formatCurrency2(bill?.bill_amount)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Amount Paid:</span>
-                    <span className="font-medium text-emerald-600">{formatCurrency(bill?.amount_paid)}</span>
+                    <span className="font-medium text-emerald-600">{formatCurrency2(bill?.amount_paid)}</span>
                   </div>
                   <div className="flex justify-between text-sm border-t pt-2">
                     <span className="font-medium">Balance Due:</span>
@@ -5207,7 +5207,7 @@ function BillPaymentHistoryDialog({
                       "font-bold",
                       (bill?.balance || 0) > 0 ? "text-amber-600" : "text-emerald-600"
                     )}>
-                      {formatCurrency(bill?.balance)}
+                      {formatCurrency2(bill?.balance)}
                     </span>
                   </div>
                 </CardContent>
@@ -5285,7 +5285,7 @@ function BillPaymentHistoryDialog({
                           <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
                           <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
                           <TableCell className="text-xs text-right text-emerald-600 font-medium">
-                            {formatCurrency(payment.payment_amount)}
+                            {formatCurrency2(payment.payment_amount)}
                           </TableCell>
                           {canEdit && (
                             <TableCell>
@@ -5315,7 +5315,7 @@ function BillPaymentHistoryDialog({
                       ))}
                       <TableRow className="bg-muted/50 font-semibold">
                         <TableCell colSpan={4} className="text-xs">Total Paid</TableCell>
-                        <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalPaid)}</TableCell>
+                        <TableCell className="text-xs text-right text-emerald-600">{formatCurrency2(totalPaid)}</TableCell>
                         {canEdit && <TableCell />}
                       </TableRow>
                     </TableBody>
@@ -5323,7 +5323,7 @@ function BillPaymentHistoryDialog({
                   <div className="flex justify-between text-sm border-t pt-3">
                     <span className="text-muted-foreground">Remaining Balance:</span>
                     <span className={cn("font-semibold", (bill?.balance || 0) > 0 ? "text-amber-600" : "text-emerald-600")}>
-                      {formatCurrency(bill?.balance)}
+                      {formatCurrency2(bill?.balance)}
                     </span>
                   </div>
                 </div>
