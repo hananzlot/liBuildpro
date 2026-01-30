@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
 async function processEntityChange(
   supabase: any,
   companyId: string,
-  _realmId: string,
+  realmId: string,
   entity: WebhookNotification,
   log: (level: string, message: string, data?: unknown) => void
 ) {
@@ -288,24 +288,93 @@ async function processEntityChange(
       }
     } else if (operation === "Create") {
       // New entity created in QuickBooks that we don't have
-      log("info", `New ${entityType} created in QuickBooks - inserting sync log placeholder`);
+      log("info", `New ${entityType} created in QuickBooks - processing import`);
       
-      const { error: insertError } = await supabase
-        .from("quickbooks_sync_log")
-        .insert({
-          company_id: companyId,
-          record_type: recordType,
-          record_id: null,
-          quickbooks_id: qbId,
-          sync_status: "created_in_qb",
-          last_sync_at: new Date().toISOString(),
-          error_message: `Created in QuickBooks at ${entity.lastUpdated}`
-        });
-      
-      if (insertError) {
-        log("error", `Failed to insert sync log for new entity`, { error: insertError.message });
+      // For invoices, automatically fetch and import
+      if (entityType === "Invoice") {
+        log("info", `Triggering automatic import for new invoice ${qbId}`);
+        
+        try {
+          const fetchResult = await supabase.functions.invoke("quickbooks-fetch-invoice", {
+            body: {
+              companyId,
+              qbInvoiceId: qbId,
+              realmId,
+              action: "fetch-single"
+            }
+          });
+
+          if (fetchResult.error) {
+            log("error", `Failed to fetch invoice ${qbId}`, { error: fetchResult.error });
+            // Still create sync log entry for manual retry
+            await supabase
+              .from("quickbooks_sync_log")
+              .insert({
+                company_id: companyId,
+                record_type: recordType,
+                record_id: null,
+                quickbooks_id: qbId,
+                sync_status: "import_failed",
+                last_sync_at: new Date().toISOString(),
+                error_message: `Auto-import failed: ${fetchResult.error}`
+              });
+          } else if (fetchResult.data?.error) {
+            log("warn", `Invoice import returned error`, { error: fetchResult.data.error });
+            // Create sync log for failed import (e.g., no matching project)
+            await supabase
+              .from("quickbooks_sync_log")
+              .insert({
+                company_id: companyId,
+                record_type: recordType,
+                record_id: null,
+                quickbooks_id: qbId,
+                sync_status: "import_failed",
+                last_sync_at: new Date().toISOString(),
+                error_message: fetchResult.data.error
+              });
+          } else {
+            log("info", `✓ Successfully imported invoice ${qbId}`, { 
+              invoiceId: fetchResult.data?.invoiceId,
+              matchMethod: fetchResult.data?.matchMethod
+            });
+            // Sync log is created by the fetch function
+          }
+        } catch (err) {
+          log("error", `Exception importing invoice ${qbId}`, { 
+            error: err instanceof Error ? err.message : String(err) 
+          });
+          // Create placeholder sync log for manual retry
+          await supabase
+            .from("quickbooks_sync_log")
+            .insert({
+              company_id: companyId,
+              record_type: recordType,
+              record_id: null,
+              quickbooks_id: qbId,
+              sync_status: "created_in_qb",
+              last_sync_at: new Date().toISOString(),
+              error_message: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
+            });
+        }
       } else {
-        log("info", `✓ Created sync log entry for new ${entityType} ${qbId}`);
+        // For other entity types, just log the creation
+        const { error: insertError } = await supabase
+          .from("quickbooks_sync_log")
+          .insert({
+            company_id: companyId,
+            record_type: recordType,
+            record_id: null,
+            quickbooks_id: qbId,
+            sync_status: "created_in_qb",
+            last_sync_at: new Date().toISOString(),
+            error_message: `Created in QuickBooks at ${entity.lastUpdated}`
+          });
+        
+        if (insertError) {
+          log("error", `Failed to insert sync log for new entity`, { error: insertError.message });
+        } else {
+          log("info", `✓ Created sync log entry for new ${entityType} ${qbId}`);
+        }
       }
     } else {
       log("info", `Update for ${entityType} ${qbId} but no sync log exists - may be external record`);
