@@ -1977,7 +1977,84 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
 
           {/* Feedback Tab */}
           <TabsContent value="feedback" className="space-y-3 mt-4">
-            {/* Customer Portal Card - First */}
+            {/* Portal Chat Messages - First */}
+            <Card>
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-xs font-medium flex items-center gap-2">
+                  <MessageSquare className="h-3 w-3" />
+                  Customer Portal Chat
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                {portalChatMessages.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-3">
+                    No chat messages from the customer portal yet
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[250px] overflow-y-auto mb-3">
+                    {[...portalChatMessages].reverse().map((msg) => (
+                      <div 
+                        key={msg.id} 
+                        className={`p-2 rounded ${
+                          msg.sender_type === 'customer' 
+                            ? 'bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800' 
+                            : 'bg-muted'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-medium text-xs">
+                            {msg.sender_name}
+                            {msg.sender_type === 'customer' && (
+                              <Badge variant="outline" className="ml-2 text-[9px] px-1 py-0">
+                                Customer
+                              </Badge>
+                            )}
+                            {msg.sender_type === 'staff' && (
+                              <Badge variant="secondary" className="ml-2 text-[9px] px-1 py-0">
+                                Staff
+                              </Badge>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {new Date(msg.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <p className="text-xs whitespace-pre-wrap">{msg.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Reply Input */}
+                <div className="flex gap-2 pt-2 border-t">
+                  <Input
+                    value={portalChatReply}
+                    onChange={(e) => setPortalChatReply(e.target.value)}
+                    placeholder="Type a reply..."
+                    className="text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendChatReply();
+                      }
+                    }}
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={handleSendChatReply}
+                    disabled={!portalChatReply.trim() || sendChatReplyMutation.isPending}
+                  >
+                    {sendChatReplyMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Send className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Customer Portal Card */}
             {fullProject?.id && (
               <CustomerPortalCard
                 projectId={fullProject.id}
@@ -2077,83 +2154,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Portal Chat Messages */}
-            <Card>
-              <CardHeader className="py-3 px-4">
-                <CardTitle className="text-xs font-medium flex items-center gap-2">
-                  <MessageSquare className="h-3 w-3" />
-                  Customer Portal Chat
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                {portalChatMessages.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-3">
-                    No chat messages from the customer portal yet
-                  </p>
-                ) : (
-                  <div className="space-y-2 max-h-[250px] overflow-y-auto mb-3">
-                    {[...portalChatMessages].reverse().map((msg) => (
-                      <div 
-                        key={msg.id} 
-                        className={`p-2 rounded ${
-                          msg.sender_type === 'customer' 
-                            ? 'bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800' 
-                            : 'bg-muted'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="font-medium text-xs">
-                            {msg.sender_name}
-                            {msg.sender_type === 'customer' && (
-                              <Badge variant="outline" className="ml-2 text-[9px] px-1 py-0">
-                                Customer
-                              </Badge>
-                            )}
-                            {msg.sender_type === 'staff' && (
-                              <Badge variant="secondary" className="ml-2 text-[9px] px-1 py-0">
-                                Staff
-                              </Badge>
-                            )}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {new Date(msg.created_at).toLocaleString()}
-                          </p>
-                        </div>
-                        <p className="text-xs whitespace-pre-wrap">{msg.message}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {/* Reply Input */}
-                <div className="flex gap-2 pt-2 border-t">
-                  <Input
-                    value={portalChatReply}
-                    onChange={(e) => setPortalChatReply(e.target.value)}
-                    placeholder="Type a reply..."
-                    className="text-xs"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendChatReply();
-                      }
-                    }}
-                  />
-                  <Button 
-                    size="sm" 
-                    onClick={handleSendChatReply}
-                    disabled={!portalChatReply.trim() || sendChatReplyMutation.isPending}
-                  >
-                    {sendChatReplyMutation.isPending ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Send className="h-3 w-3" />
-                    )}
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
