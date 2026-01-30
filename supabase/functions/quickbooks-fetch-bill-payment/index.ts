@@ -538,14 +538,17 @@ Deno.serve(async (req) => {
           const newBalance = billAmount - totalPaid;
           const newStatus = totalPaid >= billAmount ? "paid" : (totalPaid > 0 ? "partial" : "unpaid");
 
-          await supabase
+          const { error: rollupError } = await supabase
             .from("project_bills")
             .update({
               amount_paid: totalPaid,
               balance: newBalance,
-              status: newStatus,
             })
             .eq("id", billId);
+
+          if (rollupError) {
+            log("error", "Failed to update bill rollups", { error: rollupError.message });
+          }
 
           log("info", "Recalculated bill rollups", { 
             billId, 
