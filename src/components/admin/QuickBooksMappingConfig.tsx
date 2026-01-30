@@ -13,7 +13,7 @@ import { DebouncedInput } from "@/components/ui/debounced-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { QuickBooksMatchingRules } from "./QuickBooksMatchingRules";
-import { Switch } from "@/components/ui/switch";
+
 
 interface QBEntity {
   id: string;
@@ -46,8 +46,8 @@ export function QuickBooksMappingConfig() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [vendorSearch, setVendorSearch] = useState("");
   const [glSearch, setGlSearch] = useState("");
-  const [showHiddenCustomers, setShowHiddenCustomers] = useState(false);
-  const [showHiddenVendors, setShowHiddenVendors] = useState(false);
+  const [customerFilter, setCustomerFilter] = useState<"all" | "matched" | "unmatched" | "hidden">("all");
+  const [vendorFilter, setVendorFilter] = useState<"all" | "matched" | "unmatched" | "hidden">("all");
 
   // First, verify a connection exists before attempting any entity calls
   const { data: connection, isLoading: connectionLoading } = useQuery({
@@ -282,14 +282,35 @@ export function QuickBooksMappingConfig() {
   });
 
   // Filter out contacts that only have phone numbers as names (not useful for matching)
-  // Also filter out hidden contacts unless showHiddenCustomers is true
+  // Apply filter based on customerFilter state
   const contacts = useMemo(() => {
     if (!contactsRaw) return [];
     const hiddenCustomerIds = hiddenRecords?.customers || [];
+    const customerMappingIds = (mappings || [])
+      .filter((m) => m.mapping_type === "customer" && m.source_value)
+      .map((m) => m.source_value);
+    
     return contactsRaw.filter((c) => {
-      // Filter by hidden status
       const isHidden = hiddenCustomerIds.includes(c.id);
-      if (isHidden && !showHiddenCustomers) return false;
+      const isMapped = customerMappingIds.includes(c.id);
+      
+      // Apply filter
+      switch (customerFilter) {
+        case "matched":
+          if (!isMapped) return false;
+          break;
+        case "unmatched":
+          if (isMapped || isHidden) return false;
+          break;
+        case "hidden":
+          if (!isHidden) return false;
+          break;
+        case "all":
+        default:
+          // Show all except hidden (unless viewing hidden)
+          if (isHidden) return false;
+          break;
+      }
       
       // Keep if has email
       if (c.email) return true;
@@ -299,7 +320,7 @@ export function QuickBooksMappingConfig() {
       if (c.contact_name && !looksLikePhoneNumber(c.contact_name)) return true;
       return false;
     }).slice(0, 100); // Limit to 100 after filtering
-  }, [contactsRaw, hiddenRecords?.customers, showHiddenCustomers]);
+  }, [contactsRaw, hiddenRecords?.customers, customerFilter, mappings]);
 
   // Fetch QB entities
   const { data: accounts, isLoading: accountsLoading, refetch: refetchAccounts } = useQuery({
@@ -494,15 +515,37 @@ export function QuickBooksMappingConfig() {
   // Contacts are already filtered server-side, so just use them directly
   const filteredContacts = contacts || [];
 
-  // Filter subcontractors - also apply hidden filter
+  // Filter subcontractors - apply filter based on vendorFilter state
   const filteredSubcontractors = useMemo(() => {
     const hiddenVendorIds = hiddenRecords?.vendors || [];
+    const vendorMappingIds = (mappings || [])
+      .filter((m) => m.mapping_type === "vendor" && m.source_value)
+      .map((m) => m.source_value);
+    
     return (subcontractors || []).filter((s) => {
       const isHidden = hiddenVendorIds.includes(s.id);
-      if (isHidden && !showHiddenVendors) return false;
+      const isMapped = vendorMappingIds.includes(s.id);
+      
+      // Apply filter
+      switch (vendorFilter) {
+        case "matched":
+          if (!isMapped) return false;
+          break;
+        case "unmatched":
+          if (isMapped || isHidden) return false;
+          break;
+        case "hidden":
+          if (!isHidden) return false;
+          break;
+        case "all":
+        default:
+          if (isHidden) return false;
+          break;
+      }
+      
       return s.company_name?.toLowerCase().includes(vendorSearch.toLowerCase());
     });
-  }, [subcontractors, hiddenRecords?.vendors, showHiddenVendors, vendorSearch]);
+  }, [subcontractors, hiddenRecords?.vendors, vendorFilter, vendorSearch, mappings]);
 
   // Count hidden records
   const hiddenCustomerCount = hiddenRecords?.customers?.length || 0;
@@ -761,24 +804,23 @@ export function QuickBooksMappingConfig() {
                     Link your local contacts to existing QuickBooks customers for accurate invoice syncing
                   </p>
                 </div>
-                {hiddenCustomerCount > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="show-hidden-customers" className="text-xs text-muted-foreground">
-                      Show hidden ({hiddenCustomerCount})
-                    </Label>
-                    <Switch
-                      id="show-hidden-customers"
-                      checked={showHiddenCustomers}
-                      onCheckedChange={setShowHiddenCustomers}
-                    />
-                  </div>
-                )}
+                <Select value={customerFilter} onValueChange={(v) => setCustomerFilter(v as typeof customerFilter)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="matched">Matched</SelectItem>
+                    <SelectItem value="unmatched">Unmatched</SelectItem>
+                    <SelectItem value="hidden">Hidden ({hiddenCustomerCount})</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <DebouncedInput
-                  placeholder="Search contacts or customers..."
+                  placeholder="Search by name, email, or address..."
                   value={customerSearch}
                   onSave={setCustomerSearch}
                   debounceMs={400}
@@ -882,18 +924,17 @@ export function QuickBooksMappingConfig() {
                     Link your local subcontractors to existing QuickBooks vendors for accurate bill syncing
                   </p>
                 </div>
-                {hiddenVendorCount > 0 && (
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="show-hidden-vendors" className="text-xs text-muted-foreground">
-                      Show hidden ({hiddenVendorCount})
-                    </Label>
-                    <Switch
-                      id="show-hidden-vendors"
-                      checked={showHiddenVendors}
-                      onCheckedChange={setShowHiddenVendors}
-                    />
-                  </div>
-                )}
+                <Select value={vendorFilter} onValueChange={(v) => setVendorFilter(v as typeof vendorFilter)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="matched">Matched</SelectItem>
+                    <SelectItem value="unmatched">Unmatched</SelectItem>
+                    <SelectItem value="hidden">Hidden ({hiddenVendorCount})</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="relative">
