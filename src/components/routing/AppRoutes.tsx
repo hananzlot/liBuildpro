@@ -25,6 +25,8 @@ import AppDefaultSettings from "@/pages/super-admin/AppDefaultSettings";
 import PlatformAdmins from "@/pages/super-admin/PlatformAdmins";
 import SubscriptionPlans from "@/pages/super-admin/SubscriptionPlans";
 import PlatformEmailSettingsPage from "@/pages/super-admin/PlatformEmailSettings";
+import Terms from "@/pages/Terms";
+import Privacy from "@/pages/Privacy";
 import { ProtectedRoute, DefaultPageRedirect } from "./RouteGuards";
 
 /**
@@ -266,6 +268,10 @@ export function AppRoutes() {
         
         {/* Short link redirect - public */}
         <Route path="/r/:code" element={<ShortLinkRedirect />} />
+        
+        {/* Legal pages - public */}
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
         
         {/* Super Admin Portal Routes */}
         <Route path="/super-admin" element={<SuperAdminDashboard />} />
