@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2, ExternalLink, Settings, Link2, RefreshCw, Filter, Calendar, Ban, Eye, HelpCircle, Users, Trash2, MapPin, FileText } from "lucide-react";
+import { CheckCircle2, ExternalLink, Settings, Link2, RefreshCw, Filter, Calendar, Ban, Eye, HelpCircle, Users, Trash2, MapPin, FileText, DollarSign, Building2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 const sections = [
@@ -7,7 +7,9 @@ const sections = [
   { id: "connection-guide", label: "Connection Guide" },
   { id: "what-syncs", label: "What Gets Synced" },
   { id: "mappings", label: "Account & Entity Mappings" },
+  { id: "bank-accounts", label: "Bank Account Mappings" },
   { id: "vendor-matching", label: "Vendor Matching" },
+  { id: "commission-payments", label: "Commission Payments" },
   { id: "sync-controls", label: "Sync Controls" },
   { id: "deletions", label: "Deletions & Voids" },
   { id: "switching-companies", label: "Switching Companies" },
@@ -219,6 +221,15 @@ export default function QuickBooksHelp() {
                     Payments made to vendors are recorded against their bills in QuickBooks, tracking your accounts payable.
                   </p>
                 </div>
+                <div className="p-4 rounded-lg bg-muted/50 md:col-span-2">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-primary" />
+                    Commission Payments
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    Salesperson commission payments are synced as Check (Purchase) transactions in QuickBooks. They're linked to the project's customer for accurate job costing and assigned to the mapped vendor (salesperson).
+                  </p>
+                </div>
               </div>
               <div className="mt-4 bg-primary/5 rounded-lg p-4">
                 <h4 className="font-semibold mb-2 flex items-center gap-2">
@@ -309,6 +320,64 @@ export default function QuickBooksHelp() {
             </CardContent>
           </Card>
 
+          {/* Bank Account Mappings */}
+          <Card id="bank-accounts">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                Bank Account Mappings
+              </CardTitle>
+              <CardDescription>
+                Link your local banks to QuickBooks bank accounts
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                Map your company's bank accounts to their corresponding QuickBooks bank accounts. This ensures payments and checks are posted to the correct accounts:
+              </p>
+              
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="text-sm font-medium text-primary">1</span>
+                  </div>
+                  <div>
+                    <p className="font-medium">Add Banks in Admin Settings</p>
+                    <p className="text-sm text-muted-foreground">
+                      First, create your company's bank accounts in Admin Settings → General → Bank Management.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="text-sm font-medium text-primary">2</span>
+                  </div>
+                  <div>
+                    <p className="font-medium">Map to QuickBooks Accounts</p>
+                    <p className="text-sm text-muted-foreground">
+                      In QuickBooks Mappings, go to the Bank Accounts section and link each local bank to a QuickBooks bank account.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="text-sm font-medium text-primary">3</span>
+                  </div>
+                  <div>
+                    <p className="font-medium">Select Bank When Recording Payments</p>
+                    <p className="text-sm text-muted-foreground">
+                      When recording bill payments or commission payments, select the bank account. The corresponding QuickBooks account will be used for the transaction.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                <strong>Important:</strong> Commission payments require a mapped bank account. If no bank is selected or mapped, you'll see an error during sync.
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Vendor Matching */}
           <Card id="vendor-matching">
             <CardHeader>
@@ -342,6 +411,77 @@ export default function QuickBooksHelp() {
 
               <div className="bg-muted/50 rounded-lg p-3 text-sm">
                 <strong>Visual Indicator:</strong> Subcontractors without a QuickBooks mapping show a "Not in QB" badge in the vendor dropdown when creating bills.
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Commission Payments */}
+          <Card id="commission-payments">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-primary" />
+                Commission Payments
+              </CardTitle>
+              <CardDescription>
+                Track salesperson commissions in QuickBooks
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                Commission payments to salespeople are synced to QuickBooks as Check (Purchase) transactions. This allows you to track commissions as expenses while linking them to specific projects for accurate job costing.
+              </p>
+              
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold mb-2">How It Works</h4>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
+                    <li>Commission payments are recorded via the project's Finance tab → Commissions section</li>
+                    <li>Each payment is linked to a salesperson and the project</li>
+                    <li>When synced, a Check transaction is created in QuickBooks</li>
+                    <li>The expense is categorized using your mapped expense account</li>
+                    <li>The payment is linked to the project's customer for job costing reports</li>
+                  </ul>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <h4 className="font-semibold mb-2">Required Mappings</h4>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Before syncing commission payments, ensure you have configured:
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
+                    <li><strong>Salesperson → Vendor Mapping</strong> — Link salespeople to QuickBooks vendors</li>
+                    <li><strong>Expense Account</strong> — The account where commission expenses are posted</li>
+                    <li><strong>Bank Account</strong> — The bank account from which the payment is made</li>
+                  </ul>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <h4 className="font-semibold mb-2">Salesperson to Vendor Mapping</h4>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Each salesperson must be mapped to a QuickBooks vendor before their commission payments can sync:
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 ml-4">
+                    <li>Go to Admin Settings → Integrations → QuickBooks Mappings</li>
+                    <li>Find the Salesperson/Vendor Mappings section</li>
+                    <li>Search for existing vendors or mark for auto-creation</li>
+                    <li>Unmapped salespeople show a "Not in QB" indicator</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="bg-primary/5 rounded-lg p-4">
+                <h4 className="font-semibold mb-2">Customer Linking for Job Costing</h4>
+                <p className="text-sm text-muted-foreground">
+                  Commission payments are automatically linked to the project's customer in QuickBooks. This means commission expenses will appear in job profitability reports, giving you a complete picture of project costs including sales commissions.
+                </p>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                <strong>Note:</strong> Commission payment deletions also sync to QuickBooks—the corresponding Check transaction will be deleted automatically.
               </div>
             </CardContent>
           </Card>
@@ -618,6 +758,20 @@ export default function QuickBooksHelp() {
                 <h4 className="font-semibold mb-1">Can I connect to a QuickBooks sandbox?</h4>
                 <p className="text-sm text-muted-foreground">
                   Yes, the system supports both sandbox and production QuickBooks environments. It automatically detects which environment you're connected to and routes API calls accordingly.
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="font-semibold mb-1">How do commission payments sync?</h4>
+                <p className="text-sm text-muted-foreground">
+                  Commission payments are synced as Check (Purchase) transactions in QuickBooks. They're linked to the salesperson as the vendor and to the project's customer for job costing. Make sure you have mapped the salesperson to a vendor and configured a bank account.
+                </p>
+              </div>
+              <Separator />
+              <div>
+                <h4 className="font-semibold mb-1">Why is my commission payment failing to sync?</h4>
+                <p className="text-sm text-muted-foreground">
+                  Commission payments require: (1) the salesperson mapped to a QuickBooks vendor, (2) a bank account selected on the payment and mapped in QuickBooks settings, and (3) an expense account configured. Check these mappings if you see sync errors.
                 </p>
               </div>
             </CardContent>
