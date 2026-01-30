@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords, checkOnly } = await req.json();
+    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords, checkOnly, checkVendorName } = await req.json();
 
     if (!companyId) {
       return new Response(
@@ -269,16 +269,25 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Check for bills
-      if (syncType === "bill" && recordId) {
-        const { data: bill } = await supabase
-          .from("project_bills")
-          .select("installer_company")
-          .eq("id", recordId)
-          .single();
+      // Check for bills - support both recordId lookup and direct vendor name check
+      if (syncType === "bill") {
+        let vendorNameToCheck: string | null = null;
         
-        if (bill?.installer_company) {
-          const check = await checkVendorExists(bill.installer_company);
+        if (recordId) {
+          // Lookup vendor from existing bill record
+          const { data: bill } = await supabase
+            .from("project_bills")
+            .select("installer_company")
+            .eq("id", recordId)
+            .single();
+          vendorNameToCheck = bill?.installer_company || null;
+        } else if (checkVendorName) {
+          // Direct vendor name check (pre-save mode)
+          vendorNameToCheck = checkVendorName;
+        }
+        
+        if (vendorNameToCheck) {
+          const check = await checkVendorExists(vendorNameToCheck);
           if (!check.exists) {
             pendingEntities.push({ type: "vendor", name: check.name });
           }

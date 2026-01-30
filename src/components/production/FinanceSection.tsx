@@ -220,6 +220,12 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     onConfirm: () => void;
     onCancel: () => void;
   } | null>(null);
+  
+  // Pending save state for pre-save QB confirmation
+  const [pendingBillSave, setPendingBillSave] = useState<{
+    bill: Partial<Bill>;
+    pendingEntities: { type: string; name: string }[];
+  } | null>(null);
 
   // Auto-open bill dialog when returning from subcontractor add
   useEffect(() => {
@@ -613,6 +619,35 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     }
   };
 
+  // Pre-save check for vendor existence (before bill is created)
+  const checkVendorBeforeSave = async (vendorName: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[] }> => {
+    if (!companyId || !vendorName) return { requiresConfirmation: false, pendingEntities: [] };
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
+        body: {
+          companyId,
+          syncType: "bill",
+          checkOnly: true,
+          checkVendorName: vendorName,
+        },
+      });
+      
+      if (error) {
+        console.error("QuickBooks vendor check error:", error);
+        return { requiresConfirmation: false, pendingEntities: [] };
+      }
+      
+      return { 
+        requiresConfirmation: data?.requiresConfirmation || false, 
+        pendingEntities: data?.pendingEntities || [] 
+      };
+    } catch (err) {
+      console.error("Failed to check QuickBooks vendor:", err);
+      return { requiresConfirmation: false, pendingEntities: [] };
+    }
+  };
+
   // Helper to sync a record to QuickBooks after create/update - returns true if synced successfully
   const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill" | "bill_payment", recordId: string): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
     if (!companyId) return { synced: false };
@@ -1002,11 +1037,12 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         }
       }
 
-      // Sync to QuickBooks if connected (with confirmation for new vendors)
+      // Sync to QuickBooks if connected (user already confirmed new vendor creation before save)
       let qbSynced = false;
       let qbNewEntities: { type: string; name: string }[] = [];
       if (savedRecordId) {
-        const qbResult = await syncWithConfirmation("bill", savedRecordId);
+        // Use direct sync since confirmation was already handled in handleBillSaveWithQbCheck
+        const qbResult = await syncRecordToQuickBooks("bill", savedRecordId);
         qbSynced = qbResult.synced;
         qbNewEntities = qbResult.newEntities || [];
       }
@@ -1032,6 +1068,27 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
+
+  // Handler to check QB before saving bill - shows confirmation dialog if new vendor needed
+  const handleBillSaveWithQbCheck = async (billData: Partial<Bill>) => {
+    // For new bills with a vendor, check if vendor exists in QB first
+    if (!editingBill?.id && billData.installer_company) {
+      const check = await checkVendorBeforeSave(billData.installer_company);
+      
+      if (check.requiresConfirmation && check.pendingEntities.length > 0) {
+        // Store pending data and show confirmation dialog
+        setPendingBillSave({
+          bill: billData,
+          pendingEntities: check.pendingEntities,
+        });
+        setQbConfirmDialogOpen(true);
+        return; // Don't save yet - wait for user confirmation
+      }
+    }
+    
+    // No confirmation needed - proceed with save
+    saveBillMutation.mutate(billData);
+  };
 
   // Quick pay mutation for adding a single payment to a bill
   const quickPayMutation = useMutation({
@@ -2599,7 +2656,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         open={billDialogOpen}
         onOpenChange={setBillDialogOpen}
         bill={editingBill}
-        onSave={(data) => saveBillMutation.mutate(data)}
+        onSave={handleBillSaveWithQbCheck}
         isPending={saveBillMutation.isPending}
         projectId={projectId}
         agreements={agreements}
@@ -2804,8 +2861,14 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
       {/* QuickBooks New Entity Confirmation Dialog */}
       <AlertDialog open={qbConfirmDialogOpen} onOpenChange={(open) => {
-        if (!open && pendingQbSync) {
-          pendingQbSync.onCancel();
+        if (!open) {
+          // Handle cancel for both pending sync and pending bill save
+          if (pendingQbSync) {
+            pendingQbSync.onCancel();
+          }
+          if (pendingBillSave) {
+            setPendingBillSave(null);
+          }
         }
       }}>
         <AlertDialogContent>
@@ -2813,7 +2876,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
             <AlertDialogTitle>Create New QuickBooks Entry?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div>
-                {pendingQbSync?.pendingEntities.map((entity, idx) => (
+                {/* Show entities from pendingBillSave or pendingQbSync */}
+                {(pendingBillSave?.pendingEntities || pendingQbSync?.pendingEntities)?.map((entity, idx) => (
                   <span key={idx} className="block">
                     {entity.type === "customer" 
                       ? `Customer "${entity.name}" does not exist in QuickBooks and will be created.`
@@ -2826,10 +2890,28 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
             </AlertDialogDescription>
           </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => pendingQbSync?.onCancel()}>
+              <AlertDialogCancel onClick={() => {
+                // Cancel - discard pending data, don't save
+                if (pendingBillSave) {
+                  setPendingBillSave(null);
+                }
+                if (pendingQbSync) {
+                  pendingQbSync.onCancel();
+                }
+                setQbConfirmDialogOpen(false);
+              }}>
                 Cancel
               </AlertDialogCancel>
-            <AlertDialogAction onClick={() => pendingQbSync?.onConfirm()}>
+            <AlertDialogAction onClick={() => {
+              // Confirm - proceed with save
+              if (pendingBillSave) {
+                saveBillMutation.mutate(pendingBillSave.bill);
+                setPendingBillSave(null);
+                setQbConfirmDialogOpen(false);
+              } else if (pendingQbSync) {
+                pendingQbSync.onConfirm();
+              }
+            }}>
               Create & Sync
             </AlertDialogAction>
           </AlertDialogFooter>
