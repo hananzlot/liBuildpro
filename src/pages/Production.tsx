@@ -2484,18 +2484,23 @@ export default function Production() {
           open={detailSheetOpen}
           onOpenChange={(open) => {
             if (!open) {
-              // Handle return-to behavior
+              // Handle return-to behavior - navigate back to the source sheet
               if (returnToAfterProjectClose === 'payables') {
                 setReopenPayablesSheet(true);
+                // Navigate back to analytics cashflow with payables section
+                navigate('/production?view=analytics&tab=cashflow&section=payables', { replace: true });
               } else if (returnToAfterProjectClose === 'outstandingAR') {
                 setReopenARSheet(true);
+                // Navigate back to analytics cashflow with AR section
+                navigate('/production?view=analytics&tab=cashflow&section=ar', { replace: true });
+              } else {
+                // Default: Navigate back to production list
+                navigate('/production', { replace: true });
               }
               setProjectInitialTab(undefined);
               setProjectInitialFinanceSubTab(undefined);
               setReturnToAfterProjectClose(null);
               setHighlightedInvoiceId(null);
-              // Navigate back to production list
-              navigate('/production', { replace: true });
             }
           }}
           onUpdate={refetch}
