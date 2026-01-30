@@ -48,7 +48,13 @@ export function PortalChatProvider({ children }: { children: React.ReactNode }) 
 export function usePortalChat() {
   const context = useContext(PortalChatContext);
   if (!context) {
-    throw new Error('usePortalChat must be used within a PortalChatProvider');
+    // Return a no-op version when used outside provider (e.g., during initial render)
+    return {
+      openChatDialog: () => {},
+      closeChatDialog: () => {},
+      isDialogOpen: false,
+      currentProjectId: null,
+    };
   }
   return context;
 }
