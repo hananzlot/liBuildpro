@@ -2087,9 +2087,16 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                             </TableCell>
                             <TableCell>
                               {bill.is_voided ? (
-                                <p className="text-[10px] text-muted-foreground italic max-w-[120px] truncate" title={bill.void_reason || ""}>
-                                  {bill.void_reason || "No reason"}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-[10px] text-muted-foreground italic max-w-[100px] truncate" title={bill.void_reason || ""}>
+                                    {bill.void_reason || "Deleted in QB"}
+                                  </p>
+                                  {(isAdmin || isSuperAdmin) && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
                               ) : (
                                 <div className="flex gap-1">
                                   <Button 
