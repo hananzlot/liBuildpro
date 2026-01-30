@@ -2083,7 +2083,7 @@ export default function Production() {
                             key={project.id} 
                             className={cn(
                               "cursor-pointer hover:bg-muted/50",
-                              showAlternatingColors && index % 2 === 1 && "bg-muted/40"
+                              showAlternatingColors && index % 2 === 1 && "bg-muted/50"
                             )}
                             onClick={() => handleOpenProject(project)}
                           >
