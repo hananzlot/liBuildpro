@@ -76,50 +76,80 @@ serve(async (req) => {
       (u) => u.email?.toLowerCase() === email.toLowerCase()
     );
 
+    let userId: string;
+    let tempPassword: string | null = null;
+    let isExistingUser = false;
+
     if (existingUser) {
-      throw new Error("A user with this email already exists");
-    }
+      // User exists - reassign to new company
+      isExistingUser = true;
+      userId = existingUser.id;
 
-    // Generate temporary password
-    const tempPassword = generateTempPassword();
+      // Update profile with new company_id
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .update({ 
+          company_id: companyId,
+          full_name: fullName || existingUser.user_metadata?.full_name
+        })
+        .eq("id", userId);
 
-    // Create the user
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName,
-        requires_password_change: true,
-        is_new_company_admin: true,
-      },
-    });
+      if (profileError) {
+        console.error("Profile update error:", profileError);
+        throw new Error("Failed to update user profile");
+      }
 
-    if (createError || !newUser.user) {
-      console.error("Create user error:", createError);
-      throw new Error(createError?.message || "Failed to create user");
-    }
+      // Ensure admin role exists
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
 
-    // Update profile with company_id
-    const { error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .update({ 
-        company_id: companyId,
-        full_name: fullName 
-      })
-      .eq("id", newUser.user.id);
+      if (roleError) {
+        console.error("Role assignment error:", roleError);
+      }
+    } else {
+      // Create new user
+      tempPassword = generateTempPassword();
 
-    if (profileError) {
-      console.error("Profile update error:", profileError);
-    }
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName,
+          requires_password_change: true,
+          is_new_company_admin: true,
+        },
+      });
 
-    // Assign admin role
-    const { error: roleError } = await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: newUser.user.id, role: "admin" });
+      if (createError || !newUser.user) {
+        console.error("Create user error:", createError);
+        throw new Error(createError?.message || "Failed to create user");
+      }
 
-    if (roleError) {
-      console.error("Role assignment error:", roleError);
+      userId = newUser.user.id;
+
+      // Update profile with company_id
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .update({ 
+          company_id: companyId,
+          full_name: fullName 
+        })
+        .eq("id", userId);
+
+      if (profileError) {
+        console.error("Profile update error:", profileError);
+      }
+
+      // Assign admin role
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .insert({ user_id: userId, role: "admin" });
+
+      if (roleError) {
+        console.error("Role assignment error:", roleError);
+      }
     }
 
     // Get Resend API key (platform default)
@@ -205,8 +235,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        userId: newUser.user.id,
-        tempPassword, // Return so UI can show it as backup
+        userId,
+        tempPassword,
+        isExistingUser,
       }),
       {
         status: 200,
