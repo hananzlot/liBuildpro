@@ -6,13 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Loader2, RefreshCw, Settings2, Search } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw, Settings2, Search, EyeOff, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DebouncedInput } from "@/components/ui/debounced-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { QuickBooksMatchingRules } from "./QuickBooksMatchingRules";
+import { Switch } from "@/components/ui/switch";
 
 interface QBEntity {
   id: string;
@@ -31,6 +32,11 @@ interface MappingRow {
   is_default: boolean;
 }
 
+interface HiddenRecords {
+  customers: string[];
+  vendors: string[];
+}
+
 export function QuickBooksMappingConfig() {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -40,6 +46,8 @@ export function QuickBooksMappingConfig() {
   const [customerSearch, setCustomerSearch] = useState("");
   const [vendorSearch, setVendorSearch] = useState("");
   const [glSearch, setGlSearch] = useState("");
+  const [showHiddenCustomers, setShowHiddenCustomers] = useState(false);
+  const [showHiddenVendors, setShowHiddenVendors] = useState(false);
 
   // First, verify a connection exists before attempting any entity calls
   const { data: connection, isLoading: connectionLoading } = useQuery({
@@ -106,6 +114,74 @@ export function QuickBooksMappingConfig() {
     enabled: !!companyId,
   });
 
+  // Fetch hidden records from company_settings
+  const { data: hiddenRecords } = useQuery({
+    queryKey: ["qb-hidden-records", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "qb_hidden_records")
+        .maybeSingle();
+      
+      if (error) throw error;
+      if (data?.setting_value) {
+        try {
+          return JSON.parse(data.setting_value) as HiddenRecords;
+        } catch {
+          return { customers: [], vendors: [] };
+        }
+      }
+      return { customers: [], vendors: [] };
+    },
+    enabled: !!companyId,
+  });
+
+  // Mutation to update hidden records
+  const updateHiddenMutation = useMutation({
+    mutationFn: async (newHidden: HiddenRecords) => {
+      const { error } = await supabase
+        .from("company_settings")
+        .upsert({
+          company_id: companyId,
+          setting_key: "qb_hidden_records",
+          setting_value: JSON.stringify(newHidden),
+          setting_type: "json",
+          description: "Hidden records from QuickBooks matching screen",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "company_id,setting_key" });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["qb-hidden-records", companyId] });
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to update: " + error.message);
+    },
+  });
+
+  const toggleHideCustomer = (contactId: string) => {
+    const current = hiddenRecords || { customers: [], vendors: [] };
+    const isHidden = current.customers.includes(contactId);
+    const newCustomers = isHidden
+      ? current.customers.filter((id) => id !== contactId)
+      : [...current.customers, contactId];
+    updateHiddenMutation.mutate({ ...current, customers: newCustomers });
+    toast.success(isHidden ? "Contact unhidden" : "Contact hidden from matching");
+  };
+
+  const toggleHideVendor = (subId: string) => {
+    const current = hiddenRecords || { customers: [], vendors: [] };
+    const isHidden = current.vendors.includes(subId);
+    const newVendors = isHidden
+      ? current.vendors.filter((id) => id !== subId)
+      : [...current.vendors, subId];
+    updateHiddenMutation.mutate({ ...current, vendors: newVendors });
+    toast.success(isHidden ? "Subcontractor unhidden" : "Subcontractor hidden from matching");
+  };
+
   // Fetch local subcontractors (vendors)
   const { data: subcontractors } = useQuery({
     queryKey: ["subcontractors-for-mapping", companyId],
@@ -155,9 +231,15 @@ export function QuickBooksMappingConfig() {
   });
 
   // Filter out contacts that only have phone numbers as names (not useful for matching)
+  // Also filter out hidden contacts unless showHiddenCustomers is true
   const contacts = useMemo(() => {
     if (!contactsRaw) return [];
+    const hiddenCustomerIds = hiddenRecords?.customers || [];
     return contactsRaw.filter((c) => {
+      // Filter by hidden status
+      const isHidden = hiddenCustomerIds.includes(c.id);
+      if (isHidden && !showHiddenCustomers) return false;
+      
       // Keep if has email
       if (c.email) return true;
       // Keep if has first/last name
@@ -166,7 +248,7 @@ export function QuickBooksMappingConfig() {
       if (c.contact_name && !looksLikePhoneNumber(c.contact_name)) return true;
       return false;
     }).slice(0, 100); // Limit to 100 after filtering
-  }, [contactsRaw]);
+  }, [contactsRaw, hiddenRecords?.customers, showHiddenCustomers]);
 
   // Fetch QB entities
   const { data: accounts, isLoading: accountsLoading, refetch: refetchAccounts } = useQuery({
@@ -356,9 +438,19 @@ export function QuickBooksMappingConfig() {
   // Contacts are already filtered server-side, so just use them directly
   const filteredContacts = contacts || [];
 
-  const filteredSubcontractors = subcontractors?.filter(s =>
-    s.company_name?.toLowerCase().includes(vendorSearch.toLowerCase())
-  ) || [];
+  // Filter subcontractors - also apply hidden filter
+  const filteredSubcontractors = useMemo(() => {
+    const hiddenVendorIds = hiddenRecords?.vendors || [];
+    return (subcontractors || []).filter((s) => {
+      const isHidden = hiddenVendorIds.includes(s.id);
+      if (isHidden && !showHiddenVendors) return false;
+      return s.company_name?.toLowerCase().includes(vendorSearch.toLowerCase());
+    });
+  }, [subcontractors, hiddenRecords?.vendors, showHiddenVendors, vendorSearch]);
+
+  // Count hidden records
+  const hiddenCustomerCount = hiddenRecords?.customers?.length || 0;
+  const hiddenVendorCount = hiddenRecords?.vendors?.length || 0;
 
   const isLoading = connectionLoading || mappingsLoading || accountsLoading || itemsLoading || paymentMethodsLoading;
 
@@ -605,10 +697,26 @@ export function QuickBooksMappingConfig() {
 
           <TabsContent value="customers" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label>Map Contacts to QuickBooks Customers</Label>
-              <p className="text-xs text-muted-foreground mb-3">
-                Link your local contacts to existing QuickBooks customers for accurate invoice syncing
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Map Contacts to QuickBooks Customers</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Link your local contacts to existing QuickBooks customers for accurate invoice syncing
+                  </p>
+                </div>
+                {hiddenCustomerCount > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="show-hidden-customers" className="text-xs text-muted-foreground">
+                      Show hidden ({hiddenCustomerCount})
+                    </Label>
+                    <Switch
+                      id="show-hidden-customers"
+                      checked={showHiddenCustomers}
+                      onCheckedChange={setShowHiddenCustomers}
+                    />
+                  </div>
+                )}
+              </div>
               
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -642,9 +750,19 @@ export function QuickBooksMappingConfig() {
                   {filteredContacts.map((contact) => {
                     const displayName = contact.contact_name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || contact.email || "Unnamed";
                     const existingMapping = getSourceMapping("customer", contact.id);
+                    const isHidden = hiddenRecords?.customers?.includes(contact.id);
                     
                     return (
-                      <div key={contact.id} className={`flex items-center gap-3 p-2 rounded-md border ${existingMapping ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : "bg-background"}`}>
+                      <div 
+                        key={contact.id} 
+                        className={`flex items-center gap-3 p-2 rounded-md border ${
+                          isHidden 
+                            ? "bg-muted/50 border-dashed opacity-60" 
+                            : existingMapping 
+                              ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" 
+                              : "bg-background"
+                        }`}
+                      >
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{displayName}</p>
                           {contact.email && (
@@ -671,6 +789,15 @@ export function QuickBooksMappingConfig() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => toggleHideCustomer(contact.id)}
+                          title={isHidden ? "Unhide from matching" : "Hide from matching"}
+                        >
+                          {isHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                        </Button>
                       </div>
                     );
                   })}
@@ -691,10 +818,26 @@ export function QuickBooksMappingConfig() {
 
           <TabsContent value="vendors" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label>Map Subcontractors to QuickBooks Vendors</Label>
-              <p className="text-xs text-muted-foreground mb-3">
-                Link your local subcontractors to existing QuickBooks vendors for accurate bill syncing
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Map Subcontractors to QuickBooks Vendors</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Link your local subcontractors to existing QuickBooks vendors for accurate bill syncing
+                  </p>
+                </div>
+                {hiddenVendorCount > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="show-hidden-vendors" className="text-xs text-muted-foreground">
+                      Show hidden ({hiddenVendorCount})
+                    </Label>
+                    <Switch
+                      id="show-hidden-vendors"
+                      checked={showHiddenVendors}
+                      onCheckedChange={setShowHiddenVendors}
+                    />
+                  </div>
+                )}
+              </div>
               
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -717,9 +860,19 @@ export function QuickBooksMappingConfig() {
                 <div className="space-y-3">
                   {filteredSubcontractors.map((sub) => {
                     const existingMapping = getSourceMapping("vendor", sub.id);
+                    const isHidden = hiddenRecords?.vendors?.includes(sub.id);
                     
                     return (
-                      <div key={sub.id} className={`flex items-center gap-3 p-2 rounded-md border ${existingMapping ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" : "bg-background"}`}>
+                      <div 
+                        key={sub.id} 
+                        className={`flex items-center gap-3 p-2 rounded-md border ${
+                          isHidden 
+                            ? "bg-muted/50 border-dashed opacity-60" 
+                            : existingMapping 
+                              ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" 
+                              : "bg-background"
+                        }`}
+                      >
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{sub.company_name || "Unnamed"}</p>
                         </div>
@@ -743,6 +896,15 @@ export function QuickBooksMappingConfig() {
                             ))}
                           </SelectContent>
                         </Select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => toggleHideVendor(sub.id)}
+                          title={isHidden ? "Unhide from matching" : "Hide from matching"}
+                        >
+                          {isHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                        </Button>
                       </div>
                     );
                   })}
