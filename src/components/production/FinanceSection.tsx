@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -348,6 +349,38 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     },
   });
 
+  // Fetch auto sync flag
+  const { data: projectSyncFlag } = useQuery({
+    queryKey: ["project-auto-sync-qb", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("auto_sync_to_quickbooks")
+        .eq("id", projectId)
+        .single();
+      if (error) throw error;
+      return data?.auto_sync_to_quickbooks ?? false;
+    },
+  });
+
+  // Mutation to toggle auto sync flag
+  const toggleAutoSyncMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const { error } = await supabase
+        .from("projects")
+        .update({ auto_sync_to_quickbooks: enabled })
+        .eq("id", projectId);
+      if (error) throw error;
+    },
+    onSuccess: (_, enabled) => {
+      queryClient.invalidateQueries({ queryKey: ["project-auto-sync-qb", projectId] });
+      toast.success(enabled ? "Auto-sync to QuickBooks enabled" : "Auto-sync to QuickBooks disabled");
+    },
+    onError: () => {
+      toast.error("Failed to update auto-sync setting");
+    },
+  });
+
   // Calculate totals - exclude voided bills and payments
   const activeBills = bills.filter(b => !b.is_voided);
   const activePayments = payments.filter(p => !p.is_voided);
@@ -356,7 +389,6 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const totalBills = activeBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
   const totalBillsPaid = activeBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
   const totalAgreementsValue = agreements.reduce((sum, a) => sum + (a.total_price || 0), 0);
-
   // Helper functions to check phase status
   const getPhaseInvoiceStatus = (phaseId: string) => {
     const phaseInvoices = invoices.filter(inv => inv.payment_phase_id === phaseId);
@@ -1367,6 +1399,24 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
   return (
     <div className="space-y-4">
+      {/* Auto Sync to QuickBooks Toggle */}
+      <div className="flex items-center justify-between p-3 rounded-lg border bg-card">
+        <div className="flex items-center gap-2">
+          <Label htmlFor="auto-sync-qb" className="text-sm font-medium cursor-pointer">
+            Auto Sync to QuickBooks
+          </Label>
+          <span className="text-xs text-muted-foreground">
+            When enabled, financial records for this project will automatically sync to QuickBooks
+          </span>
+        </div>
+        <Switch
+          id="auto-sync-qb"
+          checked={projectSyncFlag ?? false}
+          onCheckedChange={(checked) => toggleAutoSyncMutation.mutate(checked)}
+          disabled={toggleAutoSyncMutation.isPending}
+        />
+      </div>
+
       {/* Profitability by Agreement - Collapsible */}
       {agreements.length > 0 && (
         <Collapsible defaultOpen={false}>
