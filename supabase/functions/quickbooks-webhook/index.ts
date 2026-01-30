@@ -500,6 +500,44 @@ async function processEntityChange(
   // For Create/Update operations
   if (operation === "Create" || operation === "Update") {
     if (syncLog) {
+      // For invoice updates, immediately fetch the latest invoice from QB and update locally.
+      // (Previously we only marked pending_refresh, but no worker consumed it, so updates never applied.)
+      if (operation === "Update" && entityType === "Invoice") {
+        // If this record was already deleted in QB, ignore subsequent updates.
+        if (syncLog.sync_status === "deleted_in_qb") {
+          log("info", `Ignoring update for Invoice ${qbId} because sync log is deleted_in_qb`);
+          return;
+        }
+
+        log("info", `Invoice update detected in QuickBooks - fetching latest invoice ${qbId}`);
+
+        try {
+          const fetchResult = await supabase.functions.invoke("quickbooks-fetch-invoice", {
+            body: {
+              companyId,
+              qbInvoiceId: qbId,
+              realmId,
+              action: "update-existing",
+            },
+          });
+
+          if (fetchResult.error) {
+            log("error", `Failed to invoke quickbooks-fetch-invoice for update`, { error: fetchResult.error });
+          } else if (fetchResult.data?.error) {
+            log("warn", `quickbooks-fetch-invoice returned error for update`, { error: fetchResult.data.error });
+          } else {
+            log("info", `✓ Updated local invoice from QB update webhook`, fetchResult.data);
+            return;
+          }
+        } catch (err) {
+          log("error", `Exception invoking quickbooks-fetch-invoice for update`, {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+
+        // Fallback: mark pending_refresh if the immediate fetch failed.
+      }
+
       // We have this record - mark it as needing refresh
       log("info", `Marking existing ${entityType} ${qbId} for refresh`);
       const { error: updateError } = await supabase
