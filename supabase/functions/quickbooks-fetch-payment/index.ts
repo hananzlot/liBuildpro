@@ -437,16 +437,43 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (invoiceSyncLog?.record_id) {
+            // CRITICAL: Get all payment IDs that are already synced to a DIFFERENT QB payment
+            // We must exclude these from fallback matching to prevent cross-linking
+            const { data: alreadySyncedPayments } = await supabase
+              .from("quickbooks_sync_log")
+              .select("record_id")
+              .eq("company_id", companyId)
+              .eq("record_type", "payment")
+              .neq("quickbooks_id", qbPaymentId) // Different QB ID
+              .not("record_id", "is", null);
+            
+            const excludedPaymentIds = (alreadySyncedPayments || []).map(p => p.record_id);
+            log("info", "Excluding already-synced payments from fallback match", { 
+              excludedCount: excludedPaymentIds.length,
+              qbPaymentId 
+            });
+
             // Find payment linked to this invoice that matches the QB payment
             // Priority: 1) exact match on amount + date + ref#, 2) amount + date, 3) amount + ref#, 4) amount only, 5) single payment
 
-            // Try exact match: amount + date + check_number
-            if (qbPayment.PaymentRefNum) {
-              const { data: exactMatch } = await supabase
+            // Helper to build base query excluding already-synced payments
+            const basePaymentQuery = () => {
+              let query = supabase
                 .from("project_payments")
                 .select("id")
                 .eq("company_id", companyId)
-                .eq("invoice_id", invoiceSyncLog.record_id)
+                .eq("invoice_id", invoiceSyncLog.record_id);
+              
+              // Exclude payments already linked to different QB IDs
+              if (excludedPaymentIds.length > 0) {
+                query = query.not("id", "in", `(${excludedPaymentIds.join(",")})`);
+              }
+              return query;
+            };
+
+            // Try exact match: amount + date + check_number
+            if (qbPayment.PaymentRefNum) {
+              const { data: exactMatch } = await basePaymentQuery()
                 .eq("payment_amount", qbPayment.TotalAmt)
                 .eq("projected_received_date", qbPayment.TxnDate)
                 .eq("check_number", qbPayment.PaymentRefNum)
@@ -460,11 +487,7 @@ Deno.serve(async (req) => {
 
             // Fallback: amount + date (no ref# match)
             if (!localPaymentId) {
-              const { data: dateMatch } = await supabase
-                .from("project_payments")
-                .select("id")
-                .eq("company_id", companyId)
-                .eq("invoice_id", invoiceSyncLog.record_id)
+              const { data: dateMatch } = await basePaymentQuery()
                 .eq("payment_amount", qbPayment.TotalAmt)
                 .eq("projected_received_date", qbPayment.TxnDate);
 
@@ -474,16 +497,7 @@ Deno.serve(async (req) => {
               } else if (dateMatch && dateMatch.length > 1) {
                 // Multiple matches with same amount+date - try to narrow by check_number
                 if (qbPayment.PaymentRefNum) {
-                  const refMatch = dateMatch.find(async (p) => {
-                    const { data: pmt } = await supabase.from("project_payments").select("check_number").eq("id", p.id).single();
-                    return pmt?.check_number === qbPayment.PaymentRefNum;
-                  });
-                  // Actually query for it properly
-                  const { data: refMatchPayment } = await supabase
-                    .from("project_payments")
-                    .select("id")
-                    .eq("company_id", companyId)
-                    .eq("invoice_id", invoiceSyncLog.record_id)
+                  const { data: refMatchPayment } = await basePaymentQuery()
                     .eq("payment_amount", qbPayment.TotalAmt)
                     .eq("check_number", qbPayment.PaymentRefNum)
                     .maybeSingle();
@@ -505,11 +519,7 @@ Deno.serve(async (req) => {
 
             // Fallback: amount only (if single match)
             if (!localPaymentId) {
-              const { data: amountMatch } = await supabase
-                .from("project_payments")
-                .select("id")
-                .eq("company_id", companyId)
-                .eq("invoice_id", invoiceSyncLog.record_id)
+              const { data: amountMatch } = await basePaymentQuery()
                 .eq("payment_amount", qbPayment.TotalAmt);
 
               if (amountMatch && amountMatch.length === 1) {
@@ -518,17 +528,18 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Last resort: if only one payment exists for this invoice total
+            // Last resort: if only one unsynced payment exists for this invoice
             if (!localPaymentId) {
-              const { data: allPayments } = await supabase
-                .from("project_payments")
-                .select("id")
-                .eq("company_id", companyId)
-                .eq("invoice_id", invoiceSyncLog.record_id);
+              const { data: allPayments } = await basePaymentQuery();
 
               if (allPayments && allPayments.length === 1) {
                 localPaymentId = allPayments[0].id;
-                log("info", "Found local payment via linked invoice (single payment)", { paymentId: localPaymentId });
+                log("info", "Found local payment via linked invoice (single unsynced payment)", { paymentId: localPaymentId });
+              } else if (allPayments && allPayments.length === 0) {
+                log("warn", "No unsynced payments found for invoice - all payments already linked to other QB IDs", {
+                  invoiceId: invoiceSyncLog.record_id,
+                  qbPaymentId
+                });
               }
             }
           }
@@ -557,16 +568,32 @@ Deno.serve(async (req) => {
                 .maybeSingle();
 
               if (project) {
-                // Find recent payment with similar amount
-                const { data: matchingPayment } = await supabase
+                // Get payment IDs already synced to different QB payments
+                const { data: alreadySyncedPayments } = await supabase
+                  .from("quickbooks_sync_log")
+                  .select("record_id")
+                  .eq("company_id", companyId)
+                  .eq("record_type", "payment")
+                  .neq("quickbooks_id", qbPaymentId)
+                  .not("record_id", "is", null);
+                
+                const excludedPaymentIds = (alreadySyncedPayments || []).map(p => p.record_id);
+
+                // Find recent payment with similar amount, excluding already-synced ones
+                let query = supabase
                   .from("project_payments")
                   .select("id")
                   .eq("company_id", companyId)
                   .eq("project_id", project.id)
-                  .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+                  .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
                   .order("created_at", { ascending: false })
-                  .limit(1)
-                  .maybeSingle();
+                  .limit(1);
+
+                if (excludedPaymentIds.length > 0) {
+                  query = query.not("id", "in", `(${excludedPaymentIds.join(",")})`);
+                }
+
+                const { data: matchingPayment } = await query.maybeSingle();
 
                 if (matchingPayment) {
                   localPaymentId = matchingPayment.id;
