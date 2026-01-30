@@ -71,6 +71,7 @@ interface PaymentDetail {
   amount: number;
   date: string | null;
   projectName: string | null;
+  projectAddress: string | null;
   projectId: string | null;
   reference: string | null;
   status: string | null;
@@ -191,29 +192,34 @@ export function BankManagement() {
         .eq("bank_name", selectedBank.name)
         .eq("is_voided", false);
 
-      // Get project names for the payments
+      // Get project names and addresses for the payments
       const projectIds = [...new Set((projectPayments || []).map(p => p.project_id).filter(Boolean))];
-      let projectMap: Record<string, string> = {};
+      let projectMap: Record<string, { name: string; address: string | null }> = {};
       
       if (projectIds.length > 0) {
         const { data: projects } = await supabase
           .from("projects")
-          .select("id, project_name")
+          .select("id, project_name, project_address")
           .in("id", projectIds);
         
         projectMap = (projects || []).reduce((acc, p) => {
-          acc[p.id] = p.project_name || "Unknown Project";
+          acc[p.id] = { 
+            name: p.project_name || "Unknown Project",
+            address: p.project_address || null
+          };
           return acc;
-        }, {} as Record<string, string>);
+        }, {} as Record<string, { name: string; address: string | null }>);
       }
 
       (projectPayments || []).forEach(p => {
+        const projectInfo = p.project_id ? projectMap[p.project_id] : null;
         payments.push({
           id: p.id,
           type: "received",
           amount: p.payment_amount || 0,
           date: p.projected_received_date,
-          projectName: p.project_id ? projectMap[p.project_id] || "Unknown" : null,
+          projectName: projectInfo?.name || null,
+          projectAddress: projectInfo?.address || null,
           projectId: p.project_id,
           reference: p.check_number,
           status: p.payment_status,
@@ -229,7 +235,7 @@ export function BankManagement() {
 
       // Get bill -> project mapping
       const billIds = [...new Set((billPayments || []).map(p => p.bill_id).filter(Boolean))];
-      let billProjectMap: Record<string, { projectId: string; projectName: string }> = {};
+      let billProjectMap: Record<string, { projectId: string; projectName: string; projectAddress: string | null }> = {};
       
       if (billIds.length > 0) {
         const { data: bills } = await supabase
@@ -241,19 +247,24 @@ export function BankManagement() {
         if (billProjectIds.length > 0) {
           const { data: billProjects } = await supabase
             .from("projects")
-            .select("id, project_name")
+            .select("id, project_name, project_address")
             .in("id", billProjectIds);
           
-          const billProjectNames = (billProjects || []).reduce((acc, p) => {
-            acc[p.id] = p.project_name || "Unknown Project";
+          const billProjectData = (billProjects || []).reduce((acc, p) => {
+            acc[p.id] = { 
+              name: p.project_name || "Unknown Project",
+              address: p.project_address || null
+            };
             return acc;
-          }, {} as Record<string, string>);
+          }, {} as Record<string, { name: string; address: string | null }>);
 
           (bills || []).forEach(b => {
             if (b.project_id) {
+              const projData = billProjectData[b.project_id];
               billProjectMap[b.id] = {
                 projectId: b.project_id,
-                projectName: billProjectNames[b.project_id] || "Unknown",
+                projectName: projData?.name || "Unknown",
+                projectAddress: projData?.address || null,
               };
             }
           });
@@ -268,6 +279,7 @@ export function BankManagement() {
           amount: p.payment_amount || 0,
           date: p.payment_date,
           projectName: billInfo?.projectName || null,
+          projectAddress: billInfo?.projectAddress || null,
           projectId: billInfo?.projectId || null,
           reference: p.payment_reference,
           status: null,
@@ -282,27 +294,32 @@ export function BankManagement() {
         .eq("bank_name", selectedBank.name);
 
       const commProjectIds = [...new Set((commissionPayments || []).map(p => p.project_id).filter(Boolean))];
-      let commProjectMap: Record<string, string> = {};
+      let commProjectMap: Record<string, { name: string; address: string | null }> = {};
       
       if (commProjectIds.length > 0) {
         const { data: commProjects } = await supabase
           .from("projects")
-          .select("id, project_name")
+          .select("id, project_name, project_address")
           .in("id", commProjectIds);
         
         commProjectMap = (commProjects || []).reduce((acc, p) => {
-          acc[p.id] = p.project_name || "Unknown Project";
+          acc[p.id] = { 
+            name: p.project_name || "Unknown Project",
+            address: p.project_address || null
+          };
           return acc;
-        }, {} as Record<string, string>);
+        }, {} as Record<string, { name: string; address: string | null }>);
       }
 
       (commissionPayments || []).forEach(p => {
+        const projInfo = p.project_id ? commProjectMap[p.project_id] : null;
         payments.push({
           id: p.id,
           type: "paid",
           amount: p.payment_amount || 0,
           date: p.payment_date,
-          projectName: p.project_id ? commProjectMap[p.project_id] || "Unknown" : null,
+          projectName: projInfo?.name || null,
+          projectAddress: projInfo?.address || null,
           projectId: p.project_id,
           reference: p.salesperson_name ? `Commission: ${p.salesperson_name}` : p.payment_reference,
           status: null,
@@ -322,9 +339,12 @@ export function BankManagement() {
   // Filter payments
   const filteredPayments = useMemo(() => {
     return bankPayments.filter(p => {
-      // Project name filter
-      if (projectFilter && p.projectName) {
-        if (!p.projectName.toLowerCase().includes(projectFilter.toLowerCase())) {
+      // Project name or address filter
+      if (projectFilter) {
+        const searchTerm = projectFilter.toLowerCase();
+        const nameMatch = p.projectName?.toLowerCase().includes(searchTerm);
+        const addressMatch = p.projectAddress?.toLowerCase().includes(searchTerm);
+        if (!nameMatch && !addressMatch) {
           return false;
         }
       }
@@ -685,7 +705,7 @@ export function BankManagement() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Filter by project name..."
+                    placeholder="Filter by project name or address..."
                     value={projectFilter}
                     onChange={(e) => setProjectFilter(e.target.value)}
                     className="pl-9"
