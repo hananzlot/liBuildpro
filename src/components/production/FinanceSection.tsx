@@ -420,15 +420,17 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       
       if (error) {
         console.error("QuickBooks sync error:", error);
-        return { synced: false };
+        return { synced: false, message: error.message };
       } else if (data?.synced > 0) {
         console.log("QuickBooks record synced:", recordType, recordId);
         return { synced: true, newEntities: data?.newEntities || [] };
       }
-      return { synced: false };
+      const errorMessage = Array.isArray(data?.errors) && data.errors.length > 0 ? String(data.errors[0]) : undefined;
+      return { synced: false, message: errorMessage };
     } catch (err) {
       console.error("Failed to sync to QuickBooks:", err);
-      return { synced: false };
+      const errMsg = err instanceof Error ? err.message : "Unknown error";
+      return { synced: false, message: errMsg };
     }
   };
 
@@ -499,6 +501,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const saveInvoiceMutation = useMutation({
     mutationFn: async (invoice: Partial<Invoice>) => {
       let savedRecordId: string | undefined;
+      let qbMessage: string | undefined;
       
       if (editingInvoice?.id) {
         const { data: updatedInvoice, error } = await supabase
@@ -547,9 +550,10 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         const qbResult = await syncWithConfirmation("invoice", savedRecordId);
         qbSynced = qbResult.synced;
         qbNewEntities = qbResult.newEntities || [];
+        qbMessage = qbResult.message;
       }
 
-      return { qbSynced, isEdit: !!editingInvoice?.id, qbNewEntities };
+      return { qbSynced, isEdit: !!editingInvoice?.id, qbNewEntities, qbMessage };
     },
     onSuccess: (result) => {
       const baseMsg = result?.isEdit ? "Invoice updated" : "Invoice created";
@@ -560,6 +564,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         } else {
           toast.success(`${baseMsg} and synced to QuickBooks`);
         }
+      } else if (result?.qbMessage) {
+        const short = result.qbMessage.length > 220 ? `${result.qbMessage.slice(0, 220)}…` : result.qbMessage;
+        toast.error(`${baseMsg} but QuickBooks sync failed: ${short}`);
       } else {
         toast.success(baseMsg);
       }

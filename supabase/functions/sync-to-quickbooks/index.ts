@@ -7,6 +7,25 @@ const corsHeaders = {
 
 const QB_BASE_URL = "https://quickbooks.api.intuit.com/v3/company";
 
+function stripNullishDeep<T extends Record<string, any>>(obj: T): T {
+  if (!obj || typeof obj !== "object") return obj;
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val === null || val === undefined || val === "") {
+      delete obj[key];
+      continue;
+    }
+    if (typeof val === "object") {
+      stripNullishDeep(val);
+      // If nested object becomes empty, remove it
+      if (val && typeof val === "object" && !Array.isArray(val) && Object.keys(val).length === 0) {
+        delete obj[key];
+      }
+    }
+  }
+  return obj;
+}
+
 interface QBCustomer {
   DisplayName: string;
   PrimaryEmailAddr?: { Address: string };
@@ -343,14 +362,33 @@ Deno.serve(async (req) => {
             };
           }
 
-          const qbInvoice = {
-            CustomerRef: { value: customerResult.id },
+          const qbInvoice: any = {
+            CustomerRef: { value: String(customerResult.id) },
             DocNumber: invoice.invoice_number?.toString(),
             TxnDate: invoice.invoice_date?.split("T")[0],
             DueDate: invoice.due_date?.split("T")[0],
-            Line: [lineItem],
-            PrivateNote: invoice.notes,
+            Line: [
+              stripNullishDeep({
+                ...lineItem,
+                SalesItemLineDetail: {
+                  ...lineItem.SalesItemLineDetail,
+                  ItemRef: {
+                    ...lineItem.SalesItemLineDetail?.ItemRef,
+                    value: String(lineItem.SalesItemLineDetail?.ItemRef?.value),
+                  },
+                  IncomeAccountRef: lineItem.SalesItemLineDetail?.IncomeAccountRef
+                    ? {
+                        ...lineItem.SalesItemLineDetail.IncomeAccountRef,
+                        value: String(lineItem.SalesItemLineDetail.IncomeAccountRef.value),
+                      }
+                    : undefined,
+                },
+              }),
+            ],
+            PrivateNote: invoice.notes || undefined,
           };
+
+          stripNullishDeep(qbInvoice);
 
           const createRes = await fetch(`${QB_BASE_URL}/${realm_id}/invoice`, {
             method: "POST",
