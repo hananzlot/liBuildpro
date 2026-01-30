@@ -31,6 +31,8 @@ interface MappingRow {
   qbo_name: string;
   qbo_type?: string;
   is_default: boolean;
+  default_expense_account_id?: string | null;
+  default_expense_account_name?: string | null;
 }
 
 interface HiddenRecords {
@@ -489,6 +491,8 @@ export function QuickBooksMappingConfig() {
         qbo_name: mapping.qbo_name,
         qbo_type: mapping.qbo_type,
         is_default: mapping.is_default,
+        default_expense_account_id: mapping.default_expense_account_id,
+        default_expense_account_name: mapping.default_expense_account_name,
       };
 
       const { error } = await supabase
@@ -503,6 +507,30 @@ export function QuickBooksMappingConfig() {
     },
     onError: (error: Error) => {
       toast.error("Failed to save mapping: " + error.message);
+    },
+  });
+
+  // Update vendor expense account mutation
+  const updateVendorExpenseAccountMutation = useMutation({
+    mutationFn: async ({ sourceValue, accountId, accountName }: { sourceValue: string; accountId: string | null; accountName: string | null }) => {
+      const { error } = await supabase
+        .from("quickbooks_mappings")
+        .update({
+          default_expense_account_id: accountId,
+          default_expense_account_name: accountName,
+        })
+        .eq("company_id", companyId)
+        .eq("mapping_type", "vendor")
+        .eq("source_value", sourceValue);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Expense account updated");
+      queryClient.invalidateQueries({ queryKey: ["qb-mappings"] });
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to update expense account: " + error.message);
     },
   });
 
@@ -1009,7 +1037,7 @@ export function QuickBooksMappingConfig() {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <ScrollArea className="h-[300px] border rounded-md p-3">
+              <ScrollArea className="h-[400px] border rounded-md p-3">
                 <div className="space-y-3">
                   {filteredSubcontractors.map((sub) => {
                     const existingMapping = getSourceMapping("vendor", sub.id);
@@ -1018,7 +1046,7 @@ export function QuickBooksMappingConfig() {
                     return (
                       <div 
                         key={sub.id} 
-                        className={`flex items-center gap-3 p-2 rounded-md border ${
+                        className={`p-3 rounded-md border ${
                           isHidden 
                             ? "bg-muted/50 border-dashed opacity-60" 
                             : existingMapping 
@@ -1026,38 +1054,83 @@ export function QuickBooksMappingConfig() {
                               : "bg-background"
                         }`}
                       >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{sub.company_name || "Unnamed"}</p>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{sub.company_name || "Unnamed"}</p>
+                          </div>
+                          <Select
+                            value={existingMapping?.qbo_id || ""}
+                            onValueChange={(value) => {
+                              const vendor = qbVendors?.find((v) => v.id === value);
+                              if (vendor) {
+                                handleSourceMapping("vendor", sub.id, vendor.id, vendor.name);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Select QB vendor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {filteredQbVendors.map((vendor) => (
+                                <SelectItem key={vendor.id} value={vendor.id}>
+                                  {vendor.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() => toggleHideVendor(sub.id)}
+                            title={isHidden ? "Unhide from matching" : "Hide from matching"}
+                          >
+                            {isHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                          </Button>
                         </div>
-                        <Select
-                          value={existingMapping?.qbo_id || ""}
-                          onValueChange={(value) => {
-                            const vendor = qbVendors?.find((v) => v.id === value);
-                            if (vendor) {
-                              handleSourceMapping("vendor", sub.id, vendor.id, vendor.name);
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Select QB vendor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {filteredQbVendors.map((vendor) => (
-                              <SelectItem key={vendor.id} value={vendor.id}>
-                                {vendor.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => toggleHideVendor(sub.id)}
-                          title={isHidden ? "Unhide from matching" : "Hide from matching"}
-                        >
-                          {isHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
-                        </Button>
+                        {/* G/L Expense Account - only show when vendor is mapped */}
+                        {existingMapping && (
+                          <div className="mt-2 pt-2 border-t border-dashed">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">Default G/L:</span>
+                              <Select
+                                value={existingMapping.default_expense_account_id || ""}
+                                onValueChange={(value) => {
+                                  if (value === "_clear") {
+                                    updateVendorExpenseAccountMutation.mutate({
+                                      sourceValue: sub.id,
+                                      accountId: null,
+                                      accountName: null,
+                                    });
+                                  } else {
+                                    const account = expenseAccounts.find((a) => a.id === value);
+                                    if (account) {
+                                      updateVendorExpenseAccountMutation.mutate({
+                                        sourceValue: sub.id,
+                                        accountId: account.id,
+                                        accountName: account.name,
+                                      });
+                                    }
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="flex-1 h-7 text-xs">
+                                  <SelectValue placeholder="Use default expense account" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="_clear" className="text-muted-foreground">
+                                    Use default expense account
+                                  </SelectItem>
+                                  {expenseAccounts.map((account) => (
+                                    <SelectItem key={account.id} value={account.id}>
+                                      {account.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
