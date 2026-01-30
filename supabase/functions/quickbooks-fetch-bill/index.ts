@@ -472,14 +472,16 @@ Deno.serve(async (req) => {
         }
 
         // Now update with the QB data
+        // Only update bill metadata from QB - do NOT overwrite balance or amount_paid
+        // as those are calculated from local bill_payments and managed by app triggers
         const { error: updateError } = await supabase
           .from("project_bills")
           .update({
-            bill_amount: qbBill.TotalAmt || 0,
-            balance: qbBill.Balance ?? qbBill.TotalAmt ?? 0, // Sync balance from QB
             bill_ref: qbBill.DocNumber || undefined,
             memo: qbBill.PrivateNote || undefined,
             scheduled_payment_date: qbBill.DueDate || undefined,
+            // Note: bill_amount could change in QB, but balance should be recalculated 
+            // from local payments, not synced from QB
           })
           .eq("id", localBillId);
 
@@ -536,14 +538,16 @@ Deno.serve(async (req) => {
       const billData = await billRes.json();
       const qbBill: QBBill = billData.Bill;
 
+      // Only update bill metadata from QB - do NOT overwrite balance or amount_paid
+      // as those are calculated from local bill_payments and managed by app triggers
       const { error: updateError } = await supabase
         .from("project_bills")
         .update({
-          bill_amount: qbBill.TotalAmt || 0,
-          balance: qbBill.Balance ?? qbBill.TotalAmt ?? 0, // Sync balance from QB
           bill_ref: qbBill.DocNumber || undefined,
           memo: qbBill.PrivateNote || undefined,
           scheduled_payment_date: qbBill.DueDate || undefined,
+          // Note: bill_amount could change in QB, but balance should be recalculated 
+          // from local payments, not synced from QB
         })
         .eq("id", localBillId);
 

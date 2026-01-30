@@ -769,11 +769,33 @@ Deno.serve(async (req) => {
             
             const existingData = await fetchRes.json();
             const syncToken = existingData.Bill.SyncToken;
+            const existingBillData = existingData.Bill;
             
             // Add Id and SyncToken for update
             qbBill.Id = existingQbId;
             qbBill.SyncToken = syncToken;
             qbBill.sparse = true;
+            
+            // Preserve CustomerRef from existing line items to maintain job costing association
+            // QB requires CustomerRef to be included to maintain the project/customer link
+            if (existingBillData.Line && existingBillData.Line.length > 0) {
+              const existingLine = existingBillData.Line.find((l: any) => 
+                l.DetailType === "AccountBasedExpenseLineDetail" || l.DetailType === "ItemBasedExpenseLineDetail"
+              );
+              
+              if (existingLine) {
+                const customerRef = existingLine.AccountBasedExpenseLineDetail?.CustomerRef || 
+                                    existingLine.ItemBasedExpenseLineDetail?.CustomerRef;
+                
+                if (customerRef && qbBill.Line && qbBill.Line[0]) {
+                  // Add CustomerRef to our update payload to preserve it
+                  if (qbBill.Line[0].AccountBasedExpenseLineDetail) {
+                    qbBill.Line[0].AccountBasedExpenseLineDetail.CustomerRef = customerRef;
+                    console.log(`Preserving CustomerRef on bill update:`, customerRef);
+                  }
+                }
+              }
+            }
             
             console.log(`Bill ${bill.bill_ref || bill.id} - Update payload:`, JSON.stringify(qbBill, null, 2));
             
