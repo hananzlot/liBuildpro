@@ -499,7 +499,7 @@ export function PayablesSheet({
 
   return (
     <Sheet open={open} onOpenChange={hideCloseButton ? undefined : onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[85rem] overflow-y-auto" hideCloseButton={hideCloseButton}>
+      <SheetContent className="w-full sm:max-w-full overflow-y-auto" hideCloseButton>
         <SheetHeader className="print-header">
           <div className="flex items-center justify-between">
             <div>
@@ -521,15 +521,27 @@ export function PayablesSheet({
                   )}
               </SheetDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.print()}
-              className="no-print"
-            >
-              <Printer className="h-4 w-4 mr-2" />
-              Print
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.print()}
+                className="no-print"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Print
+              </Button>
+              {!hideCloseButton && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenChange(false)}
+                  className="no-print"
+                >
+                  Close
+                </Button>
+              )}
+            </div>
           </div>
         </SheetHeader>
 
