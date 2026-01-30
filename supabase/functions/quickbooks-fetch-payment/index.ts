@@ -395,17 +395,201 @@ Deno.serve(async (req) => {
         .eq("quickbooks_id", qbPaymentId)
         .maybeSingle();
 
-      if (!existingSyncLog?.record_id) {
-        log("warn", `No existing local payment found for QB Payment ${qbPaymentId}`);
+      let localPaymentId = existingSyncLog?.record_id;
+
+      // If no sync log entry, try to find by fetching QB payment and matching
+      if (!localPaymentId) {
+        log("info", `No sync log for QB Payment ${qbPaymentId}, fetching from QB to find match`);
+
+        // Fetch the payment from QuickBooks first
+        const paymentRes = await fetch(`${QB_BASE_URL}/${effectiveRealmId}/payment/${qbPaymentId}`, {
+          headers: qbHeaders,
+        });
+
+        if (!paymentRes.ok) {
+          const errText = await paymentRes.text();
+          log("error", `Failed to fetch payment from QB`, { status: paymentRes.status, error: errText });
+          return new Response(
+            JSON.stringify({ error: "Failed to fetch payment from QuickBooks", details: errText }),
+            { status: paymentRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const paymentData = await paymentRes.json();
+        const qbPayment: QBPayment = paymentData.Payment;
+
+        // Try to find linked invoice first
+        const linkedInvoices = qbPayment.Line?.flatMap(l => 
+          (l.LinkedTxn || []).filter(txn => txn.TxnType === "Invoice")
+        ) || [];
+
+        if (linkedInvoices.length > 0) {
+          const qbInvoiceIds = linkedInvoices.map(li => li.TxnId);
+          
+          const { data: invoiceSyncLog } = await supabase
+            .from("quickbooks_sync_log")
+            .select("record_id")
+            .eq("company_id", companyId)
+            .eq("record_type", "invoice")
+            .in("quickbooks_id", qbInvoiceIds)
+            .not("record_id", "is", null)
+            .limit(1)
+            .maybeSingle();
+
+          if (invoiceSyncLog?.record_id) {
+            // Find payment linked to this invoice
+            const { data: linkedPayment } = await supabase
+              .from("project_payments")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("invoice_id", invoiceSyncLog.record_id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (linkedPayment) {
+              localPaymentId = linkedPayment.id;
+              log("info", "Found local payment via linked invoice", { paymentId: localPaymentId });
+            }
+          }
+        }
+
+        // If still not found, try matching by customer and approximate amount
+        if (!localPaymentId) {
+          const customerId = qbPayment.CustomerRef?.value;
+          
+          if (customerId) {
+            const { data: customerMapping } = await supabase
+              .from("quickbooks_mappings")
+              .select("source_value")
+              .eq("company_id", companyId)
+              .eq("mapping_type", "customer")
+              .eq("qbo_id", customerId)
+              .maybeSingle();
+
+            if (customerMapping?.source_value) {
+              // Find project for this contact
+              const { data: project } = await supabase
+                .from("projects")
+                .select("id")
+                .eq("company_id", companyId)
+                .eq("contact_uuid", customerMapping.source_value)
+                .maybeSingle();
+
+              if (project) {
+                // Find recent payment with similar amount
+                const { data: matchingPayment } = await supabase
+                  .from("project_payments")
+                  .select("id")
+                  .eq("company_id", companyId)
+                  .eq("project_id", project.id)
+                  .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+                  .order("created_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+
+                if (matchingPayment) {
+                  localPaymentId = matchingPayment.id;
+                  log("info", "Found local payment via customer mapping and recent activity", { paymentId: localPaymentId });
+                }
+              }
+            }
+          }
+        }
+
+        // If we found a match, create the sync log entry
+        if (localPaymentId) {
+          await supabase.from("quickbooks_sync_log").insert({
+            company_id: companyId,
+            record_type: "payment",
+            record_id: localPaymentId,
+            quickbooks_id: qbPaymentId,
+            sync_status: "synced",
+          });
+          log("info", "Created sync log entry for matched payment", { paymentId: localPaymentId, qbId: qbPaymentId });
+        }
+
+        // Now update the payment with the fetched data
+        if (localPaymentId) {
+          // Look up mapped local bank from QB deposit account
+          let bankId: string | null = null;
+          let bankName: string | null = null;
+          const qbDepositAccountId = qbPayment.DepositToAccountRef?.value;
+
+          if (qbDepositAccountId) {
+            const { data: bankMapping } = await supabase
+              .from("quickbooks_mappings")
+              .select("source_value")
+              .eq("company_id", companyId)
+              .eq("mapping_type", "bank")
+              .eq("qbo_id", qbDepositAccountId)
+              .maybeSingle();
+
+            const localBankIdFromMapping = bankMapping?.source_value;
+            if (localBankIdFromMapping) {
+              const { data: bankRecord } = await supabase
+                .from("banks")
+                .select("id, name")
+                .eq("company_id", companyId)
+                .eq("id", localBankIdFromMapping)
+                .maybeSingle();
+
+              if (bankRecord?.name) {
+                bankId = bankRecord.id;
+                bankName = bankRecord.name;
+              } else {
+                bankName = qbPayment.DepositToAccountRef?.name || null;
+              }
+            } else {
+              bankName = qbPayment.DepositToAccountRef?.name || null;
+            }
+          }
+
+          // Update the local payment
+          const { error: updateError } = await supabase
+            .from("project_payments")
+            .update({
+              payment_amount: qbPayment.TotalAmt || 0,
+              projected_received_date: qbPayment.TxnDate || null,
+              check_number: qbPayment.PaymentRefNum || null,
+              bank_id: bankId,
+              bank_name: bankName,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", localPaymentId);
+
+          if (updateError) {
+            log("error", "Failed to update local payment", { error: updateError.message });
+            return new Response(
+              JSON.stringify({ error: "Failed to update payment", details: updateError.message }),
+              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          log("info", `✓ Updated local payment ${localPaymentId} from QB (found via fallback match)`, { amount: qbPayment.TotalAmt });
+
+          const duration = Date.now() - startTime;
+          return new Response(
+            JSON.stringify({
+              success: true,
+              action: "updated",
+              paymentId: localPaymentId,
+              amount: qbPayment.TotalAmt,
+              matchMethod: "fallback",
+              duration: `${duration}ms`,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        log("warn", `Could not find local payment to update for QB Payment ${qbPaymentId}`);
         return new Response(
           JSON.stringify({ success: false, error: "No local payment found to update" }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const localPaymentId = existingSyncLog.record_id;
-
-      // Fetch the latest data from QuickBooks
+      // We have a sync log entry - fetch from QB and update
       const paymentRes = await fetch(`${QB_BASE_URL}/${effectiveRealmId}/payment/${qbPaymentId}`, {
         headers: qbHeaders,
       });
@@ -489,7 +673,6 @@ Deno.serve(async (req) => {
         .from("quickbooks_sync_log")
         .update({
           sync_status: "synced",
-          last_sync_at: new Date().toISOString(),
           error_message: null,
         })
         .eq("company_id", companyId)
