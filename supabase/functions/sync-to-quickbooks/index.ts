@@ -462,6 +462,37 @@ Deno.serve(async (req) => {
             };
           }
 
+          // Link payment to invoice if invoice_id exists and invoice was synced to QB
+          if (payment.invoice_id) {
+            const { data: invoiceSyncLog } = await supabase
+              .from("quickbooks_sync_log")
+              .select("quickbooks_id")
+              .eq("company_id", companyId)
+              .eq("record_type", "invoice")
+              .eq("record_id", payment.invoice_id)
+              .eq("sync_status", "synced")
+              .single();
+
+            if (invoiceSyncLog?.quickbooks_id) {
+              console.log(`Linking payment to QB Invoice ID: ${invoiceSyncLog.quickbooks_id}`);
+              qbPayment.Line = [
+                {
+                  Amount: payment.payment_amount || 0,
+                  LinkedTxn: [
+                    {
+                      TxnId: invoiceSyncLog.quickbooks_id,
+                      TxnType: "Invoice",
+                    },
+                  ],
+                },
+              ];
+            } else {
+              console.log(`Invoice ${payment.invoice_id} not synced to QB, payment will be unapplied`);
+            }
+          }
+
+          console.log(`Payment ${payment.id} - Final QB payload:`, JSON.stringify(qbPayment, null, 2));
+
           const createRes = await fetch(`${QB_BASE_URL}/${realm_id}/payment`, {
             method: "POST",
             headers: qbHeaders,
@@ -480,7 +511,10 @@ Deno.serve(async (req) => {
             });
             results.synced++;
           } else {
+            const errText = await createRes.text();
+            console.error(`Failed to sync payment ${payment.id}:`, errText);
             results.failed++;
+            results.errors.push(`Payment ${payment.id}: ${errText}`);
           }
         } catch (err: unknown) {
           results.failed++;
