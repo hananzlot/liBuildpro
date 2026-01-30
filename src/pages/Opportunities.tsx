@@ -1,12 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Database, HardDrive } from "lucide-react";
+import { Database, HardDrive, Merge } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
 import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
+import { MergeOpportunitiesDialog } from "@/components/dashboard/MergeOpportunitiesDialog";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ const Opportunities = () => {
   const { opportunityId } = useParams<{ opportunityId?: string }>();
   const { user, isAdmin } = useAuth();
   const { isGHLEnabled } = useGHLMode();
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
 
   const {
     data: metrics,
@@ -103,12 +105,20 @@ const Opportunities = () => {
         {/* Top Actions Bar */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <h1 className="text-2xl font-bold text-foreground">Opportunities</h1>
-          {!isGHLEnabled && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
-              <HardDrive className="h-3 w-3" />
-              Local Mode
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {isAdmin && (
+              <Button variant="outline" onClick={() => setMergeDialogOpen(true)}>
+                <Merge className="h-4 w-4 mr-2" />
+                Merge Duplicates
+              </Button>
+            )}
+            {!isGHLEnabled && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
+                <HardDrive className="h-3 w-3" />
+                Local Mode
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Opportunities Table */}
@@ -140,6 +150,15 @@ const Opportunities = () => {
         conversations={metrics?.conversations || []}
         allOpportunities={metrics?.allOpportunities || []}
         initialTaskGhlId={null}
+      />
+
+      {/* Merge Opportunities Dialog */}
+      <MergeOpportunitiesDialog
+        open={mergeDialogOpen}
+        onOpenChange={setMergeDialogOpen}
+        opportunities={metrics?.allOpportunities || []}
+        contacts={metrics?.allContacts || []}
+        users={metrics?.users || []}
       />
     </AppLayout>
   );
