@@ -30,7 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrencyWithDecimals } from "@/lib/utils";
 import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2 } from "lucide-react";
 import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
 import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
@@ -505,20 +505,20 @@ export function PayablesSheet({
             <div>
               <SheetTitle>Accounts Payable</SheetTitle>
               <SheetDescription>
-                {activeTab === "outstanding" ? (
-                  <>
-                    {payables.length} unpaid bills totaling {formatCurrency(totals.totalDue)}
-                    {totals.totalScheduledAmount > 0 && (
-                      <span className="ml-2 text-primary font-medium">
-                        • {formatCurrency(totals.totalScheduledAmount)} scheduled
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {filteredBillPayments.length} payments totaling {formatCurrency(historyTotalPaid)}
-                  </>
-                )}
+                  {activeTab === "outstanding" ? (
+                    <>
+                      {payables.length} unpaid bills totaling {formatCurrencyWithDecimals(totals.totalDue)}
+                      {totals.totalScheduledAmount > 0 && (
+                        <span className="ml-2 text-primary font-medium">
+                          • {formatCurrencyWithDecimals(totals.totalScheduledAmount)} scheduled
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {filteredBillPayments.length} payments totaling {formatCurrencyWithDecimals(historyTotalPaid)}
+                    </>
+                  )}
               </SheetDescription>
             </div>
             <Button
@@ -717,7 +717,7 @@ export function PayablesSheet({
                           "text-center font-semibold",
                           group.cash_if_all_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
                         )}>
-                          {formatCurrency(group.cash_if_all_paid)}
+                          {formatCurrencyWithDecimals(group.cash_if_all_paid)}
                         </TableCell>
                         <TableCell className="font-semibold" colSpan={2}>
                           <div className="flex flex-col">
@@ -728,22 +728,22 @@ export function PayablesSheet({
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-semibold">
-                          {formatCurrency(group.bills.reduce((sum, b) => sum + b.total_bill, 0))}
+                          {formatCurrencyWithDecimals(group.bills.reduce((sum, b) => sum + b.total_bill, 0))}
                         </TableCell>
                         <TableCell className="text-center font-semibold">
-                          {formatCurrency(group.bills.reduce((sum, b) => sum + b.amount_paid, 0))}
+                          {formatCurrencyWithDecimals(group.bills.reduce((sum, b) => sum + b.amount_paid, 0))}
                         </TableCell>
                         <TableCell className="text-center font-semibold">
-                          {formatCurrency(group.bills.reduce((sum, b) => sum + b.amount_due, 0))}
+                          {formatCurrencyWithDecimals(group.bills.reduce((sum, b) => sum + b.amount_due, 0))}
                         </TableCell>
                         <TableCell className={cn(
                           "text-center font-semibold",
                           group.project_current_cash >= 0 ? 'text-emerald-600' : 'text-red-600'
                         )}>
-                          {formatCurrency(group.project_current_cash)}
+                          {formatCurrencyWithDecimals(group.project_current_cash)}
                         </TableCell>
                         <TableCell className="text-center font-semibold text-muted-foreground">
-                          {formatCurrency(group.total_ap)}
+                          {formatCurrencyWithDecimals(group.total_ap)}
                         </TableCell>
                       </TableRow>
                       {/* Bill rows */}
@@ -782,9 +782,9 @@ export function PayablesSheet({
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            {payable.scheduled_payment_amount ? (
+                          {payable.scheduled_payment_amount ? (
                               <div className="flex items-center justify-center gap-1">
-                                <span className="font-medium text-primary">{formatCurrency(payable.scheduled_payment_amount)}</span>
+                                <span className="font-medium text-primary">{formatCurrencyWithDecimals(payable.scheduled_payment_amount)}</span>
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -808,20 +808,20 @@ export function PayablesSheet({
                               ? (cashAfterPayment >= 0 ? 'text-emerald-600' : 'text-red-600')
                               : 'text-muted-foreground'
                           )}>
-                            {cashAfterPayment !== null ? formatCurrency(cashAfterPayment) : '-'}
+                            {cashAfterPayment !== null ? formatCurrencyWithDecimals(cashAfterPayment) : '-'}
                           </TableCell>
                           <TableCell className="pl-8 text-muted-foreground text-sm">
                             └ Bill
                           </TableCell>
                           <TableCell>{payable.vendor || '-'}</TableCell>
                           <TableCell className="text-center text-muted-foreground">
-                            {formatCurrency(payable.total_bill)}
+                            {formatCurrencyWithDecimals(payable.total_bill)}
                           </TableCell>
                           <TableCell className="text-center text-muted-foreground">
-                            {payable.amount_paid > 0 ? formatCurrency(payable.amount_paid) : '-'}
+                            {payable.amount_paid > 0 ? formatCurrencyWithDecimals(payable.amount_paid) : '-'}
                           </TableCell>
                           <TableCell className="text-center font-medium">
-                            {formatCurrency(payable.amount_due)}
+                            {formatCurrencyWithDecimals(payable.amount_due)}
                           </TableCell>
                           <TableCell className="text-center text-muted-foreground">-</TableCell>
                           <TableCell className="text-center text-muted-foreground">-</TableCell>
@@ -869,7 +869,7 @@ export function PayablesSheet({
                         <TableCell className="text-center">
                           {payable.scheduled_payment_amount ? (
                             <div className="flex items-center justify-center gap-1">
-                              <span className="font-medium text-primary">{formatCurrency(payable.scheduled_payment_amount)}</span>
+                              <span className="font-medium text-primary">{formatCurrencyWithDecimals(payable.scheduled_payment_amount)}</span>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -893,7 +893,7 @@ export function PayablesSheet({
                             ? (cashAfterPayment >= 0 ? 'text-emerald-600' : 'text-red-600')
                             : 'text-muted-foreground'
                         )}>
-                          {cashAfterPayment !== null ? formatCurrency(cashAfterPayment) : '-'}
+                          {cashAfterPayment !== null ? formatCurrencyWithDecimals(cashAfterPayment) : '-'}
                         </TableCell>
                         <TableCell className="max-w-[200px]">
                           <div className="flex flex-col">
@@ -905,22 +905,22 @@ export function PayablesSheet({
                         </TableCell>
                         <TableCell>{payable.vendor || '-'}</TableCell>
                         <TableCell className="text-center text-muted-foreground">
-                          {formatCurrency(payable.total_bill)}
+                          {formatCurrencyWithDecimals(payable.total_bill)}
                         </TableCell>
                         <TableCell className="text-center text-muted-foreground">
-                          {payable.amount_paid > 0 ? formatCurrency(payable.amount_paid) : '-'}
+                          {payable.amount_paid > 0 ? formatCurrencyWithDecimals(payable.amount_paid) : '-'}
                         </TableCell>
                         <TableCell className="text-center font-medium">
-                          {formatCurrency(payable.amount_due)}
+                          {formatCurrencyWithDecimals(payable.amount_due)}
                         </TableCell>
                         <TableCell className={cn(
                           "text-center",
                           payable.project_current_cash >= 0 ? 'text-emerald-600' : 'text-red-600'
                         )}>
-                          {formatCurrency(payable.project_current_cash)}
+                          {formatCurrencyWithDecimals(payable.project_current_cash)}
                         </TableCell>
                         <TableCell className="text-center text-muted-foreground">
-                          {formatCurrency(payable.total_project_payables)}
+                          {formatCurrencyWithDecimals(payable.total_project_payables)}
                         </TableCell>
                       </TableRow>
                     );
@@ -989,7 +989,7 @@ export function PayablesSheet({
                   </Popover>
                 </div>
                 <Badge variant="secondary" className="text-xs">
-                  {filteredBillPayments.length} payments • {formatCurrency(historyTotalPaid)}
+                  {filteredBillPayments.length} payments • {formatCurrencyWithDecimals(historyTotalPaid)}
                 </Badge>
               </div>
 
@@ -1066,13 +1066,13 @@ export function PayablesSheet({
                               {bill?.memo || "-"}
                             </TableCell>
                             <TableCell className="text-right font-medium text-emerald-600">
-                              {formatCurrency(bp.payment_amount)}
+                              {formatCurrencyWithDecimals(bp.payment_amount)}
                             </TableCell>
                             <TableCell className={cn(
                               "text-right text-sm font-medium",
                               cashLeft !== undefined && cashLeft !== null && cashLeft < 0 && "text-destructive"
                             )}>
-                              {cashLeft !== undefined && cashLeft !== null ? formatCurrency(cashLeft) : "-"}
+                              {cashLeft !== undefined && cashLeft !== null ? formatCurrencyWithDecimals(cashLeft) : "-"}
                             </TableCell>
                             <TableCell className="text-sm">{bp.payment_method || "-"}</TableCell>
                             <TableCell className="text-sm">{bp.payment_reference || "-"}</TableCell>
