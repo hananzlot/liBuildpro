@@ -39,6 +39,7 @@ const BILL_FIELDS = [
   { key: "bill_ref", label: "Bill Reference", description: "Included in QB Description" },
   { key: "memo", label: "Memo", description: "Maps to QB PrivateNote" },
   { key: "installer_company", label: "Installer Company (Vendor)", description: "Used to find/create QB Vendor" },
+  { key: "project_name", label: "Project Name", description: "Links bill to a project/customer for reporting" },
 ];
 
 const BILL_PAYMENT_FIELDS = [
@@ -72,6 +73,7 @@ const QB_PAYMENT_FIELDS = [
 const QB_BILL_FIELDS = [
   { key: "TxnDate", label: "Transaction Date" },
   { key: "VendorRef", label: "Vendor" },
+  { key: "CustomerRef", label: "Customer (for Job Tracking)" },
   { key: "Line.Amount", label: "Line Amount" },
   { key: "Line.Description", label: "Line Description" },
   { key: "Line.AccountBasedExpenseLineDetail.AccountRef", label: "Expense Account" },
@@ -112,6 +114,7 @@ const DEFAULT_BILL_MAPPINGS: Record<string, string> = {
   "category": "Line.Description",
   "memo": "PrivateNote",
   "installer_company": "VendorRef",
+  "project_name": "CustomerRef",
 };
 
 const DEFAULT_BILL_PAYMENT_MAPPINGS: Record<string, string> = {
