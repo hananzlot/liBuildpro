@@ -672,7 +672,7 @@ export function MergeOpportunitiesDialog({
             </div>
           </div>
         ) : (
-          <ScrollArea className="flex-1 -mx-6 px-6 h-[500px] scrollbar-styled">
+          <div className="flex-1 -mx-6 px-6 overflow-y-auto max-h-[500px]" style={{ scrollbarWidth: 'auto', scrollbarColor: 'hsl(var(--border)) transparent' }}>
             <div className="space-y-3 py-4">
               {/* Primary Selection */}
               <div className="grid md:grid-cols-2 gap-4">
@@ -702,7 +702,7 @@ export function MergeOpportunitiesDialog({
                 </AlertDescription>
               </Alert>
             </div>
-          </ScrollArea>
+          </div>
         )}
 
         <DialogFooter className="gap-2 sm:gap-0">
