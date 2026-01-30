@@ -27,6 +27,7 @@ import SubscriptionPlans from "@/pages/super-admin/SubscriptionPlans";
 import PlatformEmailSettingsPage from "@/pages/super-admin/PlatformEmailSettings";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
+import QuickBooksHelp from "@/pages/QuickBooksHelp";
 import { ProtectedRoute, DefaultPageRedirect } from "./RouteGuards";
 
 /**
@@ -272,6 +273,9 @@ export function AppRoutes() {
         {/* Legal pages - public */}
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
+        
+        {/* Help pages - public */}
+        <Route path="/help/quickbooks" element={<QuickBooksHelp />} />
         
         {/* Super Admin Portal Routes */}
         <Route path="/super-admin" element={<SuperAdminDashboard />} />
