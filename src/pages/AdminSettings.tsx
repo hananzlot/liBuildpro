@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,12 +59,56 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Filter, X } from "lucide-react";
+import { Filter, X, ChevronRight } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+// Grouped tab configuration for the dropdown menu
+const TAB_GROUPS = [
+  {
+    label: "Core Settings",
+    tabs: [
+      { value: "settings", label: "General", icon: Settings },
+      { value: "emails", label: "Emails", icon: Mail },
+      { value: "compliance", label: "Compliance", icon: FileSignature },
+      { value: "chat", label: "Chat", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Integrations",
+    tabs: [
+      { value: "integrations", label: "GoHighLevel", icon: Link },
+      { value: "custom", label: "APIs & QuickBooks", icon: Sparkles },
+    ],
+  },
+  {
+    label: "Sales & Operations",
+    tabs: [
+      { value: "sources", label: "Lead Sources", icon: Pencil },
+      { value: "shortlinks", label: "Short Links", icon: Link2 },
+      { value: "payables", label: "AR/AP", icon: DollarSign },
+    ],
+  },
+  {
+    label: "System",
+    tabs: [
+      { value: "users", label: "Users", icon: Users },
+      { value: "cleanup", label: "Data Cleanup", icon: Wrench },
+      { value: "audit", label: "Audit Log", icon: FileText },
+    ],
+  },
+];
 
 interface AppSetting {
   id: string;
@@ -679,56 +723,39 @@ export default function AdminSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="flex flex-wrap gap-1 h-auto p-1">
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Settings</span>
-            </TabsTrigger>
-            <TabsTrigger value="integrations" className="flex items-center gap-2">
-              <Link className="h-4 w-4" />
-              <span className="hidden sm:inline">GHL</span>
-            </TabsTrigger>
-            <TabsTrigger value="custom" className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">Custom/API</span>
-            </TabsTrigger>
-            <TabsTrigger value="emails" className="flex items-center gap-2">
-              <Mail className="h-4 w-4" />
-              <span className="hidden sm:inline">Emails</span>
-            </TabsTrigger>
-            <TabsTrigger value="compliance" className="flex items-center gap-2">
-              <FileSignature className="h-4 w-4" />
-              <span className="hidden sm:inline">Compliance</span>
-            </TabsTrigger>
-            <TabsTrigger value="chat" className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">Chat</span>
-            </TabsTrigger>
-            <TabsTrigger value="shortlinks" className="flex items-center gap-2">
-              <Link2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Links</span>
-            </TabsTrigger>
-            <TabsTrigger value="payables" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">AR/AP</span>
-            </TabsTrigger>
-            <TabsTrigger value="cleanup" className="flex items-center gap-2">
-              <Wrench className="h-4 w-4" />
-              <span className="hidden sm:inline">Data</span>
-            </TabsTrigger>
-            <TabsTrigger value="sources" className="flex items-center gap-2">
-              <Pencil className="h-4 w-4" />
-              <span className="hidden sm:inline">Sources</span>
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Users</span>
-            </TabsTrigger>
-            <TabsTrigger value="audit" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Audit</span>
-            </TabsTrigger>
-          </TabsList>
+          {/* Grouped Tab Navigation */}
+          <div className="flex flex-wrap items-center gap-2 mb-6 p-3 bg-muted/30 rounded-lg border">
+            {TAB_GROUPS.map((group, groupIndex) => (
+              <React.Fragment key={group.label}>
+                {groupIndex > 0 && <Separator orientation="vertical" className="h-8 hidden md:block" />}
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium text-muted-foreground mr-1 hidden lg:inline">
+                    {group.label}:
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {group.tabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isActive = activeTab === tab.value;
+                      return (
+                        <Button
+                          key={tab.value}
+                          variant={isActive ? "default" : "ghost"}
+                          size="sm"
+                          onClick={() => handleTabChange(tab.value)}
+                          className={`flex items-center gap-1.5 h-8 ${
+                            isActive ? "" : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline text-xs">{tab.label}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="mt-6">
