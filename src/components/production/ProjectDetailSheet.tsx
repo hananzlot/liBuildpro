@@ -770,21 +770,23 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
             ) : (
               <div />
             )}
-            <div className="flex items-center gap-1.5">
-              <Label 
-                htmlFor="auto-sync-qb-header" 
-                className="text-[10px] text-muted-foreground cursor-pointer"
-              >
-                QB Auto Sync
-              </Label>
-              <Switch
-                id="auto-sync-qb-header"
-                checked={fullProject?.auto_sync_to_quickbooks ?? false}
-                onCheckedChange={(checked) => toggleAutoSyncMutation.mutate(checked)}
-                disabled={toggleAutoSyncMutation.isPending}
-                className="scale-[0.6]"
-              />
-            </div>
+            {activeTab === "finance" && (
+              <div className="flex items-center gap-1.5">
+                <Label 
+                  htmlFor="auto-sync-qb-header" 
+                  className="text-[10px] text-muted-foreground cursor-pointer"
+                >
+                  QB Auto Sync
+                </Label>
+                <Switch
+                  id="auto-sync-qb-header"
+                  checked={fullProject?.auto_sync_to_quickbooks ?? false}
+                  onCheckedChange={(checked) => toggleAutoSyncMutation.mutate(checked)}
+                  disabled={toggleAutoSyncMutation.isPending}
+                  className="scale-[0.6]"
+                />
+              </div>
+            )}
           </div>
         </SheetHeader>
 
