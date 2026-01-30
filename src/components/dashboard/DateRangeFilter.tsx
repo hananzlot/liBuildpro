@@ -32,7 +32,6 @@ const PRESETS = [
   { label: "Last 60 Days", value: "60d", days: 60 },
   { label: "Last 90 Days", value: "90d", days: 90 },
   { label: "Year to Date", value: "ytd", days: -1 },
-  { label: "All Time", value: "all", days: -2 },
 ];
 
 export function DateRangeFilter({ 
@@ -41,10 +40,6 @@ export function DateRangeFilter({
   className 
 }: DateRangeFilterProps) {
   const handlePresetChange = (value: string) => {
-    if (value === "all") {
-      onDateRangeChange(undefined);
-      return;
-    }
 
     if (value === "ytd") {
       const end = new Date();
@@ -71,7 +66,7 @@ export function DateRangeFilter({
   };
 
   const getActivePreset = (): string => {
-    if (!dateRange?.from || !dateRange?.to) return "all";
+    if (!dateRange?.from || !dateRange?.to) return "custom";
     
     const today = new Date();
     const fromDate = dateRange.from;
