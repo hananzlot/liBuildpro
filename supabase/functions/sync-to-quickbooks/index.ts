@@ -975,6 +975,17 @@ Deno.serve(async (req) => {
             qbBillPayment.DocNumber = billPayment.payment_reference;
           }
 
+          // Determine PayType based on payment_method or default to Check
+          const paymentMethod = billPayment.payment_method?.toLowerCase() || "";
+          
+          // QB BillPayment only supports Check or CreditCard
+          // Most vendor payments are Check, so default to that
+          qbBillPayment.PayType = "Check";
+          qbBillPayment.CheckPayment = {
+            // If we have a check/reference number, mark as already printed
+            PrintStatus: billPayment.payment_reference ? "PrintComplete" : "NeedToPrint",
+          };
+
           // Add bank account if bank_name is set and has a mapping
           if (billPayment.bank_name) {
             const { data: bankRecord } = await supabase
@@ -988,15 +999,12 @@ Deno.serve(async (req) => {
               const bankMapping = getMapping("bank", bankRecord.id);
               if (bankMapping) {
                 console.log(`Mapping bank "${billPayment.bank_name}" to QB account: ${bankMapping.qbo_name}`);
-                qbBillPayment.PayType = "Check";
-                qbBillPayment.CheckPayment = {
-                  BankAccountRef: {
-                    value: bankMapping.qbo_id,
-                    name: bankMapping.qbo_name,
-                  },
-                  // If we have a check/reference number, mark as already printed (not "Print Later")
-                  PrintStatus: billPayment.payment_reference ? "PrintComplete" : "NeedToPrint",
+                qbBillPayment.CheckPayment.BankAccountRef = {
+                  value: bankMapping.qbo_id,
+                  name: bankMapping.qbo_name,
                 };
+              } else {
+                console.log(`No QB bank mapping found for bank "${billPayment.bank_name}"`);
               }
             }
           }
