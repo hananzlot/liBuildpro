@@ -5429,6 +5429,36 @@ function CommissionTab({
   const deletePaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
       const payment = commissionPayments.find(p => p.id === paymentId);
+      
+      let qbSynced = false;
+      let qbManualRequired = false;
+      let qbManualMessage = "";
+      
+      // Try to void in QuickBooks if connected
+      if (companyId) {
+        try {
+          const { data: qbResult, error: qbError } = await supabase.functions.invoke("delete-quickbooks-record", {
+            body: {
+              companyId,
+              recordType: "commission_payment",
+              recordId: paymentId,
+              action: "void",
+            },
+          });
+          
+          if (qbError) {
+            console.error("QB delete error:", qbError);
+          } else if (qbResult?.success) {
+            qbSynced = true;
+          } else if (qbResult?.manualRequired) {
+            qbManualRequired = true;
+            qbManualMessage = qbResult.message || "Manual deletion required in QuickBooks";
+          }
+        } catch (err) {
+          console.error("Failed to sync delete to QuickBooks:", err);
+        }
+      }
+      
       if (payment) {
         await logAudit({
           tableName: 'commission_payments',
@@ -5443,9 +5473,18 @@ function CommissionTab({
         .delete()
         .eq("id", paymentId);
       if (error) throw error;
+      
+      return { qbSynced, qbManualRequired, qbManualMessage };
     },
-    onSuccess: () => {
-      toast.success("Payment deleted");
+    onSuccess: (result) => {
+      if (result?.qbSynced) {
+        toast.success("Payment deleted and synced to QuickBooks");
+      } else if (result?.qbManualRequired) {
+        toast.success("Payment deleted");
+        toast.info(result.qbManualMessage, { duration: 6000 });
+      } else {
+        toast.success("Payment deleted");
+      }
       queryClient.invalidateQueries({ queryKey: ["commission-payments", projectId] });
       setDeleteDialogOpen(false);
       setDeletingPaymentId(null);
