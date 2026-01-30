@@ -437,19 +437,46 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (invoiceSyncLog?.record_id) {
-            // Find payment linked to this invoice
-            const { data: linkedPayment } = await supabase
+            // Find payment linked to this invoice that matches the QB payment amount
+            // First try exact match on amount and date
+            const { data: exactMatchPayment } = await supabase
               .from("project_payments")
-              .select("id")
+              .select("id, payment_amount, projected_received_date")
               .eq("company_id", companyId)
               .eq("invoice_id", invoiceSyncLog.record_id)
-              .order("created_at", { ascending: false })
-              .limit(1)
+              .eq("payment_amount", qbPayment.TotalAmt)
+              .eq("projected_received_date", qbPayment.TxnDate)
               .maybeSingle();
 
-            if (linkedPayment) {
-              localPaymentId = linkedPayment.id;
-              log("info", "Found local payment via linked invoice", { paymentId: localPaymentId });
+            if (exactMatchPayment) {
+              localPaymentId = exactMatchPayment.id;
+              log("info", "Found local payment via linked invoice (exact match on amount+date)", { paymentId: localPaymentId });
+            } else {
+              // Fallback: match by amount only
+              const { data: amountMatchPayment } = await supabase
+                .from("project_payments")
+                .select("id, payment_amount")
+                .eq("company_id", companyId)
+                .eq("invoice_id", invoiceSyncLog.record_id)
+                .eq("payment_amount", qbPayment.TotalAmt)
+                .maybeSingle();
+
+              if (amountMatchPayment) {
+                localPaymentId = amountMatchPayment.id;
+                log("info", "Found local payment via linked invoice (amount match)", { paymentId: localPaymentId });
+              } else {
+                // Last resort: if only one payment exists for this invoice, use it
+                const { data: allPayments } = await supabase
+                  .from("project_payments")
+                  .select("id")
+                  .eq("company_id", companyId)
+                  .eq("invoice_id", invoiceSyncLog.record_id);
+
+                if (allPayments && allPayments.length === 1) {
+                  localPaymentId = allPayments[0].id;
+                  log("info", "Found local payment via linked invoice (single payment)", { paymentId: localPaymentId });
+                }
+              }
             }
           }
         }
