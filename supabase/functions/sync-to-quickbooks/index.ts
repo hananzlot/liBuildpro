@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords } = await req.json();
+    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords, checkOnly } = await req.json();
 
     if (!companyId) {
       return new Response(
@@ -84,10 +84,11 @@ Deno.serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    const results: { synced: number; failed: number; errors: string[] } = {
+    const results: { synced: number; failed: number; errors: string[]; newEntities?: { type: string; name: string }[] } = {
       synced: 0,
       failed: 0,
       errors: [],
+      newEntities: [],
     };
 
     // Fetch mapping configurations
@@ -107,24 +108,33 @@ Deno.serve(async (req) => {
       // Fall back to default mapping
       return mappings?.find((m) => m.mapping_type === type && m.is_default);
     };
-    // Helper to find or create customer in QB
-    async function findOrCreateCustomer(project: any): Promise<string | null> {
+    // Helper to check if customer exists in QB (returns null if not found)
+    async function checkCustomerExists(project: any): Promise<{ exists: boolean; id: string | null; name: string }> {
       const customerName = project.project_name || project.project_address || `Project ${project.project_number}`;
       
-      // Search for existing customer
       const searchUrl = `${QB_BASE_URL}/${realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName = '${customerName.replace(/'/g, "\\'")}'`)}`;
       
       const searchRes = await fetch(searchUrl, { headers: qbHeaders });
       if (searchRes.ok) {
         const searchData = await searchRes.json();
         if (searchData.QueryResponse?.Customer?.length > 0) {
-          return searchData.QueryResponse.Customer[0].Id;
+          return { exists: true, id: searchData.QueryResponse.Customer[0].Id, name: customerName };
         }
+      }
+      
+      return { exists: false, id: null, name: customerName };
+    }
+
+    // Helper to find or create customer in QB
+    async function findOrCreateCustomer(project: any): Promise<{ id: string | null; isNew: boolean; name: string }> {
+      const check = await checkCustomerExists(project);
+      if (check.exists && check.id) {
+        return { id: check.id, isNew: false, name: check.name };
       }
 
       // Create new customer
       const customerData: QBCustomer = {
-        DisplayName: customerName.substring(0, 100),
+        DisplayName: check.name.substring(0, 100),
       };
 
       if (project.project_address) {
@@ -139,23 +149,33 @@ Deno.serve(async (req) => {
 
       if (createRes.ok) {
         const created = await createRes.json();
-        return created.Customer.Id;
+        return { id: created.Customer.Id, isNew: true, name: check.name };
       }
 
       console.error("Failed to create customer:", await createRes.text());
-      return null;
+      return { id: null, isNew: false, name: check.name };
     }
 
-    // Helper to find or create vendor in QB
-    async function findOrCreateVendor(vendorName: string): Promise<string | null> {
+    // Helper to check if vendor exists in QB
+    async function checkVendorExists(vendorName: string): Promise<{ exists: boolean; id: string | null; name: string }> {
       const searchUrl = `${QB_BASE_URL}/${realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Vendor WHERE DisplayName = '${vendorName.replace(/'/g, "\\'")}'`)}`;
       
       const searchRes = await fetch(searchUrl, { headers: qbHeaders });
       if (searchRes.ok) {
         const searchData = await searchRes.json();
         if (searchData.QueryResponse?.Vendor?.length > 0) {
-          return searchData.QueryResponse.Vendor[0].Id;
+          return { exists: true, id: searchData.QueryResponse.Vendor[0].Id, name: vendorName };
         }
+      }
+      
+      return { exists: false, id: null, name: vendorName };
+    }
+
+    // Helper to find or create vendor in QB
+    async function findOrCreateVendor(vendorName: string): Promise<{ id: string | null; isNew: boolean; name: string }> {
+      const check = await checkVendorExists(vendorName);
+      if (check.exists && check.id) {
+        return { id: check.id, isNew: false, name: vendorName };
       }
 
       // Create new vendor
@@ -167,10 +187,75 @@ Deno.serve(async (req) => {
 
       if (createRes.ok) {
         const created = await createRes.json();
-        return created.Vendor.Id;
+        return { id: created.Vendor.Id, isNew: true, name: vendorName };
       }
 
-      return null;
+      return { id: null, isNew: false, name: vendorName };
+    }
+
+    // Handle checkOnly mode - just check if entities exist without creating
+    if (checkOnly) {
+      const pendingEntities: { type: string; name: string }[] = [];
+      
+      // Check for invoices
+      if (!syncType || syncType === "invoice") {
+        if (recordId) {
+          const { data: invoice } = await supabase
+            .from("project_invoices")
+            .select("*, projects!inner(project_name, project_address, project_number)")
+            .eq("id", recordId)
+            .single();
+          
+          if (invoice?.projects) {
+            const check = await checkCustomerExists(invoice.projects);
+            if (!check.exists) {
+              pendingEntities.push({ type: "customer", name: check.name });
+            }
+          }
+        }
+      }
+      
+      // Check for payments
+      if (syncType === "payment" && recordId) {
+        const { data: payment } = await supabase
+          .from("project_payments")
+          .select("*, projects!inner(project_name, project_address, project_number)")
+          .eq("id", recordId)
+          .single();
+        
+        if (payment?.projects) {
+          const check = await checkCustomerExists(payment.projects);
+          if (!check.exists) {
+            pendingEntities.push({ type: "customer", name: check.name });
+          }
+        }
+      }
+      
+      // Check for bills
+      if (syncType === "bill" && recordId) {
+        const { data: bill } = await supabase
+          .from("project_bills")
+          .select("installer_company")
+          .eq("id", recordId)
+          .single();
+        
+        if (bill?.installer_company) {
+          const check = await checkVendorExists(bill.installer_company);
+          if (!check.exists) {
+            pendingEntities.push({ type: "vendor", name: check.name });
+          }
+        }
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          checkOnly: true, 
+          pendingEntities,
+          requiresConfirmation: pendingEntities.length > 0 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Sync invoices
@@ -208,11 +293,16 @@ Deno.serve(async (req) => {
 
       for (const invoice of invoices || []) {
         try {
-          const customerId = await findOrCreateCustomer(invoice.projects);
-          if (!customerId) {
+          const customerResult = await findOrCreateCustomer(invoice.projects);
+          if (!customerResult.id) {
             results.failed++;
             results.errors.push(`Invoice ${invoice.invoice_number}: Failed to find/create customer`);
             continue;
+          }
+          
+          // Track if we created a new customer
+          if (customerResult.isNew) {
+            results.newEntities?.push({ type: "customer", name: customerResult.name });
           }
 
           // Get configured mappings
@@ -239,7 +329,7 @@ Deno.serve(async (req) => {
           }
 
           const qbInvoice = {
-            CustomerRef: { value: customerId },
+            CustomerRef: { value: customerResult.id },
             DocNumber: invoice.invoice_number?.toString(),
             TxnDate: invoice.invoice_date?.split("T")[0],
             DueDate: invoice.due_date?.split("T")[0],
@@ -300,18 +390,23 @@ Deno.serve(async (req) => {
 
       for (const payment of payments || []) {
         try {
-          const customerId = await findOrCreateCustomer(payment.projects);
-          if (!customerId) {
+          const customerResult = await findOrCreateCustomer(payment.projects);
+          if (!customerResult.id) {
             results.failed++;
             results.errors.push(`Payment ${payment.id}: Failed to find/create customer`);
             continue;
+          }
+          
+          // Track if we created a new customer
+          if (customerResult.isNew) {
+            results.newEntities?.push({ type: "customer", name: customerResult.name });
           }
 
           // Get configured payment method mapping
           const paymentMethodMapping = getMapping("payment_method", payment.payment_method);
 
           const qbPayment: any = {
-            CustomerRef: { value: customerId },
+            CustomerRef: { value: customerResult.id },
             TotalAmt: payment.payment_amount || 0,
             TxnDate: payment.payment_date?.split("T")[0],
             PrivateNote: payment.payment_method ? `${payment.payment_method} - ${payment.payment_reference || ""}` : null,
@@ -382,18 +477,23 @@ Deno.serve(async (req) => {
           const vendorName = bill.installer_company || "Unknown Vendor";
           console.log(`Processing bill ${bill.id} for vendor: ${vendorName}`);
           
-          const vendorId = await findOrCreateVendor(vendorName);
-          if (!vendorId) {
+          const vendorResult = await findOrCreateVendor(vendorName);
+          if (!vendorResult.id) {
             results.failed++;
             results.errors.push(`Bill ${bill.bill_ref || bill.id}: Failed to find/create vendor "${vendorName}"`);
             continue;
+          }
+          
+          // Track if we created a new vendor
+          if (vendorResult.isNew) {
+            results.newEntities?.push({ type: "vendor", name: vendorResult.name });
           }
 
           // Get configured expense account mapping
           const expenseAccountMapping = getMapping("expense_account");
 
           const qbBill = {
-            VendorRef: { value: vendorId },
+            VendorRef: { value: vendorResult.id },
             TxnDate: bill.created_at?.split("T")[0], // Use created_at since no bill_date column
             Line: [
               {
