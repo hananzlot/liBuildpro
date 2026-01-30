@@ -788,8 +788,8 @@ export function AppointmentsTable({
                   {summaryStats.bySource.slice(0, 5).map(([source, data]) => (
                     <Badge 
                       key={source} 
-                      variant="secondary" 
-                      className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${sourceFilter.length === 1 && sourceFilter[0] === source ? 'ring-2 ring-primary' : ''}`}
+                      variant="outline" 
+                      className={`text-xs cursor-pointer hover:opacity-80 transition-opacity bg-background ${sourceFilter.length === 1 && sourceFilter[0] === source ? 'ring-2 ring-primary' : ''}`}
                       onClick={() => {
                         if (sourceFilter.length === 1 && sourceFilter[0] === source) {
                           setSourceFilter([]);
@@ -817,8 +817,8 @@ export function AppointmentsTable({
                       {summaryStats.bySource.slice(5).map(([source, data]) => (
                         <Badge 
                           key={source} 
-                          variant="secondary" 
-                          className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${sourceFilter.length === 1 && sourceFilter[0] === source ? 'ring-2 ring-primary' : ''}`}
+                          variant="outline" 
+                          className={`text-xs cursor-pointer hover:opacity-80 transition-opacity bg-background ${sourceFilter.length === 1 && sourceFilter[0] === source ? 'ring-2 ring-primary' : ''}`}
                           onClick={() => {
                             if (sourceFilter.length === 1 && sourceFilter[0] === source) {
                               setSourceFilter([]);
