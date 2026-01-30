@@ -3121,6 +3121,44 @@ export type Database = {
           },
         ]
       }
+      ignored_duplicate_opportunities: {
+        Row: {
+          company_id: string
+          id: string
+          ignored_at: string
+          ignored_by: string | null
+          opportunity_id_1: string
+          opportunity_id_2: string
+          reason: string | null
+        }
+        Insert: {
+          company_id: string
+          id?: string
+          ignored_at?: string
+          ignored_by?: string | null
+          opportunity_id_1: string
+          opportunity_id_2: string
+          reason?: string | null
+        }
+        Update: {
+          company_id?: string
+          id?: string
+          ignored_at?: string
+          ignored_by?: string | null
+          opportunity_id_1?: string
+          opportunity_id_2?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ignored_duplicate_opportunities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       imported_records: {
         Row: {
           company_id: string | null
