@@ -646,9 +646,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
-  // Helper to sync deletion to QuickBooks
-  const syncDeleteToQuickBooks = async (recordType: string, recordId: string) => {
-    if (!companyId) return;
+  // Helper to sync deletion to QuickBooks - returns true if synced successfully
+  const syncDeleteToQuickBooks = async (recordType: string, recordId: string): Promise<{ synced: boolean; message?: string }> => {
+    if (!companyId) return { synced: false };
     
     try {
       const { data, error } = await supabase.functions.invoke("delete-quickbooks-record", {
@@ -662,13 +662,15 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       
       if (error) {
         console.error("QuickBooks sync error:", error);
-        // Don't throw - we still want the local delete to succeed
+        return { synced: false };
       } else if (data?.success && !data?.skipped) {
         console.log("QuickBooks record voided:", data.message);
+        return { synced: true, message: data.message };
       }
+      return { synced: false };
     } catch (err) {
       console.error("Failed to sync delete to QuickBooks:", err);
-      // Don't throw - local operation should still succeed
+      return { synced: false };
     }
   };
 
@@ -689,7 +691,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       }
 
       // Sync void to QuickBooks first
-      await syncDeleteToQuickBooks("bill", billId);
+      const qbResult = await syncDeleteToQuickBooks("bill", billId);
 
       const { error } = await supabase
         .from("project_bills")
@@ -709,9 +711,15 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         newValues: { is_voided: true, void_reason: reason },
         description: `Voided bill - Reason: ${reason}`,
       });
+
+      return { qbSynced: qbResult.synced };
     },
-    onSuccess: () => {
-      toast.success("Bill voided");
+    onSuccess: (result) => {
+      if (result?.qbSynced) {
+        toast.success("Bill voided and synced to QuickBooks");
+      } else {
+        toast.success("Bill voided");
+      }
       queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
       setVoidDialogOpen(false);
@@ -725,7 +733,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const voidPaymentMutation = useMutation({
     mutationFn: async ({ paymentId, reason, userId }: { paymentId: string; reason: string; userId: string }) => {
       // Sync void to QuickBooks first
-      await syncDeleteToQuickBooks("payment", paymentId);
+      const qbResult = await syncDeleteToQuickBooks("payment", paymentId);
 
       const { error } = await supabase
         .from("project_payments")
@@ -745,9 +753,15 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         newValues: { is_voided: true, void_reason: reason },
         description: `Voided payment - Reason: ${reason}`,
       });
+
+      return { qbSynced: qbResult.synced };
     },
-    onSuccess: () => {
-      toast.success("Payment voided");
+    onSuccess: (result) => {
+      if (result?.qbSynced) {
+        toast.success("Payment voided and synced to QuickBooks");
+      } else {
+        toast.success("Payment voided");
+      }
       queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
       queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
@@ -872,16 +886,20 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         : deleteTarget.type === "phase" ? "project_payment_phases"
         : "project_bills";
 
+      let qbSynced = false;
+
       // Sync delete to QuickBooks for financial records
       if (["invoice", "payment", "bill"].includes(deleteTarget.type)) {
-        await syncDeleteToQuickBooks(deleteTarget.type, deleteTarget.id);
+        const qbResult = await syncDeleteToQuickBooks(deleteTarget.type, deleteTarget.id);
+        qbSynced = qbResult.synced;
       }
 
       // If deleting an invoice with associated payments, delete payments first
       if (deleteTarget.type === "invoice" && invoicePaymentsToDelete.length > 0) {
         for (const payment of invoicePaymentsToDelete) {
           // Sync each payment deletion to QuickBooks
-          await syncDeleteToQuickBooks("payment", payment.id);
+          const paymentQbResult = await syncDeleteToQuickBooks("payment", payment.id);
+          if (paymentQbResult.synced) qbSynced = true;
           
           await logAudit({
             tableName: "project_payments",
@@ -952,9 +970,16 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       
       const { error } = await supabase.from(table).delete().eq("id", deleteTarget.id);
       if (error) throw error;
+
+      return { qbSynced, recordType: deleteTarget.type };
     },
-    onSuccess: () => {
-      toast.success("Deleted successfully");
+    onSuccess: (result) => {
+      const isFinancialRecord = ["invoice", "payment", "bill"].includes(result?.recordType || "");
+      if (isFinancialRecord && result?.qbSynced) {
+        toast.success("Deleted and synced to QuickBooks");
+      } else {
+        toast.success("Deleted successfully");
+      }
       const queryKey = deleteTarget?.type === "phase" 
         ? ["project-payment-phases", projectId]
         : [`project-${deleteTarget?.type}s`, projectId];
