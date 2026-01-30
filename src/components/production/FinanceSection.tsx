@@ -493,9 +493,14 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       if (error) {
         console.error("QuickBooks delete sync error:", error);
         return { synced: false };
-      } else if (data?.success && !data?.skipped) {
+      } else if (data?.success && !data?.skipped && !data?.manual_action_required) {
+        // Only consider it synced if it actually voided in QB (not just marked locally)
         console.log("QuickBooks record voided:", data.message);
         return { synced: true, message: data.message };
+      } else if (data?.manual_action_required) {
+        // QB rejected the void - manual action required
+        console.log("QuickBooks void failed, manual action required:", data.message);
+        return { synced: false, message: data.message };
       }
       console.log("[QB Delete] Sync returned without success, data:", data);
       return { synced: false };
