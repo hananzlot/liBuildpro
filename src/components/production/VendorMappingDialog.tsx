@@ -14,6 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Search, Plus, Building2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -24,6 +31,12 @@ interface QBVendor {
   name: string;
   type?: string;
   subType?: string | null;
+}
+
+interface QBAccount {
+  id: string;
+  name: string;
+  type: string;
 }
 
 interface VendorMappingDialogProps {
@@ -46,6 +59,7 @@ export function VendorMappingDialog({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOption, setSelectedOption] = useState<"search" | "create">("search");
   const [selectedVendor, setSelectedVendor] = useState<QBVendor | null>(null);
+  const [selectedExpenseAccountId, setSelectedExpenseAccountId] = useState<string>("");
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -53,6 +67,7 @@ export function VendorMappingDialog({
       setSearchTerm(subcontractorName || "");
       setSelectedOption("search");
       setSelectedVendor(null);
+      setSelectedExpenseAccountId("");
     }
   }, [open, subcontractorName]);
 
@@ -77,10 +92,36 @@ export function VendorMappingDialog({
     staleTime: 30000,
   });
 
+  // Fetch expense accounts for G/L selection
+  const { data: expenseAccounts = [] } = useQuery({
+    queryKey: ["qb-expense-accounts-dialog", companyId],
+    queryFn: async (): Promise<QBAccount[]> => {
+      if (!companyId) return [];
+
+      const { data, error } = await supabase.functions.invoke("quickbooks-list-entities", {
+        body: { companyId, entityType: "accounts" },
+      });
+
+      if (error) return [];
+      
+      // Filter to expense accounts
+      return (data?.entities || []).filter((a: QBAccount) => 
+        ["Expense", "Other Expense", "Cost of Goods Sold"].includes(a.type)
+      );
+    },
+    enabled: !!companyId && open,
+    staleTime: 60000,
+  });
+
   // Mutation to create mapping
   const createMappingMutation = useMutation({
     mutationFn: async (params: { qboId: string; qboName: string } | { createNew: true }) => {
       if (!companyId) throw new Error("No company context");
+
+      // Get selected expense account details
+      const expenseAccount = selectedExpenseAccountId 
+        ? expenseAccounts.find(a => a.id === selectedExpenseAccountId)
+        : null;
 
       if ("createNew" in params) {
         // Mark for auto-creation: We'll store a special mapping that indicates "create on sync"
@@ -91,6 +132,8 @@ export function VendorMappingDialog({
             source_value: subcontractorId,
             qbo_id: "PENDING_CREATE",
             qbo_name: subcontractorName,
+            default_expense_account_id: expenseAccount?.id || null,
+            default_expense_account_name: expenseAccount?.name || null,
           },
           { onConflict: "company_id,mapping_type,source_value" }
         );
@@ -104,6 +147,8 @@ export function VendorMappingDialog({
             source_value: subcontractorId,
             qbo_id: params.qboId,
             qbo_name: params.qboName,
+            default_expense_account_id: expenseAccount?.id || null,
+            default_expense_account_name: expenseAccount?.name || null,
           },
           { onConflict: "company_id,mapping_type,source_value" }
         );
@@ -112,6 +157,7 @@ export function VendorMappingDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["quickbooks-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["qb-mappings"] });
       toast.success(
         selectedOption === "create"
           ? "Vendor will be created in QuickBooks on next sync"
@@ -265,6 +311,32 @@ export function VendorMappingDialog({
                 The vendor will be created with the name exactly as shown. You can edit it in
                 QuickBooks after creation.
               </span>
+            </div>
+          )}
+
+          {/* G/L Expense Account Selection - show for both options when a selection is made */}
+          {((selectedOption === "search" && selectedVendor) || selectedOption === "create") && (
+            <div className="space-y-2 p-3 bg-muted/50 rounded-lg border">
+              <Label className="text-sm font-medium">Default G/L Expense Account (Optional)</Label>
+              <Select
+                value={selectedExpenseAccountId}
+                onValueChange={setSelectedExpenseAccountId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Use global default expense account" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Use global default expense account</SelectItem>
+                  {expenseAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Bills from this vendor will use this expense account instead of the global default.
+              </p>
             </div>
           )}
         </div>

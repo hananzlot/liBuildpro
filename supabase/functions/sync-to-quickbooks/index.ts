@@ -736,8 +736,39 @@ Deno.serve(async (req) => {
 
           const existingQbId = existingSync?.quickbooks_id;
 
-          // Get configured expense account mapping
-          const expenseAccountMapping = getMapping("expense_account");
+          // Get configured expense account mapping (global default)
+          const globalExpenseAccountMapping = getMapping("expense_account");
+
+          // Look up vendor-specific expense account by finding the subcontractor mapping
+          // First, find subcontractor by vendor name (installer_company)
+          const { data: subcontractor } = await supabase
+            .from("subcontractors")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("company_name", vendorName)
+            .maybeSingle();
+
+          let vendorExpenseAccount: { value: string; name: string } | null = null;
+          if (subcontractor?.id) {
+            // Find vendor mapping with optional expense account override
+            const vendorMapping = mappings?.find(m => 
+              m.mapping_type === "vendor" && m.source_value === subcontractor.id
+            );
+            if (vendorMapping?.default_expense_account_id && vendorMapping?.default_expense_account_name) {
+              vendorExpenseAccount = {
+                value: vendorMapping.default_expense_account_id,
+                name: vendorMapping.default_expense_account_name,
+              };
+              console.log(`Using vendor-specific expense account: ${vendorExpenseAccount.name}`);
+            }
+          }
+
+          // Use vendor-specific account if available, otherwise fall back to global
+          const expenseAccountRef = vendorExpenseAccount 
+            ? vendorExpenseAccount
+            : globalExpenseAccountMapping 
+              ? { value: globalExpenseAccountMapping.qbo_id, name: globalExpenseAccountMapping.qbo_name }
+              : { value: "1" };
 
           // Look up customer mapping for job costing (link bill to project)
           let customerRef: { value: string; name?: string } | undefined;
@@ -767,9 +798,7 @@ Deno.serve(async (req) => {
                 Amount: bill.bill_amount || 0,
                 DetailType: "AccountBasedExpenseLineDetail",
                 AccountBasedExpenseLineDetail: {
-                  AccountRef: expenseAccountMapping
-                    ? { value: expenseAccountMapping.qbo_id, name: expenseAccountMapping.qbo_name }
-                    : { value: "1" },
+                  AccountRef: expenseAccountRef,
                   // Add CustomerRef for job costing - links expense to the project/customer
                   ...(customerRef && { CustomerRef: customerRef }),
                 },
