@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
@@ -430,6 +430,15 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
     enabled: open && !!companyId,
   });
 
+  // Helper to capitalize source names properly (Title Case)
+  const toTitleCase = (str: string): string => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   // Fetch existing lead sources from contacts and projects
   const { data: existingLeadSources = [] } = useQuery({
     queryKey: ["lead-sources", companyId],
@@ -454,23 +463,55 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
       
       if (projectError) throw projectError;
 
-      // Combine and deduplicate
-      const sources = new Set<string>();
-      contactSources?.forEach(c => c.source && sources.add(c.source));
-      projectSources?.forEach(p => p.lead_source && sources.add(p.lead_source));
+      // Combine and deduplicate (normalize to title case for deduplication)
+      const sourceMap = new Map<string, string>(); // lowercase -> original or titleCase
+      contactSources?.forEach(c => {
+        if (c.source) {
+          const key = c.source.toLowerCase().trim();
+          if (!sourceMap.has(key)) {
+            sourceMap.set(key, toTitleCase(c.source.trim()));
+          }
+        }
+      });
+      projectSources?.forEach(p => {
+        if (p.lead_source) {
+          const key = p.lead_source.toLowerCase().trim();
+          if (!sourceMap.has(key)) {
+            sourceMap.set(key, toTitleCase(p.lead_source.trim()));
+          }
+        }
+      });
       
       // Also include custom sources from localStorage
       try {
         const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
-        customSources.forEach((s: string) => sources.add(s));
+        customSources.forEach((s: string) => {
+          const key = s.toLowerCase().trim();
+          if (!sourceMap.has(key)) {
+            sourceMap.set(key, toTitleCase(s.trim()));
+          }
+        });
       } catch {
         // Ignore parse errors
       }
       
-      return Array.from(sources).sort((a, b) => a.localeCompare(b));
+      return Array.from(sourceMap.values()).sort((a, b) => a.localeCompare(b));
     },
     enabled: open && !!companyId,
   });
+
+  // Group sources by first letter for display
+  const groupedLeadSources = useMemo(() => {
+    const groups: Record<string, string[]> = {};
+    existingLeadSources.forEach(source => {
+      const firstLetter = source.charAt(0).toUpperCase();
+      if (!groups[firstLetter]) {
+        groups[firstLetter] = [];
+      }
+      groups[firstLetter].push(source);
+    });
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  }, [existingLeadSources]);
 
   // Add new status mutation
   const addStatusMutation = useMutation({
@@ -1012,14 +1053,15 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                           size="sm"
                                           className="w-full justify-start text-xs"
                                           onClick={() => {
-                                            updateProjectMutation.mutate({ lead_source: leadSourceSearch });
+                                            const newSource = toTitleCase(leadSourceSearch.trim());
+                                            updateProjectMutation.mutate({ lead_source: newSource });
                                             setLeadSourcePopoverOpen(false);
                                             setLeadSourceSearch("");
                                             // Store in localStorage for future use
                                             try {
                                               const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
-                                              if (!customSources.includes(leadSourceSearch)) {
-                                                customSources.push(leadSourceSearch);
+                                              if (!customSources.some((s: string) => s.toLowerCase() === newSource.toLowerCase())) {
+                                                customSources.push(newSource);
                                                 localStorage.setItem("customSources", JSON.stringify(customSources));
                                               }
                                             } catch { /* ignore */ }
@@ -1027,26 +1069,27 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                           }}
                                         >
                                           <Plus className="mr-2 h-4 w-4" />
-                                          Add "{leadSourceSearch}"
+                                          Add "{toTitleCase(leadSourceSearch.trim())}"
                                         </Button>
                                       </div>
                                     ) : "No sources found."}
                                   </CommandEmpty>
-                                  <ScrollArea className="max-h-[200px]">
-                                    <CommandGroup>
-                                      {/* Add New option at top when searching */}
-                                      {leadSourceSearch && !existingLeadSources.some(s => s.toLowerCase() === leadSourceSearch.toLowerCase()) && (
+                                  <ScrollArea className="max-h-[250px]">
+                                    {/* Add New option at top when searching */}
+                                    {leadSourceSearch && !existingLeadSources.some(s => s.toLowerCase() === leadSourceSearch.toLowerCase()) && (
+                                      <CommandGroup heading="Add New">
                                         <CommandItem
                                           value={`add-new-${leadSourceSearch}`}
                                           onSelect={() => {
-                                            updateProjectMutation.mutate({ lead_source: leadSourceSearch });
+                                            const newSource = toTitleCase(leadSourceSearch.trim());
+                                            updateProjectMutation.mutate({ lead_source: newSource });
                                             setLeadSourcePopoverOpen(false);
                                             setLeadSourceSearch("");
                                             // Store in localStorage for future use
                                             try {
                                               const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
-                                              if (!customSources.includes(leadSourceSearch)) {
-                                                customSources.push(leadSourceSearch);
+                                              if (!customSources.some((s: string) => s.toLowerCase() === newSource.toLowerCase())) {
+                                                customSources.push(newSource);
                                                 localStorage.setItem("customSources", JSON.stringify(customSources));
                                               }
                                             } catch { /* ignore */ }
@@ -1055,11 +1098,14 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                           className="text-xs"
                                         >
                                           <Plus className="mr-2 h-4 w-4" />
-                                          Add "{leadSourceSearch}"
+                                          Add "{toTitleCase(leadSourceSearch.trim())}"
                                         </CommandItem>
-                                      )}
-                                      {/* Clear selection option */}
-                                      {fullProject?.lead_source && (
+                                      </CommandGroup>
+                                    )}
+                                    
+                                    {/* Clear selection option */}
+                                    {fullProject?.lead_source && (
+                                      <CommandGroup heading="Actions">
                                         <CommandItem
                                           value="__clear__"
                                           onSelect={() => {
@@ -1072,28 +1118,34 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                           <X className="mr-2 h-4 w-4" />
                                           Clear selection
                                         </CommandItem>
-                                      )}
-                                      {existingLeadSources.map((source) => (
-                                        <CommandItem
-                                          key={source}
-                                          value={source}
-                                          onSelect={() => {
-                                            updateProjectMutation.mutate({ lead_source: source });
-                                            setLeadSourcePopoverOpen(false);
-                                            setLeadSourceSearch("");
-                                          }}
-                                          className="text-xs"
-                                        >
-                                          <Check
-                                            className={cn(
-                                              "mr-2 h-4 w-4",
-                                              fullProject?.lead_source === source ? "opacity-100" : "opacity-0"
-                                            )}
-                                          />
-                                          {source}
-                                        </CommandItem>
-                                      ))}
-                                    </CommandGroup>
+                                      </CommandGroup>
+                                    )}
+                                    
+                                    {/* Grouped sources by first letter */}
+                                    {groupedLeadSources.map(([letter, sources], index) => (
+                                      <CommandGroup key={letter} heading={letter}>
+                                        {sources.map((source) => (
+                                          <CommandItem
+                                            key={source}
+                                            value={source}
+                                            onSelect={() => {
+                                              updateProjectMutation.mutate({ lead_source: source });
+                                              setLeadSourcePopoverOpen(false);
+                                              setLeadSourceSearch("");
+                                            }}
+                                            className="text-xs"
+                                          >
+                                            <Check
+                                              className={cn(
+                                                "mr-2 h-4 w-4",
+                                                fullProject?.lead_source === source ? "opacity-100" : "opacity-0"
+                                              )}
+                                            />
+                                            {source}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    ))}
                                   </ScrollArea>
                                 </CommandList>
                               </Command>
