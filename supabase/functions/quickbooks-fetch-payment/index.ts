@@ -375,6 +375,142 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Action: update-existing - Update an existing local payment from QB data
+    if (action === "update-existing") {
+      if (!qbPaymentId) {
+        return new Response(
+          JSON.stringify({ error: "qbPaymentId is required for update-existing" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      log("info", `Updating existing payment from QB ${qbPaymentId}`);
+
+      // Find the existing local payment via sync log
+      const { data: existingSyncLog } = await supabase
+        .from("quickbooks_sync_log")
+        .select("record_id")
+        .eq("company_id", companyId)
+        .eq("record_type", "payment")
+        .eq("quickbooks_id", qbPaymentId)
+        .maybeSingle();
+
+      if (!existingSyncLog?.record_id) {
+        log("warn", `No existing local payment found for QB Payment ${qbPaymentId}`);
+        return new Response(
+          JSON.stringify({ success: false, error: "No local payment found to update" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const localPaymentId = existingSyncLog.record_id;
+
+      // Fetch the latest data from QuickBooks
+      const paymentRes = await fetch(`${QB_BASE_URL}/${effectiveRealmId}/payment/${qbPaymentId}`, {
+        headers: qbHeaders,
+      });
+
+      if (!paymentRes.ok) {
+        const errText = await paymentRes.text();
+        log("error", `Failed to fetch payment from QB for update`, { status: paymentRes.status, error: errText });
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch payment from QuickBooks", details: errText }),
+          { status: paymentRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const paymentData = await paymentRes.json();
+      const qbPayment: QBPayment = paymentData.Payment;
+
+      log("info", "Fetched QB payment for update", {
+        id: qbPayment.Id,
+        refNum: qbPayment.PaymentRefNum,
+        amount: qbPayment.TotalAmt,
+        depositToAccountId: qbPayment.DepositToAccountRef?.value || null,
+      });
+
+      // Look up mapped local bank from QB deposit account
+      let bankId: string | null = null;
+      let bankName: string | null = null;
+      const qbDepositAccountId = qbPayment.DepositToAccountRef?.value;
+
+      if (qbDepositAccountId) {
+        const { data: bankMapping } = await supabase
+          .from("quickbooks_mappings")
+          .select("source_value")
+          .eq("company_id", companyId)
+          .eq("mapping_type", "bank")
+          .eq("qbo_id", qbDepositAccountId)
+          .maybeSingle();
+
+        const localBankId = bankMapping?.source_value;
+        if (localBankId) {
+          const { data: bankRecord } = await supabase
+            .from("banks")
+            .select("id, name")
+            .eq("company_id", companyId)
+            .eq("id", localBankId)
+            .maybeSingle();
+
+          if (bankRecord?.name) {
+            bankId = bankRecord.id;
+            bankName = bankRecord.name;
+          } else {
+            bankName = qbPayment.DepositToAccountRef?.name || null;
+          }
+        } else {
+          bankName = qbPayment.DepositToAccountRef?.name || null;
+        }
+      }
+
+      // Update the local payment with new QB data
+      const { error: updateError } = await supabase
+        .from("project_payments")
+        .update({
+          payment_amount: qbPayment.TotalAmt || 0,
+          projected_received_date: qbPayment.TxnDate || null,
+          check_number: qbPayment.PaymentRefNum || null,
+          bank_id: bankId,
+          bank_name: bankName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", localPaymentId);
+
+      if (updateError) {
+        log("error", "Failed to update local payment", { error: updateError.message });
+        return new Response(
+          JSON.stringify({ error: "Failed to update payment", details: updateError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update sync log
+      await supabase
+        .from("quickbooks_sync_log")
+        .update({
+          sync_status: "synced",
+          last_sync_at: new Date().toISOString(),
+          error_message: null,
+        })
+        .eq("company_id", companyId)
+        .eq("record_type", "payment")
+        .eq("quickbooks_id", qbPaymentId);
+
+      log("info", `✓ Updated local payment ${localPaymentId} from QB`, { amount: qbPayment.TotalAmt });
+
+      const duration = Date.now() - startTime;
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: "updated",
+          paymentId: localPaymentId,
+          amount: qbPayment.TotalAmt,
+          duration: `${duration}ms`,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Action: process-pending - Process all pending payments from sync log
     if (action === "process-pending") {
       log("info", "Processing pending payments from sync log");
@@ -457,7 +593,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Invalid action. Use 'fetch-single' or 'process-pending'" }),
+      JSON.stringify({ error: "Invalid action. Use 'fetch-single', 'update-existing', or 'process-pending'" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
