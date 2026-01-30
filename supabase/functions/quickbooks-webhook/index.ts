@@ -112,6 +112,7 @@ Deno.serve(async (req) => {
       let payload: WebhookPayload | CloudEventsPayload;
       try {
         payload = JSON.parse(rawBody);
+        log("info", "Parsed payload keys", { keys: Object.keys(payload) });
       } catch (parseError) {
         log("error", "Failed to parse webhook payload", { error: String(parseError) });
         return new Response(
@@ -123,7 +124,10 @@ Deno.serve(async (req) => {
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
       
       // Detect CloudEvents format (new QBO webhook format)
-      if ('specversion' in payload && payload.specversion === '1.0') {
+      const isCloudEvents = 'specversion' in payload;
+      log("info", "Format detection", { isCloudEvents, hasSpecversion: 'specversion' in payload });
+      
+      if (isCloudEvents && (payload as CloudEventsPayload).specversion === '1.0') {
         const cloudEvent = payload as CloudEventsPayload;
         log("info", "Detected CloudEvents format", {
           type: cloudEvent.type,
