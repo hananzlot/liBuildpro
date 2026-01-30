@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, Target, GitBranch, Plus, Trash2, Eye, EyeOff, ExternalLink, Calendar, Link2, FileSignature } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
+import { JunkContactsCleanup } from "@/components/admin/JunkContactsCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
 import { UserManagement } from "@/components/dashboard/UserManagement";
 import { EmailTemplatesManager } from "@/components/admin/EmailTemplatesManager";
@@ -1646,7 +1647,8 @@ export default function AdminSettings() {
           </TabsContent>
 
           {/* Data Cleanup Tab */}
-          <TabsContent value="cleanup" className="mt-6">
+          <TabsContent value="cleanup" className="mt-6 space-y-6">
+            <JunkContactsCleanup />
             <AdminCleanup
               opportunities={opportunities}
               contacts={contacts}
