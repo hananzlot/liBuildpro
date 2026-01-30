@@ -260,27 +260,59 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
 
   // Subscribe to Realtime changes on project_invoices for this project
-  // This enables the UI to auto-refresh when webhooks update invoices
+  // We use separate subscriptions: one for INSERT/UPDATE with filter, and one unfiltered for DELETE
+  // because DELETE events only contain the old row data which may not match the filter
   useEffect(() => {
-    const channel = supabase
-      .channel(`project-invoices-${projectId}`)
+    const filteredChannel = supabase
+      .channel(`project-invoices-filtered-${projectId}`)
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "project_invoices",
           filter: `project_id=eq.${projectId}`,
         },
         () => {
-          // Invalidate invoice query to trigger refetch
+          queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "project_invoices",
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
           queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
         }
       )
       .subscribe();
 
+    // Separate channel for DELETE events
+    const deleteChannel = supabase
+      .channel(`project-invoices-delete-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "project_invoices",
+        },
+        (payload) => {
+          if (payload.old && (payload.old as { project_id?: string }).project_id === projectId) {
+            queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+            queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(filteredChannel);
+      supabase.removeChannel(deleteChannel);
     };
   }, [projectId, queryClient]);
 
@@ -341,6 +373,86 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     return () => {
       supabase.removeChannel(filteredChannel);
       supabase.removeChannel(deleteChannel);
+    };
+  }, [projectId, queryClient]);
+
+  // Subscribe to Realtime changes on project_bills for this project
+  useEffect(() => {
+    const filteredChannel = supabase
+      .channel(`project-bills-filtered-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "project_bills",
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "project_bills",
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+        }
+      )
+      .subscribe();
+
+    // Separate channel for DELETE events
+    const deleteChannel = supabase
+      .channel(`project-bills-delete-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "project_bills",
+        },
+        (payload) => {
+          if (payload.old && (payload.old as { project_id?: string }).project_id === projectId) {
+            queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+            queryClient.invalidateQueries({ queryKey: ["project-bill-payments", projectId] });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(filteredChannel);
+      supabase.removeChannel(deleteChannel);
+    };
+  }, [projectId, queryClient]);
+
+  // Subscribe to Realtime changes on bill_payments (no project_id filter - uses bill_id)
+  useEffect(() => {
+    // We need to listen to all bill_payment changes and filter in the callback
+    const channel = supabase
+      .channel(`bill-payments-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bill_payments",
+        },
+        () => {
+          // Since bill_payments don't have project_id, we just invalidate and let React Query handle it
+          queryClient.invalidateQueries({ queryKey: ["project-bill-payments", projectId] });
+          queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
   }, [projectId, queryClient]);
 
