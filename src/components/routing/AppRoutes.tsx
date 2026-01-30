@@ -25,6 +25,7 @@ import AppDefaultSettings from "@/pages/super-admin/AppDefaultSettings";
 import PlatformAdmins from "@/pages/super-admin/PlatformAdmins";
 import SubscriptionPlans from "@/pages/super-admin/SubscriptionPlans";
 import PlatformEmailSettingsPage from "@/pages/super-admin/PlatformEmailSettings";
+import BackupManagement from "@/pages/super-admin/BackupManagement";
 import Onboarding from "@/pages/Onboarding";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
@@ -295,6 +296,7 @@ export function AppRoutes() {
         <Route path="/super-admin/admins" element={<PlatformAdmins />} />
         <Route path="/super-admin/plans" element={<SubscriptionPlans />} />
         <Route path="/super-admin/email-settings" element={<PlatformEmailSettingsPage />} />
+        <Route path="/super-admin/backups" element={<BackupManagement />} />
         
         {/* Catch-all */}
         <Route path="*" element={<NotFound />} />
