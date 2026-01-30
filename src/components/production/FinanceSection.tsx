@@ -3050,6 +3050,12 @@ function PaymentDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!formData.bank_name || !formData.projected_received_date) {
+      return;
+    }
+    
     const amount = parseFloat(formData.payment_amount) || 0;
     
     // Validate amount doesn't exceed invoice balance (accounting for original payment when editing)
@@ -3145,8 +3151,16 @@ function PaymentDialog({
               )}
             </div>
             <div>
-              <Label>Date Received</Label>
-              <Input type="date" value={formData.projected_received_date} onChange={(e) => setFormData(p => ({ ...p, projected_received_date: e.target.value }))} />
+              <Label>Date Received <span className="text-destructive">*</span></Label>
+              <Input 
+                type="date" 
+                value={formData.projected_received_date} 
+                onChange={(e) => setFormData(p => ({ ...p, projected_received_date: e.target.value }))} 
+                className={cn(!formData.projected_received_date && "border-destructive")}
+              />
+              {!formData.projected_received_date && (
+                <p className="text-xs text-destructive mt-1">Date is required</p>
+              )}
             </div>
           </div>
           <div>
