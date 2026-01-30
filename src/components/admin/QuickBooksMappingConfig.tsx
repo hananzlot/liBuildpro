@@ -6,13 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Loader2, RefreshCw, Settings2, Search, EyeOff, Eye } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw, Settings2, Search, EyeOff, Eye, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DebouncedInput } from "@/components/ui/debounced-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { QuickBooksMatchingRules } from "./QuickBooksMatchingRules";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 
 interface QBEntity {
@@ -48,6 +49,7 @@ export function QuickBooksMappingConfig() {
   const [glSearch, setGlSearch] = useState("");
   const [customerFilter, setCustomerFilter] = useState<"all" | "matched" | "unmatched" | "hidden">("all");
   const [vendorFilter, setVendorFilter] = useState<"all" | "matched" | "unmatched" | "hidden">("all");
+  const [isMappingOpen, setIsMappingOpen] = useState(false);
 
   // First, verify a connection exists before attempting any entity calls
   const { data: connection, isLoading: connectionLoading } = useQuery({
@@ -631,39 +633,51 @@ export function QuickBooksMappingConfig() {
     );
   }
 
+
+
   return (
     <div className="space-y-6">
-      <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Settings2 className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">QuickBooks Mapping</CardTitle>
-              <CardDescription>
-                Configure how your data maps to QuickBooks
-              </CardDescription>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              refetchAccounts();
-              refetchItems();
-              refetchCustomers();
-              refetchVendors();
-              if (activeTab === "gl" || activeTab === "banks") refetchAllAccounts();
-            }}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
+      <Collapsible open={isMappingOpen} onOpenChange={setIsMappingOpen} className="group">
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Settings2 className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">QuickBooks Field Mapping</CardTitle>
+                    <CardDescription>
+                      Configure how your data maps to QuickBooks
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isMappingOpen && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        refetchAccounts();
+                        refetchItems();
+                        refetchCustomers();
+                        refetchVendors();
+                        if (activeTab === "gl" || activeTab === "banks") refetchAllAccounts();
+                      }}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh
+                    </Button>
+                  )}
+                  <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </div>
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="accounts">Accounts</TabsTrigger>
@@ -1110,7 +1124,9 @@ export function QuickBooksMappingConfig() {
           </TabsContent>
         </Tabs>
       </CardContent>
-      </Card>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Matching Rules */}
       <QuickBooksMatchingRules
