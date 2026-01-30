@@ -270,11 +270,12 @@ Deno.serve(async (req) => {
       }
 
       // Look up mapped local bank name from QB deposit account
+      // Note: in our mapping system, quickbooks_mappings.source_value for mapping_type="bank" is the LOCAL bank UUID.
+      // The app stores the HUMAN name in project_payments.bank_name (e.g. "Chase").
       let bankName: string | null = null;
       const qbDepositAccountId = qbPayment.DepositToAccountRef?.value;
-      
+
       if (qbDepositAccountId) {
-        // Find bank mapping: source_value is local bank name, qbo_id is QB account ID
         const { data: bankMapping } = await supabase
           .from("quickbooks_mappings")
           .select("source_value")
@@ -283,19 +284,38 @@ Deno.serve(async (req) => {
           .eq("qbo_id", qbDepositAccountId)
           .maybeSingle();
 
-        if (bankMapping?.source_value) {
-          bankName = bankMapping.source_value;
-          log("info", "Mapped QB deposit account to local bank", { 
-            qbAccountId: qbDepositAccountId, 
-            qbAccountName: qbPayment.DepositToAccountRef?.name,
-            localBankName: bankName 
-          });
+        const localBankId = bankMapping?.source_value;
+        if (localBankId) {
+          const { data: bankRecord } = await supabase
+            .from("banks")
+            .select("name")
+            .eq("company_id", companyId)
+            .eq("id", localBankId)
+            .maybeSingle();
+
+          if (bankRecord?.name) {
+            bankName = bankRecord.name;
+            log("info", "Mapped QB deposit account to local bank name", {
+              qbAccountId: qbDepositAccountId,
+              qbAccountName: qbPayment.DepositToAccountRef?.name,
+              localBankId,
+              localBankName: bankName,
+            });
+          } else {
+            // If mapping points to a bank UUID we can't resolve, don't save the UUID into bank_name.
+            bankName = qbPayment.DepositToAccountRef?.name || null;
+            log("warn", "Bank mapping found but local bank ID not resolvable; using QB account name", {
+              qbAccountId: qbDepositAccountId,
+              qbAccountName: qbPayment.DepositToAccountRef?.name,
+              localBankId,
+            });
+          }
         } else {
-          // Fallback to QB account name if no mapping found
+          // No mapping found; fallback to QB account name (e.g. "Undeposited Funds")
           bankName = qbPayment.DepositToAccountRef?.name || null;
-          log("warn", "No bank mapping found, using QB account name", { 
+          log("warn", "No bank mapping found; using QB account name", {
             qbAccountId: qbDepositAccountId,
-            qbAccountName: bankName 
+            qbAccountName: bankName,
           });
         }
       }
