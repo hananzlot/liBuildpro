@@ -5274,6 +5274,47 @@ export type Database = {
           },
         ]
       }
+      quickbooks_field_mappings: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          local_field: string
+          qb_field: string
+          record_type: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          local_field: string
+          qb_field: string
+          record_type: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          local_field?: string
+          qb_field?: string
+          record_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quickbooks_field_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quickbooks_mappings: {
         Row: {
           company_id: string

@@ -141,11 +141,11 @@ export function QuickBooksFieldMappings() {
     queryKey: ["qb-field-mappings", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("quickbooks_field_mappings")
+        .from("quickbooks_field_mappings" as any)
         .select("*")
-        .eq("company_id", companyId);
+        .eq("company_id", companyId) as unknown as { data: FieldMappingRow[] | null; error: any };
       if (error) throw error;
-      return data as FieldMappingRow[];
+      return (data || []) as FieldMappingRow[];
     },
     enabled: !!companyId,
   });
@@ -156,7 +156,7 @@ export function QuickBooksFieldMappings() {
       // Upsert all mappings
       for (const mapping of mappings) {
         const { error } = await supabase
-          .from("quickbooks_field_mappings")
+          .from("quickbooks_field_mappings" as any)
           .upsert({
             company_id: companyId,
             record_type: mapping.record_type,
@@ -325,8 +325,8 @@ export function QuickBooksFieldMappings() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-blue-600" />
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-primary" />
             </div>
             <div>
               <CardTitle className="text-lg">Field Mappings</CardTitle>
@@ -374,7 +374,7 @@ export function QuickBooksFieldMappings() {
               INVOICE_FIELDS,
               QB_INVOICE_FIELDS,
               DEFAULT_INVOICE_MAPPINGS,
-              <Receipt className="h-5 w-5 text-green-600" />,
+              <Receipt className="h-5 w-5 text-primary" />,
               "Invoice Field Mapping",
               "Map your invoice fields to QuickBooks invoice fields"
             )}
@@ -386,7 +386,7 @@ export function QuickBooksFieldMappings() {
               PAYMENT_FIELDS,
               QB_PAYMENT_FIELDS,
               DEFAULT_PAYMENT_MAPPINGS,
-              <DollarSign className="h-5 w-5 text-emerald-600" />,
+              <DollarSign className="h-5 w-5 text-primary" />,
               "Payment Collection Field Mapping",
               "Map your payment collection fields to QuickBooks payment fields"
             )}
@@ -398,7 +398,7 @@ export function QuickBooksFieldMappings() {
               BILL_FIELDS,
               QB_BILL_FIELDS,
               DEFAULT_BILL_MAPPINGS,
-              <FileText className="h-5 w-5 text-orange-600" />,
+              <FileText className="h-5 w-5 text-primary" />,
               "Bill Field Mapping",
               "Map your bill fields to QuickBooks bill fields"
             )}
@@ -410,7 +410,7 @@ export function QuickBooksFieldMappings() {
               BILL_PAYMENT_FIELDS,
               QB_BILL_PAYMENT_FIELDS,
               DEFAULT_BILL_PAYMENT_MAPPINGS,
-              <CreditCard className="h-5 w-5 text-purple-600" />,
+              <CreditCard className="h-5 w-5 text-primary" />,
               "Bill Payment Field Mapping",
               "Map your bill payment fields to QuickBooks bill payment fields"
             )}
