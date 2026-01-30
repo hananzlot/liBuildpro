@@ -894,11 +894,6 @@ Deno.serve(async (req) => {
             ],
           };
 
-          // Add DocNumber (check/reference number) if provided
-          if (billPayment.payment_reference) {
-            qbBillPayment.DocNumber = billPayment.payment_reference;
-          }
-
           // Add bank account if bank_name is set and has a mapping
           if (billPayment.bank_name) {
             const { data: bankRecord } = await supabase
@@ -919,12 +914,15 @@ Deno.serve(async (req) => {
                     name: bankMapping.qbo_name,
                   },
                 };
-                // Add check number if available
+                // Add check number if available (only valid inside CheckPayment for BillPayment entities)
                 if (billPayment.payment_reference) {
                   qbBillPayment.CheckPayment.CheckNum = billPayment.payment_reference;
                 }
               }
             }
+          } else if (billPayment.payment_reference) {
+            // If no bank but has reference, add as memo/private note
+            qbBillPayment.PrivateNote = `Ref: ${billPayment.payment_reference}`;
           }
 
           let syncRes: Response;
