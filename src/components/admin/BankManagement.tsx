@@ -793,19 +793,15 @@ export function BankManagement() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <Badge 
-                              variant={payment.type === "received" ? "default" : "secondary"}
-                              className={payment.type === "received" ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-red-100 text-red-700 hover:bg-red-100"}
-                            >
-                              {payment.type === "received" ? "Received" : "Paid"}
-                            </Badge>
-                            {payment.status && payment.type === "received" && (
-                              <Badge variant="outline" className="text-xs">
-                                {payment.status}
-                              </Badge>
-                            )}
-                          </div>
+                          <Badge 
+                            variant={payment.type === "received" ? "default" : "secondary"}
+                            className={payment.type === "received" ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-red-100 text-red-700 hover:bg-red-100"}
+                          >
+                            {payment.type === "received" 
+                              ? (payment.status ? `Received - ${payment.status}` : "Received")
+                              : "Paid"
+                            }
+                          </Badge>
                           <p className="mt-1 font-medium truncate">
                             {payment.projectName || "No project"}
                           </p>
