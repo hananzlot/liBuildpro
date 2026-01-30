@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -36,6 +36,41 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
   const { user } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
+
+  // Fetch default lead cost percent from company settings
+  const { data: defaultLeadCostPercent } = useQuery({
+    queryKey: ["default-lead-cost-percent", companyId],
+    queryFn: async () => {
+      if (!companyId) return 18;
+      
+      // First try company_settings
+      const { data: companySetting } = await supabase
+        .from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "default_lead_cost_percent")
+        .maybeSingle();
+      
+      if (companySetting?.setting_value) {
+        return parseFloat(companySetting.setting_value);
+      }
+      
+      // Fallback to app_settings
+      const { data: appSetting } = await supabase
+        .from("app_settings")
+        .select("setting_value")
+        .eq("setting_key", "default_lead_cost_percent")
+        .maybeSingle();
+      
+      if (appSetting?.setting_value) {
+        return parseFloat(appSetting.setting_value);
+      }
+      
+      return 18; // Final fallback
+    },
+    enabled: !!companyId,
+    staleTime: 30 * 60 * 1000, // 30 minutes
+  });
   
   const [formData, setFormData] = useState({
     project_name: "",
@@ -76,6 +111,7 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
           location_id: DEFAULT_LOCATION_ID,
           created_by: user?.id || null,
           company_id: companyId,
+          lead_cost_percent: defaultLeadCostPercent ?? 18,
         })
         .select()
         .single();
