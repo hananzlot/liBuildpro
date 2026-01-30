@@ -665,10 +665,10 @@ export function QuickBooksMappingConfig() {
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Settings2 className="h-5 w-5 text-primary" />
                   </div>
-                  <div>
-                    <CardTitle className="text-lg">QuickBooks Field Mapping</CardTitle>
+                <div>
+                    <CardTitle className="text-lg">QuickBooks Entities Matching</CardTitle>
                     <CardDescription>
-                      Configure how your data maps to QuickBooks
+                      Match your customers and vendors to QuickBooks
                     </CardDescription>
                   </div>
                 </div>
