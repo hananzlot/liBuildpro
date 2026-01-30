@@ -10,11 +10,13 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { QuickBooksCompanySelector } from "./QuickBooksCompanySelector";
 import { QuickBooksMappingConfig } from "./QuickBooksMappingConfig";
+import { QuickBooksSyncDialog } from "./QuickBooksSyncDialog";
 
 export function QuickBooksIntegration() {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [isConnecting, setIsConnecting] = useState(false);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
 
   const navigateToQuickBooksAuth = (authUrl: string) => {
     // Intuit blocks being loaded in an iframe (X-Frame-Options / CSP), which is
@@ -212,15 +214,10 @@ export function QuickBooksIntegration() {
 
             <div className="flex gap-2">
               <Button
-                onClick={() => syncMutation.mutate()}
-                disabled={syncMutation.isPending}
+                onClick={() => setSyncDialogOpen(true)}
                 className="flex-1"
               >
-                {syncMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
+                <RefreshCw className="h-4 w-4 mr-2" />
                 Sync Now
               </Button>
               <Button
@@ -283,6 +280,12 @@ export function QuickBooksIntegration() {
           <QuickBooksMappingConfig />
         </>
       )}
+      
+      <QuickBooksSyncDialog
+        open={syncDialogOpen}
+        onOpenChange={setSyncDialogOpen}
+        lastSyncAt={connection?.last_sync_at}
+      />
     </div>
   );
 }
