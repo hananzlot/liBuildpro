@@ -439,63 +439,23 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
       .join(' ');
   };
 
-  // Fetch existing lead sources from contacts and projects
+  // Fetch lead sources from company-defined lead_sources table
   const { data: existingLeadSources = [] } = useQuery({
     queryKey: ["lead-sources", companyId],
     queryFn: async () => {
       if (!companyId) return [];
       
-      // Fetch from contacts source field
-      const { data: contactSources, error: contactError } = await supabase
-        .from("contacts")
-        .select("source")
+      const { data, error } = await supabase
+        .from("lead_sources")
+        .select("id, name, is_active, sort_order")
         .eq("company_id", companyId)
-        .not("source", "is", null);
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
       
-      if (contactError) throw contactError;
+      if (error) throw error;
       
-      // Fetch from projects lead_source field  
-      const { data: projectSources, error: projectError } = await supabase
-        .from("projects")
-        .select("lead_source")
-        .eq("company_id", companyId)
-        .not("lead_source", "is", null);
-      
-      if (projectError) throw projectError;
-
-      // Combine and deduplicate (normalize to title case for deduplication)
-      const sourceMap = new Map<string, string>(); // lowercase -> original or titleCase
-      contactSources?.forEach(c => {
-        if (c.source) {
-          const key = c.source.toLowerCase().trim();
-          if (!sourceMap.has(key)) {
-            sourceMap.set(key, toTitleCase(c.source.trim()));
-          }
-        }
-      });
-      projectSources?.forEach(p => {
-        if (p.lead_source) {
-          const key = p.lead_source.toLowerCase().trim();
-          if (!sourceMap.has(key)) {
-            sourceMap.set(key, toTitleCase(p.lead_source.trim()));
-          }
-        }
-      });
-      
-      // Also include custom sources from localStorage
-      try {
-        const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
-        customSources.forEach((s: string) => {
-          const key = s.toLowerCase().trim();
-          if (!sourceMap.has(key)) {
-            sourceMap.set(key, toTitleCase(s.trim()));
-          }
-        });
-      } catch {
-        // Ignore parse errors
-      }
-      
-      return Array.from(sourceMap.values()).sort((a, b) => a.localeCompare(b));
+      return data?.map(s => s.name) || [];
     },
     enabled: open && !!companyId,
   });
@@ -512,6 +472,32 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
     });
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [existingLeadSources]);
+
+  // Mutation to add a new lead source
+  const addLeadSourceMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!companyId) throw new Error("No company selected");
+      const { error } = await supabase
+        .from("lead_sources")
+        .insert({ 
+          name, 
+          company_id: companyId,
+          created_by: user?.id 
+        });
+      if (error) {
+        if (error.code === "23505") {
+          throw new Error("Source already exists");
+        }
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lead-sources", companyId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to add source");
+    },
+  });
 
   // Add new status mutation
   const addStatusMutation = useMutation({
@@ -1052,27 +1038,19 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                           variant="ghost"
                                           size="sm"
                                           className="w-full justify-start text-xs"
-                                          onClick={() => {
+                                          onClick={async () => {
                                             const newSource = toTitleCase(leadSourceSearch.trim());
+                                            await addLeadSourceMutation.mutateAsync(newSource);
                                             updateProjectMutation.mutate({ lead_source: newSource });
                                             setLeadSourcePopoverOpen(false);
                                             setLeadSourceSearch("");
-                                            // Store in localStorage for future use
-                                            try {
-                                              const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
-                                              if (!customSources.some((s: string) => s.toLowerCase() === newSource.toLowerCase())) {
-                                                customSources.push(newSource);
-                                                localStorage.setItem("customSources", JSON.stringify(customSources));
-                                              }
-                                            } catch { /* ignore */ }
-                                            queryClient.invalidateQueries({ queryKey: ["lead-sources", companyId] });
                                           }}
                                         >
                                           <Plus className="mr-2 h-4 w-4" />
                                           Add "{toTitleCase(leadSourceSearch.trim())}"
                                         </Button>
                                       </div>
-                                    ) : "No sources found."}
+                                    ) : "No sources found. Add sources in Admin Settings → Sources."}
                                   </CommandEmpty>
                                   <ScrollArea className="h-[250px] overflow-y-auto">
                                     {/* Add New option at top when searching */}
@@ -1080,20 +1058,12 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                       <CommandGroup heading="Add New">
                                         <CommandItem
                                           value={`add-new-${leadSourceSearch}`}
-                                          onSelect={() => {
+                                          onSelect={async () => {
                                             const newSource = toTitleCase(leadSourceSearch.trim());
+                                            await addLeadSourceMutation.mutateAsync(newSource);
                                             updateProjectMutation.mutate({ lead_source: newSource });
                                             setLeadSourcePopoverOpen(false);
                                             setLeadSourceSearch("");
-                                            // Store in localStorage for future use
-                                            try {
-                                              const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
-                                              if (!customSources.some((s: string) => s.toLowerCase() === newSource.toLowerCase())) {
-                                                customSources.push(newSource);
-                                                localStorage.setItem("customSources", JSON.stringify(customSources));
-                                              }
-                                            } catch { /* ignore */ }
-                                            queryClient.invalidateQueries({ queryKey: ["lead-sources", companyId] });
                                           }}
                                           className="text-xs"
                                         >
