@@ -918,6 +918,8 @@ Deno.serve(async (req) => {
                     value: bankMapping.qbo_id,
                     name: bankMapping.qbo_name,
                   },
+                  // If we have a check/reference number, mark as already printed (not "Print Later")
+                  PrintStatus: billPayment.payment_reference ? "PrintComplete" : "NeedToPrint",
                 };
               }
             }
