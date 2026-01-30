@@ -1168,6 +1168,34 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         }
       }
       
+      // If deleting a payment, update the associated invoice's open_balance first
+      if (deleteTarget.type === "payment") {
+        const paymentToDelete = payments.find(p => p.id === deleteTarget.id);
+        if (paymentToDelete?.invoice_id && paymentToDelete.payment_amount) {
+          // Get the current invoice
+          const { data: invoice, error: invoiceError } = await supabase
+            .from("project_invoices")
+            .select("open_balance")
+            .eq("id", paymentToDelete.invoice_id)
+            .single();
+          
+          if (!invoiceError && invoice) {
+            // Add the payment amount back to the open_balance
+            const newBalance = (invoice.open_balance || 0) + paymentToDelete.payment_amount;
+            const { error: updateError } = await supabase
+              .from("project_invoices")
+              .update({ open_balance: newBalance })
+              .eq("id", paymentToDelete.invoice_id);
+            
+            if (updateError) {
+              console.error("Failed to update invoice balance:", updateError);
+            } else {
+              console.log(`Updated invoice ${paymentToDelete.invoice_id} balance: +${paymentToDelete.payment_amount} = ${newBalance}`);
+            }
+          }
+        }
+      }
+
       // Log audit before delete
       await logAudit({
         tableName: table,
@@ -1206,6 +1234,10 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         queryClient.invalidateQueries({ queryKey: ["sidebar-ar-total"] });
       } else if (deleteTarget?.type === "payment") {
         queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
+        // Also invalidate invoices since we updated the balance
+        queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+        queryClient.invalidateQueries({ queryKey: ["all-project-invoices"] });
+        queryClient.invalidateQueries({ queryKey: ["sidebar-ar-total"] });
       } else if (deleteTarget?.type === "bill") {
         queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
         queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
