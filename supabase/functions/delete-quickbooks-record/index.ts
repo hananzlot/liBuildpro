@@ -214,6 +214,32 @@ Deno.serve(async (req) => {
       if (!voidRes.ok) {
         const errText = await voidRes.text();
         console.error(`Failed to void/delete ${qbEntityType}:`, errText);
+        
+        // Check if this is a credit card payment that can't be voided
+        // QuickBooks error 6000: "You can't void this credit card amount..."
+        if (errText.includes("6000") || errText.includes("credit card")) {
+          console.log("Credit card payment cannot be voided in QB, marking as deleted locally");
+          await supabase
+            .from("quickbooks_sync_log")
+            .update({ 
+              sync_status: "deleted_locally", 
+              synced_at: new Date().toISOString() 
+            })
+            .eq("company_id", companyId)
+            .eq("record_type", recordType)
+            .eq("record_id", recordId);
+          
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              message: "Credit card payment cannot be voided in QuickBooks - marked as deleted locally. You may need to void it manually in QuickBooks.",
+              quickbooks_id: qbId,
+              manual_action_required: true
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
         throw new Error(`Failed to void ${qbEntityType}: ${errText}`);
       }
 
