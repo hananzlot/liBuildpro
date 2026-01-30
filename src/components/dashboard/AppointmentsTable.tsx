@@ -414,6 +414,7 @@ export function AppointmentsTable({
     const byRep: Record<string, { id: string; name: string; count: number; value: number; wonValue: number; countedOpps: Set<string> }> = {};
     const wonBySource: Record<string, { count: number; value: number }> = {};
     let totalValue = 0;
+    let totalWonValue = 0;
     const countedOppIds = new Set<string>(); // Track unique opportunities to avoid double-counting
     const processedContacts = new Set<string>(); // Track contacts we've already processed for opportunity lookup
     
@@ -482,6 +483,7 @@ export function AppointmentsTable({
             }
             wonBySource[source].count += 1;
             wonBySource[source].value += oppValue;
+            totalWonValue += oppValue;
           }
           
           totalValue += oppValue;
@@ -527,6 +529,7 @@ export function AppointmentsTable({
       total: dedupedAppointments.length,
       uniqueContacts: processedContacts.size,
       totalValue,
+      totalWonValue,
       bySource: Object.entries(bySource).sort((a, b) => b[1].value - a[1].value),
       byStatus: sortedByStatus,
       byOppStatus: sortedByOppStatus,
@@ -723,6 +726,12 @@ export function AppointmentsTable({
                 <span className="text-xs font-medium text-muted-foreground">Total Value:</span>
                 <Badge variant="default" className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                   {formatCurrency(summaryStats.totalValue)}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Total Won:</span>
+                <Badge variant="default" className="text-xs bg-primary/20 text-primary border-primary/30">
+                  {formatCurrency(summaryStats.totalWonValue)}
                 </Badge>
               </div>
               <div className="flex flex-wrap items-center gap-2">
