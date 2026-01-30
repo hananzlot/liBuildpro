@@ -118,8 +118,8 @@ export function VendorMappingDialog({
     mutationFn: async (params: { qboId: string; qboName: string } | { createNew: true }) => {
       if (!companyId) throw new Error("No company context");
 
-      // Get selected expense account details
-      const expenseAccount = selectedExpenseAccountId 
+      // Get selected expense account details (treat "_default" as no override)
+      const expenseAccount = selectedExpenseAccountId && selectedExpenseAccountId !== "_default"
         ? expenseAccounts.find(a => a.id === selectedExpenseAccountId)
         : null;
 
@@ -326,7 +326,7 @@ export function VendorMappingDialog({
                   <SelectValue placeholder="Use global default expense account" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Use global default expense account</SelectItem>
+                  <SelectItem value="_default">Use global default expense account</SelectItem>
                   {expenseAccounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.name}
