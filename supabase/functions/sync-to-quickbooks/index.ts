@@ -110,6 +110,10 @@ Deno.serve(async (req) => {
       newEntities: [],
     };
 
+    // Track just-synced bills in this request to avoid stale sync_log lookups
+    // Key: local bill ID, Value: QB bill ID
+    const justSyncedBillQbIds: Map<string, string> = new Map();
+
     // Fetch mapping configurations
     const { data: mappings } = await supabase
       .from("quickbooks_mappings")
@@ -800,11 +804,16 @@ Deno.serve(async (req) => {
           }
 
           if (syncRes.ok && syncData) {
+            const newQbId = syncData.Bill.Id;
+            
+            // Track this bill's QB ID for bill payment sync later in this request
+            justSyncedBillQbIds.set(bill.id, newQbId);
+            
             await supabase.from("quickbooks_sync_log").upsert({
               company_id: companyId,
               record_type: "bill",
               record_id: bill.id,
-              quickbooks_id: syncData.Bill.Id,
+              quickbooks_id: newQbId,
               sync_status: "synced",
               synced_at: new Date().toISOString(),
             });
@@ -843,21 +852,29 @@ Deno.serve(async (req) => {
 
       for (const billPayment of billPayments || []) {
         try {
-          // Check if the parent bill was synced to QB (accept both 'synced' and 'pending_refresh' as valid)
-          const { data: billSyncLog } = await supabase
-            .from("quickbooks_sync_log")
-            .select("quickbooks_id")
-            .eq("company_id", companyId)
-            .eq("record_type", "bill")
-            .eq("record_id", billPayment.bill_id)
-            .in("sync_status", ["synced", "pending_refresh"])
-            .not("quickbooks_id", "is", null)
-            .limit(1)
-            .maybeSingle();
+          // First check if we just synced this bill in the current request
+          let billQbId = justSyncedBillQbIds.get(billPayment.bill_id);
+          
+          // If not just synced, check the sync log
+          if (!billQbId) {
+            const { data: billSyncLog } = await supabase
+              .from("quickbooks_sync_log")
+              .select("quickbooks_id")
+              .eq("company_id", companyId)
+              .eq("record_type", "bill")
+              .eq("record_id", billPayment.bill_id)
+              .in("sync_status", ["synced", "pending_refresh"])
+              .not("quickbooks_id", "is", null)
+              .order("synced_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            billQbId = billSyncLog?.quickbooks_id || null;
+          }
 
           // Skip if bill not synced OR if it has an invalid backfill placeholder ID
-          if (!billSyncLog?.quickbooks_id || billSyncLog.quickbooks_id.startsWith("backfill-")) {
-            console.log(`Bill ${billPayment.bill_id} not synced to QB (qbId: ${billSyncLog?.quickbooks_id || 'none'}), skipping bill payment`);
+          if (!billQbId || billQbId.startsWith("backfill-")) {
+            console.log(`Bill ${billPayment.bill_id} not synced to QB (qbId: ${billQbId || 'none'}), skipping bill payment`);
             continue;
           }
 
@@ -893,7 +910,7 @@ Deno.serve(async (req) => {
                 Amount: billPayment.payment_amount || 0,
                 LinkedTxn: [
                   {
-                    TxnId: billSyncLog.quickbooks_id,
+                    TxnId: billQbId,
                     TxnType: "Bill",
                   },
                 ],
