@@ -437,45 +437,98 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (invoiceSyncLog?.record_id) {
-            // Find payment linked to this invoice that matches the QB payment amount
-            // First try exact match on amount and date
-            const { data: exactMatchPayment } = await supabase
-              .from("project_payments")
-              .select("id, payment_amount, projected_received_date")
-              .eq("company_id", companyId)
-              .eq("invoice_id", invoiceSyncLog.record_id)
-              .eq("payment_amount", qbPayment.TotalAmt)
-              .eq("projected_received_date", qbPayment.TxnDate)
-              .maybeSingle();
+            // Find payment linked to this invoice that matches the QB payment
+            // Priority: 1) exact match on amount + date + ref#, 2) amount + date, 3) amount + ref#, 4) amount only, 5) single payment
 
-            if (exactMatchPayment) {
-              localPaymentId = exactMatchPayment.id;
-              log("info", "Found local payment via linked invoice (exact match on amount+date)", { paymentId: localPaymentId });
-            } else {
-              // Fallback: match by amount only
-              const { data: amountMatchPayment } = await supabase
+            // Try exact match: amount + date + check_number
+            if (qbPayment.PaymentRefNum) {
+              const { data: exactMatch } = await supabase
                 .from("project_payments")
-                .select("id, payment_amount")
+                .select("id")
                 .eq("company_id", companyId)
                 .eq("invoice_id", invoiceSyncLog.record_id)
                 .eq("payment_amount", qbPayment.TotalAmt)
+                .eq("projected_received_date", qbPayment.TxnDate)
+                .eq("check_number", qbPayment.PaymentRefNum)
                 .maybeSingle();
 
-              if (amountMatchPayment) {
-                localPaymentId = amountMatchPayment.id;
-                log("info", "Found local payment via linked invoice (amount match)", { paymentId: localPaymentId });
-              } else {
-                // Last resort: if only one payment exists for this invoice, use it
-                const { data: allPayments } = await supabase
-                  .from("project_payments")
-                  .select("id")
-                  .eq("company_id", companyId)
-                  .eq("invoice_id", invoiceSyncLog.record_id);
+              if (exactMatch) {
+                localPaymentId = exactMatch.id;
+                log("info", "Found local payment via linked invoice (exact match: amount+date+ref#)", { paymentId: localPaymentId });
+              }
+            }
 
-                if (allPayments && allPayments.length === 1) {
-                  localPaymentId = allPayments[0].id;
-                  log("info", "Found local payment via linked invoice (single payment)", { paymentId: localPaymentId });
+            // Fallback: amount + date (no ref# match)
+            if (!localPaymentId) {
+              const { data: dateMatch } = await supabase
+                .from("project_payments")
+                .select("id")
+                .eq("company_id", companyId)
+                .eq("invoice_id", invoiceSyncLog.record_id)
+                .eq("payment_amount", qbPayment.TotalAmt)
+                .eq("projected_received_date", qbPayment.TxnDate);
+
+              if (dateMatch && dateMatch.length === 1) {
+                localPaymentId = dateMatch[0].id;
+                log("info", "Found local payment via linked invoice (amount+date, single match)", { paymentId: localPaymentId });
+              } else if (dateMatch && dateMatch.length > 1) {
+                // Multiple matches with same amount+date - try to narrow by check_number
+                if (qbPayment.PaymentRefNum) {
+                  const refMatch = dateMatch.find(async (p) => {
+                    const { data: pmt } = await supabase.from("project_payments").select("check_number").eq("id", p.id).single();
+                    return pmt?.check_number === qbPayment.PaymentRefNum;
+                  });
+                  // Actually query for it properly
+                  const { data: refMatchPayment } = await supabase
+                    .from("project_payments")
+                    .select("id")
+                    .eq("company_id", companyId)
+                    .eq("invoice_id", invoiceSyncLog.record_id)
+                    .eq("payment_amount", qbPayment.TotalAmt)
+                    .eq("check_number", qbPayment.PaymentRefNum)
+                    .maybeSingle();
+                  
+                  if (refMatchPayment) {
+                    localPaymentId = refMatchPayment.id;
+                    log("info", "Found local payment via ref# tiebreaker", { paymentId: localPaymentId });
+                  } else {
+                    log("warn", "Multiple payments match amount+date but none match ref#, skipping update to avoid data corruption", { 
+                      count: dateMatch.length, 
+                      qbRefNum: qbPayment.PaymentRefNum 
+                    });
+                  }
+                } else {
+                  log("warn", "Multiple payments match amount+date and QB has no ref#, skipping update to avoid data corruption", { count: dateMatch.length });
                 }
+              }
+            }
+
+            // Fallback: amount only (if single match)
+            if (!localPaymentId) {
+              const { data: amountMatch } = await supabase
+                .from("project_payments")
+                .select("id")
+                .eq("company_id", companyId)
+                .eq("invoice_id", invoiceSyncLog.record_id)
+                .eq("payment_amount", qbPayment.TotalAmt);
+
+              if (amountMatch && amountMatch.length === 1) {
+                localPaymentId = amountMatch[0].id;
+                log("info", "Found local payment via linked invoice (amount match, single)", { paymentId: localPaymentId });
+              }
+            }
+
+            // Last resort: if only one payment exists for this invoice total
+            if (!localPaymentId) {
+              const { data: allPayments } = await supabase
+                .from("project_payments")
+                .select("id")
+                .eq("company_id", companyId)
+                .eq("invoice_id", invoiceSyncLog.record_id);
+
+              if (allPayments && allPayments.length === 1) {
+                localPaymentId = allPayments[0].id;
+                log("info", "Found local payment via linked invoice (single payment)", { paymentId: localPaymentId });
               }
             }
           }
