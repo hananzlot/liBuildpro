@@ -2480,6 +2480,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         onOpenChange={setHistoryDialogOpen}
         bill={historyBill}
         projectId={projectId}
+        companyId={companyId}
         isAdmin={isAdmin}
         isSuperAdmin={isSuperAdmin}
       />
@@ -4505,6 +4506,7 @@ function BillPaymentHistoryDialog({
   onOpenChange,
   bill,
   projectId,
+  companyId,
   isAdmin,
   isSuperAdmin,
 }: {
@@ -4512,11 +4514,20 @@ function BillPaymentHistoryDialog({
   onOpenChange: (open: boolean) => void;
   bill: Bill | null;
   projectId: string;
+  companyId: string | null;
   isAdmin: boolean;
   isSuperAdmin: boolean;
 }) {
   const queryClient = useQueryClient();
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
+  const [editingPayment, setEditingPayment] = useState<BillPayment | null>(null);
+  const [editForm, setEditForm] = useState({
+    payment_date: "",
+    payment_amount: 0,
+    payment_method: "",
+    payment_reference: "",
+    bank_name: "",
+  });
 
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["bill-payments", bill?.id],
@@ -4532,6 +4543,44 @@ function BillPaymentHistoryDialog({
     },
     enabled: !!bill?.id && open,
   });
+
+  // Fetch banks for dropdown
+  const { data: banks = [] } = useQuery({
+    queryKey: ["banks", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("banks")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId && !!editingPayment,
+  });
+
+  // Helper to sync bill payment to QuickBooks
+  const syncBillPaymentToQB = async (paymentId: string): Promise<{ synced: boolean }> => {
+    if (!companyId) return { synced: false };
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
+        body: {
+          companyId,
+          syncType: "bill_payment",
+          recordId: paymentId,
+        },
+      });
+      if (error) {
+        console.error("QuickBooks sync error:", error);
+        return { synced: false };
+      }
+      return { synced: data?.synced > 0 };
+    } catch (err) {
+      console.error("Failed to sync to QuickBooks:", err);
+      return { synced: false };
+    }
+  };
 
   // Delete bill payment mutation
   const deletePaymentMutation = useMutation({
@@ -4578,8 +4627,89 @@ function BillPaymentHistoryDialog({
     onError: (error) => toast.error(`Failed to delete: ${error.message}`),
   });
 
+  // Edit bill payment mutation
+  const editPaymentMutation = useMutation({
+    mutationFn: async (data: { paymentId: string; updates: Partial<BillPayment>; originalPayment: BillPayment }) => {
+      const { paymentId, updates, originalPayment } = data;
+
+      // Update the payment record
+      const { error } = await supabase
+        .from("bill_payments")
+        .update(updates)
+        .eq("id", paymentId);
+      if (error) throw error;
+
+      await logAudit({
+        tableName: 'bill_payments',
+        recordId: paymentId,
+        action: 'UPDATE',
+        oldValues: originalPayment,
+        newValues: { ...originalPayment, ...updates },
+        description: `Updated bill payment`,
+      });
+
+      // Recalculate bill totals if amount changed
+      if (updates.payment_amount !== undefined && bill?.id) {
+        const { data: allPayments } = await supabase
+          .from("bill_payments")
+          .select("payment_amount")
+          .eq("bill_id", bill.id);
+        
+        const newTotalPaid = (allPayments || []).reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+        const newBalance = (bill.bill_amount || 0) - newTotalPaid;
+
+        await supabase
+          .from("project_bills")
+          .update({ amount_paid: newTotalPaid, balance: newBalance })
+          .eq("id", bill.id);
+      }
+
+      // Sync to QuickBooks (will update existing record if already synced)
+      const qbResult = await syncBillPaymentToQB(paymentId);
+      return { qbSynced: qbResult.synced };
+    },
+    onSuccess: (result) => {
+      if (result?.qbSynced) {
+        toast.success("Payment updated and synced to QuickBooks");
+      } else {
+        toast.success("Payment updated");
+      }
+      queryClient.invalidateQueries({ queryKey: ["bill-payments", bill?.id] });
+      queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
+      setEditingPayment(null);
+    },
+    onError: (error) => toast.error(`Failed to update: ${error.message}`),
+  });
+
+  const handleEditClick = (payment: BillPayment) => {
+    setEditingPayment(payment);
+    setEditForm({
+      payment_date: payment.payment_date?.split("T")[0] || "",
+      payment_amount: payment.payment_amount || 0,
+      payment_method: payment.payment_method || "",
+      payment_reference: payment.payment_reference || "",
+      bank_name: payment.bank_name || "",
+    });
+  };
+
+  const handleEditSubmit = () => {
+    if (!editingPayment) return;
+    editPaymentMutation.mutate({
+      paymentId: editingPayment.id,
+      updates: {
+        payment_date: editForm.payment_date || null,
+        payment_amount: editForm.payment_amount,
+        payment_method: editForm.payment_method || null,
+        payment_reference: editForm.payment_reference || null,
+        bank_name: editForm.bank_name || null,
+      },
+      originalPayment: editingPayment,
+    });
+  };
+
   const totalPaid = payments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
-  const canDelete = isAdmin || isSuperAdmin;
+  const canEdit = isAdmin || isSuperAdmin;
 
   const [activeTab, setActiveTab] = useState<string>("details");
 
@@ -4784,7 +4914,7 @@ function BillPaymentHistoryDialog({
                         <TableHead className="text-xs">Method</TableHead>
                         <TableHead className="text-xs">Reference</TableHead>
                         <TableHead className="text-xs text-right">Amount</TableHead>
-                        {canDelete && <TableHead className="text-xs w-12"></TableHead>}
+                        {canEdit && <TableHead className="text-xs w-20"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -4803,16 +4933,28 @@ function BillPaymentHistoryDialog({
                           <TableCell className="text-xs text-right text-emerald-600 font-medium">
                             {formatCurrency(payment.payment_amount)}
                           </TableCell>
-                          {canDelete && (
+                          {canEdit && (
                             <TableCell>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 text-destructive hover:text-destructive"
-                                onClick={() => setDeletePaymentId(payment.id)}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6"
+                                  onClick={() => handleEditClick(payment)}
+                                  title="Edit payment"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-6 w-6 text-destructive hover:text-destructive"
+                                  onClick={() => setDeletePaymentId(payment.id)}
+                                  title="Delete payment"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </TableCell>
                           )}
                         </TableRow>
@@ -4820,7 +4962,7 @@ function BillPaymentHistoryDialog({
                       <TableRow className="bg-muted/50 font-semibold">
                         <TableCell colSpan={4} className="text-xs">Total Paid</TableCell>
                         <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalPaid)}</TableCell>
-                        {canDelete && <TableCell />}
+                        {canEdit && <TableCell />}
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -4866,6 +5008,100 @@ function BillPaymentHistoryDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Payment Dialog */}
+      <Dialog open={!!editingPayment} onOpenChange={(open) => { if (!open) setEditingPayment(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Payment</DialogTitle>
+            <DialogDescription>
+              Update payment details. Changes will sync to QuickBooks.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-payment-date">Payment Date</Label>
+              <Input
+                id="edit-payment-date"
+                type="date"
+                value={editForm.payment_date}
+                onChange={(e) => setEditForm({ ...editForm, payment_date: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-payment-amount">Amount</Label>
+              <Input
+                id="edit-payment-amount"
+                type="number"
+                step="0.01"
+                value={editForm.payment_amount}
+                onChange={(e) => setEditForm({ ...editForm, payment_amount: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-bank-name">Bank Account</Label>
+              <Select
+                value={editForm.bank_name}
+                onValueChange={(value) => setEditForm({ ...editForm, bank_name: value })}
+              >
+                <SelectTrigger id="edit-bank-name">
+                  <SelectValue placeholder="Select bank account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {banks.map((bank) => (
+                    <SelectItem key={bank.id} value={bank.name}>{bank.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-payment-method">Payment Method</Label>
+              <Select
+                value={editForm.payment_method}
+                onValueChange={(value) => setEditForm({ ...editForm, payment_method: value })}
+              >
+                <SelectTrigger id="edit-payment-method">
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Check">Check</SelectItem>
+                  <SelectItem value="ACH">ACH</SelectItem>
+                  <SelectItem value="Wire">Wire</SelectItem>
+                  <SelectItem value="Credit Card">Credit Card</SelectItem>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-payment-reference">Reference / Check #</Label>
+              <Input
+                id="edit-payment-reference"
+                value={editForm.payment_reference}
+                onChange={(e) => setEditForm({ ...editForm, payment_reference: e.target.value })}
+                placeholder="e.g., Check #1234"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingPayment(null)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleEditSubmit}
+              disabled={editPaymentMutation.isPending}
+            >
+              {editPaymentMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
