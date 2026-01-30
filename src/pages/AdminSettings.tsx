@@ -33,6 +33,7 @@ import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
 import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsEditor";
 import { ComplianceTemplatesManager } from "@/components/admin/ComplianceTemplatesManager";
 import { BankManagement } from "@/components/admin/BankManagement";
+import { OnboardingPromptBanner } from "@/components/onboarding/OnboardingPromptBanner";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
 import { useQuickBooksCallback } from "@/hooks/useQuickBooksCallback";
 import { format } from "date-fns";
@@ -714,6 +715,9 @@ export default function AdminSettings() {
   return (
     <AppLayout>
       <div className="flex flex-col gap-6 p-6 max-w-6xl mx-auto">
+        {/* Onboarding prompt for incomplete setup */}
+        <OnboardingPromptBanner />
+        
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
             <Settings className="h-8 w-8" />
