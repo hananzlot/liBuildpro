@@ -1786,9 +1786,9 @@ export default function Production() {
                 </CollapsibleContent>
               </Collapsible>
 
-          {/* Warnings Section - Two Columns */}
+          {/* Warnings Section - Three Columns */}
           {(totalWarnings > 0 || totalBookkeepingWarnings > 0) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {/* Financial Warnings */}
               {totalWarnings > 0 && (
                 <Card className="border-amber-500/30 bg-amber-500/5">
@@ -1922,14 +1922,15 @@ export default function Production() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Subcontractor Expiration Warnings - in same grid */}
+              <SubcontractorWarningsCard />
             </div>
           )}
 
               {/* Missing Projects from Won Opportunities - Admin Only */}
               {isAdmin && <MissingProjectsSection />}
 
-              {/* Subcontractor Expiration Warnings */}
-              <SubcontractorWarningsCard />
 
               {/* Show matched financial sections when searching by amount */}
               {matchedFinancialSections.size > 0 && (
