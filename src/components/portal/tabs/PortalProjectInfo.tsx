@@ -90,7 +90,7 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
     <div className="space-y-6">
 
       {/* Customer & Project Details */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-6">
         {/* Customer Information */}
         <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow duration-300">
           <CardContent className="p-6">
