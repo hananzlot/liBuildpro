@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Save, Loader2, Sparkles, Info, Upload, CheckCircle2 } from "lucide-react";
 import { LogoUpload } from "@/components/admin/LogoUpload";
+import { GHLIntegrationManager } from "@/components/admin/GHLIntegrationManager";
+import { QuickBooksIntegration } from "@/components/admin/QuickBooksIntegration";
 
 interface OnboardingStepContentProps {
   step: OnboardingStep;
@@ -154,22 +156,32 @@ export function OnboardingStepContent({
     );
   }
 
-  // Special case for integrations
-  if (step.id === "ghl_integration" || step.id === "quickbooks") {
+  // Special case for GHL integration - show the actual setup component
+  if (step.id === "ghl_integration") {
     return (
       <div className="space-y-4">
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            {step.id === "ghl_integration" 
-              ? "GoHighLevel integration can be configured in Admin Settings → GoHighLevel tab after completing onboarding."
-              : "QuickBooks integration can be configured in Admin Settings → QuickBooks tab after completing onboarding."
-            }
+            Connect your GoHighLevel account to sync contacts, appointments, and opportunities.
           </AlertDescription>
         </Alert>
-        <p className="text-sm text-muted-foreground">
-          You can skip this step for now and set it up later.
-        </p>
+        <GHLIntegrationManager />
+      </div>
+    );
+  }
+
+  // Special case for QuickBooks - show the actual setup component
+  if (step.id === "quickbooks") {
+    return (
+      <div className="space-y-4">
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Connect QuickBooks to sync your financial data and invoices.
+          </AlertDescription>
+        </Alert>
+        <QuickBooksIntegration />
       </div>
     );
   }
