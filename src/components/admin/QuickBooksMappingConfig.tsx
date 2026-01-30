@@ -222,12 +222,31 @@ export function QuickBooksMappingConfig() {
            digitsOnly.length / str.replace(/\s/g, "").length > 0.5;
   };
 
-  // Fetch local contacts (customers) - search dynamically to handle large datasets
+  // Fetch local contacts (customers) - only those with projects in the system
   // Includes opportunity address for searching
   const { data: contactsRaw, isLoading: contactsLoading } = useQuery({
-    queryKey: ["contacts-for-mapping", companyId, customerSearch],
+    queryKey: ["contacts-for-mapping-with-projects", companyId, customerSearch],
     queryFn: async () => {
-      // If searching, we need to check if search matches address via opportunities
+      // First, get all contact_uuids that have projects
+      const { data: projectContacts, error: projectError } = await supabase
+        .from("projects")
+        .select("contact_uuid")
+        .eq("company_id", companyId)
+        .not("contact_uuid", "is", null);
+      
+      if (projectError) throw projectError;
+      
+      // Get unique contact IDs from projects
+      const projectContactIds = [...new Set(
+        (projectContacts || [])
+          .map((p) => p.contact_uuid)
+          .filter(Boolean) as string[]
+      )];
+      
+      if (projectContactIds.length === 0) {
+        return [];
+      }
+      
       const searchTerm = customerSearch.trim();
       
       if (searchTerm) {
@@ -237,17 +256,19 @@ export function QuickBooksMappingConfig() {
           .select("contact_uuid")
           .eq("company_id", companyId)
           .ilike("address", `%${searchTerm}%`)
+          .in("contact_uuid", projectContactIds)
           .limit(100);
         
         const addressMatchIds = (addressMatches || [])
           .map((o) => o.contact_uuid)
           .filter(Boolean) as string[];
         
-        // Now fetch contacts matching name/email OR in the address match list
+        // Fetch contacts with projects that match search criteria
         let query = supabase
           .from("contacts")
           .select("id, contact_name, first_name, last_name, email")
           .eq("company_id", companyId)
+          .in("id", projectContactIds)
           .order("contact_name")
           .limit(200);
         
@@ -266,11 +287,12 @@ export function QuickBooksMappingConfig() {
         if (error) throw error;
         return data;
       } else {
-        // No search term - just fetch contacts
+        // No search term - fetch contacts with projects
         const { data, error } = await supabase
           .from("contacts")
           .select("id, contact_name, first_name, last_name, email")
           .eq("company_id", companyId)
+          .in("id", projectContactIds)
           .order("contact_name")
           .limit(200);
         
