@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DebouncedInput } from "@/components/ui/debounced-input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { QuickBooksMatchingRules } from "./QuickBooksMatchingRules";
 
 interface QBEntity {
   id: string;
@@ -395,7 +396,8 @@ export function QuickBooksMappingConfig() {
   }
 
   return (
-    <Card>
+    <div className="space-y-6">
+      <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -735,6 +737,17 @@ export function QuickBooksMappingConfig() {
           </TabsContent>
         </Tabs>
       </CardContent>
-    </Card>
+      </Card>
+
+      {/* Matching Rules */}
+      <QuickBooksMatchingRules
+        contacts={contacts || []}
+        subcontractors={subcontractors || []}
+        qbCustomers={qbCustomers || []}
+        qbVendors={qbVendors || []}
+        existingMappings={mappings || []}
+        onMappingCreated={() => queryClient.invalidateQueries({ queryKey: ["qb-mappings", companyId] })}
+      />
+    </div>
   );
 }
