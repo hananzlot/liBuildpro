@@ -382,14 +382,80 @@ async function processEntityChange(
   log("info", `Sync log lookup for ${entityType} ${qbId}`, { found: !!syncLog });
 
   if (operation === "Delete") {
-    // Handle deletion - mark as deleted or remove sync log
+    // Handle deletion - update the local record and sync log
+    log("info", `Processing delete for ${entityType} ${qbId}`);
+    
+    // For invoices, try to find and update by QuickBooks ID in doc number
+    if (entityType === "Invoice") {
+      // First try to find by sync log
+      let invoiceId = syncLog?.record_id;
+      
+      // If no sync log, try to find by invoice_number pattern (QB-{id})
+      if (!invoiceId) {
+        const { data: invoice } = await supabase
+          .from("project_invoices")
+          .select("id")
+          .eq("company_id", companyId)
+          .or(`invoice_number.eq.QB-${qbId},invoice_number.eq.${qbId}`)
+          .maybeSingle();
+        
+        if (invoice) {
+          invoiceId = invoice.id;
+          log("info", `Found invoice by number pattern: ${invoiceId}`);
+        }
+      }
+      
+      if (invoiceId) {
+        // Mark the invoice as deleted/voided by setting amount to 0 or adding a note
+        const { error: deleteError } = await supabase
+          .from("project_invoices")
+          .update({
+            amount: 0,
+            total_expected: 0,
+            open_balance: 0,
+            notes: `Deleted in QuickBooks on ${new Date().toISOString()}`
+          })
+          .eq("id", invoiceId);
+        
+        if (deleteError) {
+          log("error", `Failed to update deleted invoice`, { error: deleteError.message });
+        } else {
+          log("info", `✓ Marked local invoice ${invoiceId} as deleted (zeroed amounts)`);
+        }
+      } else {
+        log("info", `No local invoice found for deleted QB Invoice ${qbId}`);
+      }
+    }
+    
+    // For payments, find and handle deletion
+    if (entityType === "Payment") {
+      let paymentId = syncLog?.record_id;
+      
+      if (paymentId) {
+        // Delete the local payment record
+        const { error: deleteError } = await supabase
+          .from("project_payments")
+          .delete()
+          .eq("id", paymentId);
+        
+        if (deleteError) {
+          log("error", `Failed to delete local payment`, { error: deleteError.message });
+        } else {
+          log("info", `✓ Deleted local payment ${paymentId}`);
+        }
+      } else {
+        log("info", `No local payment found for deleted QB Payment ${qbId}`);
+      }
+    }
+    
+    // Update sync log if exists
     if (syncLog) {
-      log("info", `Marking ${entityType} ${qbId} as deleted in QuickBooks`);
+      log("info", `Marking sync log for ${entityType} ${qbId} as deleted_in_qb`);
       const { error: updateError } = await supabase
         .from("quickbooks_sync_log")
         .update({ 
           sync_status: "deleted_in_qb",
-          last_sync_at: new Date().toISOString(),
+          synced_at: new Date().toISOString(),
           error_message: "Deleted in QuickBooks"
         })
         .eq("id", syncLog.id);
@@ -397,10 +463,10 @@ async function processEntityChange(
       if (updateError) {
         log("error", `Failed to update sync log for deletion`, { error: updateError.message });
       } else {
-        log("info", `✓ Successfully marked ${entityType} ${qbId} as deleted`);
+        log("info", `✓ Successfully marked sync log as deleted`);
       }
     } else {
-      log("info", `No sync log found for deleted ${entityType} ${qbId} - nothing to update`);
+      log("info", `No sync log found for deleted ${entityType} ${qbId}`);
     }
     return;
   }
