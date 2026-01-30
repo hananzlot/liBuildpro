@@ -474,10 +474,13 @@ export function MergeOpportunitiesDialog({
 
     return (
       <div key={field.key} className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center py-1.5">
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setFieldSelections((prev) => ({ ...prev, [field.key]: "A" }))}
+          onKeyDown={(e) => e.key === "Enter" && setFieldSelections((prev) => ({ ...prev, [field.key]: "A" }))}
           className={cn(
-            "p-2 rounded-lg border text-left transition-all",
+            "p-2 rounded-lg border text-left transition-all cursor-pointer",
             selected === "A"
               ? "border-primary bg-primary/5 ring-2 ring-primary/20"
               : "border-muted hover:border-primary/50"
@@ -504,17 +507,20 @@ export function MergeOpportunitiesDialog({
               </label>
             </div>
           )}
-        </button>
+        </div>
 
         <div className="flex flex-col items-center gap-1">
           <Icon className="h-4 w-4 text-muted-foreground" />
           <span className="text-xs text-muted-foreground text-center">{field.label}</span>
         </div>
 
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setFieldSelections((prev) => ({ ...prev, [field.key]: "B" }))}
+          onKeyDown={(e) => e.key === "Enter" && setFieldSelections((prev) => ({ ...prev, [field.key]: "B" }))}
           className={cn(
-            "p-2 rounded-lg border text-left transition-all",
+            "p-2 rounded-lg border text-left transition-all cursor-pointer",
             selected === "B"
               ? "border-primary bg-primary/5 ring-2 ring-primary/20"
               : "border-muted hover:border-primary/50"
@@ -541,7 +547,7 @@ export function MergeOpportunitiesDialog({
               </label>
             </div>
           )}
-        </button>
+        </div>
       </div>
     );
   };
