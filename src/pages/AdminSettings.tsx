@@ -99,7 +99,7 @@ const TAB_GROUPS = [
     tabs: [
       { value: "sources", label: "Lead Sources", icon: Pencil },
       { value: "shortlinks", label: "Short Links", icon: Link2 },
-      { value: "payables", label: "AR/AP", icon: DollarSign },
+      { value: "payables", label: "Accounting", icon: DollarSign },
     ],
   },
   {
