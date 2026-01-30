@@ -1621,6 +1621,41 @@ export default function AdminSettings() {
                         </p>
                       </div>
                     ))}
+
+                    {/* Default Lead Cost % Setting */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="default_lead_cost_percent">Default Lead Cost %</Label>
+                        {hasChanges("default_lead_cost_percent") && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleSave("default_lead_cost_percent")}
+                            disabled={updateSetting.isPending}
+                          >
+                            {updateSetting.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Save className="h-3 w-3 mr-1" />
+                            )}
+                            Save
+                          </Button>
+                        )}
+                      </div>
+                      <Input
+                        id="default_lead_cost_percent"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.1}
+                        value={editedSettings["default_lead_cost_percent"] ?? settings?.find(s => s.setting_key === "default_lead_cost_percent")?.setting_value ?? "18"}
+                        onChange={(e) => handleChange("default_lead_cost_percent", e.target.value)}
+                        placeholder="18"
+                        className="w-32"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Default lead cost percentage applied to new projects. Can be overridden per project.
+                      </p>
+                    </div>
                   </CardContent>
                 </CollapsibleContent>
               </Card>
