@@ -209,3 +209,6 @@ verify_jwt = false
 
 [functions.delete-quickbooks-record]
 verify_jwt = false
+
+[functions.quickbooks-webhook]
+verify_jwt = false
