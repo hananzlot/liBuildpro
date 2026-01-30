@@ -60,6 +60,7 @@ interface MergeContactsDialogProps {
   contacts: Contact[];
   opportunities: any[];
   appointments: any[];
+  preselectedContacts?: { contactA: Contact; contactB: Contact };
 }
 
 type MergeField = {
@@ -86,6 +87,7 @@ export function MergeContactsDialog({
   contacts,
   opportunities,
   appointments,
+  preselectedContacts,
 }: MergeContactsDialogProps) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -98,6 +100,14 @@ export function MergeContactsDialog({
   const [contactB, setContactB] = useState<Contact | null>(null);
   const [primary, setPrimary] = useState<"A" | "B">("A");
   const [fieldSelections, setFieldSelections] = useState<Record<string, "A" | "B">>({});
+
+  // Set preselected contacts when they're provided
+  useEffect(() => {
+    if (preselectedContacts && open) {
+      setContactA(preselectedContacts.contactA);
+      setContactB(preselectedContacts.contactB);
+    }
+  }, [preselectedContacts, open]);
 
   // Fetch related data counts for selected contacts
   const { data: relatedCounts } = useQuery({
