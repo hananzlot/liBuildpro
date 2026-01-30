@@ -283,20 +283,17 @@ Deno.serve(async (req) => {
         ?.join("; ") || "";
 
       // Create the bill in our database
+      // Note: project_bills uses installer_company, bill_ref, memo, bill_amount
       const { data: newBill, error: insertError } = await supabase
         .from("project_bills")
         .insert({
           project_id: projectId, // May be null if no project match
           company_id: companyId,
-          subcontractor_id: subcontractorId,
           installer_company: vendorName || "Unknown Vendor",
           bill_amount: qbBill.TotalAmt || 0,
-          bill_date: qbBill.TxnDate || new Date().toISOString().split("T")[0],
-          due_date: qbBill.DueDate || null,
-          description: description || null,
-          notes: qbBill.PrivateNote || null,
-          bill_number: qbBill.DocNumber || null,
-          status: (qbBill.Balance === 0) ? "paid" : "pending",
+          bill_ref: qbBill.DocNumber || null,
+          memo: [description, qbBill.PrivateNote].filter(Boolean).join(" | ") || null,
+          scheduled_payment_date: qbBill.DueDate || null,
         })
         .select()
         .single();
@@ -393,13 +390,13 @@ Deno.serve(async (req) => {
           excludedCount: excludedBillIds.length 
         });
 
-        // Fallback 1: Try to match by bill_number (DocNumber)
+        // Fallback 1: Try to match by bill_ref (DocNumber)
         if (qbBill.DocNumber) {
           let query = supabase
             .from("project_bills")
             .select("id")
             .eq("company_id", companyId)
-            .eq("bill_number", qbBill.DocNumber);
+            .eq("bill_ref", qbBill.DocNumber);
           
           if (excludedBillIds.length > 0) {
             query = query.not("id", "in", `(${excludedBillIds.join(",")})`);
@@ -409,29 +406,28 @@ Deno.serve(async (req) => {
           
           if (existingBill) {
             localBillId = existingBill.id;
-            log("info", "Found bill via bill_number (fallback)", { localBillId, docNumber: qbBill.DocNumber });
+            log("info", "Found bill via bill_ref (fallback)", { localBillId, docNumber: qbBill.DocNumber });
           }
         }
 
-        // Fallback 2: Try to match by vendor name + amount + date
+        // Fallback 2: Try to match by vendor name + amount
         if (!localBillId && qbBill.VendorRef?.name) {
           let query = supabase
             .from("project_bills")
             .select("id")
             .eq("company_id", companyId)
             .ilike("installer_company", `%${qbBill.VendorRef.name}%`)
-            .eq("bill_amount", qbBill.TotalAmt)
-            .eq("bill_date", qbBill.TxnDate);
+            .eq("bill_amount", qbBill.TotalAmt);
           
           if (excludedBillIds.length > 0) {
             query = query.not("id", "in", `(${excludedBillIds.join(",")})`);
           }
           
-          const { data: matchByVendorAmountDate } = await query.maybeSingle();
+          const { data: matchByVendorAmount } = await query.maybeSingle();
           
-          if (matchByVendorAmountDate) {
-            localBillId = matchByVendorAmountDate.id;
-            log("info", "Found bill via vendor+amount+date (fallback)", { localBillId });
+          if (matchByVendorAmount) {
+            localBillId = matchByVendorAmount.id;
+            log("info", "Found bill via vendor+amount (fallback)", { localBillId });
           }
         }
 
@@ -474,11 +470,9 @@ Deno.serve(async (req) => {
           .from("project_bills")
           .update({
             bill_amount: qbBill.TotalAmt || 0,
-            bill_date: qbBill.TxnDate || undefined,
-            due_date: qbBill.DueDate || undefined,
-            bill_number: qbBill.DocNumber || undefined,
-            notes: qbBill.PrivateNote || undefined,
-            status: (qbBill.Balance === 0) ? "paid" : "pending",
+            bill_ref: qbBill.DocNumber || undefined,
+            memo: qbBill.PrivateNote || undefined,
+            scheduled_payment_date: qbBill.DueDate || undefined,
           })
           .eq("id", localBillId);
 
@@ -539,11 +533,9 @@ Deno.serve(async (req) => {
         .from("project_bills")
         .update({
           bill_amount: qbBill.TotalAmt || 0,
-          bill_date: qbBill.TxnDate || undefined,
-          due_date: qbBill.DueDate || undefined,
-          bill_number: qbBill.DocNumber || undefined,
-          notes: qbBill.PrivateNote || undefined,
-          status: (qbBill.Balance === 0) ? "paid" : "pending",
+          bill_ref: qbBill.DocNumber || undefined,
+          memo: qbBill.PrivateNote || undefined,
+          scheduled_payment_date: qbBill.DueDate || undefined,
         })
         .eq("id", localBillId);
 
