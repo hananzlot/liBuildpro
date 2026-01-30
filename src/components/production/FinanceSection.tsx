@@ -285,25 +285,62 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   }, [projectId, queryClient]);
 
   // Subscribe to Realtime changes on project_payments for this project
+  // We use two subscriptions: one filtered for INSERT/UPDATE, and one unfiltered for DELETE
+  // because DELETE events only contain the old row data which may not match the filter
   useEffect(() => {
-    const channel = supabase
-      .channel(`project-payments-${projectId}`)
+    const filteredChannel = supabase
+      .channel(`project-payments-filtered-${projectId}`)
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "project_payments",
           filter: `project_id=eq.${projectId}`,
         },
         () => {
           queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
+          queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "project_payments",
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
+          queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+        }
+      )
+      .subscribe();
+
+    // Separate channel for DELETE events - check if the deleted row was for this project
+    const deleteChannel = supabase
+      .channel(`project-payments-delete-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "project_payments",
+        },
+        (payload) => {
+          // Only invalidate if the deleted payment was for this project
+          if (payload.old && (payload.old as { project_id?: string }).project_id === projectId) {
+            queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
+            queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+          }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(filteredChannel);
+      supabase.removeChannel(deleteChannel);
     };
   }, [projectId, queryClient]);
 
