@@ -173,3 +173,36 @@ verify_jwt = false
 
 [functions.update-contact-email]
 verify_jwt = false
+
+[functions.cleanup-junk-contacts]
+verify_jwt = false
+
+[functions.quickbooks-list-entities]
+verify_jwt = false
+
+[functions.cleanup-opportunity-names]
+verify_jwt = false
+
+[functions.delete-user]
+verify_jwt = false
+
+[functions.create-portal-estimate]
+verify_jwt = false
+
+[functions.send-thank-you-email]
+verify_jwt = false
+
+[functions.store-ghl-integration]
+verify_jwt = false
+
+[functions.sync-ghl-recent]
+verify_jwt = false
+
+[functions.portal-compliance-enabled]
+verify_jwt = false
+
+[functions.generate-compliance-documents]
+verify_jwt = false
+
+[functions.process-subscription-expirations]
+verify_jwt = false
