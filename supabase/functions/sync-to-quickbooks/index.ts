@@ -822,6 +822,182 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Sync bill payments
+    if (!syncType || syncType === "bill_payment") {
+      let billPaymentQuery = supabase
+        .from("bill_payments")
+        .select("*, project_bills!inner(id, bill_ref, installer_company, projects!inner(project_name, company_id))")
+        .eq("project_bills.projects.company_id", companyId);
+
+      if (recordId) {
+        billPaymentQuery = billPaymentQuery.eq("id", recordId);
+      }
+
+      const { data: billPayments, error: billPaymentsError } = await billPaymentQuery;
+      
+      console.log(`Found ${billPayments?.length || 0} bill payments to sync`, billPaymentsError ? `Error: ${billPaymentsError.message}` : "");
+
+      for (const billPayment of billPayments || []) {
+        try {
+          // Check if the parent bill was synced to QB
+          const { data: billSyncLog } = await supabase
+            .from("quickbooks_sync_log")
+            .select("quickbooks_id")
+            .eq("company_id", companyId)
+            .eq("record_type", "bill")
+            .eq("record_id", billPayment.bill_id)
+            .eq("sync_status", "synced")
+            .single();
+
+          if (!billSyncLog?.quickbooks_id) {
+            console.log(`Bill ${billPayment.bill_id} not synced to QB, skipping bill payment`);
+            continue;
+          }
+
+          // Check if this bill payment was already synced
+          const { data: existingSync } = await supabase
+            .from("quickbooks_sync_log")
+            .select("quickbooks_id")
+            .eq("company_id", companyId)
+            .eq("record_type", "bill_payment")
+            .eq("record_id", billPayment.id)
+            .eq("sync_status", "synced")
+            .single();
+
+          const existingQbId = existingSync?.quickbooks_id;
+
+          // Find the vendor for this bill
+          const vendorName = billPayment.project_bills?.installer_company || "Unknown Vendor";
+          const vendorCheck = await checkVendorExists(vendorName);
+          
+          if (!vendorCheck.exists || !vendorCheck.id) {
+            console.log(`Vendor "${vendorName}" not found in QB, skipping bill payment`);
+            results.failed++;
+            results.errors.push(`Bill Payment ${billPayment.id}: Vendor not found in QB`);
+            continue;
+          }
+
+          const qbBillPayment: any = {
+            VendorRef: { value: vendorCheck.id },
+            TotalAmt: billPayment.payment_amount || 0,
+            TxnDate: billPayment.payment_date?.split("T")[0],
+            Line: [
+              {
+                Amount: billPayment.payment_amount || 0,
+                LinkedTxn: [
+                  {
+                    TxnId: billSyncLog.quickbooks_id,
+                    TxnType: "Bill",
+                  },
+                ],
+              },
+            ],
+            PrivateNote: billPayment.payment_reference || null,
+          };
+
+          // Add bank account if bank_name is set and has a mapping
+          if (billPayment.bank_name) {
+            const { data: bankRecord } = await supabase
+              .from("banks")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("name", billPayment.bank_name)
+              .single();
+
+            if (bankRecord?.id) {
+              const bankMapping = getMapping("bank", bankRecord.id);
+              if (bankMapping) {
+                console.log(`Mapping bank "${billPayment.bank_name}" to QB account: ${bankMapping.qbo_name}`);
+                qbBillPayment.PayType = "Check";
+                qbBillPayment.CheckPayment = {
+                  BankAccountRef: {
+                    value: bankMapping.qbo_id,
+                    name: bankMapping.qbo_name,
+                  },
+                };
+              }
+            }
+          }
+
+          let syncRes: Response;
+          let syncData: any;
+
+          if (existingQbId) {
+            // UPDATE existing bill payment
+            console.log(`Bill Payment ${billPayment.id} already exists in QB (ID: ${existingQbId}), updating...`);
+            
+            const fetchRes = await fetch(`${QB_BASE_URL}/${realm_id}/billpayment/${existingQbId}`, {
+              headers: qbHeaders,
+            });
+            
+            if (!fetchRes.ok) {
+              const errText = await fetchRes.text();
+              console.error(`Failed to fetch existing bill payment ${existingQbId}:`, errText);
+              results.failed++;
+              results.errors.push(`Bill Payment ${billPayment.id}: Failed to fetch existing QB record`);
+              continue;
+            }
+            
+            const existingData = await fetchRes.json();
+            const syncToken = existingData.BillPayment.SyncToken;
+            
+            qbBillPayment.Id = existingQbId;
+            qbBillPayment.SyncToken = syncToken;
+            qbBillPayment.sparse = true;
+            
+            console.log(`Bill Payment ${billPayment.id} - Update payload:`, JSON.stringify(qbBillPayment, null, 2));
+            
+            syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/billpayment`, {
+              method: "POST",
+              headers: qbHeaders,
+              body: JSON.stringify(qbBillPayment),
+            });
+            
+            if (syncRes.ok) {
+              syncData = await syncRes.json();
+              console.log(`Updated bill payment in QB, ID: ${syncData.BillPayment.Id}`);
+            }
+          } else {
+            // CREATE new bill payment
+            console.log(`Bill Payment ${billPayment.id} - Creating new in QB:`, JSON.stringify(qbBillPayment, null, 2));
+            
+            syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/billpayment`, {
+              method: "POST",
+              headers: qbHeaders,
+              body: JSON.stringify(qbBillPayment),
+            });
+            
+            if (syncRes.ok) {
+              syncData = await syncRes.json();
+              console.log(`Created bill payment in QB, ID: ${syncData.BillPayment.Id}`);
+            }
+          }
+
+          if (syncRes.ok && syncData) {
+            await supabase.from("quickbooks_sync_log").upsert({
+              company_id: companyId,
+              record_type: "bill_payment",
+              record_id: billPayment.id,
+              quickbooks_id: syncData.BillPayment.Id,
+              sync_status: "synced",
+              synced_at: new Date().toISOString(),
+            });
+            results.synced++;
+          } else {
+            const errText = await syncRes.text();
+            console.error(`Failed to sync bill payment ${billPayment.id}:`, errText);
+            results.failed++;
+            results.errors.push(`Bill Payment ${billPayment.id}: ${errText}`);
+          }
+        } catch (err: unknown) {
+          results.failed++;
+          const errMsg = err instanceof Error ? err.message : "Unknown error";
+          console.error(`Error syncing bill payment ${billPayment.id}:`, errMsg);
+          results.errors.push(`Bill Payment ${billPayment.id}: ${errMsg}`);
+        }
+      }
+    }
+
     // Update last sync time
     await supabase
       .from("quickbooks_connections")
