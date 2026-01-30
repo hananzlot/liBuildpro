@@ -108,21 +108,31 @@ Deno.serve(async (req) => {
       // Fall back to default mapping
       return mappings?.find((m) => m.mapping_type === type && m.is_default);
     };
-    // Helper to check if customer exists in QB (returns null if not found)
-    async function checkCustomerExists(project: any): Promise<{ exists: boolean; id: string | null; name: string }> {
+    // Helper to check if customer exists - first via mapping, then via QB name search
+    async function checkCustomerExists(project: any): Promise<{ exists: boolean; id: string | null; name: string; fromMapping: boolean }> {
       const customerName = project.project_name || project.project_address || `Project ${project.project_number}`;
       
+      // First check if there's a manual mapping for this project
+      const projectMapping = mappings?.find(
+        (m) => m.mapping_type === "customer" && m.source_value === project.id
+      );
+      if (projectMapping) {
+        console.log(`Found customer mapping for project ${project.id}: QB ID ${projectMapping.qbo_id}`);
+        return { exists: true, id: projectMapping.qbo_id, name: projectMapping.qbo_name || customerName, fromMapping: true };
+      }
+      
+      // Fall back to QB name search
       const searchUrl = `${QB_BASE_URL}/${realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName = '${customerName.replace(/'/g, "\\'")}'`)}`;
       
       const searchRes = await fetch(searchUrl, { headers: qbHeaders });
       if (searchRes.ok) {
         const searchData = await searchRes.json();
         if (searchData.QueryResponse?.Customer?.length > 0) {
-          return { exists: true, id: searchData.QueryResponse.Customer[0].Id, name: customerName };
+          return { exists: true, id: searchData.QueryResponse.Customer[0].Id, name: customerName, fromMapping: false };
         }
       }
       
-      return { exists: false, id: null, name: customerName };
+      return { exists: false, id: null, name: customerName, fromMapping: false };
     }
 
     // Helper to find or create customer in QB
@@ -202,7 +212,7 @@ Deno.serve(async (req) => {
         if (recordId) {
           const { data: invoice } = await supabase
             .from("project_invoices")
-            .select("*, projects!inner(project_name, project_address, project_number)")
+            .select("*, projects!inner(id, project_name, project_address, project_number)")
             .eq("id", recordId)
             .single();
           
@@ -219,7 +229,7 @@ Deno.serve(async (req) => {
       if (syncType === "payment" && recordId) {
         const { data: payment } = await supabase
           .from("project_payments")
-          .select("*, projects!inner(project_name, project_address, project_number)")
+          .select("*, projects!inner(id, project_name, project_address, project_number)")
           .eq("id", recordId)
           .single();
         
@@ -266,7 +276,7 @@ Deno.serve(async (req) => {
       } else {
         let invoiceQuery = supabase
           .from("project_invoices")
-          .select("*, projects!inner(project_name, project_address, project_number)")
+          .select("*, projects!inner(id, project_name, project_address, project_number)")
           .eq("projects.company_id", companyId)
           .eq("exclude_from_qb", false);
 
@@ -376,7 +386,7 @@ Deno.serve(async (req) => {
       } else {
         let paymentQuery = supabase
           .from("project_payments")
-          .select("*, projects!inner(project_name, project_address, project_number, company_id)")
+          .select("*, projects!inner(id, project_name, project_address, project_number, company_id)")
           .eq("projects.company_id", companyId)
           .eq("exclude_from_qb", false);
 
