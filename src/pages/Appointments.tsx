@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Database, HardDrive } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
@@ -10,6 +10,7 @@ import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetail
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 const Appointments = () => {
@@ -17,6 +18,7 @@ const Appointments = () => {
   const { appointmentId } = useParams<{ appointmentId?: string }>();
   const { user, isAdmin } = useAuth();
   const { isGHLEnabled } = useGHLMode();
+  const [filteredCount, setFilteredCount] = useState(0);
 
   const {
     data: metrics,
@@ -102,7 +104,10 @@ const Appointments = () => {
       <div className="px-6 py-6 space-y-6">
         {/* Top Actions Bar */}
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
+            <Badge variant="secondary" className="text-sm px-2.5 py-0.5">{filteredCount}</Badge>
+          </div>
           {!isGHLEnabled && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
               <HardDrive className="h-3 w-3" />
@@ -121,6 +126,7 @@ const Appointments = () => {
               opportunities={metrics?.allOpportunities || []} 
               contacts={metrics?.allContacts || []} 
               users={metrics?.users || []} 
+              onFilteredCountChange={setFilteredCount}
             />
           )}
         </section>

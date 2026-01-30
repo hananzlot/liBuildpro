@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -83,6 +83,7 @@ interface AppointmentsTableProps {
   opportunities?: Opportunity[];
   contacts?: Contact[];
   users?: GHLUser[];
+  onFilteredCountChange?: (count: number) => void;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -91,7 +92,8 @@ export function AppointmentsTable({
   appointments, 
   opportunities = [], 
   contacts = [], 
-  users = [] 
+  users = [],
+  onFilteredCountChange
 }: AppointmentsTableProps) {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -398,6 +400,11 @@ export function AppointmentsTable({
     return Array.from(byKey.values());
   }, [filteredAppointments, opportunities]);
 
+  // Notify parent of filtered count changes
+  useEffect(() => {
+    onFilteredCountChange?.(dedupedAppointments.length);
+  }, [dedupedAppointments.length, onFilteredCountChange]);
+
   // Summary stats based on filtered appointments
   // Summary stats based on filtered appointments
   const summaryStats = useMemo(() => {
@@ -633,9 +640,6 @@ export function AppointmentsTable({
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardHeader className="flex flex-col gap-4">
-          <div className="flex flex-row items-center justify-end gap-2">
-            <Badge variant="secondary">{dedupedAppointments.length}</Badge>
-          </div>
           
           {/* Filters */}
           <div className="flex flex-wrap gap-3 items-end">
