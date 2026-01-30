@@ -4515,7 +4515,7 @@ function QuickPayDialog({
       setFormData({
         payment_date: new Date().toISOString().split('T')[0],
         payment_amount: (bill.balance || 0).toString(),
-        payment_method: "",
+        payment_method: "Check",
         payment_reference: "",
         bank_id: "",
       });
@@ -4682,9 +4682,9 @@ function QuickPayDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Payment Method</Label>
+              <Label>Payment Method <span className="text-destructive">*</span></Label>
               <Select value={formData.payment_method} onValueChange={(v) => setFormData(p => ({ ...p, payment_method: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                <SelectTrigger className={cn(!formData.payment_method && "border-destructive/50")}><SelectValue placeholder="Select method" /></SelectTrigger>
                 <SelectContent className="bg-popover z-50">
                   <SelectItem value="Cash">Cash</SelectItem>
                   <SelectItem value="Check">Check</SelectItem>
@@ -4697,11 +4697,12 @@ function QuickPayDialog({
               </Select>
             </div>
             <div>
-              <Label>Reference / Check #</Label>
+              <Label>Reference / Check # <span className="text-destructive">*</span></Label>
               <Input 
                 value={formData.payment_reference} 
                 onChange={(e) => setFormData(p => ({ ...p, payment_reference: e.target.value }))} 
-                placeholder="Optional"
+                placeholder="Check #, confirmation..."
+                className={cn(!formData.payment_reference.trim() && "border-destructive/50")}
               />
             </div>
           </div>
@@ -4717,7 +4718,7 @@ function QuickPayDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending || paymentAmount <= 0 || !formData.bank_id}>
+            <Button type="submit" disabled={isPending || paymentAmount <= 0 || !formData.bank_id || !formData.payment_method || !formData.payment_reference.trim()}>
               {isPending ? "Saving..." : "Record Payment"}
             </Button>
           </DialogFooter>
