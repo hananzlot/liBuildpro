@@ -447,6 +447,18 @@ Deno.serve(async (req) => {
           // Get configured payment method mapping
           const paymentMethodMapping = getMapping("payment_method", payment.payment_method);
 
+          // Check if this payment was already synced to QB
+          const { data: existingSync } = await supabase
+            .from("quickbooks_sync_log")
+            .select("quickbooks_id")
+            .eq("company_id", companyId)
+            .eq("record_type", "payment")
+            .eq("record_id", payment.id)
+            .eq("sync_status", "synced")
+            .single();
+
+          const existingQbId = existingSync?.quickbooks_id;
+
           const qbPayment: any = {
             CustomerRef: { value: customerResult.id },
             TotalAmt: payment.payment_amount || 0,
@@ -491,27 +503,73 @@ Deno.serve(async (req) => {
             }
           }
 
-          console.log(`Payment ${payment.id} - Final QB payload:`, JSON.stringify(qbPayment, null, 2));
+          let syncRes: Response;
+          let syncData: any;
 
-          const createRes = await fetch(`${QB_BASE_URL}/${realm_id}/payment`, {
-            method: "POST",
-            headers: qbHeaders,
-            body: JSON.stringify(qbPayment),
-          });
+          if (existingQbId) {
+            // UPDATE existing payment - need to fetch SyncToken first
+            console.log(`Payment ${payment.id} already exists in QB (ID: ${existingQbId}), updating...`);
+            
+            const fetchRes = await fetch(`${QB_BASE_URL}/${realm_id}/payment/${existingQbId}`, {
+              headers: qbHeaders,
+            });
+            
+            if (!fetchRes.ok) {
+              const errText = await fetchRes.text();
+              console.error(`Failed to fetch existing payment ${existingQbId}:`, errText);
+              results.failed++;
+              results.errors.push(`Payment ${payment.id}: Failed to fetch existing QB record`);
+              continue;
+            }
+            
+            const existingData = await fetchRes.json();
+            const syncToken = existingData.Payment.SyncToken;
+            
+            // Add Id and SyncToken for update
+            qbPayment.Id = existingQbId;
+            qbPayment.SyncToken = syncToken;
+            qbPayment.sparse = true; // Use sparse update to only update provided fields
+            
+            console.log(`Payment ${payment.id} - Update payload:`, JSON.stringify(qbPayment, null, 2));
+            
+            syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/payment`, {
+              method: "POST",
+              headers: qbHeaders,
+              body: JSON.stringify(qbPayment),
+            });
+            
+            if (syncRes.ok) {
+              syncData = await syncRes.json();
+              console.log(`Updated payment in QB, ID: ${syncData.Payment.Id}`);
+            }
+          } else {
+            // CREATE new payment
+            console.log(`Payment ${payment.id} - Creating new in QB:`, JSON.stringify(qbPayment, null, 2));
+            
+            syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/payment`, {
+              method: "POST",
+              headers: qbHeaders,
+              body: JSON.stringify(qbPayment),
+            });
+            
+            if (syncRes.ok) {
+              syncData = await syncRes.json();
+              console.log(`Created payment in QB, ID: ${syncData.Payment.Id}`);
+            }
+          }
 
-          if (createRes.ok) {
-            const created = await createRes.json();
+          if (syncRes.ok && syncData) {
             await supabase.from("quickbooks_sync_log").upsert({
               company_id: companyId,
               record_type: "payment",
               record_id: payment.id,
-              quickbooks_id: created.Payment.Id,
+              quickbooks_id: syncData.Payment.Id,
               sync_status: "synced",
               synced_at: new Date().toISOString(),
             });
             results.synced++;
           } else {
-            const errText = await createRes.text();
+            const errText = await syncRes.text();
             console.error(`Failed to sync payment ${payment.id}:`, errText);
             results.failed++;
             results.errors.push(`Payment ${payment.id}: ${errText}`);
