@@ -532,6 +532,33 @@ Deno.serve(async (req) => {
             };
           }
 
+          // Add bank account (DepositToAccountRef) if bank_name is set and has a mapping
+          if (payment.bank_name) {
+            // Look up the bank UUID by name
+            const { data: bankRecord } = await supabase
+              .from("banks")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("name", payment.bank_name)
+              .single();
+
+            if (bankRecord?.id) {
+              // Find the QB bank mapping for this bank
+              const bankMapping = getMapping("bank", bankRecord.id);
+              if (bankMapping) {
+                console.log(`Mapping bank "${payment.bank_name}" to QB account: ${bankMapping.qbo_name} (ID: ${bankMapping.qbo_id})`);
+                qbPayment.DepositToAccountRef = {
+                  value: bankMapping.qbo_id,
+                  name: bankMapping.qbo_name,
+                };
+              } else {
+                console.log(`No QB bank mapping found for bank "${payment.bank_name}" (ID: ${bankRecord.id})`);
+              }
+            } else {
+              console.log(`Bank "${payment.bank_name}" not found in banks table`);
+            }
+          }
+
           // Link payment to invoice if invoice_id exists and invoice was synced to QB
           if (payment.invoice_id) {
             const { data: invoiceSyncLog } = await supabase
