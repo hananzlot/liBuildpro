@@ -775,7 +775,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                 htmlFor="auto-sync-qb-header" 
                 className="text-[10px] text-muted-foreground cursor-pointer"
               >
-                QB Sync
+                QB Auto Sync
               </Label>
               <Switch
                 id="auto-sync-qb-header"
