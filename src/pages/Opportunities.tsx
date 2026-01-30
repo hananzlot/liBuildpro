@@ -159,6 +159,7 @@ const Opportunities = () => {
         opportunities={metrics?.allOpportunities || []}
         contacts={metrics?.allContacts || []}
         users={metrics?.users || []}
+        appointments={metrics?.allAppointments || []}
       />
     </AppLayout>
   );

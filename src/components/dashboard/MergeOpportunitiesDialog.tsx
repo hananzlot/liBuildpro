@@ -35,9 +35,11 @@ import {
   FileText,
   StickyNote,
   CalendarCheck,
+  Users,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { MergeContactsDialog } from "./MergeContactsDialog";
 
 interface Opportunity {
   id: string;
@@ -63,6 +65,7 @@ interface MergeOpportunitiesDialogProps {
   opportunities: Opportunity[];
   contacts: any[];
   users: any[];
+  appointments?: any[];
 }
 
 type MergeField = {
@@ -89,6 +92,7 @@ export function MergeOpportunitiesDialog({
   opportunities,
   contacts,
   users,
+  appointments: passedAppointments = [],
 }: MergeOpportunitiesDialogProps) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -102,6 +106,50 @@ export function MergeOpportunitiesDialog({
   const [primary, setPrimary] = useState<"A" | "B">("A");
   const [fieldSelections, setFieldSelections] = useState<Record<string, "A" | "B">>({});
   const [copyFromSecondary, setCopyFromSecondary] = useState<Record<string, boolean>>({});
+  const [mergeContactsOpen, setMergeContactsOpen] = useState(false);
+  const [preselectedContactsForMerge, setPreselectedContactsForMerge] = useState<{ contactA: any; contactB: any } | null>(null);
+
+  // Detect duplicate contacts for the selected opportunities' contact name
+  const duplicateContactsInfo = useMemo(() => {
+    if (!oppA || !oppB) return null;
+
+    // Get contacts for both opportunities
+    const contactA = contacts.find(
+      (c) => c.id === oppA.contact_uuid || c.ghl_id === oppA.contact_id
+    );
+    const contactB = contacts.find(
+      (c) => c.id === oppB.contact_uuid || c.ghl_id === oppB.contact_id
+    );
+
+    if (!contactA || !contactB) return null;
+
+    // Check if they're different contacts (not the same record)
+    if (contactA.id === contactB.id) return null;
+
+    // Check if the names are similar (case-insensitive match or one is a substring of the other)
+    const nameA = contactA.contact_name?.toLowerCase().trim() || "";
+    const nameB = contactB.contact_name?.toLowerCase().trim() || "";
+
+    if (!nameA || !nameB) return null;
+
+    // Check for exact match or significant overlap
+    const namesMatch = nameA === nameB || 
+      nameA.includes(nameB) || 
+      nameB.includes(nameA) ||
+      // Check if first/last names match
+      (contactA.first_name?.toLowerCase() === contactB.first_name?.toLowerCase() && 
+       contactA.last_name?.toLowerCase() === contactB.last_name?.toLowerCase());
+
+    if (namesMatch) {
+      return {
+        contactA,
+        contactB,
+        message: `Both opportunities have contacts named "${contactA.contact_name}" but they are separate records.`,
+      };
+    }
+
+    return null;
+  }, [oppA, oppB, contacts]);
 
   // Fetch appointments for selected opportunities
   const { data: appointmentsData } = useQuery({
@@ -191,8 +239,20 @@ export function MergeOpportunitiesDialog({
       setPrimary("A");
       setFieldSelections({});
       setCopyFromSecondary({});
+      setPreselectedContactsForMerge(null);
     }
     onOpenChange(isOpen);
+  };
+
+  // Handler to open merge contacts dialog with preselected contacts
+  const handleOpenMergeContacts = () => {
+    if (duplicateContactsInfo) {
+      setPreselectedContactsForMerge({
+        contactA: duplicateContactsInfo.contactA,
+        contactB: duplicateContactsInfo.contactB,
+      });
+      setMergeContactsOpen(true);
+    }
   };
 
   // Filter opportunities for search
@@ -688,6 +748,29 @@ export function MergeOpportunitiesDialog({
                 </div>
               )}
             </div>
+
+            {/* Duplicate Contacts Alert */}
+            {duplicateContactsInfo && (
+              <div className="md:col-span-2">
+                <Alert className="border-warning/50 bg-warning/10">
+                  <Users className="h-4 w-4 text-warning-foreground" />
+                  <AlertDescription className="flex items-center justify-between gap-4">
+                    <span className="text-sm">
+                      {duplicateContactsInfo.message} You may want to merge them first.
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpenMergeContacts}
+                      className="shrink-0 border-warning/50 hover:bg-warning/10"
+                    >
+                      <Merge className="h-3 w-3 mr-1" />
+                      Merge Contacts
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 -mx-6 px-6 overflow-y-auto max-h-[500px]" style={{ scrollbarWidth: 'auto', scrollbarColor: 'hsl(var(--border)) transparent' }}>
@@ -761,6 +844,22 @@ export function MergeOpportunitiesDialog({
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Merge Contacts Dialog - opened from duplicate alert */}
+      <MergeContactsDialog
+        open={mergeContactsOpen}
+        onOpenChange={(isOpen) => {
+          setMergeContactsOpen(isOpen);
+          if (!isOpen) {
+            // Refresh data after merge
+            queryClient.invalidateQueries({ queryKey: ["ghl-metrics"] });
+          }
+        }}
+        contacts={contacts}
+        opportunities={opportunities}
+        appointments={passedAppointments}
+        preselectedContacts={preselectedContactsForMerge || undefined}
+      />
     </Dialog>
   );
 }
