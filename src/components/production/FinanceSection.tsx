@@ -49,7 +49,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { cn, formatCurrency, formatCurrencyWithDecimals } from "@/lib/utils";
+import { cn, formatCurrency, formatCurrency2, formatCurrencyWithDecimals } from "@/lib/utils";
 import { 
   Plus, 
   Pencil, 
@@ -1568,8 +1568,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                           >
                             <TableCell className="text-xs">{inv.invoice_number || "-"}</TableCell>
                             <TableCell className="text-xs">{formatDate(inv.invoice_date)}</TableCell>
-                            <TableCell className="text-xs text-right">{formatCurrency(inv.amount)}</TableCell>
-                            <TableCell className="text-xs text-right">{formatCurrency(inv.open_balance)}</TableCell>
+                            <TableCell className="text-xs text-right">{formatCurrency2(inv.amount)}</TableCell>
+                            <TableCell className="text-xs text-right">{formatCurrency2(inv.open_balance)}</TableCell>
                             <TableCell>
                               <div className="flex gap-1">
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>

@@ -79,6 +79,17 @@ export const formatCurrencyWithDecimals = (value: number | null | undefined): st
   }).format(value);
 };
 
+// Format currency always showing 2 decimal places (e.g., $1,234.00)
+export const formatCurrency2 = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || value === 0) return "-";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
 // Format currency compactly (e.g., $1.2M, $500K)
 export const formatCompactCurrency = (value: number | null | undefined): string => {
   if (value === null || value === undefined || value === 0) return "-";
