@@ -911,11 +911,7 @@ export function OpportunitiesTable({
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardHeader className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">Opportunities</CardTitle>
-            </div>
+          <div className="flex items-center justify-end">
             <div className="flex items-center gap-2">
               <Button
                 variant={showAlternatingColors ? "secondary" : "ghost"}
