@@ -202,9 +202,9 @@ export function OnboardingWizard() {
                     </div>
                   </div>
 
-                  {/* Step indicators */}
+                  {/* Step indicators - expanded when current phase */}
                   {isCurrentPhase && (
-                    <div className="flex gap-1 mt-3">
+                    <div className="mt-3 space-y-1">
                       {phase.steps.map((step, stepIndex) => {
                         const stepComplete = isStepComplete(step) || 
                           progress.completedSteps.includes(step.id) || 
@@ -219,14 +219,25 @@ export function OnboardingWizard() {
                               goToStep(phaseIndex, stepIndex);
                             }}
                             className={cn(
-                              "flex-1 h-1.5 rounded-full transition-colors",
+                              "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-xs transition-colors",
+                              isCurrentStep
+                                ? "bg-primary/10 text-primary font-medium"
+                                : stepComplete
+                                ? "text-emerald-600 dark:text-emerald-400 hover:bg-muted/50"
+                                : "text-muted-foreground hover:bg-muted/50"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-2 h-2 rounded-full shrink-0",
                               stepComplete
                                 ? "bg-emerald-500 dark:bg-emerald-400"
                                 : isCurrentStep
                                 ? "bg-primary"
-                                : "bg-muted"
-                            )}
-                          />
+                                : "bg-muted-foreground/30"
+                            )} />
+                            <span className="truncate">{step.title}</span>
+                            {stepComplete && <Check className="h-3 w-3 ml-auto shrink-0" />}
+                          </button>
                         );
                       })}
                     </div>
