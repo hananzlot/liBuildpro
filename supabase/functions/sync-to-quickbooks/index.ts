@@ -682,7 +682,7 @@ Deno.serve(async (req) => {
       } else {
         let billQuery = supabase
           .from("project_bills")
-          .select("*, projects!inner(project_name, company_id, auto_sync_to_quickbooks)")
+          .select("*, projects!inner(id, project_name, company_id, auto_sync_to_quickbooks, contact_uuid, contact_id)")
           .eq("projects.company_id", companyId)
           .eq("projects.auto_sync_to_quickbooks", true)
           .eq("exclude_from_qb", false);
@@ -730,6 +730,26 @@ Deno.serve(async (req) => {
           // Get configured expense account mapping
           const expenseAccountMapping = getMapping("expense_account");
 
+          // Look up customer mapping for job costing (link bill to project)
+          let customerRef: { value: string; name?: string } | undefined;
+          const contactUuid = bill.projects?.contact_uuid;
+          const contactGhlId = bill.projects?.contact_id;
+          
+          if (contactUuid || contactGhlId) {
+            const customerMapping = mappings?.find(m => 
+              m.mapping_type === "customer" && 
+              (m.source_value === contactUuid || m.source_value === contactGhlId)
+            );
+            
+            if (customerMapping && customerMapping.qbo_id) {
+              customerRef = { 
+                value: customerMapping.qbo_id, 
+                name: customerMapping.qbo_name || undefined 
+              };
+              console.log(`Found customer mapping for bill job costing:`, customerRef);
+            }
+          }
+
           const qbBill: any = {
             VendorRef: { value: vendorResult.id },
             TxnDate: bill.created_at?.split("T")[0],
@@ -741,6 +761,8 @@ Deno.serve(async (req) => {
                   AccountRef: expenseAccountMapping
                     ? { value: expenseAccountMapping.qbo_id, name: expenseAccountMapping.qbo_name }
                     : { value: "1" },
+                  // Add CustomerRef for job costing - links expense to the project/customer
+                  ...(customerRef && { CustomerRef: customerRef }),
                 },
                 Description: `${bill.category || "Bill"} - ${bill.projects?.project_name || "Project"} - Ref: ${bill.bill_ref || "N/A"}`,
               },
