@@ -854,6 +854,7 @@ Deno.serve(async (req) => {
         try {
           // First check if we just synced this bill in the current request
           let billQbId = justSyncedBillQbIds.get(billPayment.bill_id);
+          let billQbIdSource = billQbId ? "just_synced" : "sync_log";
           
           // If not just synced, check the sync log
           if (!billQbId) {
@@ -877,6 +878,35 @@ Deno.serve(async (req) => {
             console.log(`Bill ${billPayment.bill_id} not synced to QB (qbId: ${billQbId || 'none'}), skipping bill payment`);
             continue;
           }
+
+          // CRITICAL: Verify the bill still exists in QuickBooks before linking
+          // This prevents QB from auto-creating a blank bill when we reference a deleted one
+          console.log(`Verifying bill ${billQbId} exists in QB (source: ${billQbIdSource})`);
+          const billCheckRes = await fetch(`${QB_BASE_URL}/${realm_id}/bill/${billQbId}`, {
+            headers: qbHeaders,
+          });
+          
+          if (!billCheckRes.ok) {
+            const errText = await billCheckRes.text();
+            console.error(`Bill ${billQbId} no longer exists in QB or fetch failed:`, errText);
+            
+            // Mark the sync log as stale so it gets re-synced
+            await supabase
+              .from("quickbooks_sync_log")
+              .update({ 
+                sync_status: "needs_resync",
+                sync_error: `Bill ${billQbId} not found in QuickBooks - needs to be re-synced`
+              })
+              .eq("company_id", companyId)
+              .eq("record_type", "bill")
+              .eq("record_id", billPayment.bill_id);
+            
+            results.failed++;
+            results.errors.push(`Bill Payment ${billPayment.id}: Parent bill ${billQbId} not found in QB - bill needs to be re-synced first`);
+            continue;
+          }
+          
+          console.log(`Bill ${billQbId} verified to exist in QB`);
 
           // Check if this bill payment was already synced
           const { data: existingSync } = await supabase
