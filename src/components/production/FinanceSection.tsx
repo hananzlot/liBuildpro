@@ -4638,13 +4638,13 @@ function QuickPayDialog({
                 {bill?.installer_company && " • "}
                 {hasBeenOffset && (
                   <>
-                    Original: <span className="line-through text-muted-foreground">{formatCurrency(bill?.original_bill_amount)}</span>
+                    Original: <span className="line-through text-muted-foreground">{formatCurrency2(bill?.original_bill_amount)}</span>
                     {" → "}
-                    Net: <span className="font-medium">{formatCurrency(bill?.bill_amount)}</span>
+                    Net: <span className="font-medium">{formatCurrency2(bill?.bill_amount)}</span>
                     {" • "}
                   </>
                 )}
-                Balance: <span className="font-semibold text-amber-600">{formatCurrency(balance)}</span>
+                Balance: <span className="font-semibold text-amber-600">{formatCurrency2(balance)}</span>
               </div>
               
               {/* Offset Details */}
