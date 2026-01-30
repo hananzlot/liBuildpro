@@ -118,6 +118,7 @@ Deno.serve(async (req) => {
       payment: "Payment",
       bill: "Bill",
       bill_payment: "BillPayment",
+      commission_payment: "Purchase", // Commission payments are stored as Purchase (Check) in QB
     };
 
     const qbEntityType = qbEntityMap[recordType];
@@ -233,6 +234,13 @@ Deno.serve(async (req) => {
       } else if (recordType === "bill_payment") {
         // Bill payments use operation=delete
         voidUrl = `${QB_BASE_URL}/${realm_id}/billpayment?operation=delete`;
+        voidBody = {
+          Id: qbId,
+          SyncToken: syncToken,
+        };
+      } else if (recordType === "commission_payment") {
+        // Commission payments are Purchase (Check) entities - use operation=delete
+        voidUrl = `${QB_BASE_URL}/${realm_id}/purchase?operation=delete`;
         voidBody = {
           Id: qbId,
           SyncToken: syncToken,
