@@ -1109,18 +1109,18 @@ Deno.serve(async (req) => {
         // Get expense account mapping for commissions
         const expenseAccountMapping = getMapping("expense_account");
 
-        // Build QuickBooks Check object
+        // Build QuickBooks Check (Purchase) object
+        // NOTE: TotalAmt is read-only and calculated from Line items - do NOT include it
         const qbCheck: any = {
-          PayeeRef: { value: vendorId },
+          PayeeRef: { value: String(vendorId) },
           TxnDate: commissionPayment.payment_date?.split("T")[0] || new Date().toISOString().split("T")[0],
-          TotalAmt: commissionPayment.payment_amount || 0,
           Line: [
             {
               Amount: commissionPayment.payment_amount || 0,
               DetailType: "AccountBasedExpenseLineDetail",
               AccountBasedExpenseLineDetail: {
                 AccountRef: expenseAccountMapping
-                  ? { value: expenseAccountMapping.qbo_id, name: expenseAccountMapping.qbo_name }
+                  ? { value: String(expenseAccountMapping.qbo_id), name: expenseAccountMapping.qbo_name }
                   : { value: "1" },
               },
               Description: `Commission Payment - ${commissionPayment.projects?.project_name || "Project"} - ${commissionPayment.salesperson_name}`,
