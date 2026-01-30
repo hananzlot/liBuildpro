@@ -6,7 +6,7 @@ import { parseISO, isWithinInterval, startOfDay, endOfDay, format } from "date-f
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit } from "@/hooks/useAuditLog";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { 
   Search, 
   Plus, 
@@ -265,6 +265,7 @@ export default function Production() {
   const [statusChangeProject, setStatusChangeProject] = useState<Project | null>(null);
   const [statusChangeNewStatus, setStatusChangeNewStatus] = useState<string>("");
   const [pendingDepositsSheetOpen, setPendingDepositsSheetOpen] = useState(false);
+  const [showAlternatingColors, setShowAlternatingColors] = useState(true);
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects", companyId],
     queryFn: async () => {
@@ -1997,6 +1998,16 @@ export default function Production() {
                   icon={<Filter className="h-3.5 w-3.5" />}
                   className="w-[160px]"
                 />
+                {/* Alternating Colors Toggle */}
+                <Button
+                  variant={showAlternatingColors ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-9 text-xs"
+                  onClick={() => setShowAlternatingColors(!showAlternatingColors)}
+                  title={showAlternatingColors ? "Disable alternating row colors" : "Enable alternating row colors"}
+                >
+                  {showAlternatingColors ? "Stripes: On" : "Stripes: Off"}
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -2065,12 +2076,15 @@ export default function Production() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sortedAndFilteredProjects.map((project) => {
+                      {sortedAndFilteredProjects.map((project, index) => {
                         const financials = projectFinancials[project.id];
                         return (
                           <TableRow 
                             key={project.id} 
-                            className="cursor-pointer hover:bg-muted/50"
+                            className={cn(
+                              "cursor-pointer hover:bg-muted/50",
+                              showAlternatingColors && index % 2 === 1 && "bg-muted/20"
+                            )}
                             onClick={() => handleOpenProject(project)}
                           >
                             <TableCell className="font-medium pr-1">
