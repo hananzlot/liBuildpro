@@ -8,7 +8,8 @@ import {
   ArrowLeft,
   LayoutDashboard,
   FileText,
-  Shield
+  Shield,
+  Archive
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -74,6 +75,12 @@ const settingsItems: NavItem[] = [
     url: "/super-admin/email-settings", 
     icon: Mail,
     description: "Platform email configuration"
+  },
+  { 
+    title: "Backup & Restore", 
+    url: "/super-admin/backups", 
+    icon: Archive,
+    description: "Database and storage backups"
   },
 ];
 
