@@ -471,9 +471,14 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
   // Helper to sync deletion to QuickBooks - returns true if synced successfully
   const syncDeleteToQuickBooks = async (recordType: string, recordId: string): Promise<{ synced: boolean; message?: string }> => {
-    if (!companyId) return { synced: false };
+    console.log(`[QB Delete] Starting delete sync for ${recordType} ${recordId}, companyId: ${companyId}`);
+    if (!companyId) {
+      console.log("[QB Delete] No companyId, skipping");
+      return { synced: false };
+    }
     
     try {
+      console.log(`[QB Delete] Invoking delete-quickbooks-record edge function...`);
       const { data, error } = await supabase.functions.invoke("delete-quickbooks-record", {
         body: {
           companyId,
@@ -483,13 +488,16 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         },
       });
       
+      console.log("[QB Delete] Response:", { data, error });
+      
       if (error) {
-        console.error("QuickBooks sync error:", error);
+        console.error("QuickBooks delete sync error:", error);
         return { synced: false };
       } else if (data?.success && !data?.skipped) {
         console.log("QuickBooks record voided:", data.message);
         return { synced: true, message: data.message };
       }
+      console.log("[QB Delete] Sync returned without success, data:", data);
       return { synced: false };
     } catch (err) {
       console.error("Failed to sync delete to QuickBooks:", err);
