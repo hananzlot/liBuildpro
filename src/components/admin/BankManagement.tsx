@@ -798,7 +798,7 @@ export function BankManagement() {
                             className={payment.type === "received" ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-red-100 text-red-700 hover:bg-red-100"}
                           >
                             {payment.type === "received" 
-                              ? (payment.status ? `Received - ${payment.status}` : "Received")
+                              ? (payment.status || "Received")
                               : "Paid"
                             }
                           </Badge>
