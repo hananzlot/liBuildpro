@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Database, HardDrive, Merge } from "lucide-react";
+import { Database, HardDrive, Merge, Download } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,6 +21,12 @@ const Opportunities = () => {
   const { isGHLEnabled } = useGHLMode();
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [preselectedOpportunities, setPreselectedOpportunities] = useState<{ oppA: any; oppB: any } | null>(null);
+  const [showAlternatingColors, setShowAlternatingColors] = useState(true);
+  const [downloadCSVFn, setDownloadCSVFn] = useState<(() => void) | null>(null);
+
+  const handleDownloadCSVCallback = useCallback((fn: () => void) => {
+    setDownloadCSVFn(() => fn);
+  }, []);
 
   const {
     data: metrics,
@@ -119,7 +125,20 @@ const Opportunities = () => {
         {/* Top Actions Bar */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <h1 className="text-2xl font-bold text-foreground">Opportunities</h1>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showAlternatingColors ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setShowAlternatingColors(!showAlternatingColors)}
+              title={showAlternatingColors ? "Disable alternating row colors" : "Enable alternating row colors"}
+            >
+              {showAlternatingColors ? "Stripes: On" : "Stripes: Off"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => downloadCSVFn?.()} className="gap-1.5">
+              <Download className="h-4 w-4" />
+              CSV
+            </Button>
             {isAdmin && (
               <Button variant="outline" onClick={() => {
                 setPreselectedOpportunities(null);
@@ -151,6 +170,9 @@ const Opportunities = () => {
               conversations={metrics?.conversations || []} 
               notes={metrics?.contactNotes || []} 
               tasks={metrics?.tasks || []} 
+              showAlternatingColors={showAlternatingColors}
+              onAlternatingColorsChange={setShowAlternatingColors}
+              onDownloadCSV={handleDownloadCSVCallback}
             />
           )}
         </section>

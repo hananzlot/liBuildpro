@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -141,6 +141,9 @@ interface OpportunitiesTableProps {
   conversations?: Conversation[];
   notes?: ContactNote[];
   tasks?: Task[];
+  showAlternatingColors?: boolean;
+  onAlternatingColorsChange?: (value: boolean) => void;
+  onDownloadCSV?: (downloadFn: () => void) => void;
 }
 
 type SortColumn = "name" | "stage" | "value" | "status" | "source" | "createdDate" | "updatedDate";
@@ -159,6 +162,9 @@ export function OpportunitiesTable({
   conversations = [],
   notes = [],
   tasks = [],
+  showAlternatingColors: externalShowAlternatingColors,
+  onAlternatingColorsChange,
+  onDownloadCSV,
 }: OpportunitiesTableProps) {
   const { companyId } = useCompanyContext();
   const { user, profile } = useAuth();
@@ -190,7 +196,11 @@ export function OpportunitiesTable({
   const [isCreatingQuickNote, setIsCreatingQuickNote] = useState(false);
   const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
   const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(undefined);
-  const [showAlternatingColors, setShowAlternatingColors] = useState(true);
+  const [internalShowAlternatingColors, setInternalShowAlternatingColors] = useState(true);
+  
+  // Use external control if provided, otherwise use internal state
+  const showAlternatingColors = externalShowAlternatingColors ?? internalShowAlternatingColors;
+  const setShowAlternatingColors = onAlternatingColorsChange ?? setInternalShowAlternatingColors;
 
   // Appointment sheet state
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -675,7 +685,13 @@ export function OpportunitiesTable({
     link.click();
   };
 
-  // Pagination calculations
+  // Expose downloadCSV to parent if callback provided
+  useEffect(() => {
+    if (onDownloadCSV) {
+      onDownloadCSV(downloadCSV);
+    }
+  }, [onDownloadCSV, filteredAndSortedOpportunities]);
+
   const totalItems = filteredAndSortedOpportunities.length;
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -911,23 +927,6 @@ export function OpportunitiesTable({
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardHeader className="flex flex-col gap-3">
-          <div className="flex items-center justify-end">
-            <div className="flex items-center gap-2">
-              <Button
-                variant={showAlternatingColors ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => setShowAlternatingColors(!showAlternatingColors)}
-                title={showAlternatingColors ? "Disable alternating row colors" : "Enable alternating row colors"}
-              >
-                {showAlternatingColors ? "Stripes: On" : "Stripes: Off"}
-              </Button>
-              <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-1.5">
-                <Download className="h-4 w-4" />
-                CSV
-              </Button>
-            </div>
-          </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Date Range Filter for Table */}
             <div className="flex items-center gap-2">
