@@ -117,6 +117,9 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   const [editingTypeName, setEditingTypeName] = useState("");
   const [customLeadCostsOpen, setCustomLeadCostsOpen] = useState(false);
   const [portalChatReply, setPortalChatReply] = useState("");
+  const [leadSourcePopoverOpen, setLeadSourcePopoverOpen] = useState(false);
+  const [newLeadSourceValue, setNewLeadSourceValue] = useState("");
+  const [leadSourceSearch, setLeadSourceSearch] = useState("");
   // Auto-switch to finance tab and signal bill dialog open when returning from subcontractor add
   useEffect(() => {
     if (open && autoOpenBillDialog && project) {
@@ -423,6 +426,48 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
         .order("name", { ascending: true });
       if (error) throw error;
       return data;
+    },
+    enabled: open && !!companyId,
+  });
+
+  // Fetch existing lead sources from contacts and projects
+  const { data: existingLeadSources = [] } = useQuery({
+    queryKey: ["lead-sources", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      
+      // Fetch from contacts source field
+      const { data: contactSources, error: contactError } = await supabase
+        .from("contacts")
+        .select("source")
+        .eq("company_id", companyId)
+        .not("source", "is", null);
+      
+      if (contactError) throw contactError;
+      
+      // Fetch from projects lead_source field  
+      const { data: projectSources, error: projectError } = await supabase
+        .from("projects")
+        .select("lead_source")
+        .eq("company_id", companyId)
+        .not("lead_source", "is", null);
+      
+      if (projectError) throw projectError;
+
+      // Combine and deduplicate
+      const sources = new Set<string>();
+      contactSources?.forEach(c => c.source && sources.add(c.source));
+      projectSources?.forEach(p => p.lead_source && sources.add(p.lead_source));
+      
+      // Also include custom sources from localStorage
+      try {
+        const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
+        customSources.forEach((s: string) => sources.add(s));
+      } catch {
+        // Ignore parse errors
+      }
+      
+      return Array.from(sources).sort((a, b) => a.localeCompare(b));
     },
     enabled: open && !!companyId,
   });
@@ -940,12 +985,120 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">Lead Source</Label>
                         {(isAdmin || isSuperAdmin) ? (
-                          <DebouncedInput
-                            className="h-8 text-xs"
-                            value={fullProject?.lead_source || ""} 
-                            onSave={(value) => updateProjectMutation.mutate({ lead_source: value || null })}
-                            placeholder="Enter lead source..."
-                          />
+                          <Popover open={leadSourcePopoverOpen} onOpenChange={setLeadSourcePopoverOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className="w-full justify-between font-normal h-8 text-xs"
+                              >
+                                {fullProject?.lead_source || "Select or add..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[250px] p-0 z-50 bg-popover" align="start">
+                              <Command>
+                                <CommandInput 
+                                  placeholder="Search or add new..." 
+                                  value={leadSourceSearch}
+                                  onValueChange={setLeadSourceSearch}
+                                />
+                                <CommandList>
+                                  <CommandEmpty>
+                                    {leadSourceSearch ? (
+                                      <div className="p-2">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="w-full justify-start text-xs"
+                                          onClick={() => {
+                                            updateProjectMutation.mutate({ lead_source: leadSourceSearch });
+                                            setLeadSourcePopoverOpen(false);
+                                            setLeadSourceSearch("");
+                                            // Store in localStorage for future use
+                                            try {
+                                              const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
+                                              if (!customSources.includes(leadSourceSearch)) {
+                                                customSources.push(leadSourceSearch);
+                                                localStorage.setItem("customSources", JSON.stringify(customSources));
+                                              }
+                                            } catch { /* ignore */ }
+                                            queryClient.invalidateQueries({ queryKey: ["lead-sources", companyId] });
+                                          }}
+                                        >
+                                          <Plus className="mr-2 h-4 w-4" />
+                                          Add "{leadSourceSearch}"
+                                        </Button>
+                                      </div>
+                                    ) : "No sources found."}
+                                  </CommandEmpty>
+                                  <ScrollArea className="max-h-[200px]">
+                                    <CommandGroup>
+                                      {/* Add New option at top when searching */}
+                                      {leadSourceSearch && !existingLeadSources.some(s => s.toLowerCase() === leadSourceSearch.toLowerCase()) && (
+                                        <CommandItem
+                                          value={`add-new-${leadSourceSearch}`}
+                                          onSelect={() => {
+                                            updateProjectMutation.mutate({ lead_source: leadSourceSearch });
+                                            setLeadSourcePopoverOpen(false);
+                                            setLeadSourceSearch("");
+                                            // Store in localStorage for future use
+                                            try {
+                                              const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
+                                              if (!customSources.includes(leadSourceSearch)) {
+                                                customSources.push(leadSourceSearch);
+                                                localStorage.setItem("customSources", JSON.stringify(customSources));
+                                              }
+                                            } catch { /* ignore */ }
+                                            queryClient.invalidateQueries({ queryKey: ["lead-sources", companyId] });
+                                          }}
+                                          className="text-xs"
+                                        >
+                                          <Plus className="mr-2 h-4 w-4" />
+                                          Add "{leadSourceSearch}"
+                                        </CommandItem>
+                                      )}
+                                      {/* Clear selection option */}
+                                      {fullProject?.lead_source && (
+                                        <CommandItem
+                                          value="__clear__"
+                                          onSelect={() => {
+                                            updateProjectMutation.mutate({ lead_source: null });
+                                            setLeadSourcePopoverOpen(false);
+                                            setLeadSourceSearch("");
+                                          }}
+                                          className="text-xs text-muted-foreground"
+                                        >
+                                          <X className="mr-2 h-4 w-4" />
+                                          Clear selection
+                                        </CommandItem>
+                                      )}
+                                      {existingLeadSources.map((source) => (
+                                        <CommandItem
+                                          key={source}
+                                          value={source}
+                                          onSelect={() => {
+                                            updateProjectMutation.mutate({ lead_source: source });
+                                            setLeadSourcePopoverOpen(false);
+                                            setLeadSourceSearch("");
+                                          }}
+                                          className="text-xs"
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              fullProject?.lead_source === source ? "opacity-100" : "opacity-0"
+                                            )}
+                                          />
+                                          {source}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </ScrollArea>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                         ) : (
                           <div className="px-3 py-2 text-xs rounded-md border bg-muted/50 text-muted-foreground h-8 flex items-center">
                             {fullProject?.lead_source || "—"}
