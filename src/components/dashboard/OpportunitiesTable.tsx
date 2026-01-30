@@ -190,6 +190,7 @@ export function OpportunitiesTable({
   const [isCreatingQuickNote, setIsCreatingQuickNote] = useState(false);
   const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
   const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(undefined);
+  const [showAlternatingColors, setShowAlternatingColors] = useState(true);
 
   // Appointment sheet state
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -989,6 +990,16 @@ export function OpportunitiesTable({
                 Clear Filters
               </Button>
             )}
+            {/* Alternating Colors Toggle */}
+            <Button
+              variant={showAlternatingColors ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 text-xs ml-auto"
+              onClick={() => setShowAlternatingColors(!showAlternatingColors)}
+              title={showAlternatingColors ? "Disable alternating row colors" : "Enable alternating row colors"}
+            >
+              {showAlternatingColors ? "Stripes: On" : "Stripes: Off"}
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto scrollbar-styled pb-2">
@@ -1133,7 +1144,8 @@ export function OpportunitiesTable({
                       key={opp.ghl_id}
                       className={cn(
                         "border-border/30 hover:bg-muted/30 cursor-pointer",
-                        overdueTask && "bg-destructive/5 hover:bg-destructive/10"
+                        overdueTask && "bg-destructive/5 hover:bg-destructive/10",
+                        showAlternatingColors && !overdueTask && paginatedOpportunities.indexOf(opp) % 2 === 1 && "bg-muted/20"
                       )}
                       onClick={() => handleRowClick(opp)}
                     >
