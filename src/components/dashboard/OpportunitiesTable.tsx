@@ -916,10 +916,21 @@ export function OpportunitiesTable({
               <DollarSign className="h-5 w-5 text-primary" />
               <CardTitle className="text-lg">Opportunities</CardTitle>
             </div>
-            <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-1.5">
-              <Download className="h-4 w-4" />
-              CSV
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showAlternatingColors ? "secondary" : "ghost"}
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => setShowAlternatingColors(!showAlternatingColors)}
+                title={showAlternatingColors ? "Disable alternating row colors" : "Enable alternating row colors"}
+              >
+                {showAlternatingColors ? "Stripes: On" : "Stripes: Off"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-1.5">
+                <Download className="h-4 w-4" />
+                CSV
+              </Button>
+            </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Date Range Filter for Table */}
@@ -990,16 +1001,6 @@ export function OpportunitiesTable({
                 Clear Filters
               </Button>
             )}
-            {/* Alternating Colors Toggle */}
-            <Button
-              variant={showAlternatingColors ? "secondary" : "ghost"}
-              size="sm"
-              className="h-8 text-xs ml-auto"
-              onClick={() => setShowAlternatingColors(!showAlternatingColors)}
-              title={showAlternatingColors ? "Disable alternating row colors" : "Enable alternating row colors"}
-            >
-              {showAlternatingColors ? "Stripes: On" : "Stripes: Off"}
-            </Button>
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto scrollbar-styled pb-2">
