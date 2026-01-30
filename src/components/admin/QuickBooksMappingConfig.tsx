@@ -198,6 +198,21 @@ export function QuickBooksMappingConfig() {
     enabled: !!companyId,
   });
 
+  // Fetch local banks
+  const { data: localBanks } = useQuery({
+    queryKey: ["banks-for-mapping", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("banks")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
   // Helper to check if a string looks like a phone number
   const looksLikePhoneNumber = (str: string | null): boolean => {
     if (!str) return false;
@@ -268,7 +283,7 @@ export function QuickBooksMappingConfig() {
     retry: false,
   });
 
-  // Fetch ALL accounts for GL tab
+  // Fetch ALL accounts for GL tab and banks tab
   const { data: allAccounts, isLoading: allAccountsLoading, refetch: refetchAllAccounts } = useQuery({
     queryKey: ["qb-all-accounts", companyId],
     queryFn: async () => {
@@ -284,9 +299,14 @@ export function QuickBooksMappingConfig() {
       }
       return (data?.entities || []) as QBEntity[];
     },
-    enabled: !!companyId && isConnected && !needsReauth && activeTab === "gl",
+    enabled: !!companyId && isConnected && !needsReauth && (activeTab === "gl" || activeTab === "banks"),
     retry: false,
   });
+
+  // Filter QB bank accounts from allAccounts
+  const qbBankAccounts = useMemo(() => {
+    return (allAccounts || []).filter((a) => a.type === "Bank");
+  }, [allAccounts]);
 
   const { data: items, isLoading: itemsLoading, refetch: refetchItems } = useQuery({
     queryKey: ["qb-items", companyId],
@@ -534,7 +554,7 @@ export function QuickBooksMappingConfig() {
               refetchItems();
               refetchCustomers();
               refetchVendors();
-              if (activeTab === "gl") refetchAllAccounts();
+              if (activeTab === "gl" || activeTab === "banks") refetchAllAccounts();
             }}
           >
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -544,12 +564,13 @@ export function QuickBooksMappingConfig() {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="accounts">Accounts</TabsTrigger>
             <TabsTrigger value="items">Items</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
             <TabsTrigger value="vendors">Vendors</TabsTrigger>
+            <TabsTrigger value="banks">Banks</TabsTrigger>
           </TabsList>
 
           <TabsContent value="accounts" className="space-y-6 mt-4">
@@ -918,6 +939,74 @@ export function QuickBooksMappingConfig() {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Badge variant="secondary">{qbVendors?.length || 0}</Badge>
               <span>QuickBooks vendors available</span>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="banks" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Map App Banks to QuickBooks Bank Accounts</Label>
+              <p className="text-xs text-muted-foreground">
+                Link your local bank names to QuickBooks bank accounts for accurate payment syncing
+              </p>
+            </div>
+
+            {allAccountsLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <ScrollArea className="h-[300px] border rounded-md p-3">
+                <div className="space-y-3">
+                  {(localBanks || []).map((bank) => {
+                    const existingMapping = getSourceMapping("bank", bank.id);
+                    
+                    return (
+                      <div 
+                        key={bank.id} 
+                        className={`flex items-center gap-3 p-2 rounded-md border ${
+                          existingMapping 
+                            ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800" 
+                            : "bg-background"
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{bank.name}</p>
+                        </div>
+                        <Select
+                          value={existingMapping?.qbo_id || ""}
+                          onValueChange={(value) => {
+                            const qbBank = qbBankAccounts.find((b) => b.id === value);
+                            if (qbBank) {
+                              handleSourceMapping("bank", bank.id, qbBank.id, qbBank.name, qbBank.type);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Select QB bank account" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {qbBankAccounts.map((qbBank) => (
+                              <SelectItem key={qbBank.id} value={qbBank.id}>
+                                {qbBank.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
+                  {(localBanks || []).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No banks configured. Add banks in the Banks management section.
+                    </p>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="secondary">{qbBankAccounts.length}</Badge>
+              <span>QuickBooks bank accounts available</span>
             </div>
           </TabsContent>
         </Tabs>
