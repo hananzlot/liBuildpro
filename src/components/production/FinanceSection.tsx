@@ -207,7 +207,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   // QuickBooks new entity confirmation state
   const [qbConfirmDialogOpen, setQbConfirmDialogOpen] = useState(false);
   const [pendingQbSync, setPendingQbSync] = useState<{
-    recordType: "invoice" | "payment" | "bill";
+    recordType: "invoice" | "payment" | "bill" | "bill_payment";
     recordId: string;
     pendingEntities: { type: string; name: string }[];
     onConfirm: () => void;
@@ -377,7 +377,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   };
 
   // Helper to check if QB sync will create new entities (customer/vendor)
-  const checkQbSyncEntities = async (recordType: "invoice" | "payment" | "bill", recordId: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[] }> => {
+  const checkQbSyncEntities = async (recordType: "invoice" | "payment" | "bill" | "bill_payment", recordId: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[] }> => {
     if (!companyId) return { requiresConfirmation: false, pendingEntities: [] };
     
     try {
@@ -406,7 +406,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   };
 
   // Helper to sync a record to QuickBooks after create/update - returns true if synced successfully
-  const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill", recordId: string): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
+  const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill" | "bill_payment", recordId: string): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
     if (!companyId) return { synced: false };
     
     try {
@@ -436,7 +436,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
   // Helper to sync with confirmation for new entities
   const syncWithConfirmation = async (
-    recordType: "invoice" | "payment" | "bill", 
+    recordType: "invoice" | "payment" | "bill" | "bill_payment", 
     recordId: string
   ): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
     // First check if sync would create new entities
@@ -869,9 +869,14 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         .eq("id", billId);
       if (updateError) throw updateError;
 
-      // Sync the bill to QuickBooks (this updates the bill payment status)
-      const qbResult = await syncRecordToQuickBooks("bill", billId);
-      return { qbSynced: qbResult.synced };
+      // Sync the bill payment to QuickBooks (the bill must be synced first)
+      const billQbResult = await syncRecordToQuickBooks("bill", billId);
+      let billPaymentQbResult = { synced: false };
+      if (billQbResult.synced) {
+        // Now sync the bill payment itself
+        billPaymentQbResult = await syncRecordToQuickBooks("bill_payment", newPayment.id);
+      }
+      return { qbSynced: billPaymentQbResult.synced || billQbResult.synced };
     },
     onSuccess: (result) => {
       if (result?.qbSynced) {
