@@ -465,7 +465,7 @@ Deno.serve(async (req) => {
               quickbooks_id: syncData.Invoice.Id,
               sync_status: "synced",
               synced_at: new Date().toISOString(),
-            });
+            }, { onConflict: "company_id,record_type,record_id" });
             results.synced++;
           } else {
             const errText = await syncRes.text();
@@ -666,7 +666,7 @@ Deno.serve(async (req) => {
               quickbooks_id: syncData.Payment.Id,
               sync_status: "synced",
               synced_at: new Date().toISOString(),
-            });
+            }, { onConflict: "company_id,record_type,record_id" });
             results.synced++;
           } else {
             const errText = await syncRes.text();
@@ -898,7 +898,7 @@ Deno.serve(async (req) => {
               quickbooks_id: newQbId,
               sync_status: "synced",
               synced_at: new Date().toISOString(),
-            });
+            }, { onConflict: "company_id,record_type,record_id" });
             results.synced++;
           } else {
             const errText = await syncRes.text();
@@ -1138,7 +1138,7 @@ Deno.serve(async (req) => {
               quickbooks_id: syncData.BillPayment.Id,
               sync_status: "synced",
               synced_at: new Date().toISOString(),
-            });
+            }, { onConflict: "company_id,record_type,record_id" });
             results.synced++;
           } else {
             const errText = await syncRes.text();
@@ -1416,7 +1416,7 @@ Deno.serve(async (req) => {
             quickbooks_id: syncData.Purchase.Id,
             sync_status: "synced",
             synced_at: new Date().toISOString(),
-          });
+          }, { onConflict: "company_id,record_type,record_id" });
           results.synced++;
         } else if (syncRes!) {
           const errText = await syncRes!.text();
