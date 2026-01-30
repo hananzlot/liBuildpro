@@ -167,11 +167,48 @@ serve(async (req) => {
 
       const appUrl = appUrlSetting?.setting_value || "https://leadlover-insights.lovable.app";
 
-      const { error: emailError } = await resend.emails.send({
-        from: "LeadLover <noreply@resend.dev>",
-        to: [email],
-        subject: `Welcome to ${companyName} - Your Admin Account`,
-        html: `
+      // Different email content for new vs existing users
+      const emailHtml = isExistingUser
+        ? `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 28px;">You've Been Added to ${companyName}!</h1>
+            </div>
+            
+            <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 12px 12px;">
+              <p style="font-size: 16px; margin-bottom: 20px;">Hi ${fullName},</p>
+              
+              <p style="font-size: 16px; margin-bottom: 20px;">
+                Your account has been reassigned to <strong>${companyName}</strong> as an administrator.
+                You can log in with your existing credentials.
+              </p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${appUrl}/auth" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                  Login to Your Account
+                </a>
+              </div>
+              
+              <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
+                After logging in, you'll be able to set up your company's account with our onboarding wizard.
+              </p>
+              
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+              
+              <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
+                This is an automated message. If you didn't expect this, please contact support.
+              </p>
+            </div>
+          </body>
+          </html>
+        `
+        : `
           <!DOCTYPE html>
           <html>
           <head>
@@ -221,7 +258,15 @@ serve(async (req) => {
             </div>
           </body>
           </html>
-        `,
+        `;
+
+      const { error: emailError } = await resend.emails.send({
+        from: "LeadLover <noreply@resend.dev>",
+        to: [email],
+        subject: isExistingUser 
+          ? `You've Been Added to ${companyName}` 
+          : `Welcome to ${companyName} - Your Admin Account`,
+        html: emailHtml,
       });
 
       if (emailError) {
