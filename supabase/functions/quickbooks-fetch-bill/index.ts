@@ -309,14 +309,18 @@ Deno.serve(async (req) => {
       }
 
       // Create sync log entry
-      await supabase.from("quickbooks_sync_log").insert({
+      const { error: syncLogError } = await supabase.from("quickbooks_sync_log").insert({
         company_id: companyId,
         record_type: "bill",
         record_id: newBill.id,
         quickbooks_id: qbBill.Id,
         sync_status: "synced",
-        last_sync_at: new Date().toISOString(),
+        synced_at: new Date().toISOString(),
       });
+      
+      if (syncLogError) {
+        log("error", "Failed to create sync log entry", { error: syncLogError.message });
+      }
 
       log("info", "Created bill successfully", { billId: newBill.id, matchMethod, projectId, subcontractorId });
 
