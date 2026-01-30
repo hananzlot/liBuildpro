@@ -69,6 +69,7 @@ import {
 import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
 import { VendorMappingDialog } from "./VendorMappingDialog";
+import { SalespersonVendorMappingDialog } from "./SalespersonVendorMappingDialog";
 
 interface SalespersonData {
   name: string | null;
@@ -5185,6 +5186,12 @@ function CommissionTab({
   const [editingPayment, setEditingPayment] = useState<CommissionPayment | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
+  const [vendorMappingDialogOpen, setVendorMappingDialogOpen] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<Partial<CommissionPayment> | null>(null);
+  const [selectedSalespersonForMapping, setSelectedSalespersonForMapping] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Fetch commission payments
   const { data: commissionPayments = [], isLoading: loadingPayments } = useQuery({
@@ -5198,6 +5205,55 @@ function CommissionTab({
       if (error) throw error;
       return data as CommissionPayment[];
     },
+  });
+
+  // Fetch salespeople records to get IDs for mapping
+  const { data: salespeopleRecords = [] } = useQuery({
+    queryKey: ["salespeople", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("salespeople")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .eq("is_active", true);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Check QuickBooks connection status
+  const { data: qbConnection } = useQuery({
+    queryKey: ["quickbooks-connection", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("quickbooks_connections")
+        .select("is_active, realm_id")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+  const isQBConnected = !!qbConnection?.is_active;
+
+  // Fetch salesperson vendor mappings
+  const { data: salespersonVendorMappings = [] } = useQuery({
+    queryKey: ["qb-salesperson-vendor-mappings", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("quickbooks_mappings")
+        .select("source_value, qbo_id, qbo_name")
+        .eq("company_id", companyId)
+        .eq("mapping_type", "salesperson_vendor");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId && isQBConnected,
   });
 
   // Calculations: (Total Contracts - Lead Cost - Bills) × Split%
@@ -5216,12 +5272,21 @@ function CommissionTab({
     const paid = commissionPayments
       .filter(p => p.salesperson_name === sp.name)
       .reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+    // Find matching salesperson record for ID
+    const salespersonRecord = salespeopleRecords.find(sr => sr.name === sp.name);
+    // Check if mapped to vendor
+    const vendorMapping = salespersonRecord 
+      ? salespersonVendorMappings.find(m => m.source_value === salespersonRecord.id)
+      : null;
     return {
       ...sp,
+      id: salespersonRecord?.id || null,
       shareOfPool,
       commissionAmount,
       paid,
       balance: commissionAmount - paid,
+      vendorMapped: !!vendorMapping,
+      vendorName: vendorMapping?.qbo_name || null,
     };
   });
 
@@ -5230,9 +5295,65 @@ function CommissionTab({
   const totalCommissionBalance = totalCommissionOwed - totalCommissionPaid;
   const companyProfit = profit - totalCommissionOwed;
 
+  // Helper to sync commission payment to QuickBooks
+  const syncCommissionToQuickBooks = async (paymentId: string): Promise<{ synced: boolean; message?: string }> => {
+    if (!companyId) return { synced: false };
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
+        body: {
+          companyId,
+          syncType: "commission_payment",
+          recordId: paymentId,
+        },
+      });
+      
+      if (error) {
+        console.error("QuickBooks sync error:", error);
+        return { synced: false, message: error.message };
+      } else if (data?.synced > 0) {
+        console.log("Commission payment synced to QuickBooks:", paymentId);
+        return { synced: true };
+      }
+      const errorMessage = Array.isArray(data?.errors) && data.errors.length > 0 ? String(data.errors[0]) : undefined;
+      return { synced: false, message: errorMessage };
+    } catch (err) {
+      console.error("Failed to sync to QuickBooks:", err);
+      const errMsg = err instanceof Error ? err.message : "Unknown error";
+      return { synced: false, message: errMsg };
+    }
+  };
+
+  // Handle save payment with vendor mapping check
+  const handleSavePayment = (payment: Partial<CommissionPayment>) => {
+    // Find salesperson record to check mapping
+    const salespersonRecord = salespeopleRecords.find(sr => sr.name === payment.salesperson_name);
+    
+    // If QB is connected, check if salesperson has vendor mapping
+    if (isQBConnected && salespersonRecord) {
+      const hasMapping = salespersonVendorMappings.some(m => m.source_value === salespersonRecord.id);
+      
+      if (!hasMapping) {
+        // Show mapping dialog
+        setPendingPaymentData(payment);
+        setSelectedSalespersonForMapping({
+          id: salespersonRecord.id,
+          name: salespersonRecord.name || payment.salesperson_name || "",
+        });
+        setVendorMappingDialogOpen(true);
+        return;
+      }
+    }
+    
+    // No mapping needed, proceed with save
+    savePaymentMutation.mutate(payment);
+  };
+
   // Save payment mutation
   const savePaymentMutation = useMutation({
     mutationFn: async (payment: Partial<CommissionPayment>) => {
+      let savedRecordId: string | undefined;
+      
       if (editingPayment?.id) {
         await logAudit({
           tableName: 'commission_payments',
@@ -5247,6 +5368,7 @@ function CommissionTab({
           .update(payment)
           .eq("id", editingPayment.id);
         if (error) throw error;
+        savedRecordId = editingPayment.id;
       } else {
         const insertData = {
           project_id: projectId,
@@ -5272,10 +5394,30 @@ function CommissionTab({
           newValues: newPayment,
           description: `Created commission payment ${formatCurrency(payment.payment_amount)} for ${payment.salesperson_name}`,
         });
+        savedRecordId = newPayment.id;
       }
+
+      // Sync to QuickBooks if connected
+      let qbSynced = false;
+      let qbMessage: string | undefined;
+      if (isQBConnected && savedRecordId) {
+        const qbResult = await syncCommissionToQuickBooks(savedRecordId);
+        qbSynced = qbResult.synced;
+        qbMessage = qbResult.message;
+      }
+
+      return { qbSynced, isEdit: !!editingPayment?.id, qbMessage };
     },
-    onSuccess: () => {
-      toast.success(editingPayment?.id ? "Payment updated" : "Payment recorded");
+    onSuccess: (result) => {
+      const baseMsg = result?.isEdit ? "Payment updated" : "Payment recorded";
+      if (result?.qbSynced) {
+        toast.success(`${baseMsg} and synced to QuickBooks`);
+      } else if (result?.qbMessage) {
+        toast.success(baseMsg);
+        toast.warning(`QuickBooks sync failed: ${result.qbMessage.slice(0, 100)}`);
+      } else {
+        toast.success(baseMsg);
+      }
       queryClient.invalidateQueries({ queryKey: ["commission-payments", projectId] });
       setPaymentDialogOpen(false);
       setEditingPayment(null);
@@ -5497,9 +5639,33 @@ function CommissionTab({
         editingPayment={editingPayment}
         salespeople={salespeople}
         salespeopleWithCommission={salespeopleWithCommission}
-        onSave={(payment) => savePaymentMutation.mutate(payment)}
+        onSave={handleSavePayment}
         isPending={savePaymentMutation.isPending}
       />
+
+      {/* Salesperson Vendor Mapping Dialog */}
+      {selectedSalespersonForMapping && (
+        <SalespersonVendorMappingDialog
+          open={vendorMappingDialogOpen}
+          onOpenChange={(open) => {
+            setVendorMappingDialogOpen(open);
+            if (!open) {
+              setPendingPaymentData(null);
+              setSelectedSalespersonForMapping(null);
+            }
+          }}
+          salespersonId={selectedSalespersonForMapping.id}
+          salespersonName={selectedSalespersonForMapping.name}
+          onMappingComplete={() => {
+            // Mapping complete - now save the pending payment
+            if (pendingPaymentData) {
+              savePaymentMutation.mutate(pendingPaymentData);
+            }
+            setPendingPaymentData(null);
+            setSelectedSalespersonForMapping(null);
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
