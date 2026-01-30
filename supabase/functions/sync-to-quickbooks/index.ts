@@ -1112,7 +1112,12 @@ Deno.serve(async (req) => {
         // Build QuickBooks Check (Purchase) object
         // NOTE: TotalAmt is read-only and calculated from Line items - do NOT include it
         const qbCheck: any = {
-          PayeeRef: { value: String(vendorId) },
+          // Purchase uses EntityRef (not PayeeRef)
+          EntityRef: {
+            value: String(vendorId),
+            name: vendorName,
+            type: "Vendor",
+          },
           TxnDate: commissionPayment.payment_date?.split("T")[0] || new Date().toISOString().split("T")[0],
           Line: [
             {
