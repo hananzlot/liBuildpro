@@ -316,6 +316,228 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Action: update-existing - Update an existing local bill payment from QB data
+    if (action === "update-existing") {
+      if (!qbBillPaymentId) {
+        return new Response(
+          JSON.stringify({ error: "qbBillPaymentId is required for update-existing" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      log("info", `Updating existing bill payment from QB ${qbBillPaymentId}`);
+
+      // Find the existing local bill payment via sync log (primary source of truth)
+      const { data: existingSyncLog } = await supabase
+        .from("quickbooks_sync_log")
+        .select("record_id")
+        .eq("company_id", companyId)
+        .eq("record_type", "bill_payment")
+        .eq("quickbooks_id", qbBillPaymentId)
+        .maybeSingle();
+
+      let localBillPaymentId = existingSyncLog?.record_id;
+
+      // Fetch the bill payment from QuickBooks
+      const billPaymentRes = await fetch(`${QB_BASE_URL}/${effectiveRealmId}/billpayment/${qbBillPaymentId}`, {
+        headers: qbHeaders,
+      });
+
+      if (!billPaymentRes.ok) {
+        const errText = await billPaymentRes.text();
+        log("error", `Failed to fetch bill payment from QB`, { status: billPaymentRes.status, error: errText });
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch bill payment from QuickBooks", details: errText }),
+          { status: billPaymentRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const billPaymentData = await billPaymentRes.json();
+      const qbBillPayment: QBBillPayment = billPaymentData.BillPayment;
+
+      // If no sync log entry, try fallback matching
+      if (!localBillPaymentId) {
+        log("info", `No sync log for QB BillPayment ${qbBillPaymentId}, attempting fallback matching`);
+
+        // Get all bill payment IDs already synced to a DIFFERENT QB bill payment
+        const { data: alreadySyncedBillPayments } = await supabase
+          .from("quickbooks_sync_log")
+          .select("record_id")
+          .eq("company_id", companyId)
+          .eq("record_type", "bill_payment")
+          .neq("quickbooks_id", qbBillPaymentId)
+          .not("record_id", "is", null);
+        
+        const excludedBillPaymentIds = (alreadySyncedBillPayments || []).map(bp => bp.record_id);
+        log("info", "Excluding already-synced bill payments from fallback match", { 
+          excludedCount: excludedBillPaymentIds.length 
+        });
+
+        // Find linked bill first
+        const linkedBills = qbBillPayment.Line?.flatMap(l => 
+          (l.LinkedTxn || []).filter(txn => txn.TxnType === "Bill")
+        ) || [];
+
+        let billId: string | null = null;
+
+        if (linkedBills.length > 0) {
+          const qbBillIds = linkedBills.map(lb => lb.TxnId);
+          
+          const { data: billSyncLog } = await supabase
+            .from("quickbooks_sync_log")
+            .select("record_id")
+            .eq("company_id", companyId)
+            .eq("record_type", "bill")
+            .in("quickbooks_id", qbBillIds)
+            .not("record_id", "is", null)
+            .limit(1)
+            .maybeSingle();
+
+          if (billSyncLog?.record_id) {
+            billId = billSyncLog.record_id;
+          }
+        }
+
+        if (billId) {
+          // Fallback 1: Try to match by bill_id + amount + date + reference
+          let query = supabase
+            .from("bill_payments")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("bill_id", billId)
+            .eq("payment_amount", qbBillPayment.TotalAmt)
+            .eq("payment_date", qbBillPayment.TxnDate)
+            .eq("payment_reference", qbBillPayment.DocNumber || null);
+          
+          if (excludedBillPaymentIds.length > 0) {
+            query = query.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
+          }
+          
+          const { data: exactMatch } = await query.maybeSingle();
+          
+          if (exactMatch) {
+            localBillPaymentId = exactMatch.id;
+            log("info", "Found bill payment via exact match (fallback)", { localBillPaymentId });
+          }
+
+          // Fallback 2: Try bill_id + amount + date
+          if (!localBillPaymentId) {
+            let query2 = supabase
+              .from("bill_payments")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("bill_id", billId)
+              .eq("payment_amount", qbBillPayment.TotalAmt)
+              .eq("payment_date", qbBillPayment.TxnDate);
+            
+            if (excludedBillPaymentIds.length > 0) {
+              query2 = query2.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
+            }
+            
+            const { data: amountDateMatch } = await query2.maybeSingle();
+            
+            if (amountDateMatch) {
+              localBillPaymentId = amountDateMatch.id;
+              log("info", "Found bill payment via amount+date (fallback)", { localBillPaymentId });
+            }
+          }
+
+          // Fallback 3: Try bill_id + amount only
+          if (!localBillPaymentId) {
+            let query3 = supabase
+              .from("bill_payments")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("bill_id", billId)
+              .eq("payment_amount", qbBillPayment.TotalAmt);
+            
+            if (excludedBillPaymentIds.length > 0) {
+              query3 = query3.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
+            }
+            
+            const { data: amountMatch } = await query3.maybeSingle();
+            
+            if (amountMatch) {
+              localBillPaymentId = amountMatch.id;
+              log("info", "Found bill payment via amount only (fallback)", { localBillPaymentId });
+            }
+          }
+        }
+      }
+
+      if (!localBillPaymentId) {
+        log("warn", "Could not find existing bill payment to update", { qbId: qbBillPaymentId });
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "No matching bill payment found to update",
+            qbId: qbBillPaymentId
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Map payment method
+      let paymentMethod = "other";
+      if (qbBillPayment.PayType === "Check") {
+        paymentMethod = "check";
+      } else if (qbBillPayment.PayType === "CreditCard") {
+        paymentMethod = "credit_card";
+      }
+
+      // Get bank name
+      const bankName = qbBillPayment.PayType === "Check" 
+        ? qbBillPayment.CheckPayment?.BankAccountRef?.name 
+        : qbBillPayment.CreditCardPayment?.CCAccountRef?.name;
+
+      // Update the bill payment
+      const { error: updateError } = await supabase
+        .from("bill_payments")
+        .update({
+          payment_amount: qbBillPayment.TotalAmt || 0,
+          payment_date: qbBillPayment.TxnDate || undefined,
+          payment_method: paymentMethod,
+          payment_reference: qbBillPayment.DocNumber || undefined,
+          bank_name: bankName || undefined,
+        })
+        .eq("id", localBillPaymentId);
+
+      if (updateError) {
+        log("error", "Failed to update bill payment", { error: updateError.message });
+        return new Response(
+          JSON.stringify({ error: "Failed to update bill payment", details: updateError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Upsert sync log entry
+      await supabase
+        .from("quickbooks_sync_log")
+        .upsert({
+          company_id: companyId,
+          record_type: "bill_payment",
+          record_id: localBillPaymentId,
+          quickbooks_id: qbBillPaymentId,
+          sync_status: "synced",
+          synced_at: new Date().toISOString(),
+        }, {
+          onConflict: "company_id,record_type,quickbooks_id"
+        });
+
+      log("info", "Updated bill payment successfully", { billPaymentId: localBillPaymentId });
+
+      const duration = Date.now() - startTime;
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          action: "updated",
+          billPaymentId: localBillPaymentId,
+          duration: `${duration}ms`
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Action: process-pending
     if (action === "process-pending") {
       log("info", "Processing pending bill payments from sync log");

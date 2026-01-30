@@ -336,6 +336,247 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Action: update-existing - Update an existing local bill from QB data
+    if (action === "update-existing") {
+      if (!qbBillId) {
+        return new Response(
+          JSON.stringify({ error: "qbBillId is required for update-existing" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      log("info", `Updating existing bill from QB ${qbBillId}`);
+
+      // Find the existing local bill via sync log (primary source of truth)
+      const { data: existingSyncLog } = await supabase
+        .from("quickbooks_sync_log")
+        .select("record_id")
+        .eq("company_id", companyId)
+        .eq("record_type", "bill")
+        .eq("quickbooks_id", qbBillId)
+        .maybeSingle();
+
+      let localBillId = existingSyncLog?.record_id;
+
+      // If no sync log entry, try fallback matching
+      if (!localBillId) {
+        log("info", `No sync log for QB Bill ${qbBillId}, fetching from QB to find match`);
+
+        // Fetch the bill from QuickBooks
+        const billRes = await fetch(`${QB_BASE_URL}/${effectiveRealmId}/bill/${qbBillId}`, {
+          headers: qbHeaders,
+        });
+
+        if (!billRes.ok) {
+          const errText = await billRes.text();
+          log("error", `Failed to fetch bill from QB`, { status: billRes.status, error: errText });
+          return new Response(
+            JSON.stringify({ error: "Failed to fetch bill from QuickBooks", details: errText }),
+            { status: billRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const billData = await billRes.json();
+        const qbBill: QBBill = billData.Bill;
+
+        // Get all bill IDs already synced to a DIFFERENT QB bill
+        const { data: alreadySyncedBills } = await supabase
+          .from("quickbooks_sync_log")
+          .select("record_id")
+          .eq("company_id", companyId)
+          .eq("record_type", "bill")
+          .neq("quickbooks_id", qbBillId)
+          .not("record_id", "is", null);
+        
+        const excludedBillIds = (alreadySyncedBills || []).map(b => b.record_id);
+        log("info", "Excluding already-synced bills from fallback match", { 
+          excludedCount: excludedBillIds.length 
+        });
+
+        // Fallback 1: Try to match by bill_number (DocNumber)
+        if (qbBill.DocNumber) {
+          let query = supabase
+            .from("project_bills")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("bill_number", qbBill.DocNumber);
+          
+          if (excludedBillIds.length > 0) {
+            query = query.not("id", "in", `(${excludedBillIds.join(",")})`);
+          }
+          
+          const { data: existingBill } = await query.maybeSingle();
+          
+          if (existingBill) {
+            localBillId = existingBill.id;
+            log("info", "Found bill via bill_number (fallback)", { localBillId, docNumber: qbBill.DocNumber });
+          }
+        }
+
+        // Fallback 2: Try to match by vendor name + amount + date
+        if (!localBillId && qbBill.VendorRef?.name) {
+          let query = supabase
+            .from("project_bills")
+            .select("id")
+            .eq("company_id", companyId)
+            .ilike("installer_company", `%${qbBill.VendorRef.name}%`)
+            .eq("bill_amount", qbBill.TotalAmt)
+            .eq("bill_date", qbBill.TxnDate);
+          
+          if (excludedBillIds.length > 0) {
+            query = query.not("id", "in", `(${excludedBillIds.join(",")})`);
+          }
+          
+          const { data: matchByVendorAmountDate } = await query.maybeSingle();
+          
+          if (matchByVendorAmountDate) {
+            localBillId = matchByVendorAmountDate.id;
+            log("info", "Found bill via vendor+amount+date (fallback)", { localBillId });
+          }
+        }
+
+        // Fallback 3: Try vendor name + amount only
+        if (!localBillId && qbBill.VendorRef?.name) {
+          let query = supabase
+            .from("project_bills")
+            .select("id")
+            .eq("company_id", companyId)
+            .ilike("installer_company", `%${qbBill.VendorRef.name}%`)
+            .eq("bill_amount", qbBill.TotalAmt);
+          
+          if (excludedBillIds.length > 0) {
+            query = query.not("id", "in", `(${excludedBillIds.join(",")})`);
+          }
+          
+          const { data: matchByVendorAmount } = await query.maybeSingle();
+          
+          if (matchByVendorAmount) {
+            localBillId = matchByVendorAmount.id;
+            log("info", "Found bill via vendor+amount (fallback)", { localBillId });
+          }
+        }
+
+        if (!localBillId) {
+          log("warn", "Could not find existing bill to update", { qbId: qbBillId, docNumber: qbBill.DocNumber });
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: "No matching bill found to update",
+              qbId: qbBillId,
+              docNumber: qbBill.DocNumber
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Now update with the QB data
+        const { error: updateError } = await supabase
+          .from("project_bills")
+          .update({
+            bill_amount: qbBill.TotalAmt || 0,
+            bill_date: qbBill.TxnDate || undefined,
+            due_date: qbBill.DueDate || undefined,
+            bill_number: qbBill.DocNumber || undefined,
+            notes: qbBill.PrivateNote || undefined,
+            status: (qbBill.Balance === 0) ? "paid" : "pending",
+          })
+          .eq("id", localBillId);
+
+        if (updateError) {
+          log("error", "Failed to update bill", { error: updateError.message });
+          return new Response(
+            JSON.stringify({ error: "Failed to update bill", details: updateError.message }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Upsert sync log entry
+        await supabase
+          .from("quickbooks_sync_log")
+          .upsert({
+            company_id: companyId,
+            record_type: "bill",
+            record_id: localBillId,
+            quickbooks_id: qbBillId,
+            sync_status: "synced",
+            synced_at: new Date().toISOString(),
+          }, {
+            onConflict: "company_id,record_type,quickbooks_id"
+          });
+
+        log("info", "Updated bill successfully", { billId: localBillId });
+
+        const duration = Date.now() - startTime;
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            action: "updated",
+            billId: localBillId,
+            duration: `${duration}ms`
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // We have a sync log entry, fetch and update
+      const billRes = await fetch(`${QB_BASE_URL}/${effectiveRealmId}/bill/${qbBillId}`, {
+        headers: qbHeaders,
+      });
+
+      if (!billRes.ok) {
+        const errText = await billRes.text();
+        log("error", `Failed to fetch bill from QB`, { status: billRes.status, error: errText });
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch bill from QuickBooks", details: errText }),
+          { status: billRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const billData = await billRes.json();
+      const qbBill: QBBill = billData.Bill;
+
+      const { error: updateError } = await supabase
+        .from("project_bills")
+        .update({
+          bill_amount: qbBill.TotalAmt || 0,
+          bill_date: qbBill.TxnDate || undefined,
+          due_date: qbBill.DueDate || undefined,
+          bill_number: qbBill.DocNumber || undefined,
+          notes: qbBill.PrivateNote || undefined,
+          status: (qbBill.Balance === 0) ? "paid" : "pending",
+        })
+        .eq("id", localBillId);
+
+      if (updateError) {
+        log("error", "Failed to update bill", { error: updateError.message });
+        return new Response(
+          JSON.stringify({ error: "Failed to update bill", details: updateError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update sync log timestamp
+      await supabase
+        .from("quickbooks_sync_log")
+        .update({ synced_at: new Date().toISOString() })
+        .eq("company_id", companyId)
+        .eq("record_type", "bill")
+        .eq("quickbooks_id", qbBillId);
+
+      log("info", "Updated bill successfully", { billId: localBillId });
+
+      const duration = Date.now() - startTime;
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          action: "updated",
+          billId: localBillId,
+          duration: `${duration}ms`
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Action: process-pending
     if (action === "process-pending") {
       log("info", "Processing pending bills from sync log");

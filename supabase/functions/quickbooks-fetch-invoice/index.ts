@@ -323,10 +323,10 @@ Deno.serve(async (req) => {
         amount: qbInvoice.TotalAmt
       });
 
-      // Find existing invoice by looking up sync log first, then by invoice number
+      // Find existing invoice by looking up sync log first (primary source of truth)
       let invoiceId: string | null = null;
       
-      // Check sync log
+      // Check sync log - this is the ONLY definitive way to match
       const { data: syncLog } = await supabase
         .from("quickbooks_sync_log")
         .select("record_id")
@@ -338,18 +338,63 @@ Deno.serve(async (req) => {
       if (syncLog?.record_id) {
         invoiceId = syncLog.record_id;
         log("info", "Found invoice via sync log", { invoiceId });
-      } else if (qbInvoice.DocNumber) {
-        // Try to find by invoice number
-        const { data: existingInvoice } = await supabase
-          .from("project_invoices")
-          .select("id")
-          .eq("company_id", companyId)
-          .eq("invoice_number", qbInvoice.DocNumber)
-          .maybeSingle();
+      } else {
+        // No sync log entry - try fallback matching but exclude already-synced invoices
+        log("info", `No sync log for QB Invoice ${qbInvoice.Id}, attempting fallback matching`);
         
-        if (existingInvoice) {
-          invoiceId = existingInvoice.id;
-          log("info", "Found invoice via invoice number", { invoiceId, docNumber: qbInvoice.DocNumber });
+        // Get all invoice IDs already synced to a DIFFERENT QB invoice
+        const { data: alreadySyncedInvoices } = await supabase
+          .from("quickbooks_sync_log")
+          .select("record_id")
+          .eq("company_id", companyId)
+          .eq("record_type", "invoice")
+          .neq("quickbooks_id", qbInvoice.Id)
+          .not("record_id", "is", null);
+        
+        const excludedInvoiceIds = (alreadySyncedInvoices || []).map(i => i.record_id);
+        log("info", "Excluding already-synced invoices from fallback match", { 
+          excludedCount: excludedInvoiceIds.length 
+        });
+        
+        // Fallback: Try to find by invoice number
+        if (qbInvoice.DocNumber) {
+          let query = supabase
+            .from("project_invoices")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("invoice_number", qbInvoice.DocNumber);
+          
+          if (excludedInvoiceIds.length > 0) {
+            query = query.not("id", "in", `(${excludedInvoiceIds.join(",")})`);
+          }
+          
+          const { data: existingInvoice } = await query.maybeSingle();
+          
+          if (existingInvoice) {
+            invoiceId = existingInvoice.id;
+            log("info", "Found invoice via invoice number (fallback)", { invoiceId, docNumber: qbInvoice.DocNumber });
+          }
+        }
+        
+        // Fallback 2: Try to match by amount and date
+        if (!invoiceId) {
+          let query = supabase
+            .from("project_invoices")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("amount", qbInvoice.TotalAmt)
+            .eq("invoice_date", qbInvoice.TxnDate);
+          
+          if (excludedInvoiceIds.length > 0) {
+            query = query.not("id", "in", `(${excludedInvoiceIds.join(",")})`);
+          }
+          
+          const { data: matchByAmountDate } = await query.maybeSingle();
+          
+          if (matchByAmountDate) {
+            invoiceId = matchByAmountDate.id;
+            log("info", "Found invoice via amount+date (fallback)", { invoiceId });
+          }
         }
       }
 
@@ -390,7 +435,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Upsert sync log entry
+      // Upsert sync log entry to ensure mapping exists
       const { error: syncLogError } = await supabase
         .from("quickbooks_sync_log")
         .upsert({
