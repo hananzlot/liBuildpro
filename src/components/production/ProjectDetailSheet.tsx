@@ -720,12 +720,43 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
             <div className="flex-1">
               <SheetTitle className="flex items-center gap-2">
                 #{project.project_number} - {project.project_name}
-                <Badge 
-                  variant="outline" 
-                  className={`text-[10px] px-1.5 py-0 ${statusColors[fullProject?.project_status || project.project_status || "New Job"] || ""}`}
-                >
-                  {fullProject?.project_status || project.project_status || "New Job"}
-                </Badge>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Badge 
+                      variant="outline" 
+                      className={`text-[10px] px-1.5 py-0 cursor-pointer hover:opacity-80 transition-opacity ${statusColors[fullProject?.project_status || project.project_status || "New Job"] || ""}`}
+                    >
+                      {fullProject?.project_status || project.project_status || "New Job"}
+                      <ChevronsUpDown className="ml-1 h-2.5 w-2.5 opacity-50" />
+                    </Badge>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[180px] p-0 z-50 bg-popover" align="start">
+                    <Command>
+                      <CommandList>
+                        <CommandGroup>
+                          {projectStatuses.map((status) => (
+                            <CommandItem
+                              key={status.id}
+                              value={status.name}
+                              onSelect={() => {
+                                updateProjectMutation.mutate({ project_status: status.name });
+                              }}
+                              className="text-xs"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-3 w-3",
+                                  fullProject?.project_status === status.name ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {status.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </SheetTitle>
               <SheetDescription>
                 {project.customer_first_name} {project.customer_last_name}
