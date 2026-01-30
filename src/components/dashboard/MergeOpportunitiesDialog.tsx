@@ -66,6 +66,7 @@ interface MergeOpportunitiesDialogProps {
   contacts: any[];
   users: any[];
   appointments?: any[];
+  preselectedOpportunities?: { oppA: Opportunity; oppB: Opportunity };
 }
 
 type MergeField = {
@@ -93,6 +94,7 @@ export function MergeOpportunitiesDialog({
   contacts,
   users,
   appointments: passedAppointments = [],
+  preselectedOpportunities,
 }: MergeOpportunitiesDialogProps) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -108,6 +110,14 @@ export function MergeOpportunitiesDialog({
   const [copyFromSecondary, setCopyFromSecondary] = useState<Record<string, boolean>>({});
   const [mergeContactsOpen, setMergeContactsOpen] = useState(false);
   const [preselectedContactsForMerge, setPreselectedContactsForMerge] = useState<{ contactA: any; contactB: any } | null>(null);
+
+  // Set preselected opportunities when they're provided
+  useEffect(() => {
+    if (preselectedOpportunities && open) {
+      setOppA(preselectedOpportunities.oppA);
+      setOppB(preselectedOpportunities.oppB);
+    }
+  }, [preselectedOpportunities, open]);
 
   // Detect duplicate contacts for the selected opportunities' contact name
   const duplicateContactsInfo = useMemo(() => {

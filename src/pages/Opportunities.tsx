@@ -8,6 +8,7 @@ import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { MergeOpportunitiesDialog } from "@/components/dashboard/MergeOpportunitiesDialog";
+import { DuplicateOpportunitiesAlert } from "@/components/dashboard/DuplicateOpportunitiesAlert";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ const Opportunities = () => {
   const { user, isAdmin } = useAuth();
   const { isGHLEnabled } = useGHLMode();
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [preselectedOpportunities, setPreselectedOpportunities] = useState<{ oppA: any; oppB: any } | null>(null);
 
   const {
     data: metrics,
@@ -102,18 +104,33 @@ const Opportunities = () => {
       }
     >
       <div className="px-6 py-6 space-y-6">
+        {/* Duplicate Opportunities Alert */}
+        {isAdmin && !isLoading && (
+          <DuplicateOpportunitiesAlert
+            opportunities={metrics?.allOpportunities || []}
+            contacts={metrics?.allContacts || []}
+            onSelectDuplicate={(oppA, oppB) => {
+              setPreselectedOpportunities({ oppA, oppB });
+              setMergeDialogOpen(true);
+            }}
+          />
+        )}
+
         {/* Top Actions Bar */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <h1 className="text-2xl font-bold text-foreground">Opportunities</h1>
           <div className="flex items-center gap-3">
             {isAdmin && (
-              <Button variant="outline" onClick={() => setMergeDialogOpen(true)}>
+              <Button variant="outline" onClick={() => {
+                setPreselectedOpportunities(null);
+                setMergeDialogOpen(true);
+              }}>
                 <Merge className="h-4 w-4 mr-2" />
                 Merge Duplicates
               </Button>
             )}
             {!isGHLEnabled && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-warning/10 text-warning-foreground text-xs font-medium rounded-full border border-warning/20">
                 <HardDrive className="h-3 w-3" />
                 Local Mode
               </div>
@@ -155,11 +172,15 @@ const Opportunities = () => {
       {/* Merge Opportunities Dialog */}
       <MergeOpportunitiesDialog
         open={mergeDialogOpen}
-        onOpenChange={setMergeDialogOpen}
+        onOpenChange={(open) => {
+          setMergeDialogOpen(open);
+          if (!open) setPreselectedOpportunities(null);
+        }}
         opportunities={metrics?.allOpportunities || []}
         contacts={metrics?.allContacts || []}
         users={metrics?.users || []}
         appointments={metrics?.allAppointments || []}
+        preselectedOpportunities={preselectedOpportunities || undefined}
       />
     </AppLayout>
   );
