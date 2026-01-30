@@ -89,7 +89,8 @@ const TAB_GROUPS = [
     label: "Integrations",
     tabs: [
       { value: "integrations", label: "GoHighLevel", icon: Link },
-      { value: "custom", label: "APIs & QuickBooks", icon: Sparkles },
+      { value: "quickbooks", label: "QuickBooks", icon: DollarSign },
+      { value: "custom", label: "APIs & AI", icon: Sparkles },
     ],
   },
   {
@@ -1362,8 +1363,10 @@ export default function AdminSettings() {
             
             {/* Google Calendar Connections */}
             <GoogleCalendarManager />
-            
-            {/* QuickBooks Online */}
+          </TabsContent>
+
+          {/* QuickBooks Tab */}
+          <TabsContent value="quickbooks" className="mt-6 space-y-6">
             <QuickBooksIntegration />
           </TabsContent>
 
