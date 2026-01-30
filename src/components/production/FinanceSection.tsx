@@ -253,6 +253,54 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
 
+  // Subscribe to Realtime changes on project_invoices for this project
+  // This enables the UI to auto-refresh when webhooks update invoices
+  useEffect(() => {
+    const channel = supabase
+      .channel(`project-invoices-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "project_invoices",
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          // Invalidate invoice query to trigger refetch
+          queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId, queryClient]);
+
+  // Subscribe to Realtime changes on project_payments for this project
+  useEffect(() => {
+    const channel = supabase
+      .channel(`project-payments-${projectId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "project_payments",
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId, queryClient]);
+
   // Fetch data
   const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
     queryKey: ["project-invoices", projectId],
