@@ -2334,6 +2334,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           className="max-w-6xl h-[90vh]"
           onInteractOutside={(e) => e.preventDefault()}
           onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
         >
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -2360,6 +2361,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0"
           onInteractOutside={(e) => e.preventDefault()}
           onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
           hideCloseButton
         >
           <DialogHeader className="px-6 py-4 border-b">
