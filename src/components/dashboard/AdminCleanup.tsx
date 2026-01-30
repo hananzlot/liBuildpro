@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
-import { AlertTriangle, CheckCircle2, RefreshCw, CalendarClock, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw, CalendarClock, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, HardDrive, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -108,6 +109,20 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [inconsistentOppStages, setInconsistentOppStages] = useState<Record<string, string>>({});
   const [inconsistentOppStatuses, setInconsistentOppStatuses] = useState<Record<string, string>>({});
+  
+  // Orphaned storage state
+  const [storageScanning, setStorageScanning] = useState(false);
+  const [storageCleaning, setStorageCleaning] = useState(false);
+  const [orphanedStorageResult, setOrphanedStorageResult] = useState<{
+    totalOrphaned: number;
+    totalDeleted: number;
+    results: Array<{
+      bucket: string;
+      orphanedFiles: string[];
+      deletedFiles: string[];
+      errors: string[];
+    }>;
+  } | null>(null);
 
   const inconsistentOpportunities = useMemo(() => {
     const lostStages = ['lost', 'dnc', 'do not call', 'abandoned'];
@@ -410,6 +425,43 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
     );
   };
 
+  const handleScanOrphanedStorage = async () => {
+    setStorageScanning(true);
+    setOrphanedStorageResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('cleanup-orphaned-storage', {
+        body: { dryRun: true }
+      });
+      if (error) throw error;
+      setOrphanedStorageResult(data);
+      if (data.totalOrphaned === 0) {
+        toast.success('No orphaned files found');
+      } else {
+        toast.info(`Found ${data.totalOrphaned} orphaned files`);
+      }
+    } catch (err) {
+      toast.error(`Scan failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setStorageScanning(false);
+    }
+  };
+
+  const handleCleanOrphanedStorage = async () => {
+    setStorageCleaning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('cleanup-orphaned-storage', {
+        body: { dryRun: false }
+      });
+      if (error) throw error;
+      setOrphanedStorageResult(data);
+      toast.success(`Deleted ${data.totalDeleted} orphaned files`);
+    } catch (err) {
+      toast.error(`Cleanup failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setStorageCleaning(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Duplicate Opportunities by Contact + Pipeline */}
@@ -672,6 +724,101 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
                   Showing 50 of {filteredSortedAppointments.length} appointments
                 </div>
               )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Orphaned Storage Cleanup */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <HardDrive className="h-5 w-5 text-blue-500" />
+              <div>
+                <CardTitle className="text-lg">Orphaned Storage Files</CardTitle>
+                <CardDescription>
+                  Find and delete files in storage that are no longer referenced by any database record
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={handleScanOrphanedStorage} 
+                disabled={storageScanning || storageCleaning}
+              >
+                {storageScanning ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <HardDrive className="h-4 w-4 mr-2" />
+                )}
+                Scan Storage
+              </Button>
+              {orphanedStorageResult && orphanedStorageResult.totalOrphaned > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="destructive"
+                  onClick={handleCleanOrphanedStorage} 
+                  disabled={storageScanning || storageCleaning}
+                >
+                  {storageCleaning ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Delete {orphanedStorageResult.totalOrphaned} Files
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!orphanedStorageResult ? (
+            <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
+              <HardDrive className="h-5 w-5 opacity-50" />
+              <span>Click "Scan Storage" to find orphaned files</span>
+            </div>
+          ) : orphanedStorageResult.totalOrphaned === 0 && orphanedStorageResult.totalDeleted === 0 ? (
+            <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+              <span>No orphaned files found - storage is clean!</span>
+            </div>
+          ) : orphanedStorageResult.totalDeleted > 0 ? (
+            <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+              <span>Successfully deleted {orphanedStorageResult.totalDeleted} orphaned files</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {orphanedStorageResult.results.map((result) => (
+                <div key={result.bucket} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{result.bucket}</Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {result.orphanedFiles.length} orphaned file{result.orphanedFiles.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  {result.errors.length > 0 && (
+                    <div className="text-xs text-amber-600 mb-2">
+                      {result.errors.map((err, i) => <div key={i}>{err}</div>)}
+                    </div>
+                  )}
+                  {result.orphanedFiles.length > 0 && (
+                    <div className="max-h-32 overflow-y-auto text-xs font-mono bg-muted/50 rounded p-2">
+                      {result.orphanedFiles.slice(0, 20).map((file, i) => (
+                        <div key={i} className="truncate text-muted-foreground">{file}</div>
+                      ))}
+                      {result.orphanedFiles.length > 20 && (
+                        <div className="text-muted-foreground mt-1">...and {result.orphanedFiles.length - 20} more</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
