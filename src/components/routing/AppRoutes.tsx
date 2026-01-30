@@ -25,6 +25,7 @@ import AppDefaultSettings from "@/pages/super-admin/AppDefaultSettings";
 import PlatformAdmins from "@/pages/super-admin/PlatformAdmins";
 import SubscriptionPlans from "@/pages/super-admin/SubscriptionPlans";
 import PlatformEmailSettingsPage from "@/pages/super-admin/PlatformEmailSettings";
+import Onboarding from "@/pages/Onboarding";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import QuickBooksHelp from "@/pages/QuickBooksHelp";
@@ -235,6 +236,16 @@ export function AppRoutes() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <AdminSettings />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Onboarding wizard - admin only */}
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Onboarding />
             </ProtectedRoute>
           }
         />
