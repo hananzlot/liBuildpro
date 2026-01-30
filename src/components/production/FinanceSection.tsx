@@ -2542,10 +2542,10 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => pendingQbSync?.onCancel()}>
-              Skip QB Sync
-            </AlertDialogCancel>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => pendingQbSync?.onCancel()}>
+                Cancel
+              </AlertDialogCancel>
             <AlertDialogAction onClick={() => pendingQbSync?.onConfirm()}>
               Create & Sync
             </AlertDialogAction>
