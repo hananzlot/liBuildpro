@@ -3943,6 +3943,7 @@ export type Database = {
           category: string | null
           company_id: string | null
           created_at: string | null
+          exclude_from_qb: boolean | null
           id: string
           installer_company: string | null
           is_voided: boolean
@@ -3970,6 +3971,7 @@ export type Database = {
           category?: string | null
           company_id?: string | null
           created_at?: string | null
+          exclude_from_qb?: boolean | null
           id?: string
           installer_company?: string | null
           is_voided?: boolean
@@ -3997,6 +3999,7 @@ export type Database = {
           category?: string | null
           company_id?: string | null
           created_at?: string | null
+          exclude_from_qb?: boolean | null
           id?: string
           installer_company?: string | null
           is_voided?: boolean
@@ -4406,6 +4409,7 @@ export type Database = {
           attachment_url: string | null
           company_id: string | null
           created_at: string | null
+          exclude_from_qb: boolean | null
           id: string
           invoice_date: string | null
           invoice_number: string | null
@@ -4422,6 +4426,7 @@ export type Database = {
           attachment_url?: string | null
           company_id?: string | null
           created_at?: string | null
+          exclude_from_qb?: boolean | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
@@ -4438,6 +4443,7 @@ export type Database = {
           attachment_url?: string | null
           company_id?: string | null
           created_at?: string | null
+          exclude_from_qb?: boolean | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
@@ -4765,6 +4771,7 @@ export type Database = {
           created_at: string | null
           deposit_verified: boolean | null
           do_not_summarize: boolean | null
+          exclude_from_qb: boolean | null
           id: string
           invoice_id: string | null
           is_voided: boolean
@@ -4787,6 +4794,7 @@ export type Database = {
           created_at?: string | null
           deposit_verified?: boolean | null
           do_not_summarize?: boolean | null
+          exclude_from_qb?: boolean | null
           id?: string
           invoice_id?: string | null
           is_voided?: boolean
@@ -4809,6 +4817,7 @@ export type Database = {
           created_at?: string | null
           deposit_verified?: boolean | null
           do_not_summarize?: boolean | null
+          exclude_from_qb?: boolean | null
           id?: string
           invoice_id?: string | null
           is_voided?: boolean
