@@ -1,19 +1,22 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Database, HardDrive } from "lucide-react";
+import { Database, HardDrive, Merge } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
+import { useAuth } from "@/contexts/AuthContext";
 import { ContactsTable } from "@/components/dashboard/ContactsTable";
 import { ContactDetailSheet } from "@/components/dashboard/ContactDetailSheet";
+import { MergeContactsDialog } from "@/components/dashboard/MergeContactsDialog";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-
 const Contacts = () => {
   const navigate = useNavigate();
   const { contactId } = useParams<{ contactId?: string }>();
+  const { isAdmin } = useAuth();
   const { isGHLEnabled } = useGHLMode();
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
 
   const {
     data: metrics,
@@ -87,12 +90,20 @@ const Contacts = () => {
         {/* Top Actions Bar */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
-          {!isGHLEnabled && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
-              <HardDrive className="h-3 w-3" />
-              Local Mode
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {isAdmin && (
+              <Button variant="outline" onClick={() => setMergeDialogOpen(true)}>
+                <Merge className="h-4 w-4 mr-2" />
+                Merge Duplicates
+              </Button>
+            )}
+            {!isGHLEnabled && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-warning/10 text-warning-foreground text-xs font-medium rounded-full border border-warning/20">
+                <HardDrive className="h-3 w-3" />
+                Local Mode
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Contacts Table */}
@@ -120,6 +131,15 @@ const Contacts = () => {
         users={metrics?.users || []}
         conversations={metrics?.conversations || []}
         onRefresh={() => refetch()}
+      />
+
+      {/* Merge Contacts Dialog */}
+      <MergeContactsDialog
+        open={mergeDialogOpen}
+        onOpenChange={setMergeDialogOpen}
+        contacts={metrics?.allContacts || []}
+        opportunities={metrics?.allOpportunities || []}
+        appointments={metrics?.allAppointments || []}
       />
     </AppLayout>
   );
