@@ -62,6 +62,7 @@ interface Bank {
 interface BankStats {
   paymentCount: number;
   totalReceived: number;
+  totalPaid: number;
 }
 
 interface PaymentDetail {
@@ -140,7 +141,7 @@ export function BankManagement() {
       
       // Initialize stats for all banks
       bankNames.forEach(name => {
-        stats[name] = { paymentCount: 0, totalReceived: 0 };
+        stats[name] = { paymentCount: 0, totalReceived: 0, totalPaid: 0 };
       });
 
       // Count project payments (received) - only count non-voided received payments
@@ -153,17 +154,19 @@ export function BankManagement() {
         }
       });
 
-      // Count bill payments
+      // Count bill payments and sum amounts
       (billPayments || []).forEach(p => {
         if (p.bank_name) {
           stats[p.bank_name].paymentCount += 1;
+          stats[p.bank_name].totalPaid += (p.payment_amount || 0);
         }
       });
 
-      // Count commission payments
+      // Count commission payments and sum amounts
       (commissionPayments || []).forEach(p => {
         if (p.bank_name) {
           stats[p.bank_name].paymentCount += 1;
+          stats[p.bank_name].totalPaid += (p.payment_amount || 0);
         }
       });
       
@@ -539,14 +542,15 @@ export function BankManagement() {
               <TableRow>
                 <TableHead>Bank Name</TableHead>
                 <TableHead className="text-center">Payments</TableHead>
-                <TableHead className="text-right">Total Received</TableHead>
+                <TableHead className="text-right">Received</TableHead>
+                <TableHead className="text-right">Paid</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="w-[100px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {banks.map((bank) => {
-                const stats = bankStats[bank.name] || { paymentCount: 0, totalReceived: 0 };
+                const stats = bankStats[bank.name] || { paymentCount: 0, totalReceived: 0, totalPaid: 0 };
                 return (
                   <TableRow 
                     key={bank.id} 
@@ -559,6 +563,9 @@ export function BankManagement() {
                     </TableCell>
                     <TableCell className="text-right font-medium text-green-600">
                       {formatCurrency(stats.totalReceived)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-red-600">
+                      {formatCurrency(stats.totalPaid)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {bank.created_at ? format(new Date(bank.created_at), "MMM d, yyyy") : "—"}
