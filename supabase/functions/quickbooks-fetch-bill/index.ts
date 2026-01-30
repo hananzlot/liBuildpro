@@ -284,6 +284,7 @@ Deno.serve(async (req) => {
 
       // Create the bill in our database
       // Note: project_bills uses installer_company, bill_ref, memo, bill_amount
+      // Balance from QB indicates how much is still owed (TotalAmt - payments applied)
       const { data: newBill, error: insertError } = await supabase
         .from("project_bills")
         .insert({
@@ -291,6 +292,7 @@ Deno.serve(async (req) => {
           company_id: companyId,
           installer_company: vendorName || "Unknown Vendor",
           bill_amount: qbBill.TotalAmt || 0,
+          balance: qbBill.Balance ?? qbBill.TotalAmt ?? 0, // Use QB Balance, fallback to TotalAmt
           bill_ref: qbBill.DocNumber || null,
           memo: [description, qbBill.PrivateNote].filter(Boolean).join(" | ") || null,
           scheduled_payment_date: qbBill.DueDate || null,
@@ -470,6 +472,7 @@ Deno.serve(async (req) => {
           .from("project_bills")
           .update({
             bill_amount: qbBill.TotalAmt || 0,
+            balance: qbBill.Balance ?? qbBill.TotalAmt ?? 0, // Sync balance from QB
             bill_ref: qbBill.DocNumber || undefined,
             memo: qbBill.PrivateNote || undefined,
             scheduled_payment_date: qbBill.DueDate || undefined,
@@ -533,6 +536,7 @@ Deno.serve(async (req) => {
         .from("project_bills")
         .update({
           bill_amount: qbBill.TotalAmt || 0,
+          balance: qbBill.Balance ?? qbBill.TotalAmt ?? 0, // Sync balance from QB
           bill_ref: qbBill.DocNumber || undefined,
           memo: qbBill.PrivateNote || undefined,
           scheduled_payment_date: qbBill.DueDate || undefined,
