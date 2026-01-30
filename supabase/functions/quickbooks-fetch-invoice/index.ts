@@ -260,14 +260,18 @@ Deno.serve(async (req) => {
       }
 
       // Create sync log entry
-      await supabase.from("quickbooks_sync_log").insert({
+      const { error: syncLogError } = await supabase.from("quickbooks_sync_log").insert({
         company_id: companyId,
         record_type: "invoice",
         record_id: newInvoice.id,
         quickbooks_id: qbInvoice.Id,
         sync_status: "synced",
-        last_sync_at: new Date().toISOString(),
+        synced_at: new Date().toISOString(),
       });
+      
+      if (syncLogError) {
+        log("warn", "Failed to create sync log entry", { error: syncLogError.message });
+      }
 
       log("info", "Created invoice successfully", { invoiceId: newInvoice.id, matchMethod });
 
@@ -279,6 +283,139 @@ Deno.serve(async (req) => {
           invoiceId: newInvoice.id,
           projectId,
           matchMethod,
+          duration: `${duration}ms`
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Action: update-existing - Update an existing invoice from QB data
+    if (action === "update-existing") {
+      if (!qbInvoiceId) {
+        return new Response(
+          JSON.stringify({ error: "qbInvoiceId is required for update-existing" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      log("info", `Fetching invoice ${qbInvoiceId} from QB for update`);
+      
+      const invoiceRes = await fetch(`${QB_BASE_URL}/${effectiveRealmId}/invoice/${qbInvoiceId}`, {
+        headers: qbHeaders,
+      });
+
+      if (!invoiceRes.ok) {
+        const errText = await invoiceRes.text();
+        log("error", `Failed to fetch invoice from QB`, { status: invoiceRes.status, error: errText });
+        return new Response(
+          JSON.stringify({ error: "Failed to fetch invoice from QuickBooks", details: errText }),
+          { status: invoiceRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const invoiceData = await invoiceRes.json();
+      const qbInvoice: QBInvoice = invoiceData.Invoice;
+      
+      log("info", "Fetched invoice from QB for update", { 
+        id: qbInvoice.Id, 
+        docNumber: qbInvoice.DocNumber,
+        customer: qbInvoice.CustomerRef?.name,
+        amount: qbInvoice.TotalAmt
+      });
+
+      // Find existing invoice by looking up sync log first, then by invoice number
+      let invoiceId: string | null = null;
+      
+      // Check sync log
+      const { data: syncLog } = await supabase
+        .from("quickbooks_sync_log")
+        .select("record_id")
+        .eq("company_id", companyId)
+        .eq("record_type", "invoice")
+        .eq("quickbooks_id", qbInvoice.Id)
+        .maybeSingle();
+      
+      if (syncLog?.record_id) {
+        invoiceId = syncLog.record_id;
+        log("info", "Found invoice via sync log", { invoiceId });
+      } else if (qbInvoice.DocNumber) {
+        // Try to find by invoice number
+        const { data: existingInvoice } = await supabase
+          .from("project_invoices")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("invoice_number", qbInvoice.DocNumber)
+          .maybeSingle();
+        
+        if (existingInvoice) {
+          invoiceId = existingInvoice.id;
+          log("info", "Found invoice via invoice number", { invoiceId, docNumber: qbInvoice.DocNumber });
+        }
+      }
+
+      if (!invoiceId) {
+        log("warn", "Could not find existing invoice to update", { qbId: qbInvoice.Id, docNumber: qbInvoice.DocNumber });
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "No matching invoice found to update",
+            qbId: qbInvoice.Id,
+            docNumber: qbInvoice.DocNumber
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Calculate values from QB data
+      const openBalance = qbInvoice.Balance ?? qbInvoice.TotalAmt ?? 0;
+      const paymentsReceived = (qbInvoice.TotalAmt || 0) - openBalance;
+
+      // Update the invoice
+      const { error: updateError } = await supabase
+        .from("project_invoices")
+        .update({
+          amount: qbInvoice.TotalAmt || 0,
+          invoice_date: qbInvoice.TxnDate || undefined,
+          total_expected: qbInvoice.TotalAmt || 0,
+          payments_received: paymentsReceived,
+          open_balance: openBalance,
+        })
+        .eq("id", invoiceId);
+
+      if (updateError) {
+        log("error", "Failed to update invoice", { error: updateError.message });
+        return new Response(
+          JSON.stringify({ error: "Failed to update invoice", details: updateError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Upsert sync log entry
+      const { error: syncLogError } = await supabase
+        .from("quickbooks_sync_log")
+        .upsert({
+          company_id: companyId,
+          record_type: "invoice",
+          record_id: invoiceId,
+          quickbooks_id: qbInvoice.Id,
+          sync_status: "synced",
+          synced_at: new Date().toISOString(),
+        }, {
+          onConflict: "company_id,record_type,quickbooks_id"
+        });
+      
+      if (syncLogError) {
+        log("warn", "Failed to upsert sync log entry", { error: syncLogError.message });
+      }
+
+      log("info", "Updated invoice successfully", { invoiceId });
+
+      const duration = Date.now() - startTime;
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          action: "updated",
+          invoiceId,
           duration: `${duration}ms`
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
