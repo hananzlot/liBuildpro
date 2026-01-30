@@ -122,8 +122,17 @@ export function QuickBooksMappingConfig() {
     enabled: !!companyId,
   });
 
+  // Helper to check if a string looks like a phone number
+  const looksLikePhoneNumber = (str: string | null): boolean => {
+    if (!str) return false;
+    // Remove all non-digit characters and check if it's mostly digits
+    const digitsOnly = str.replace(/\D/g, "");
+    return digitsOnly.length >= 7 && digitsOnly.length <= 15 && 
+           digitsOnly.length / str.replace(/\s/g, "").length > 0.5;
+  };
+
   // Fetch local contacts (customers) - search dynamically to handle large datasets
-  const { data: contacts, isLoading: contactsLoading } = useQuery({
+  const { data: contactsRaw, isLoading: contactsLoading } = useQuery({
     queryKey: ["contacts-for-mapping", companyId, customerSearch],
     queryFn: async () => {
       let query = supabase
@@ -131,7 +140,7 @@ export function QuickBooksMappingConfig() {
         .select("id, contact_name, first_name, last_name, email")
         .eq("company_id", companyId)
         .order("contact_name")
-        .limit(100);
+        .limit(200); // Fetch more since we'll filter some out
       
       // If there's a search term, filter server-side
       if (customerSearch.trim()) {
@@ -144,6 +153,20 @@ export function QuickBooksMappingConfig() {
     },
     enabled: !!companyId,
   });
+
+  // Filter out contacts that only have phone numbers as names (not useful for matching)
+  const contacts = useMemo(() => {
+    if (!contactsRaw) return [];
+    return contactsRaw.filter((c) => {
+      // Keep if has email
+      if (c.email) return true;
+      // Keep if has first/last name
+      if (c.first_name || c.last_name) return true;
+      // Keep if contact_name doesn't look like a phone number
+      if (c.contact_name && !looksLikePhoneNumber(c.contact_name)) return true;
+      return false;
+    }).slice(0, 100); // Limit to 100 after filtering
+  }, [contactsRaw]);
 
   // Fetch QB entities
   const { data: accounts, isLoading: accountsLoading, refetch: refetchAccounts } = useQuery({
