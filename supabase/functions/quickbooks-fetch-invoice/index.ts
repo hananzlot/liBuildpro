@@ -232,11 +232,9 @@ Deno.serve(async (req) => {
       }
 
       // Create the invoice in our database
-      const description = qbInvoice.Line
-        ?.filter(l => l.DetailType === "SalesItemLineDetail")
-        ?.map(l => l.Description || l.SalesItemLineDetail?.ItemRef?.name)
-        ?.filter(Boolean)
-        ?.join("; ") || "";
+      // Calculate open balance from QB data
+      const openBalance = qbInvoice.Balance ?? qbInvoice.TotalAmt ?? 0;
+      const paymentsReceived = (qbInvoice.TotalAmt || 0) - openBalance;
 
       const { data: newInvoice, error: insertError } = await supabase
         .from("project_invoices")
@@ -246,10 +244,9 @@ Deno.serve(async (req) => {
           invoice_number: qbInvoice.DocNumber || `QB-${qbInvoice.Id}`,
           amount: qbInvoice.TotalAmt || 0,
           invoice_date: qbInvoice.TxnDate || new Date().toISOString().split("T")[0],
-          due_date: qbInvoice.DueDate || null,
-          description: description || null,
-          notes: qbInvoice.PrivateNote || qbInvoice.CustomerMemo?.value || null,
-          status: (qbInvoice.Balance === 0) ? "paid" : "pending",
+          total_expected: qbInvoice.TotalAmt || 0,
+          payments_received: paymentsReceived,
+          open_balance: openBalance,
         })
         .select()
         .single();
