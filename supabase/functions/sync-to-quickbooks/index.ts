@@ -341,7 +341,6 @@ Deno.serve(async (req) => {
 
           // Get configured mappings
           const itemMapping = getMapping("default_item");
-          const incomeAccountMapping = getMapping("income_account");
 
           const lineItem: any = {
             Amount: invoice.amount || 0,
@@ -354,36 +353,23 @@ Deno.serve(async (req) => {
             Description: invoice.description || `Invoice for ${invoice.projects?.project_name || "Project"}`,
           };
 
-          // Add income account override if configured
-          if (incomeAccountMapping) {
-            lineItem.SalesItemLineDetail.IncomeAccountRef = {
-              value: incomeAccountMapping.qbo_id,
-              name: incomeAccountMapping.qbo_name,
-            };
-          }
-
           const qbInvoice: any = {
             CustomerRef: { value: String(customerResult.id) },
             DocNumber: invoice.invoice_number?.toString(),
             TxnDate: invoice.invoice_date?.split("T")[0],
             DueDate: invoice.due_date?.split("T")[0],
             Line: [
-              stripNullishDeep({
-                ...lineItem,
+              {
+                Amount: lineItem.Amount,
+                DetailType: "SalesItemLineDetail",
                 SalesItemLineDetail: {
-                  ...lineItem.SalesItemLineDetail,
                   ItemRef: {
-                    ...lineItem.SalesItemLineDetail?.ItemRef,
-                    value: String(lineItem.SalesItemLineDetail?.ItemRef?.value),
+                    value: String(lineItem.SalesItemLineDetail?.ItemRef?.value || "1"),
+                    name: lineItem.SalesItemLineDetail?.ItemRef?.name || "Services",
                   },
-                  IncomeAccountRef: lineItem.SalesItemLineDetail?.IncomeAccountRef
-                    ? {
-                        ...lineItem.SalesItemLineDetail.IncomeAccountRef,
-                        value: String(lineItem.SalesItemLineDetail.IncomeAccountRef.value),
-                      }
-                    : undefined,
                 },
-              }),
+                Description: lineItem.Description,
+              },
             ],
             PrivateNote: invoice.notes || undefined,
           };
