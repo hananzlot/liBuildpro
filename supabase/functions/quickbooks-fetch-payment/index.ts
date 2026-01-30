@@ -269,9 +269,10 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Look up mapped local bank name from QB deposit account
+      // Look up mapped local bank from QB deposit account
       // Note: in our mapping system, quickbooks_mappings.source_value for mapping_type="bank" is the LOCAL bank UUID.
-      // The app stores the HUMAN name in project_payments.bank_name (e.g. "Chase").
+      // The app stores both bank_id (normalized FK) and bank_name (for backwards compat).
+      let bankId: string | null = null;
       let bankName: string | null = null;
       const qbDepositAccountId = qbPayment.DepositToAccountRef?.value;
 
@@ -288,21 +289,22 @@ Deno.serve(async (req) => {
         if (localBankId) {
           const { data: bankRecord } = await supabase
             .from("banks")
-            .select("name")
+            .select("id, name")
             .eq("company_id", companyId)
             .eq("id", localBankId)
             .maybeSingle();
 
           if (bankRecord?.name) {
+            bankId = bankRecord.id;
             bankName = bankRecord.name;
-            log("info", "Mapped QB deposit account to local bank name", {
+            log("info", "Mapped QB deposit account to local bank", {
               qbAccountId: qbDepositAccountId,
               qbAccountName: qbPayment.DepositToAccountRef?.name,
-              localBankId,
+              localBankId: bankId,
               localBankName: bankName,
             });
           } else {
-            // If mapping points to a bank UUID we can't resolve, don't save the UUID into bank_name.
+            // If mapping points to a bank UUID we can't resolve, fallback to QB account name
             bankName = qbPayment.DepositToAccountRef?.name || null;
             log("warn", "Bank mapping found but local bank ID not resolvable; using QB account name", {
               qbAccountId: qbDepositAccountId,
@@ -331,6 +333,7 @@ Deno.serve(async (req) => {
           projected_received_date: qbPayment.TxnDate || new Date().toISOString().split("T")[0],
           payment_status: "Received",
           check_number: qbPayment.PaymentRefNum || null,
+          bank_id: bankId,
           bank_name: bankName,
           deposit_verified: true,
         })

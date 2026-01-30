@@ -461,6 +461,7 @@ export type Database = {
       }
       bill_payments: {
         Row: {
+          bank_id: string | null
           bank_name: string | null
           bill_id: string
           company_id: string | null
@@ -473,6 +474,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bank_id?: string | null
           bank_name?: string | null
           bill_id: string
           company_id?: string | null
@@ -485,6 +487,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bank_id?: string | null
           bank_name?: string | null
           bill_id?: string
           company_id?: string | null
@@ -497,6 +500,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bill_payments_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bill_payments_bill_id_fkey"
             columns: ["bill_id"]
@@ -4813,6 +4823,7 @@ export type Database = {
       }
       project_payments: {
         Row: {
+          bank_id: string | null
           bank_name: string | null
           check_number: string | null
           company_id: string | null
@@ -4836,6 +4847,7 @@ export type Database = {
           voided_by: string | null
         }
         Insert: {
+          bank_id?: string | null
           bank_name?: string | null
           check_number?: string | null
           company_id?: string | null
@@ -4859,6 +4871,7 @@ export type Database = {
           voided_by?: string | null
         }
         Update: {
+          bank_id?: string | null
           bank_name?: string | null
           check_number?: string | null
           company_id?: string | null
@@ -4882,6 +4895,13 @@ export type Database = {
           voided_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "project_payments_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_payments_company_id_fkey"
             columns: ["company_id"]

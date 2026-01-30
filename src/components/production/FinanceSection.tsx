@@ -106,6 +106,7 @@ interface Invoice {
 interface Payment {
   id: string;
   bank_name: string | null;
+  bank_id: string | null;
   projected_received_date: string | null;
   payment_schedule: string | null;
   payment_status: string | null;
@@ -119,6 +120,8 @@ interface Payment {
   voided_at: string | null;
   voided_by: string | null;
   void_reason: string | null;
+  // Joined from banks table
+  bank?: { name: string } | null;
 }
 
 interface PaymentPhase {
@@ -139,6 +142,9 @@ interface BillPayment {
   payment_method: string | null;
   payment_reference: string | null;
   bank_name: string | null;
+  bank_id: string | null;
+  // Joined from banks table
+  bank?: { name: string } | null;
 }
 
 interface Bill {
@@ -320,7 +326,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_payments")
-        .select("*")
+        .select("*, bank:banks!project_payments_bank_id_fkey(name)")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -357,7 +363,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       const billIds = projectBills.map(b => b.id);
       const { data, error } = await supabase
         .from("bill_payments")
-        .select("*")
+        .select("*, bank:banks!bill_payments_bank_id_fkey(name)")
         .in("bill_id", billIds)
         .order("payment_date", { ascending: false });
       if (error) throw error;
@@ -1716,7 +1722,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                 <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 text-[10px]">Active</Badge>
                               )}
                             </TableCell>
-                            <TableCell className="text-xs">{pmt.bank_name || "-"}</TableCell>
+                            <TableCell className="text-xs">{pmt.bank?.name || pmt.bank_name || "-"}</TableCell>
                             <TableCell className="text-xs">{formatDate(pmt.projected_received_date)}</TableCell>
                             <TableCell className="text-xs">
                               <div className="flex flex-col gap-1">
@@ -2025,7 +2031,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                               </TableCell>
                               <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
                               <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
-                              <TableCell className="text-xs">{payment.bank_name || "-"}</TableCell>
+                              <TableCell className="text-xs">{payment.bank?.name || payment.bank_name || "-"}</TableCell>
                             </TableRow>
                           );
                         })}
@@ -3001,7 +3007,7 @@ function PaymentDialog({
 }) {
   const { companyId } = useCompanyContext();
   const [formData, setFormData] = useState({
-    bank_name: "",
+    bank_id: "",
     projected_received_date: "",
     payment_schedule: "",
     payment_status: "Pending",
@@ -3015,18 +3021,18 @@ function PaymentDialog({
   const [bankSearch, setBankSearch] = useState("");
   const [bankOpen, setBankOpen] = useState(false);
 
-  // Fetch existing bank names from banks table scoped by company
+  // Fetch existing banks with id and name from banks table scoped by company
   const { data: existingBanks = [] } = useQuery({
-    queryKey: ["banks", companyId],
+    queryKey: ["banks-with-id", companyId],
     queryFn: async () => {
       if (!companyId) return [];
       const { data, error } = await supabase
         .from("banks")
-        .select("name")
+        .select("id, name")
         .eq("company_id", companyId)
         .order("name");
       if (error) throw error;
-      return data.map(b => b.name).filter((name): name is string => typeof name === 'string');
+      return data.filter((b): b is { id: string; name: string } => typeof b.name === 'string');
     },
     enabled: open && !!companyId,
   });
@@ -3037,28 +3043,33 @@ function PaymentDialog({
   const addBankMutation = useMutation({
     mutationFn: async (bankName: string) => {
       if (!companyId) throw new Error("No company selected");
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("banks")
         .insert({ name: bankName, company_id: companyId })
-        .select()
+        .select("id")
         .single();
       if (error && !error.message.includes('duplicate')) throw error;
+      return data?.id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["banks", companyId] });
+    onSuccess: (newBankId) => {
+      queryClient.invalidateQueries({ queryKey: ["banks-with-id", companyId] });
+      if (newBankId) {
+        setFormData(p => ({ ...p, bank_id: newBankId }));
+      }
     },
   });
 
   const handleAddBank = (bankName: string) => {
-    setFormData(p => ({ ...p, bank_name: bankName }));
     addBankMutation.mutate(bankName);
     setBankOpen(false);
     setBankSearch("");
   };
 
   const filteredBanks = existingBanks.filter(bank => 
-    bank && typeof bank === 'string' && bank.toLowerCase().includes(bankSearch.toLowerCase())
+    bank.name.toLowerCase().includes(bankSearch.toLowerCase())
   );
+
+  const selectedBank = existingBanks.find(b => b.id === formData.bank_id);
 
   // Initialize form data when dialog opens or payment changes
   useEffect(() => {
@@ -3066,7 +3077,7 @@ function PaymentDialog({
     
     if (payment) {
       setFormData({
-        bank_name: payment.bank_name || "",
+        bank_id: payment.bank_id || "",
         projected_received_date: payment.projected_received_date || "",
         payment_schedule: payment.payment_schedule || "",
         payment_status: payment.payment_status || "Pending",
@@ -3078,7 +3089,7 @@ function PaymentDialog({
       });
     } else if (prePopulatedData) {
       setFormData({
-        bank_name: "",
+        bank_id: "",
         projected_received_date: new Date().toISOString().split('T')[0],
         payment_schedule: "",
         payment_status: "Received",
@@ -3089,7 +3100,7 @@ function PaymentDialog({
         deposit_verified: false, // New payments default to not deposited
       });
     } else {
-      setFormData({ bank_name: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", invoice_id: "", deposit_verified: false });
+      setFormData({ bank_id: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", invoice_id: "", deposit_verified: false });
     }
     setAmountError("");
     setBankSearch("");
@@ -3111,7 +3122,7 @@ function PaymentDialog({
     e.preventDefault();
     
     // Validate required fields
-    if (!formData.bank_name || !formData.projected_received_date) {
+    if (!formData.bank_id || !formData.projected_received_date) {
       return;
     }
     
@@ -3126,8 +3137,12 @@ function PaymentDialog({
     // Get payment phase from selected invoice
     const paymentPhaseId = selectedInvoice?.payment_phase_id || null;
     
+    // Get bank name for backwards compatibility
+    const bankName = existingBanks.find(b => b.id === formData.bank_id)?.name || null;
+    
     onSave({
-      bank_name: formData.bank_name || null,
+      bank_name: bankName,
+      bank_id: formData.bank_id || null,
       projected_received_date: formData.projected_received_date || null,
       payment_schedule: formData.payment_schedule || null,
       payment_status: formData.payment_status,
@@ -3157,9 +3172,9 @@ function PaymentDialog({
                     variant="outline"
                     role="combobox"
                     aria-expanded={bankOpen}
-                    className={cn("w-full justify-between font-normal", !formData.bank_name && "border-destructive")}
+                    className={cn("w-full justify-between font-normal", !formData.bank_id && "border-destructive")}
                   >
-                    {formData.bank_name || "Select or add..."}
+                    {selectedBank?.name || "Select or add..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
@@ -3175,7 +3190,7 @@ function PaymentDialog({
                         {bankSearch ? `No bank found. Press enter or click below to add "${bankSearch}".` : "Type to search or add a bank."}
                       </CommandEmpty>
                       <CommandGroup>
-                        {bankSearch && !filteredBanks.some(b => b.toLowerCase() === bankSearch.toLowerCase()) && (
+                        {bankSearch && !filteredBanks.some(b => b.name.toLowerCase() === bankSearch.toLowerCase()) && (
                           <CommandItem
                             value={`add-${bankSearch}`}
                             onSelect={() => handleAddBank(bankSearch)}
@@ -3187,17 +3202,17 @@ function PaymentDialog({
                         )}
                         {filteredBanks.map((bank) => (
                           <CommandItem
-                            key={bank}
-                            value={bank}
+                            key={bank.id}
+                            value={bank.name}
                             onSelect={() => {
-                              setFormData(p => ({ ...p, bank_name: bank }));
+                              setFormData(p => ({ ...p, bank_id: bank.id }));
                               setBankOpen(false);
                               setBankSearch("");
                             }}
                             className="cursor-pointer"
                           >
-                            <Check className={cn("mr-2 h-4 w-4", formData.bank_name === bank ? "opacity-100" : "opacity-0")} />
-                            {bank}
+                            <Check className={cn("mr-2 h-4 w-4", formData.bank_id === bank.id ? "opacity-100" : "opacity-0")} />
+                            {bank.name}
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -3205,7 +3220,7 @@ function PaymentDialog({
                   </Command>
                 </PopoverContent>
               </Popover>
-              {!formData.bank_name && (
+              {!formData.bank_id && (
                 <p className="text-xs text-destructive mt-1">Bank account is required</p>
               )}
             </div>
@@ -3290,7 +3305,7 @@ function PaymentDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending || !formData.bank_name}>{isPending ? "Saving..." : "Save"}</Button>
+            <Button type="submit" disabled={isPending || !formData.bank_id}>{isPending ? "Saving..." : "Save"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -4284,23 +4299,23 @@ function QuickPayDialog({
     payment_amount: "",
     payment_method: "",
     payment_reference: "",
-    bank_name: "",
+    bank_id: "",
   });
   const [bankSearch, setBankSearch] = useState("");
   const [bankOpen, setBankOpen] = useState(false);
 
-  // Fetch existing bank names scoped by company
+  // Fetch existing banks with id and name scoped by company
   const { data: existingBanks = [] } = useQuery({
-    queryKey: ["banks", companyId],
+    queryKey: ["banks-with-id", companyId],
     queryFn: async () => {
       if (!companyId) return [];
       const { data, error } = await supabase
         .from("banks")
-        .select("name")
+        .select("id, name")
         .eq("company_id", companyId)
         .order("name");
       if (error) throw error;
-      return data.map(b => b.name).filter((name): name is string => typeof name === 'string');
+      return data.filter((b): b is { id: string; name: string } => typeof b.name === 'string');
     },
     enabled: open && !!companyId,
   });
@@ -4309,28 +4324,33 @@ function QuickPayDialog({
   const addBankMutation = useMutation({
     mutationFn: async (bankName: string) => {
       if (!companyId) throw new Error("No company selected");
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("banks")
         .insert({ name: bankName, company_id: companyId })
-        .select()
+        .select("id")
         .single();
       if (error && !error.message.includes('duplicate')) throw error;
+      return data?.id;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["banks", companyId] });
+    onSuccess: (newBankId) => {
+      queryClient.invalidateQueries({ queryKey: ["banks-with-id", companyId] });
+      if (newBankId) {
+        setFormData(p => ({ ...p, bank_id: newBankId }));
+      }
     },
   });
 
   const handleAddBank = (bankName: string) => {
-    setFormData(p => ({ ...p, bank_name: bankName }));
     addBankMutation.mutate(bankName);
     setBankOpen(false);
     setBankSearch("");
   };
 
   const filteredBanks = existingBanks.filter(bank => 
-    bank && typeof bank === 'string' && bank.toLowerCase().includes(bankSearch.toLowerCase())
+    bank.name.toLowerCase().includes(bankSearch.toLowerCase())
   );
+
+  const selectedBank = existingBanks.find(b => b.id === formData.bank_id);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -4340,7 +4360,7 @@ function QuickPayDialog({
         payment_amount: (bill.balance || 0).toString(),
         payment_method: "",
         payment_reference: "",
-        bank_name: "",
+        bank_id: "",
       });
       setBankSearch("");
     }
@@ -4348,12 +4368,14 @@ function QuickPayDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const bankName = existingBanks.find(b => b.id === formData.bank_id)?.name || null;
     onSave({
       payment_date: formData.payment_date || null,
       payment_amount: parseFloat(formData.payment_amount) || 0,
       payment_method: formData.payment_method || null,
       payment_reference: formData.payment_reference || null,
-      bank_name: formData.bank_name || null,
+      bank_name: bankName,
+      bank_id: formData.bank_id || null,
     });
   };
 
@@ -4425,9 +4447,9 @@ function QuickPayDialog({
                   variant="outline"
                   role="combobox"
                   aria-expanded={bankOpen}
-                  className={cn("w-full justify-between font-normal", !formData.bank_name && "border-destructive")}
+                  className={cn("w-full justify-between font-normal", !formData.bank_id && "border-destructive")}
                 >
-                  {formData.bank_name || "Select or add bank..."}
+                  {selectedBank?.name || "Select or add bank..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -4443,7 +4465,7 @@ function QuickPayDialog({
                       {bankSearch ? `No bank found. Click below to add "${bankSearch}".` : "Type to search or add a bank."}
                     </CommandEmpty>
                     <CommandGroup>
-                      {bankSearch && !filteredBanks.some(b => b.toLowerCase() === bankSearch.toLowerCase()) && (
+                      {bankSearch && !filteredBanks.some(b => b.name.toLowerCase() === bankSearch.toLowerCase()) && (
                         <CommandItem
                           value={`add-${bankSearch}`}
                           onSelect={() => handleAddBank(bankSearch)}
@@ -4455,17 +4477,17 @@ function QuickPayDialog({
                       )}
                       {filteredBanks.map((bank) => (
                         <CommandItem
-                          key={bank}
-                          value={bank}
+                          key={bank.id}
+                          value={bank.name}
                           onSelect={() => {
-                            setFormData(p => ({ ...p, bank_name: bank }));
+                            setFormData(p => ({ ...p, bank_id: bank.id }));
                             setBankOpen(false);
                             setBankSearch("");
                           }}
                           className="cursor-pointer"
                         >
-                          <Check className={cn("mr-2 h-4 w-4", formData.bank_name === bank ? "opacity-100" : "opacity-0")} />
-                          {bank}
+                          <Check className={cn("mr-2 h-4 w-4", formData.bank_id === bank.id ? "opacity-100" : "opacity-0")} />
+                          {bank.name}
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -4473,7 +4495,7 @@ function QuickPayDialog({
                 </Command>
               </PopoverContent>
             </Popover>
-            {!formData.bank_name && (
+            {!formData.bank_id && (
               <p className="text-xs text-destructive mt-1">Bank account is required</p>
             )}
           </div>
@@ -4538,7 +4560,7 @@ function QuickPayDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending || paymentAmount <= 0 || !formData.bank_name}>
+            <Button type="submit" disabled={isPending || paymentAmount <= 0 || !formData.bank_id}>
               {isPending ? "Saving..." : "Record Payment"}
             </Button>
           </DialogFooter>
@@ -5014,8 +5036,8 @@ function BillPaymentHistoryDialog({
                         <TableRow key={payment.id}>
                           <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
                           <TableCell className="text-xs">
-                            {payment.bank_name ? (
-                              <Badge variant="outline" className="text-[10px]">{payment.bank_name}</Badge>
+                            {(payment.bank?.name || payment.bank_name) ? (
+                              <Badge variant="outline" className="text-[10px]">{payment.bank?.name || payment.bank_name}</Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
