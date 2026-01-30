@@ -24,6 +24,7 @@ interface Opportunity {
   stage_name: string | null;
   contact_id: string | null;
   ghl_date_added: string | null;
+  address: string | null;
 }
 
 interface Contact {
@@ -78,7 +79,7 @@ export function GlobalAdminSearch() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("opportunities")
-        .select("ghl_id, name, status, monetary_value, pipeline_stage_id, stage_name, contact_id, ghl_date_added")
+        .select("ghl_id, name, status, monetary_value, pipeline_stage_id, stage_name, contact_id, ghl_date_added, address")
         .eq("company_id", companyId)
         .order("ghl_date_added", { ascending: false })
         .limit(500);
@@ -162,16 +163,19 @@ export function GlobalAdminSearch() {
     return phone.replace(/\D/g, "");
   };
 
-  // Enhanced address lookup: contact custom_fields → appointment address → project address
-  const getAddressWithFallback = (contactId: string | null, oppGhlId?: string | null): string => {
-    // 1. Try contact custom_fields
+  // Enhanced address lookup: opportunity address → contact custom_fields → appointment address → project address
+  const getAddressWithFallback = (contactId: string | null, oppGhlId?: string | null, oppAddress?: string | null): string => {
+    // 1. Try opportunity's own address field first (most direct source)
+    if (oppAddress) return oppAddress;
+    
+    // 2. Try contact custom_fields
     if (contactId) {
       const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
       const contactAddress = getAddressFromContact(contact, appointments, contactId);
       if (contactAddress) return contactAddress;
     }
     
-    // 2. Try linked project address (by opportunity_id matching ghl_id)
+    // 3. Try linked project address (by opportunity_id matching ghl_id)
     if (oppGhlId) {
       const linkedProject = projects.find(p => p.opportunity_id === oppGhlId);
       if (linkedProject?.project_address) return linkedProject.project_address;
@@ -194,7 +198,7 @@ export function GlobalAdminSearch() {
         const contactName =
           contact?.contact_name?.toLowerCase() ||
           `${contact?.first_name || ""} ${contact?.last_name || ""}`.toLowerCase();
-        const address = getAddressWithFallback(opp.contact_id, opp.ghl_id).toLowerCase();
+        const address = getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address).toLowerCase();
         const phone = normalizePhone(contact?.phone);
 
         let phoneMatch = false;
@@ -415,7 +419,7 @@ export function GlobalAdminSearch() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="font-medium truncate text-sm">
-                              {getAddressWithFallback(opp.contact_id, opp.ghl_id) || "No address"}
+                              {getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address) || "No address"}
                             </div>
                             <div className="text-xs text-muted-foreground truncate">
                               {getContactName(opp.contact_id)}
