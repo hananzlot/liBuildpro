@@ -138,6 +138,8 @@ Deno.serve(async (req) => {
         refNum: qbPayment.PaymentRefNum,
         customer: qbPayment.CustomerRef?.name,
         amount: qbPayment.TotalAmt,
+        depositToAccount: qbPayment.DepositToAccountRef?.name || null,
+        depositToAccountId: qbPayment.DepositToAccountRef?.value || null,
         linkedTxns: qbPayment.Line?.flatMap(l => l.LinkedTxn || [])
       });
 
