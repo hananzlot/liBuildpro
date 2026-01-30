@@ -68,7 +68,7 @@ export function OnboardingWizard() {
     
     if (isLastStep) {
       await completeOnboarding();
-      navigate("/admin?tab=settings");
+      navigate("/admin/settings");
     } else {
       await goToNext();
     }
@@ -82,7 +82,7 @@ export function OnboardingWizard() {
   };
 
   const handleFinishLater = async () => {
-    navigate("/admin?tab=settings");
+    navigate("/admin/settings");
   };
 
   if (isLoading) {
@@ -106,7 +106,7 @@ export function OnboardingWizard() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
-          <Button onClick={() => navigate("/admin?tab=settings")}>
+          <Button onClick={() => navigate("/admin/settings")}>
             Go to Admin Settings
           </Button>
         </CardContent>
