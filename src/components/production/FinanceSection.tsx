@@ -4598,6 +4598,10 @@ function BillPaymentHistoryDialog({
         description: `Deleted bill payment of ${formatCurrency(payment?.payment_amount)}`,
       });
 
+      let qbSynced = false;
+      let qbManualRequired = false;
+      let qbManualMessage = "";
+
       // Delete/void in QuickBooks first (before deleting locally)
       if (companyId) {
         try {
@@ -4612,9 +4616,11 @@ function BillPaymentHistoryDialog({
           if (qbError) {
             console.error("QuickBooks delete error:", qbError);
           } else if (qbResult?.manual_action_required) {
-            toast.info(qbResult.message, { duration: 6000 });
+            qbManualRequired = true;
+            qbManualMessage = qbResult.message || "Manual action required in QuickBooks";
           } else if (qbResult?.success) {
             console.log("Bill payment deleted/voided in QuickBooks");
+            qbSynced = true;
           }
         } catch (err) {
           console.error("Failed to delete from QuickBooks:", err);
@@ -4642,9 +4648,18 @@ function BillPaymentHistoryDialog({
           .update({ amount_paid: newTotalPaid, balance: newBalance })
           .eq("id", bill.id);
       }
+
+      return { qbSynced, qbManualRequired, qbManualMessage };
     },
-    onSuccess: () => {
-      toast.success("Payment deleted");
+    onSuccess: (result) => {
+      if (result?.qbSynced) {
+        toast.success("Payment deleted and synced to QuickBooks");
+      } else if (result?.qbManualRequired) {
+        toast.success("Payment deleted");
+        toast.info(result.qbManualMessage, { duration: 6000 });
+      } else {
+        toast.success("Payment deleted");
+      }
       // Use stable billId and also refetch directly for immediate update
       refetchPayments();
       queryClient.invalidateQueries({ queryKey: ["bill-payments", billId] });
