@@ -7,13 +7,24 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, ArrowRight, Search, Plus, Archive, ArchiveRestore, GitMerge } from "lucide-react";
+import { Loader2, ArrowRight, Search, Plus, Archive, ArchiveRestore, GitMerge, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { useArchivedSources } from "@/hooks/useArchivedSources";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Contact {
   ghl_id: string;
@@ -35,12 +46,19 @@ const normalizeSourceName = (source: string): string => {
     .join(' ');
 };
 
+interface LeadSource {
+  id: string;
+  name: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
 export function SourceManagement({ contacts, open, onOpenChange }: SourceManagementProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { companyId } = useCompanyContext();
   const [selectedSource, setSelectedSource] = useState<string>("");
   const [mergeTargetSource, setMergeTargetSource] = useState<string>("");
-  const [newSourceName, setNewSourceName] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
@@ -49,18 +67,27 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
   const [showAddNew, setShowAddNew] = useState(false);
   const [newSourceInput, setNewSourceInput] = useState("");
 
-  // Archived sources hook
-  const { 
-    archivedSources, 
-    archiveSource, 
-    unarchiveSource, 
-    isArchiving, 
-    isUnarchiving,
-    isSourceArchived 
-  } = useArchivedSources();
+  // Fetch lead sources from database
+  const { data: leadSources = [], isLoading: isLoadingSources } = useQuery({
+    queryKey: ["lead-sources-full", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      
+      const { data, error } = await supabase
+        .from("lead_sources")
+        .select("id, name, is_active, sort_order")
+        .eq("company_id", companyId)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      
+      if (error) throw error;
+      return data as LeadSource[];
+    },
+    enabled: open && !!companyId,
+  });
 
-  // Calculate source counts (excluding archived sources)
-  const sourceCounts = useMemo(() => {
+  // Calculate contact counts per source
+  const sourceContactCounts = useMemo(() => {
     const counts = new Map<string, number>();
     contacts.forEach((contact) => {
       if (contact.source) {
@@ -68,28 +95,124 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
         counts.set(normalized, (counts.get(normalized) || 0) + 1);
       }
     });
-    return Array.from(counts.entries())
-      .map(([source, count]) => ({ source, count, archived: isSourceArchived(source) }))
-      .sort((a, b) => b.count - a.count);
-  }, [contacts, archivedSources]);
+    return counts;
+  }, [contacts]);
 
+  // Separate active and archived sources
   const activeSources = useMemo(() => 
-    sourceCounts.filter(s => !s.archived), 
-    [sourceCounts]
+    leadSources.filter(s => s.is_active).map(s => ({
+      ...s,
+      count: sourceContactCounts.get(s.name) || 0
+    })), 
+    [leadSources, sourceContactCounts]
   );
 
-  const archivedSourcesWithCounts = useMemo(() => 
-    sourceCounts.filter(s => s.archived), 
-    [sourceCounts]
+  const archivedSources = useMemo(() => 
+    leadSources.filter(s => !s.is_active).map(s => ({
+      ...s,
+      count: sourceContactCounts.get(s.name) || 0
+    })), 
+    [leadSources, sourceContactCounts]
   );
 
   const filteredSources = useMemo(() => {
-    const sources = activeTab === "active" ? activeSources : archivedSourcesWithCounts;
+    const sources = activeTab === "active" ? activeSources : archivedSources;
     if (!searchQuery.trim()) return sources;
     return sources.filter((item) =>
-      item.source.toLowerCase().includes(searchQuery.toLowerCase())
+      item.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [activeSources, archivedSourcesWithCounts, searchQuery, activeTab]);
+  }, [activeSources, archivedSources, searchQuery, activeTab]);
+
+  // Add source mutation
+  const addSourceMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!companyId) throw new Error("No company selected");
+      const maxSort = leadSources.length > 0 
+        ? Math.max(...leadSources.map(s => s.sort_order || 0)) 
+        : 0;
+      const { error } = await supabase
+        .from("lead_sources")
+        .insert({ 
+          name, 
+          company_id: companyId, 
+          sort_order: maxSort + 1,
+          created_by: user?.id 
+        });
+      if (error) {
+        if (error.code === "23505") {
+          throw new Error("Source already exists");
+        }
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Source added");
+      setNewSourceInput("");
+      setShowAddNew(false);
+      queryClient.invalidateQueries({ queryKey: ["lead-sources-full", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["lead-sources", companyId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to add source");
+    },
+  });
+
+  // Archive source mutation
+  const archiveSourceMutation = useMutation({
+    mutationFn: async (sourceId: string) => {
+      const { error } = await supabase
+        .from("lead_sources")
+        .update({ is_active: false })
+        .eq("id", sourceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Source archived");
+      queryClient.invalidateQueries({ queryKey: ["lead-sources-full", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["lead-sources", companyId] });
+    },
+    onError: () => {
+      toast.error("Failed to archive source");
+    },
+  });
+
+  // Unarchive source mutation
+  const unarchiveSourceMutation = useMutation({
+    mutationFn: async (sourceId: string) => {
+      const { error } = await supabase
+        .from("lead_sources")
+        .update({ is_active: true })
+        .eq("id", sourceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Source restored");
+      queryClient.invalidateQueries({ queryKey: ["lead-sources-full", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["lead-sources", companyId] });
+    },
+    onError: () => {
+      toast.error("Failed to restore source");
+    },
+  });
+
+  // Delete source mutation
+  const deleteSourceMutation = useMutation({
+    mutationFn: async (sourceId: string) => {
+      const { error } = await supabase
+        .from("lead_sources")
+        .delete()
+        .eq("id", sourceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Source deleted");
+      queryClient.invalidateQueries({ queryKey: ["lead-sources-full", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["lead-sources", companyId] });
+    },
+    onError: () => {
+      toast.error("Failed to delete source");
+    },
+  });
 
   const handleMergeSources = async () => {
     if (!selectedSource || !mergeTargetSource) {
@@ -109,6 +232,7 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
           oldSource: selectedSource,
           newSource: mergeTargetSource,
           editedBy: user?.id || null,
+          companyId: companyId,
         },
       });
 
@@ -116,6 +240,12 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
       if (data?.error) throw new Error(data.error);
 
       toast.success(`Merged "${selectedSource}" into "${mergeTargetSource}" for ${data.updated} contacts`);
+      
+      // Archive the merged source
+      const sourceToArchive = leadSources.find(s => s.name === selectedSource);
+      if (sourceToArchive) {
+        await archiveSourceMutation.mutateAsync(sourceToArchive.id);
+      }
       
       // Reset form
       setSelectedSource("");
@@ -132,52 +262,22 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
     }
   };
 
-
   const handleAddNewSource = () => {
     if (!newSourceInput.trim()) {
       toast.error("Please enter a source name");
       return;
     }
-
     const normalizedName = normalizeSourceName(newSourceInput.trim());
-    
-    // Check if source already exists
-    const existingSource = sourceCounts.find(
-      (item) => item.source.toLowerCase() === normalizedName.toLowerCase()
-    );
-    
-    if (existingSource) {
-      toast.error(`Source "${normalizedName}" already exists`);
-      return;
-    }
-
-    // Store in localStorage for the NewEntryDialog to pick up
-    const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
-    if (!customSources.includes(normalizedName)) {
-      customSources.push(normalizedName);
-      localStorage.setItem("customSources", JSON.stringify(customSources));
-    }
-    
-    toast.success(`Source "${normalizedName}" added and is now available when creating new entries`);
-    setNewSourceInput("");
-    setShowAddNew(false);
-  };
-
-  const handleArchiveSource = (sourceName: string) => {
-    archiveSource(sourceName);
-  };
-
-  const handleUnarchiveSource = (sourceName: string) => {
-    unarchiveSource(sourceName);
+    addSourceMutation.mutate(normalizedName);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle>Manage Sources</DialogTitle>
+          <DialogTitle>Manage Lead Sources</DialogTitle>
           <DialogDescription>
-            Add new sources, rename existing ones, or archive sources you no longer need.
+            Add, archive, or merge lead sources. These sources will be available when assigning leads to projects.
           </DialogDescription>
         </DialogHeader>
 
@@ -209,8 +309,16 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                     if (e.key === "Enter") handleAddNewSource();
                   }}
                 />
-                <Button size="sm" onClick={handleAddNewSource}>
-                  Add
+                <Button 
+                  size="sm" 
+                  onClick={handleAddNewSource}
+                  disabled={addSourceMutation.isPending}
+                >
+                  {addSourceMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Add"
+                  )}
                 </Button>
                 <Button
                   variant="ghost"
@@ -241,10 +349,10 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                   </SelectTrigger>
                   <SelectContent>
                     {activeSources
-                      .filter(({ source }) => source !== mergeTargetSource)
-                      .map(({ source, count }) => (
-                        <SelectItem key={source} value={source}>
-                          {source} ({count})
+                      .filter(({ name }) => name !== mergeTargetSource)
+                      .map(({ name, count }) => (
+                        <SelectItem key={name} value={name}>
+                          {name} ({count})
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -259,10 +367,10 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                   </SelectTrigger>
                   <SelectContent>
                     {activeSources
-                      .filter(({ source }) => source !== selectedSource)
-                      .map(({ source, count }) => (
-                        <SelectItem key={source} value={source}>
-                          {source} ({count})
+                      .filter(({ name }) => name !== selectedSource)
+                      .map(({ name, count }) => (
+                        <SelectItem key={name} value={name}>
+                          {name} ({count})
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -297,7 +405,7 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                   <TabsTrigger value="archived" className="text-xs px-3">
                     Archived
                     <Badge variant="secondary" className="ml-1.5 text-xs h-5">
-                      {archivedSourcesWithCounts.length}
+                      {archivedSources.length}
                     </Badge>
                   </TabsTrigger>
                 </TabsList>
@@ -313,7 +421,7 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
               </div>
 
               <TabsContent value="active" className="m-0">
-                <ScrollArea className="h-[400px] border rounded-lg">
+                <ScrollArea className="h-[300px] border rounded-lg">
                   <Table>
                     <TableHeader className="sticky top-0 bg-background">
                       <TableRow>
@@ -323,42 +431,39 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredSources.map(({ source, count }) => (
-                        <TableRow 
-                          key={source} 
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => {
-                            setSelectedSource(source);
-                            setNewSourceName(source);
-                          }}
-                        >
-                          <TableCell className="font-medium">{source}</TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant="secondary">{count}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleArchiveSource(source);
-                              }}
-                              disabled={isArchiving}
-                              title="Archive source"
-                            >
-                              <Archive className="h-3.5 w-3.5 text-muted-foreground" />
-                            </Button>
+                      {isLoadingSources ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center py-8">
+                            <Loader2 className="h-5 w-5 animate-spin mx-auto" />
                           </TableCell>
                         </TableRow>
-                      ))}
-                      {filteredSources.length === 0 && (
+                      ) : filteredSources.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                            No sources found
+                            {searchQuery ? "No sources found" : "No sources defined. Add your first source above."}
                           </TableCell>
                         </TableRow>
+                      ) : (
+                        filteredSources.map((source) => (
+                          <TableRow key={source.id} className="hover:bg-muted/50">
+                            <TableCell className="font-medium">{source.name}</TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="secondary">{source.count}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => archiveSourceMutation.mutate(source.id)}
+                                disabled={archiveSourceMutation.isPending}
+                                title="Archive source"
+                              >
+                                <Archive className="h-3.5 w-3.5 text-muted-foreground" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
                       )}
                     </TableBody>
                   </Table>
@@ -366,42 +471,72 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
               </TabsContent>
 
               <TabsContent value="archived" className="m-0">
-                <ScrollArea className="h-[400px] border rounded-lg">
+                <ScrollArea className="h-[300px] border rounded-lg">
                   <Table>
                     <TableHeader className="sticky top-0 bg-background">
                       <TableRow>
                         <TableHead>Source</TableHead>
                         <TableHead className="text-right w-24">Contacts</TableHead>
-                        <TableHead className="w-12"></TableHead>
+                        <TableHead className="w-20"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredSources.map(({ source, count }) => (
-                        <TableRow key={source} className="hover:bg-muted/50">
-                          <TableCell className="font-medium text-muted-foreground">{source}</TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant="outline">{count}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleUnarchiveSource(source)}
-                              disabled={isUnarchiving}
-                              title="Restore source"
-                            >
-                              <ArchiveRestore className="h-3.5 w-3.5 text-muted-foreground" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {filteredSources.length === 0 && (
+                      {filteredSources.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
                             {searchQuery ? "No archived sources found" : "No archived sources"}
                           </TableCell>
                         </TableRow>
+                      ) : (
+                        filteredSources.map((source) => (
+                          <TableRow key={source.id} className="hover:bg-muted/50">
+                            <TableCell className="font-medium text-muted-foreground">{source.name}</TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="outline">{source.count}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right flex gap-1 justify-end">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => unarchiveSourceMutation.mutate(source.id)}
+                                disabled={unarchiveSourceMutation.isPending}
+                                title="Restore source"
+                              >
+                                <ArchiveRestore className="h-3.5 w-3.5 text-muted-foreground" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    title="Delete source permanently"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Source</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to permanently delete "{source.name}"? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteSourceMutation.mutate(source.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </TableCell>
+                          </TableRow>
+                        ))
                       )}
                     </TableBody>
                   </Table>
