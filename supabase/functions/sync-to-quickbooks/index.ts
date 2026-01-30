@@ -390,6 +390,9 @@ Deno.serve(async (req) => {
 
           stripNullishDeep(qbInvoice);
 
+          // Log the final payload for debugging
+          console.log(`Invoice ${invoice.invoice_number} - Final QB payload:`, JSON.stringify(qbInvoice, null, 2));
+
           const createRes = await fetch(`${QB_BASE_URL}/${realm_id}/invoice`, {
             method: "POST",
             headers: qbHeaders,
