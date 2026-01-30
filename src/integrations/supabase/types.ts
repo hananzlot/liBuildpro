@@ -6391,6 +6391,10 @@ export type Database = {
         }[]
       }
       backfill_contact_uuids: { Args: never; Returns: undefined }
+      bulk_delete_junk_contacts: {
+        Args: { p_company_id: string; p_contact_ids: string[] }
+        Returns: Json
+      }
       generate_company_encryption_key: {
         Args: { p_company_id: string }
         Returns: string

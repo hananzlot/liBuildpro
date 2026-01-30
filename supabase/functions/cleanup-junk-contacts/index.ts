@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Same logic as find, but delete
+      // Get all junk contact IDs (no email AND no phone)
       const { data: junkContacts, error } = await supabase
         .from("contacts")
         .select("id")
@@ -174,83 +174,39 @@ Deno.serve(async (req) => {
       
       if (contactIds.length === 0) {
         return new Response(
-          JSON.stringify({ deleted: 0, message: "No junk contacts found" }),
+          JSON.stringify({ deleted: 0, skipped: 0, message: "No junk contacts found" }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Check for linked records
-      const { data: projectContacts } = await supabase
-        .from("projects")
-        .select("contact_uuid")
-        .eq("company_id", companyId)
-        .in("contact_uuid", contactIds)
-        .not("contact_uuid", "is", null);
+      console.log(`Found ${contactIds.length} potential junk contacts, calling bulk delete...`);
 
-      const { data: oppContacts } = await supabase
-        .from("opportunities")
-        .select("contact_uuid")
-        .eq("company_id", companyId)
-        .in("contact_uuid", contactIds)
-        .not("contact_uuid", "is", null);
-
-      const { data: apptContacts } = await supabase
-        .from("appointments")
-        .select("contact_uuid")
-        .eq("company_id", companyId)
-        .in("contact_uuid", contactIds)
-        .not("contact_uuid", "is", null);
-
-      const linkedIds = new Set([
-        ...(projectContacts || []).map(p => p.contact_uuid),
-        ...(oppContacts || []).map(o => o.contact_uuid),
-        ...(apptContacts || []).map(a => a.contact_uuid),
-      ]);
-
-      const toDelete = contactIds.filter(id => !linkedIds.has(id));
-
-      if (toDelete.length === 0) {
-        return new Response(
-          JSON.stringify({ deleted: 0, message: "All contacts have linked records" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Delete one by one to handle FK constraint errors gracefully
-      let totalDeleted = 0;
-      let skipped = 0;
-      const skippedIds: string[] = [];
-
-      for (const contactId of toDelete) {
-        const { error: deleteError } = await supabase
-          .from("contacts")
-          .delete()
-          .eq("id", contactId);
-
-        if (deleteError) {
-          // Foreign key constraint error - contact is still referenced
-          if (deleteError.code === "23503") {
-            console.log(`Skipping contact ${contactId} - still referenced by another table`);
-            skipped++;
-            skippedIds.push(contactId);
-          } else {
-            console.error("Delete error:", deleteError);
-            throw deleteError;
-          }
-        } else {
-          totalDeleted++;
+      // Use the optimized bulk delete function
+      const { data: result, error: deleteError } = await supabase.rpc(
+        "bulk_delete_junk_contacts",
+        {
+          p_company_id: companyId,
+          p_contact_ids: contactIds,
         }
+      );
+
+      if (deleteError) {
+        console.error("Bulk delete error:", deleteError);
+        throw deleteError;
       }
 
-      console.log(`Deleted ${totalDeleted} junk contacts, skipped ${skipped} (still referenced)`);
+      const deleted = result?.deleted || 0;
+      const skipped = result?.skipped || 0;
+
+      console.log(`Bulk delete complete: ${deleted} deleted, ${skipped} skipped`);
 
       return new Response(
         JSON.stringify({ 
-          deleted: totalDeleted, 
+          deleted, 
           skipped,
           message: skipped > 0 
-            ? `Deleted ${totalDeleted} junk contacts. ${skipped} contacts were skipped (still referenced by other records).`
-            : `Deleted ${totalDeleted} junk contacts`
+            ? `Deleted ${deleted} junk contacts. ${skipped} contacts were skipped (still referenced by other records).`
+            : `Deleted ${deleted} junk contacts`
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
