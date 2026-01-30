@@ -216,26 +216,42 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Delete in batches of 100
+      // Delete one by one to handle FK constraint errors gracefully
       let totalDeleted = 0;
-      for (let i = 0; i < toDelete.length; i += 100) {
-        const batch = toDelete.slice(i, i + 100);
+      let skipped = 0;
+      const skippedIds: string[] = [];
+
+      for (const contactId of toDelete) {
         const { error: deleteError } = await supabase
           .from("contacts")
           .delete()
-          .in("id", batch);
+          .eq("id", contactId);
 
         if (deleteError) {
-          console.error("Delete error:", deleteError);
-          throw deleteError;
+          // Foreign key constraint error - contact is still referenced
+          if (deleteError.code === "23503") {
+            console.log(`Skipping contact ${contactId} - still referenced by another table`);
+            skipped++;
+            skippedIds.push(contactId);
+          } else {
+            console.error("Delete error:", deleteError);
+            throw deleteError;
+          }
+        } else {
+          totalDeleted++;
         }
-        totalDeleted += batch.length;
       }
 
-      console.log(`Deleted ${totalDeleted} junk contacts`);
+      console.log(`Deleted ${totalDeleted} junk contacts, skipped ${skipped} (still referenced)`);
 
       return new Response(
-        JSON.stringify({ deleted: totalDeleted, message: `Deleted ${totalDeleted} junk contacts` }),
+        JSON.stringify({ 
+          deleted: totalDeleted, 
+          skipped,
+          message: skipped > 0 
+            ? `Deleted ${totalDeleted} junk contacts. ${skipped} contacts were skipped (still referenced by other records).`
+            : `Deleted ${totalDeleted} junk contacts`
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
