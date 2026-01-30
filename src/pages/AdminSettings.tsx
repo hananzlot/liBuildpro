@@ -168,9 +168,16 @@ export default function AdminSettings() {
   const [userFilter, setUserFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   
-  // Pipeline configuration state
-  const [pipelineStages, setPipelineStages] = useState<string[]>([]);
+  // Pipeline configuration state - now using UUID-based stages
+  interface PipelineStageEdit {
+    id: string | null; // null for new stages
+    name: string;
+    position: number;
+  }
+  const [pipelineStagesEdit, setPipelineStagesEdit] = useState<PipelineStageEdit[]>([]);
   const [newStageName, setNewStageName] = useState("");
+  const [pipelineStagesLoaded, setPipelineStagesLoaded] = useState(false);
+  const [savingPipelineStages, setSavingPipelineStages] = useState(false);
 
   // GHL Integration toggle mutation (company-scoped)
   const toggleGHLIntegration = useMutation({
@@ -549,27 +556,59 @@ export default function AdminSettings() {
     }
   };
 
-  // Parse pipeline stages from settings - moved before early returns
-  const getDefaultPipelineStages = React.useCallback((): string[] => {
-    if (!settings) return [];
-    const stagesSetting = settings.find(s => s.setting_key === "pipeline_stages");
-    if (stagesSetting?.setting_value) {
-      try {
-        return JSON.parse(stagesSetting.setting_value);
-      } catch {
-        return stagesSetting.setting_value.split(",").map(s => s.trim());
-      }
-    }
-    // Default stages
-    return ["Lead", "Contacted", "Appointment Set", "2nd Appointment", "Estimate Prepared", "Proposal Sent", "Close to Sale", "Won", "Lost/DNC"];
-  }, [settings]);
+  // Fetch pipeline stages from the new UUID-based table
+  const { data: pipelineStagesData, refetch: refetchPipelineStages } = useQuery({
+    queryKey: ["pipeline-stages-admin", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("pipeline_stages")
+        .select("id, name, position")
+        .eq("company_id", companyId)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isAdmin && !!companyId,
+  });
 
-  // Initialize pipeline stages when settings load
+  // Initialize pipeline stages when data loads
   React.useEffect(() => {
-    if (settings && pipelineStages.length === 0) {
-      setPipelineStages(getDefaultPipelineStages());
+    if (pipelineStagesData && !pipelineStagesLoaded) {
+      if (pipelineStagesData.length > 0) {
+        setPipelineStagesEdit(pipelineStagesData.map((s, idx) => ({
+          id: s.id,
+          name: s.name,
+          position: s.position ?? idx,
+        })));
+      } else if (settings) {
+        // Fallback to legacy settings
+        const stagesSetting = settings.find(s => s.setting_key === "pipeline_stages");
+        if (stagesSetting?.setting_value) {
+          let names: string[] = [];
+          try {
+            names = JSON.parse(stagesSetting.setting_value);
+          } catch {
+            names = stagesSetting.setting_value.split(",").map(s => s.trim());
+          }
+          setPipelineStagesEdit(names.map((name, idx) => ({
+            id: null,
+            name,
+            position: idx,
+          })));
+        } else {
+          // Default stages for new companies
+          const defaults = ["Lead", "Contacted", "Appointment Set", "2nd Appointment", "Estimate Prepared", "Proposal Sent", "Close to Sale", "Won", "Lost/DNC"];
+          setPipelineStagesEdit(defaults.map((name, idx) => ({
+            id: null,
+            name,
+            position: idx,
+          })));
+        }
+      }
+      setPipelineStagesLoaded(true);
     }
-  }, [settings, getDefaultPipelineStages]);
+  }, [pipelineStagesData, settings, pipelineStagesLoaded]);
 
   if (authLoading) {
     return (
@@ -613,29 +652,99 @@ export default function AdminSettings() {
     ["payment_focus_day"].includes(s.setting_key)
   );
 
-  // Update stages when settings change
+  // Update stages handlers using the new structure
   const handleAddStage = () => {
-    if (newStageName.trim() && !pipelineStages.includes(newStageName.trim())) {
-      setPipelineStages([...pipelineStages, newStageName.trim()]);
+    if (newStageName.trim() && !pipelineStagesEdit.some(s => s.name.toLowerCase() === newStageName.trim().toLowerCase())) {
+      setPipelineStagesEdit([...pipelineStagesEdit, { 
+        id: null, 
+        name: newStageName.trim(), 
+        position: pipelineStagesEdit.length 
+      }]);
       setNewStageName("");
     }
   };
 
   const handleRemoveStage = (index: number) => {
-    setPipelineStages(pipelineStages.filter((_, i) => i !== index));
+    setPipelineStagesEdit(pipelineStagesEdit.filter((_, i) => i !== index).map((s, i) => ({ ...s, position: i })));
   };
 
   const handleMoveStage = (index: number, direction: "up" | "down") => {
-    const newStages = [...pipelineStages];
+    const newStages = [...pipelineStagesEdit];
     const newIndex = direction === "up" ? index - 1 : index + 1;
     if (newIndex >= 0 && newIndex < newStages.length) {
       [newStages[index], newStages[newIndex]] = [newStages[newIndex], newStages[index]];
-      setPipelineStages(newStages);
+      // Update positions
+      setPipelineStagesEdit(newStages.map((s, i) => ({ ...s, position: i })));
     }
   };
 
-  const handleSavePipelineStages = () => {
-    updateSetting.mutate({ key: "pipeline_stages", value: JSON.stringify(pipelineStages) });
+  const handleSavePipelineStages = async () => {
+    if (!companyId) return;
+    setSavingPipelineStages(true);
+    
+    try {
+      // Get current stages from DB to compare
+      const { data: existingStages } = await supabase
+        .from("pipeline_stages")
+        .select("id, name")
+        .eq("company_id", companyId);
+      
+      const existingById = new Map((existingStages || []).map(s => [s.id, s]));
+      const editedIds = new Set(pipelineStagesEdit.filter(s => s.id).map(s => s.id));
+      
+      // Find deleted stages
+      const deletedIds = (existingStages || [])
+        .filter(s => !editedIds.has(s.id))
+        .map(s => s.id);
+      
+      // Delete removed stages
+      if (deletedIds.length > 0) {
+        await supabase.from("pipeline_stages").delete().in("id", deletedIds);
+      }
+      
+      // Upsert all current stages
+      for (const stage of pipelineStagesEdit) {
+        if (stage.id) {
+          // Update existing stage (triggers auto-migration if name changed)
+          await supabase
+            .from("pipeline_stages")
+            .update({ name: stage.name, position: stage.position })
+            .eq("id", stage.id);
+        } else {
+          // Insert new stage (triggers auto-assign UUID to matching opportunities)
+          await supabase
+            .from("pipeline_stages")
+            .insert({ 
+              company_id: companyId, 
+              name: stage.name, 
+              position: stage.position 
+            });
+        }
+      }
+      
+      // Also update company_settings for backward compatibility
+      await supabase
+        .from("company_settings")
+        .upsert({
+          company_id: companyId,
+          setting_key: "pipeline_stages",
+          setting_value: JSON.stringify(pipelineStagesEdit.map(s => s.name)),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "company_id,setting_key" });
+      
+      toast.success("Pipeline stages saved. Opportunities will reflect name changes automatically.");
+      
+      // Refetch to get new IDs for inserted stages
+      await refetchPipelineStages();
+      setPipelineStagesLoaded(false); // Force reload
+      queryClient.invalidateQueries({ queryKey: ["company-pipeline-settings", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["company-settings", companyId] });
+    } catch (err) {
+      console.error("Error saving pipeline stages:", err);
+      toast.error(`Failed to save pipeline stages: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setSavingPipelineStages(false);
+    }
   };
 
   const apiKeySettings = settings?.filter((s) =>
@@ -1075,9 +1184,9 @@ export default function AdminSettings() {
                             <Button
                               size="sm"
                               onClick={handleSavePipelineStages}
-                              disabled={updateSetting.isPending}
+                              disabled={savingPipelineStages}
                             >
-                              {updateSetting.isPending ? (
+                              {savingPipelineStages ? (
                                 <Loader2 className="h-3 w-3 animate-spin mr-1" />
                               ) : (
                                 <Save className="h-3 w-3 mr-1" />
@@ -1086,23 +1195,33 @@ export default function AdminSettings() {
                             </Button>
                           </div>
 
+                          {/* Info about auto-migration */}
+                          <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+                            <strong>Auto-Migration:</strong> When you rename a stage, all opportunities using the old name will automatically update to the new name.
+                          </div>
+
                           {/* Stage List */}
                           <div className="space-y-2">
-                            {pipelineStages.map((stage, index) => (
+                            {pipelineStagesEdit.map((stage, index) => (
                               <div
-                                key={index}
+                                key={stage.id || `new-${index}`}
                                 className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30"
                               >
                                 <span className="text-sm text-muted-foreground w-6">{index + 1}.</span>
                                 <Input
-                                  value={stage}
+                                  value={stage.name}
                                   onChange={(e) => {
-                                    const newStages = [...pipelineStages];
-                                    newStages[index] = e.target.value;
-                                    setPipelineStages(newStages);
+                                    const newStages = [...pipelineStagesEdit];
+                                    newStages[index] = { ...newStages[index], name: e.target.value };
+                                    setPipelineStagesEdit(newStages);
                                   }}
                                   className="flex-1"
                                 />
+                                {stage.id && (
+                                  <span className="text-xs text-muted-foreground font-mono">
+                                    ({stage.id.slice(-4)})
+                                  </span>
+                                )}
                                 <div className="flex gap-1">
                                   <Button
                                     variant="ghost"
@@ -1116,7 +1235,7 @@ export default function AdminSettings() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleMoveStage(index, "down")}
-                                    disabled={index === pipelineStages.length - 1}
+                                    disabled={index === pipelineStagesEdit.length - 1}
                                   >
                                     ↓
                                   </Button>
