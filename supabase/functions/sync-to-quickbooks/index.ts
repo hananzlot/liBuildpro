@@ -1015,7 +1015,7 @@ Deno.serve(async (req) => {
 
       const { data: commissionPayment, error: cpError } = await supabase
         .from("commission_payments")
-        .select("*, projects!inner(id, project_name, project_number, company_id)")
+        .select("*, projects!inner(id, project_name, project_number, project_address, contact_uuid, contact_id, company_id)")
         .eq("id", recordId)
         .single();
 
@@ -1109,8 +1109,33 @@ Deno.serve(async (req) => {
         // Get expense account mapping for commissions
         const expenseAccountMapping = getMapping("expense_account");
 
+        // Find or create customer for the project so we can assign the expense
+        const customerResult = await findOrCreateCustomer(commissionPayment.projects);
+        let customerRef: { value: string; name?: string } | undefined;
+        
+        if (customerResult.id) {
+          customerRef = { value: String(customerResult.id), name: customerResult.name };
+          console.log(`Linking commission to customer: ${customerResult.name} (ID: ${customerResult.id})`);
+          if (customerResult.isNew) {
+            results.newEntities?.push({ type: "customer", name: customerResult.name });
+          }
+        } else {
+          console.log(`Warning: Could not find/create customer for project, commission will not be linked to customer`);
+        }
+
         // Build QuickBooks Check (Purchase) object
         // NOTE: TotalAmt is read-only and calculated from Line items - do NOT include it
+        const lineDetail: any = {
+          AccountRef: expenseAccountMapping
+            ? { value: String(expenseAccountMapping.qbo_id), name: expenseAccountMapping.qbo_name }
+            : { value: "1" },
+        };
+        
+        // Add CustomerRef to the line item to link expense to the project/customer
+        if (customerRef) {
+          lineDetail.CustomerRef = customerRef;
+        }
+
         const qbCheck: any = {
           // Purchase uses EntityRef (not PayeeRef)
           EntityRef: {
@@ -1123,11 +1148,7 @@ Deno.serve(async (req) => {
             {
               Amount: commissionPayment.payment_amount || 0,
               DetailType: "AccountBasedExpenseLineDetail",
-              AccountBasedExpenseLineDetail: {
-                AccountRef: expenseAccountMapping
-                  ? { value: String(expenseAccountMapping.qbo_id), name: expenseAccountMapping.qbo_name }
-                  : { value: "1" },
-              },
+              AccountBasedExpenseLineDetail: lineDetail,
               Description: `Commission Payment - ${commissionPayment.projects?.project_name || "Project"} - ${commissionPayment.salesperson_name}`,
             },
           ],
