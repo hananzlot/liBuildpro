@@ -1663,7 +1663,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className={cn("text-xs text-right", pmt.is_voided && "line-through")}>{formatCurrency(pmt.payment_amount)}</TableCell>
+                            <TableCell className={cn("text-xs text-right", pmt.is_voided && "line-through")}>{formatCurrency2(pmt.payment_amount)}</TableCell>
                             <TableCell>
                               {pmt.is_voided ? (
                                 <p className="text-[10px] text-muted-foreground italic max-w-[120px] truncate" title={pmt.void_reason || ""}>
@@ -1807,16 +1807,16 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                             <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
                               {hasBeenOffset ? (
                                 <div>
-                                  <span className="line-through text-muted-foreground">{formatCurrency(bill.original_bill_amount)}</span>
-                                  <span className="ml-1 font-medium">{formatCurrency(bill.bill_amount)}</span>
+                                  <span className="line-through text-muted-foreground">{formatCurrency2(bill.original_bill_amount)}</span>
+                                  <span className="ml-1 font-medium">{formatCurrency2(bill.bill_amount)}</span>
                                 </div>
                               ) : (
-                                formatCurrency(bill.bill_amount)
+                                formatCurrency2(bill.bill_amount)
                               )}
                             </TableCell>
-                            <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency(bill.amount_paid)}</TableCell>
+                            <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency2(bill.amount_paid)}</TableCell>
                             <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
-                              {formatCurrency(bill.balance)}
+                              {formatCurrency2(bill.balance)}
                             </TableCell>
                             <TableCell>
                               {bill.attachment_url && (
@@ -1925,7 +1925,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                               <TableCell className="text-xs">{payment.bill?.installer_company || "-"}</TableCell>
                               <TableCell className="text-xs">{payment.bill?.bill_ref || "-"}</TableCell>
                               <TableCell className="text-xs text-right text-emerald-600 font-medium">
-                                {formatCurrency(payment.payment_amount)}
+                                {formatCurrency2(payment.payment_amount)}
                               </TableCell>
                               <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
                               <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
@@ -1941,7 +1941,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                       <div className="text-sm">
                         <span className="text-muted-foreground">Total Paid: </span>
                         <span className="font-medium text-emerald-600">
-                          {formatCurrency(allBillPayments.reduce((sum: number, p: any) => sum + (p.payment_amount || 0), 0))}
+                          {formatCurrency2(allBillPayments.reduce((sum: number, p: any) => sum + (p.payment_amount || 0), 0))}
                         </span>
                       </div>
                     </div>
