@@ -1145,7 +1145,7 @@ export function OpportunitiesTable({
                       className={cn(
                         "border-border/30 hover:bg-muted/30 cursor-pointer",
                         overdueTask && "bg-destructive/5 hover:bg-destructive/10",
-                        showAlternatingColors && !overdueTask && paginatedOpportunities.indexOf(opp) % 2 === 1 && "bg-muted/40"
+                        showAlternatingColors && !overdueTask && paginatedOpportunities.indexOf(opp) % 2 === 1 && "bg-muted/50"
                       )}
                       onClick={() => handleRowClick(opp)}
                     >
