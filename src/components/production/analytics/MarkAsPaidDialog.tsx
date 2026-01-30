@@ -115,16 +115,20 @@ export function MarkAsPaidDialog({
 
   if (!payable) return null;
 
+  const paymentAmount = parseFloat(amount) || 0;
+  const maxAmount = payable.amount_due;
+  const exceedsBalance = paymentAmount > maxAmount;
+
   const isFormValid = 
     paymentDate && 
-    parseFloat(amount) > 0 && 
+    paymentAmount > 0 && 
+    !exceedsBalance &&
     bankName && 
     paymentMethod && 
     paymentReference.trim();
 
   const handleSave = () => {
-    const paymentAmount = parseFloat(amount) || 0;
-    if (paymentAmount > 0 && bankName && paymentMethod && paymentReference.trim()) {
+    if (paymentAmount > 0 && !exceedsBalance && bankName && paymentMethod && paymentReference.trim()) {
       onSave(payable.id, {
         paymentDate,
         amount: paymentAmount,
@@ -213,7 +217,13 @@ export function MarkAsPaidDialog({
               value={amount}
               onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setAmount(val); }}
               placeholder="Enter amount"
+              className={cn(exceedsBalance && "border-destructive")}
             />
+            {exceedsBalance && (
+              <p className="text-sm text-destructive">
+                Amount cannot exceed balance due ({formatCurrency(maxAmount)})
+              </p>
+            )}
           </div>
 
           {/* Bank Account with add on the fly */}
