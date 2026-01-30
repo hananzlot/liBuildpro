@@ -6,9 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertCircle, Loader2, RefreshCw, Settings2 } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw, Settings2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 interface QBEntity {
   id: string;
@@ -33,6 +36,9 @@ export function QuickBooksMappingConfig() {
   const [activeTab, setActiveTab] = useState("accounts");
   const [needsReauth, setNeedsReauth] = useState(false);
   const hasShownReauthToast = useRef(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [vendorSearch, setVendorSearch] = useState("");
+  const [glSearch, setGlSearch] = useState("");
 
   // First, verify a connection exists before attempting any entity calls
   const { data: connection, isLoading: connectionLoading } = useQuery({
@@ -74,6 +80,8 @@ export function QuickBooksMappingConfig() {
       queryClient.invalidateQueries({ queryKey: ["qb-accounts", companyId] });
       queryClient.invalidateQueries({ queryKey: ["qb-items", companyId] });
       queryClient.invalidateQueries({ queryKey: ["qb-payment-methods", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["qb-customers", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["qb-vendors", companyId] });
       queryClient.invalidateQueries({ queryKey: ["qb-mappings", companyId] });
       setNeedsReauth(false);
       hasShownReauthToast.current = false;
@@ -97,6 +105,38 @@ export function QuickBooksMappingConfig() {
     enabled: !!companyId,
   });
 
+  // Fetch local subcontractors (vendors)
+  const { data: subcontractors } = useQuery({
+    queryKey: ["subcontractors-for-mapping", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subcontractors")
+        .select("id, company_name")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("company_name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Fetch local contacts (customers)
+  const { data: contacts } = useQuery({
+    queryKey: ["contacts-for-mapping", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contacts")
+        .select("id, contact_name, first_name, last_name, email")
+        .eq("company_id", companyId)
+        .order("contact_name")
+        .limit(500);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
   // Fetch QB entities
   const { data: accounts, isLoading: accountsLoading, refetch: refetchAccounts } = useQuery({
     queryKey: ["qb-accounts", companyId],
@@ -112,6 +152,26 @@ export function QuickBooksMappingConfig() {
       return (data?.entities || []) as QBEntity[];
     },
     enabled: !!companyId && isConnected && !needsReauth,
+    retry: false,
+  });
+
+  // Fetch ALL accounts for GL tab
+  const { data: allAccounts, isLoading: allAccountsLoading, refetch: refetchAllAccounts } = useQuery({
+    queryKey: ["qb-all-accounts", companyId],
+    queryFn: async () => {
+      // Fetch all account types
+      const { data, error } = await supabase.functions.invoke("quickbooks-list-entities", {
+        body: { companyId, entityType: "allAccounts" },
+      });
+      if (error || data?.needsReauth) {
+        console.error("Failed to load all QuickBooks accounts:", error || data);
+        if (data?.needsReauth) markNeedsReauth();
+        // Fall back to the regular accounts if allAccounts doesn't work
+        return accounts || [] as QBEntity[];
+      }
+      return (data?.entities || []) as QBEntity[];
+    },
+    enabled: !!companyId && isConnected && !needsReauth && activeTab === "gl",
     retry: false,
   });
 
@@ -140,6 +200,42 @@ export function QuickBooksMappingConfig() {
       });
       if (error || data?.needsReauth) {
         console.error("Failed to load QuickBooks payment methods:", error || data);
+        if (data?.needsReauth) markNeedsReauth();
+        return [] as QBEntity[];
+      }
+      return (data?.entities || []) as QBEntity[];
+    },
+    enabled: !!companyId && isConnected && !needsReauth,
+    retry: false,
+  });
+
+  // Fetch QB customers
+  const { data: qbCustomers, isLoading: customersLoading, refetch: refetchCustomers } = useQuery({
+    queryKey: ["qb-customers", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("quickbooks-list-entities", {
+        body: { companyId, entityType: "customers" },
+      });
+      if (error || data?.needsReauth) {
+        console.error("Failed to load QuickBooks customers:", error || data);
+        if (data?.needsReauth) markNeedsReauth();
+        return [] as QBEntity[];
+      }
+      return (data?.entities || []) as QBEntity[];
+    },
+    enabled: !!companyId && isConnected && !needsReauth,
+    retry: false,
+  });
+
+  // Fetch QB vendors
+  const { data: qbVendors, isLoading: vendorsLoading, refetch: refetchVendors } = useQuery({
+    queryKey: ["qb-vendors", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("quickbooks-list-entities", {
+        body: { companyId, entityType: "vendors" },
+      });
+      if (error || data?.needsReauth) {
+        console.error("Failed to load QuickBooks vendors:", error || data);
         if (data?.needsReauth) markNeedsReauth();
         return [] as QBEntity[];
       }
@@ -181,6 +277,10 @@ export function QuickBooksMappingConfig() {
     return mappings?.find((m) => m.mapping_type === type && m.is_default);
   };
 
+  const getSourceMapping = (type: string, sourceValue: string) => {
+    return mappings?.find((m) => m.mapping_type === type && m.source_value === sourceValue);
+  };
+
   const handleDefaultChange = (type: string, qboId: string, qboName: string, qboType?: string) => {
     saveMappingMutation.mutate({
       mapping_type: type,
@@ -192,8 +292,44 @@ export function QuickBooksMappingConfig() {
     });
   };
 
+  const handleSourceMapping = (type: string, sourceValue: string, qboId: string, qboName: string, qboType?: string) => {
+    saveMappingMutation.mutate({
+      mapping_type: type,
+      source_value: sourceValue,
+      qbo_id: qboId,
+      qbo_name: qboName,
+      qbo_type: qboType,
+      is_default: false,
+    });
+  };
+
   const incomeAccounts = accounts?.filter((a) => ["Income", "Other Income"].includes(a.type)) || [];
   const expenseAccounts = accounts?.filter((a) => ["Expense", "Other Expense", "Cost of Goods Sold"].includes(a.type)) || [];
+
+  // Group accounts by type for GL tab
+  const accountsByType = (allAccounts || accounts || []).reduce((acc, account) => {
+    const type = account.type || "Other";
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(account);
+    return acc;
+  }, {} as Record<string, QBEntity[]>);
+
+  const filteredQbCustomers = qbCustomers?.filter(c => 
+    c.name.toLowerCase().includes(customerSearch.toLowerCase())
+  ) || [];
+
+  const filteredQbVendors = qbVendors?.filter(v => 
+    v.name.toLowerCase().includes(vendorSearch.toLowerCase())
+  ) || [];
+
+  const filteredContacts = contacts?.filter(c => {
+    const name = c.contact_name || `${c.first_name || ""} ${c.last_name || ""}`.trim();
+    return name.toLowerCase().includes(customerSearch.toLowerCase());
+  }) || [];
+
+  const filteredSubcontractors = subcontractors?.filter(s =>
+    s.company_name?.toLowerCase().includes(vendorSearch.toLowerCase())
+  ) || [];
 
   const isLoading = connectionLoading || mappingsLoading || accountsLoading || itemsLoading || paymentMethodsLoading;
 
@@ -222,7 +358,7 @@ export function QuickBooksMappingConfig() {
             <div className="space-y-1">
               <p className="font-medium">QuickBooks authorization was revoked.</p>
               <p className="text-destructive/80">
-                Click disconnect below, then use “Connect to QuickBooks” to re-authorize.
+                Click disconnect below, then use "Connect to QuickBooks" to re-authorize.
               </p>
             </div>
           </div>
@@ -264,7 +400,7 @@ export function QuickBooksMappingConfig() {
             <div>
               <CardTitle className="text-lg">QuickBooks Mapping</CardTitle>
               <CardDescription>
-                Configure how your data maps to QuickBooks accounts and items
+                Configure how your data maps to QuickBooks
               </CardDescription>
             </div>
           </div>
@@ -274,6 +410,9 @@ export function QuickBooksMappingConfig() {
             onClick={() => {
               refetchAccounts();
               refetchItems();
+              refetchCustomers();
+              refetchVendors();
+              if (activeTab === "gl") refetchAllAccounts();
             }}
           >
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -283,10 +422,12 @@ export function QuickBooksMappingConfig() {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="accounts">Accounts</TabsTrigger>
             <TabsTrigger value="items">Items</TabsTrigger>
-            <TabsTrigger value="payments">Payment Methods</TabsTrigger>
+            <TabsTrigger value="payments">Payments</TabsTrigger>
+            <TabsTrigger value="customers">Customers</TabsTrigger>
+            <TabsTrigger value="vendors">Vendors</TabsTrigger>
           </TabsList>
 
           <TabsContent value="accounts" className="space-y-6 mt-4">
@@ -342,6 +483,33 @@ export function QuickBooksMappingConfig() {
                 </Select>
                 <p className="text-xs text-muted-foreground">
                   Subcontractor bills will be posted to this account
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Deposit/Unearned Revenue Account</Label>
+                <Select
+                  value={getDefaultMapping("deposit_account")?.qbo_id || ""}
+                  onValueChange={(value) => {
+                    const account = [...incomeAccounts, ...(accounts?.filter(a => a.type === "Other Current Liability") || [])].find((a) => a.id === value);
+                    if (account) {
+                      handleDefaultChange("deposit_account", account.id, account.name, account.type);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select deposit account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[...incomeAccounts, ...(accounts?.filter(a => a.type === "Other Current Liability") || [])].map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name} ({account.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Customer deposits before work completion
                 </p>
               </div>
             </div>
@@ -402,6 +570,153 @@ export function QuickBooksMappingConfig() {
               <p className="text-xs text-muted-foreground">
                 Payments will default to this method unless specified
               </p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="customers" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Map Contacts to QuickBooks Customers</Label>
+              <p className="text-xs text-muted-foreground mb-3">
+                Link your local contacts to existing QuickBooks customers for accurate invoice syncing
+              </p>
+              
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search contacts or customers..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            {customersLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <ScrollArea className="h-[300px] border rounded-md p-3">
+                <div className="space-y-3">
+                  {filteredContacts.slice(0, 50).map((contact) => {
+                    const displayName = contact.contact_name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || contact.email || "Unnamed";
+                    const existingMapping = getSourceMapping("customer", contact.id);
+                    
+                    return (
+                      <div key={contact.id} className="flex items-center gap-3 p-2 rounded-md border bg-background">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{displayName}</p>
+                          {contact.email && (
+                            <p className="text-xs text-muted-foreground truncate">{contact.email}</p>
+                          )}
+                        </div>
+                        <Select
+                          value={existingMapping?.qbo_id || ""}
+                          onValueChange={(value) => {
+                            const customer = qbCustomers?.find((c) => c.id === value);
+                            if (customer) {
+                              handleSourceMapping("customer", contact.id, customer.id, customer.name);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Select QB customer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredQbCustomers.map((customer) => (
+                              <SelectItem key={customer.id} value={customer.id}>
+                                {customer.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
+                  {filteredContacts.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">No contacts found</p>
+                  )}
+                  {filteredContacts.length > 50 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      Showing first 50 results. Use search to find more.
+                    </p>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="secondary">{qbCustomers?.length || 0}</Badge>
+              <span>QuickBooks customers available</span>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="vendors" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Map Subcontractors to QuickBooks Vendors</Label>
+              <p className="text-xs text-muted-foreground mb-3">
+                Link your local subcontractors to existing QuickBooks vendors for accurate bill syncing
+              </p>
+              
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search subcontractors or vendors..."
+                  value={vendorSearch}
+                  onChange={(e) => setVendorSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            {vendorsLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <ScrollArea className="h-[300px] border rounded-md p-3">
+                <div className="space-y-3">
+                  {filteredSubcontractors.map((sub) => {
+                    const existingMapping = getSourceMapping("vendor", sub.id);
+                    
+                    return (
+                      <div key={sub.id} className="flex items-center gap-3 p-2 rounded-md border bg-background">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{sub.company_name || "Unnamed"}</p>
+                        </div>
+                        <Select
+                          value={existingMapping?.qbo_id || ""}
+                          onValueChange={(value) => {
+                            const vendor = qbVendors?.find((v) => v.id === value);
+                            if (vendor) {
+                              handleSourceMapping("vendor", sub.id, vendor.id, vendor.name);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Select QB vendor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredQbVendors.map((vendor) => (
+                              <SelectItem key={vendor.id} value={vendor.id}>
+                                {vendor.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
+                  {filteredSubcontractors.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">No subcontractors found</p>
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="secondary">{qbVendors?.length || 0}</Badge>
+              <span>QuickBooks vendors available</span>
             </div>
           </TabsContent>
         </Tabs>
