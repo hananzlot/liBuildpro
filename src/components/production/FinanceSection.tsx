@@ -68,6 +68,7 @@ import {
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
+import { VendorMappingDialog } from "./VendorMappingDialog";
 
 interface SalespersonData {
   name: string | null;
@@ -2913,6 +2914,8 @@ function BillDialog({
   });
   const [categorySearch, setCategorySearch] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const [vendorMappingDialogOpen, setVendorMappingDialogOpen] = useState(false);
+  const [pendingBillData, setPendingBillData] = useState<Partial<Bill> | null>(null);
 
   // Predefined categories
   const predefinedCategories = ["Materials", "Labor", "Permits", "Equipment", "Subcontractor"];
@@ -2975,6 +2978,43 @@ function BillDialog({
     enabled: open,
   });
 
+  // Check if QuickBooks is connected
+  const { data: qbConnection } = useQuery({
+    queryKey: ["qb-connection-status", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("quickbooks_connections")
+        .select("id, is_active, realm_id")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!companyId,
+    staleTime: 60000,
+  });
+
+  const isQBConnected = !!qbConnection?.is_active;
+
+  // Fetch vendor mappings
+  const { data: vendorMappings = [] } = useQuery({
+    queryKey: ["qb-vendor-mappings", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("quickbooks_mappings")
+        .select("source_value, qbo_id, qbo_name")
+        .eq("company_id", companyId)
+        .eq("mapping_type", "vendor");
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!companyId && isQBConnected,
+    staleTime: 30000,
+  });
+
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
@@ -3013,9 +3053,20 @@ function BillDialog({
 
   const billAmount = parseFloat(formData.bill_amount) || 0;
 
+  // Find the selected subcontractor's ID for mapping check
+  const selectedSubcontractor = activeSubcontractors.find(
+    s => s.company_name === formData.installer_company
+  );
+
+  // Check if vendor is already mapped
+  const vendorIsMapped = selectedSubcontractor 
+    ? vendorMappings.some(m => m.source_value === selectedSubcontractor.id)
+    : true; // If no subcontractor selected, skip the check
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
+    
+    const billData: Partial<Bill> = {
       installer_company: formData.installer_company || null,
       category: formData.category || null,
       bill_ref: formData.bill_ref || null,
@@ -3024,10 +3075,28 @@ function BillDialog({
       attachment_url: formData.attachment_url,
       agreement_id: formData.agreement_id || null,
       offset_bill_id: formData.offset_bill_id || null,
-    });
+    };
+
+    // If QB is connected and vendor is not mapped, show mapping dialog
+    if (isQBConnected && selectedSubcontractor && !vendorIsMapped) {
+      setPendingBillData(billData);
+      setVendorMappingDialogOpen(true);
+      return;
+    }
+
+    onSave(billData);
+  };
+
+  // Handle mapping completion - proceed with saving the bill
+  const handleMappingComplete = () => {
+    if (pendingBillData) {
+      onSave(pendingBillData);
+      setPendingBillData(null);
+    }
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -3064,11 +3133,21 @@ function BillDialog({
                       No active subcontractors
                     </SelectItem>
                   ) : (
-                    activeSubcontractors.map((sub) => (
-                      <SelectItem key={sub.id} value={sub.company_name}>
-                        {sub.company_name}
-                      </SelectItem>
-                    ))
+                    activeSubcontractors.map((sub) => {
+                      const isVendorMapped = vendorMappings.some(m => m.source_value === sub.id);
+                      return (
+                        <SelectItem key={sub.id} value={sub.company_name}>
+                          <span className="flex items-center gap-2">
+                            {sub.company_name}
+                            {isQBConnected && !isVendorMapped && (
+                              <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 text-amber-600 border-amber-300 bg-amber-50">
+                                Not in QB
+                              </Badge>
+                            )}
+                          </span>
+                        </SelectItem>
+                      );
+                    })
                   )}
                 </SelectContent>
               </Select>
@@ -3238,6 +3317,21 @@ function BillDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Vendor Mapping Dialog - shows when trying to save a bill with unmapped vendor */}
+    {selectedSubcontractor && (
+      <VendorMappingDialog
+        open={vendorMappingDialogOpen}
+        onOpenChange={(open) => {
+          setVendorMappingDialogOpen(open);
+          if (!open) setPendingBillData(null);
+        }}
+        subcontractorId={selectedSubcontractor.id}
+        subcontractorName={selectedSubcontractor.company_name}
+        onMappingComplete={handleMappingComplete}
+      />
+    )}
+    </>
   );
 }
 
