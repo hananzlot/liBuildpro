@@ -474,6 +474,51 @@ async function processEntityChange(
       }
     }
     
+    // For bills, find and handle deletion
+    if (entityType === "Bill") {
+      let billId = syncLog?.record_id;
+      
+      if (billId) {
+        // Mark the bill as voided/deleted in local DB
+        const { error: deleteError } = await supabase
+          .from("project_bills")
+          .update({
+            is_voided: true,
+            balance: 0,
+          })
+          .eq("id", billId);
+        
+        if (deleteError) {
+          log("error", `Failed to mark local bill as voided`, { error: deleteError.message });
+        } else {
+          log("info", `✓ Marked local bill ${billId} as voided (deleted in QB)`);
+        }
+      } else {
+        log("info", `No local bill found for deleted QB Bill ${qbId}`);
+      }
+    }
+    
+    // For bill payments, find and handle deletion
+    if (entityType === "BillPayment") {
+      let billPaymentId = syncLog?.record_id;
+      
+      if (billPaymentId) {
+        // Delete the local bill payment record
+        const { error: deleteError } = await supabase
+          .from("bill_payments")
+          .delete()
+          .eq("id", billPaymentId);
+        
+        if (deleteError) {
+          log("error", `Failed to delete local bill payment`, { error: deleteError.message });
+        } else {
+          log("info", `✓ Deleted local bill payment ${billPaymentId}`);
+        }
+      } else {
+        log("info", `No local bill payment found for deleted QB BillPayment ${qbId}`);
+      }
+    }
+    
     // Update sync log if exists
     if (syncLog) {
       log("info", `Marking sync log for ${entityType} ${qbId} as deleted_in_qb`);
