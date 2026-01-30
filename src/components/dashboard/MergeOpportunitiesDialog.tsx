@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import {
@@ -18,6 +18,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   Search,
@@ -32,6 +33,8 @@ import {
   DollarSign,
   MapPin,
   FileText,
+  StickyNote,
+  CalendarCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -97,6 +100,84 @@ export function MergeOpportunitiesDialog({
   const [oppB, setOppB] = useState<Opportunity | null>(null);
   const [primary, setPrimary] = useState<"A" | "B">("A");
   const [fieldSelections, setFieldSelections] = useState<Record<string, "A" | "B">>({});
+  const [copyFromSecondary, setCopyFromSecondary] = useState<Record<string, boolean>>({});
+
+  // Fetch appointments for selected opportunities
+  const { data: appointmentsData } = useQuery({
+    queryKey: ["merge-opp-appointments", oppA?.id, oppB?.id, companyId],
+    queryFn: async () => {
+      if (!oppA && !oppB) return { appointmentsA: [], appointmentsB: [] };
+      
+      const oppIds = [oppA?.id, oppB?.id].filter(Boolean) as string[];
+      const contactIds = [
+        oppA?.contact_id, oppB?.contact_id,
+        oppA?.contact_uuid, oppB?.contact_uuid
+      ].filter(Boolean) as string[];
+      
+      if (contactIds.length === 0) return { appointmentsA: [], appointmentsB: [] };
+
+      const { data } = await supabase
+        .from("appointments")
+        .select("id, start_time, title, contact_id, contact_uuid")
+        .eq("company_id", companyId)
+        .or(contactIds.map(id => `contact_id.eq.${id},contact_uuid.eq.${id}`).join(","))
+        .order("start_time", { ascending: true });
+
+      const appointments = data || [];
+      
+      const matchesOpp = (apt: any, opp: Opportunity | null) => {
+        if (!opp) return false;
+        return apt.contact_id === opp.contact_id || 
+               apt.contact_uuid === opp.contact_uuid ||
+               apt.contact_id === opp.contact_uuid ||
+               apt.contact_uuid === opp.contact_id;
+      };
+
+      return {
+        appointmentsA: appointments.filter(a => matchesOpp(a, oppA)),
+        appointmentsB: appointments.filter(a => matchesOpp(a, oppB)),
+      };
+    },
+    enabled: open && (!!oppA || !!oppB),
+  });
+
+  // Fetch notes for selected opportunities
+  const { data: notesData } = useQuery({
+    queryKey: ["merge-opp-notes", oppA?.id, oppB?.id, companyId],
+    queryFn: async () => {
+      if (!oppA && !oppB) return { notesA: [], notesB: [] };
+      
+      const contactIds = [
+        oppA?.contact_id, oppB?.contact_id,
+        oppA?.contact_uuid, oppB?.contact_uuid
+      ].filter(Boolean) as string[];
+      
+      if (contactIds.length === 0) return { notesA: [], notesB: [] };
+
+      const { data } = await supabase
+        .from("contact_notes")
+        .select("id, body, contact_id, contact_uuid, created_at")
+        .eq("company_id", companyId)
+        .or(contactIds.map(id => `contact_id.eq.${id},contact_uuid.eq.${id}`).join(","))
+        .order("created_at", { ascending: false });
+
+      const notes = data || [];
+      
+      const matchesOpp = (note: any, opp: Opportunity | null) => {
+        if (!opp) return false;
+        return note.contact_id === opp.contact_id || 
+               note.contact_uuid === opp.contact_uuid ||
+               note.contact_id === opp.contact_uuid ||
+               note.contact_uuid === opp.contact_id;
+      };
+
+      return {
+        notesA: notes.filter(n => matchesOpp(n, oppA)),
+        notesB: notes.filter(n => matchesOpp(n, oppB)),
+      };
+    },
+    enabled: open && (!!oppA || !!oppB),
+  });
 
   // Reset state when dialog closes
   const handleOpenChange = (isOpen: boolean) => {
@@ -108,6 +189,7 @@ export function MergeOpportunitiesDialog({
       setOppB(null);
       setPrimary("A");
       setFieldSelections({});
+      setCopyFromSecondary({});
     }
     onOpenChange(isOpen);
   };
@@ -289,6 +371,10 @@ export function MergeOpportunitiesDialog({
 
   const renderOpportunityCard = (opp: Opportunity, side: "A" | "B") => {
     const isPrimary = primary === side;
+    const appointments = side === "A" ? appointmentsData?.appointmentsA : appointmentsData?.appointmentsB;
+    const notes = side === "A" ? notesData?.notesA : notesData?.notesB;
+    const nextAppointment = appointments?.find(a => a.start_time && new Date(a.start_time) > new Date());
+    
     return (
       <div
         className={cn(
@@ -300,7 +386,12 @@ export function MergeOpportunitiesDialog({
       >
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold truncate">{opp.name || "Unnamed"}</h4>
+            <h4 className="font-semibold truncate">
+              {opp.name || "Unnamed"}{" "}
+              <span className="text-muted-foreground font-normal text-xs">
+                ({opp.id.slice(-4)})
+              </span>
+            </h4>
             <p className="text-sm text-muted-foreground truncate">
               {getContactName(opp)}
             </p>
@@ -314,11 +405,41 @@ export function MergeOpportunitiesDialog({
             {isPrimary ? "Primary" : "Set Primary"}
           </Button>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs">
+        <div className="flex flex-wrap gap-2 text-xs mb-2">
           <Badge variant="outline">{opp.stage_name || "No stage"}</Badge>
           {opp.monetary_value && (
             <Badge variant="secondary">
               ${Number(opp.monetary_value).toLocaleString()}
+            </Badge>
+          )}
+        </div>
+        {/* Appointment & Notes indicators */}
+        <div className="flex flex-wrap gap-2 text-xs">
+          {appointments && appointments.length > 0 ? (
+            <Badge variant="outline" className="gap-1">
+              <CalendarCheck className="h-3 w-3" />
+              {appointments.length} appt{appointments.length !== 1 ? "s" : ""}
+              {nextAppointment && (
+                <span className="text-muted-foreground">
+                  • Next: {format(new Date(nextAppointment.start_time), "MMM d")}
+                </span>
+              )}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="gap-1 text-muted-foreground">
+              <Calendar className="h-3 w-3" />
+              No appointments
+            </Badge>
+          )}
+          {notes && notes.length > 0 ? (
+            <Badge variant="outline" className="gap-1">
+              <StickyNote className="h-3 w-3" />
+              {notes.length} note{notes.length !== 1 ? "s" : ""}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="gap-1 text-muted-foreground">
+              <StickyNote className="h-3 w-3" />
+              No notes
             </Badge>
           )}
         </div>
@@ -344,6 +465,13 @@ export function MergeOpportunitiesDialog({
     const finalDisplayA = field.key === "assigned_to" ? getUserName(valueA as string) : displayA;
     const finalDisplayB = field.key === "assigned_to" ? getUserName(valueB as string) : displayB;
 
+    // Determine which side is secondary (will be deleted)
+    const secondarySide = primary === "A" ? "B" : "A";
+    const secondaryValue = secondarySide === "A" ? valueA : valueB;
+    const secondaryDisplay = secondarySide === "A" ? finalDisplayA : finalDisplayB;
+    const hasSecondaryValue = secondaryValue !== null && secondaryValue !== undefined && secondaryValue !== "";
+    const isCopyEnabled = copyFromSecondary[field.key] ?? false;
+
     return (
       <div key={field.key} className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center py-3">
         <button
@@ -356,6 +484,26 @@ export function MergeOpportunitiesDialog({
           )}
         >
           <p className="text-sm font-medium truncate">{finalDisplayA}</p>
+          {primary === "B" && hasSecondaryValue && (
+            <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                id={`copy-${field.key}-A`}
+                checked={isCopyEnabled}
+                onCheckedChange={(checked) => {
+                  setCopyFromSecondary(prev => ({ ...prev, [field.key]: !!checked }));
+                  if (checked) {
+                    setFieldSelections(prev => ({ ...prev, [field.key]: "A" }));
+                  }
+                }}
+              />
+              <label 
+                htmlFor={`copy-${field.key}-A`}
+                className="text-xs text-muted-foreground cursor-pointer"
+              >
+                Copy to primary
+              </label>
+            </div>
+          )}
         </button>
 
         <div className="flex flex-col items-center gap-1">
@@ -373,6 +521,26 @@ export function MergeOpportunitiesDialog({
           )}
         >
           <p className="text-sm font-medium truncate">{finalDisplayB}</p>
+          {primary === "A" && hasSecondaryValue && (
+            <div className="flex items-center gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                id={`copy-${field.key}-B`}
+                checked={isCopyEnabled}
+                onCheckedChange={(checked) => {
+                  setCopyFromSecondary(prev => ({ ...prev, [field.key]: !!checked }));
+                  if (checked) {
+                    setFieldSelections(prev => ({ ...prev, [field.key]: "B" }));
+                  }
+                }}
+              />
+              <label 
+                htmlFor={`copy-${field.key}-B`}
+                className="text-xs text-muted-foreground cursor-pointer"
+              >
+                Copy to primary
+              </label>
+            </div>
+          )}
         </button>
       </div>
     );
@@ -518,7 +686,8 @@ export function MergeOpportunitiesDialog({
               <div>
                 <h4 className="font-medium mb-2">Choose values for each field</h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Click on a value to select it for the merged opportunity.
+                  Click on a value to select it for the merged opportunity. Check "Copy to primary" 
+                  to transfer a value from the opportunity being deleted.
                 </p>
                 <div className="space-y-1 divide-y">
                   {MERGE_FIELDS.map(renderFieldComparison)}
