@@ -288,11 +288,11 @@ Deno.serve(async (req) => {
           company_id: companyId,
           invoice_id: invoiceId, // Link to invoice if we found one
           payment_amount: qbPayment.TotalAmt || 0,
-          payment_date: qbPayment.TxnDate || new Date().toISOString().split("T")[0],
-          payment_method: paymentMethod,
-          payment_reference: qbPayment.PaymentRefNum || null,
-          notes: qbPayment.PrivateNote || null,
+          projected_received_date: qbPayment.TxnDate || new Date().toISOString().split("T")[0],
+          payment_status: "Received",
+          check_number: qbPayment.PaymentRefNum || null,
           bank_name: qbPayment.DepositToAccountRef?.name || null,
+          deposit_verified: true,
         })
         .select()
         .single();
