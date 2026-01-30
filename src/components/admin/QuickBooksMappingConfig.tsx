@@ -223,24 +223,60 @@ export function QuickBooksMappingConfig() {
   };
 
   // Fetch local contacts (customers) - search dynamically to handle large datasets
+  // Includes opportunity address for searching
   const { data: contactsRaw, isLoading: contactsLoading } = useQuery({
     queryKey: ["contacts-for-mapping", companyId, customerSearch],
     queryFn: async () => {
-      let query = supabase
-        .from("contacts")
-        .select("id, contact_name, first_name, last_name, email")
-        .eq("company_id", companyId)
-        .order("contact_name")
-        .limit(200); // Fetch more since we'll filter some out
+      // If searching, we need to check if search matches address via opportunities
+      const searchTerm = customerSearch.trim();
       
-      // If there's a search term, filter server-side
-      if (customerSearch.trim()) {
-        query = query.or(`contact_name.ilike.%${customerSearch}%,first_name.ilike.%${customerSearch}%,last_name.ilike.%${customerSearch}%,email.ilike.%${customerSearch}%`);
+      if (searchTerm) {
+        // First, find contact IDs that match via opportunity address
+        const { data: addressMatches } = await supabase
+          .from("opportunities")
+          .select("contact_uuid")
+          .eq("company_id", companyId)
+          .ilike("address", `%${searchTerm}%`)
+          .limit(100);
+        
+        const addressMatchIds = (addressMatches || [])
+          .map((o) => o.contact_uuid)
+          .filter(Boolean) as string[];
+        
+        // Now fetch contacts matching name/email OR in the address match list
+        let query = supabase
+          .from("contacts")
+          .select("id, contact_name, first_name, last_name, email")
+          .eq("company_id", companyId)
+          .order("contact_name")
+          .limit(200);
+        
+        // Build OR filter for name/email matches
+        if (addressMatchIds.length > 0) {
+          query = query.or(
+            `contact_name.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.in.(${addressMatchIds.join(",")})`
+          );
+        } else {
+          query = query.or(
+            `contact_name.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`
+          );
+        }
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        return data;
+      } else {
+        // No search term - just fetch contacts
+        const { data, error } = await supabase
+          .from("contacts")
+          .select("id, contact_name, first_name, last_name, email")
+          .eq("company_id", companyId)
+          .order("contact_name")
+          .limit(200);
+        
+        if (error) throw error;
+        return data;
       }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
     },
     enabled: !!companyId,
   });
