@@ -724,17 +724,23 @@ Deno.serve(async (req) => {
             results.newEntities?.push({ type: "vendor", name: vendorResult.name });
           }
 
-          // Check if this bill was already synced to QB
+          // Check if this bill was already synced to QB.
+          // IMPORTANT: we must treat `pending_refresh` as an existing QB record too.
+          // The inbound webhook can mark records as `pending_refresh`, and if we only
+          // look for `synced`, we can incorrectly POST a *new* Bill (duplicate in QB).
           const { data: existingSync } = await supabase
             .from("quickbooks_sync_log")
             .select("quickbooks_id")
             .eq("company_id", companyId)
             .eq("record_type", "bill")
             .eq("record_id", bill.id)
-            .eq("sync_status", "synced")
-            .single();
+            .in("sync_status", ["synced", "pending_refresh"])
+            .not("quickbooks_id", "is", null)
+            .order("synced_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-          const existingQbId = existingSync?.quickbooks_id;
+          const existingQbId = existingSync?.quickbooks_id || null;
 
           // Get configured expense account mapping (global default)
           const globalExpenseAccountMapping = getMapping("expense_account");
