@@ -366,9 +366,66 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       .reduce((sum, p) => sum + (p.amount || 0), 0);
   };
 
+  // Helper to sync a record to QuickBooks after create/update - returns true if synced successfully
+  const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill", recordId: string): Promise<{ synced: boolean; message?: string }> => {
+    if (!companyId) return { synced: false };
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
+        body: {
+          companyId,
+          syncType: recordType,
+          recordId,
+        },
+      });
+      
+      if (error) {
+        console.error("QuickBooks sync error:", error);
+        return { synced: false };
+      } else if (data?.synced > 0) {
+        console.log("QuickBooks record synced:", recordType, recordId);
+        return { synced: true };
+      }
+      return { synced: false };
+    } catch (err) {
+      console.error("Failed to sync to QuickBooks:", err);
+      return { synced: false };
+    }
+  };
+
+  // Helper to sync deletion to QuickBooks - returns true if synced successfully
+  const syncDeleteToQuickBooks = async (recordType: string, recordId: string): Promise<{ synced: boolean; message?: string }> => {
+    if (!companyId) return { synced: false };
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-quickbooks-record", {
+        body: {
+          companyId,
+          recordType,
+          recordId,
+          action: "void",
+        },
+      });
+      
+      if (error) {
+        console.error("QuickBooks sync error:", error);
+        return { synced: false };
+      } else if (data?.success && !data?.skipped) {
+        console.log("QuickBooks record voided:", data.message);
+        return { synced: true, message: data.message };
+      }
+      return { synced: false };
+    } catch (err) {
+      console.error("Failed to sync delete to QuickBooks:", err);
+      return { synced: false };
+    }
+  };
+
   // Invoice mutations
   const saveInvoiceMutation = useMutation({
     mutationFn: async (invoice: Partial<Invoice>) => {
+      let savedRecordId: string | undefined;
+      
       if (editingInvoice?.id) {
         await logAudit({
           tableName: 'project_invoices',
@@ -383,6 +440,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           .update(invoice)
           .eq("id", editingInvoice.id);
         if (error) throw error;
+        savedRecordId = editingInvoice.id;
       } else {
         const { data: newInvoice, error } = await supabase
           .from("project_invoices")
@@ -397,10 +455,25 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           newValues: newInvoice,
           description: `Created invoice ${invoice.invoice_number}`,
         });
+        savedRecordId = newInvoice.id;
       }
+
+      // Sync to QuickBooks if connected
+      let qbSynced = false;
+      if (savedRecordId) {
+        const qbResult = await syncRecordToQuickBooks("invoice", savedRecordId);
+        qbSynced = qbResult.synced;
+      }
+
+      return { qbSynced, isEdit: !!editingInvoice?.id };
     },
-    onSuccess: () => {
-      toast.success(editingInvoice?.id ? "Invoice updated" : "Invoice created");
+    onSuccess: (result) => {
+      const baseMsg = result?.isEdit ? "Invoice updated" : "Invoice created";
+      if (result?.qbSynced) {
+        toast.success(`${baseMsg} and synced to QuickBooks`);
+      } else {
+        toast.success(baseMsg);
+      }
       queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ["all-project-invoices"], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ["project-payments", projectId], refetchType: 'all' });
@@ -414,6 +487,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   // Payment mutations
   const savePaymentMutation = useMutation({
     mutationFn: async (payment: Partial<Payment>) => {
+      let savedRecordId: string | undefined;
+      
       if (editingPayment?.id) {
         await logAudit({
           tableName: 'project_payments',
@@ -428,6 +503,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           .update(payment)
           .eq("id", editingPayment.id);
         if (error) throw error;
+        savedRecordId = editingPayment.id;
       } else {
         const { data: newPayment, error } = await supabase
           .from("project_payments")
@@ -442,6 +518,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           newValues: newPayment,
           description: `Created payment ${formatCurrency(payment.payment_amount)}`,
         });
+        savedRecordId = newPayment.id;
       }
 
       // Update invoice balance if payment is linked to an invoice
@@ -471,9 +548,23 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
             .eq("id", payment.invoice_id);
         }
       }
+
+      // Sync to QuickBooks if connected
+      let qbSynced = false;
+      if (savedRecordId) {
+        const qbResult = await syncRecordToQuickBooks("payment", savedRecordId);
+        qbSynced = qbResult.synced;
+      }
+
+      return { qbSynced, isEdit: !!editingPayment?.id };
     },
-    onSuccess: () => {
-      toast.success(editingPayment?.id ? "Payment updated" : "Payment created");
+    onSuccess: (result) => {
+      const baseMsg = result?.isEdit ? "Payment updated" : "Payment created";
+      if (result?.qbSynced) {
+        toast.success(`${baseMsg} and synced to QuickBooks`);
+      } else {
+        toast.success(baseMsg);
+      }
       queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
       queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
@@ -505,6 +596,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   // Bill mutations - simplified (payments handled via QuickPay only)
   const saveBillMutation = useMutation({
     mutationFn: async (bill: Partial<Bill>) => {
+      let savedRecordId: string | undefined;
+      
       if (editingBill?.id) {
         // When editing, preserve existing amount_paid and recalculate balance
         const currentAmountPaid = editingBill.amount_paid || 0;
@@ -523,6 +616,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           .update({ ...bill, balance })
           .eq("id", editingBill.id);
         if (error) throw error;
+        savedRecordId = editingBill.id;
       } else {
         // New bill starts with 0 paid and full balance
         const { data: newBill, error } = await supabase
@@ -539,6 +633,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           newValues: newBill,
           description: `Created bill ${bill.bill_ref} - ${formatCurrency(bill.bill_amount)}`,
         });
+
+        savedRecordId = newBill.id;
 
         // If this bill offsets a subcontractor bill, update the subcontractor bill
         if (bill.offset_bill_id) {
@@ -581,9 +677,23 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           }
         }
       }
+
+      // Sync to QuickBooks if connected
+      let qbSynced = false;
+      if (savedRecordId) {
+        const qbResult = await syncRecordToQuickBooks("bill", savedRecordId);
+        qbSynced = qbResult.synced;
+      }
+
+      return { qbSynced, isEdit: !!editingBill?.id };
     },
-    onSuccess: () => {
-      toast.success(editingBill?.id ? "Bill updated" : "Bill created");
+    onSuccess: (result) => {
+      const baseMsg = result?.isEdit ? "Bill updated" : "Bill created";
+      if (result?.qbSynced) {
+        toast.success(`${baseMsg} and synced to QuickBooks`);
+      } else {
+        toast.success(baseMsg);
+      }
       queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
       setBillDialogOpen(false);
@@ -635,9 +745,17 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         .update({ amount_paid: totalPaid, balance })
         .eq("id", billId);
       if (updateError) throw updateError;
+
+      // Sync the bill to QuickBooks (this updates the bill payment status)
+      const qbResult = await syncRecordToQuickBooks("bill", billId);
+      return { qbSynced: qbResult.synced };
     },
-    onSuccess: () => {
-      toast.success("Payment recorded");
+    onSuccess: (result) => {
+      if (result?.qbSynced) {
+        toast.success("Payment recorded and synced to QuickBooks");
+      } else {
+        toast.success("Payment recorded");
+      }
       queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
       setQuickPayDialogOpen(false);
@@ -645,34 +763,6 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
-
-  // Helper to sync deletion to QuickBooks - returns true if synced successfully
-  const syncDeleteToQuickBooks = async (recordType: string, recordId: string): Promise<{ synced: boolean; message?: string }> => {
-    if (!companyId) return { synced: false };
-    
-    try {
-      const { data, error } = await supabase.functions.invoke("delete-quickbooks-record", {
-        body: {
-          companyId,
-          recordType,
-          recordId,
-          action: "void",
-        },
-      });
-      
-      if (error) {
-        console.error("QuickBooks sync error:", error);
-        return { synced: false };
-      } else if (data?.success && !data?.skipped) {
-        console.log("QuickBooks record voided:", data.message);
-        return { synced: true, message: data.message };
-      }
-      return { synced: false };
-    } catch (err) {
-      console.error("Failed to sync delete to QuickBooks:", err);
-      return { synced: false };
-    }
-  };
 
   // Void bill mutation
   const voidBillMutation = useMutation({
