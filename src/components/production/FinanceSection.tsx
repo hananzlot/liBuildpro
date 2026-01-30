@@ -3761,6 +3761,7 @@ function BillDialog({
 
   // Handle mapping completion - proceed with saving the bill
   const handleMappingComplete = () => {
+    setVendorMappingDialogOpen(false);
     if (pendingBillData) {
       onSave(pendingBillData);
       setPendingBillData(null);
