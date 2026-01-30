@@ -215,10 +215,17 @@ Deno.serve(async (req) => {
         const errText = await voidRes.text();
         console.error(`Failed to void/delete ${qbEntityType}:`, errText);
         
-        // Check if this is a credit card payment that can't be voided
-        // QuickBooks error 6000: "You can't void this credit card amount..."
-        if (errText.includes("6000") || errText.includes("credit card")) {
-          console.log("Credit card payment cannot be voided in QB, marking as deleted locally");
+        // Check for common QuickBooks validation errors that prevent voiding
+        // Error 6000: Various business validation errors including:
+        // - "You can't void this credit card amount..."
+        // - Payment already applied/deposited errors
+        const isBusinessValidationError = errText.includes("6000") || 
+          errText.includes("ValidationFault") ||
+          errText.includes("can't void") ||
+          errText.includes("cannot void");
+        
+        if (isBusinessValidationError) {
+          console.log("Payment cannot be voided in QB (validation error), marking as deleted locally");
           await supabase
             .from("quickbooks_sync_log")
             .update({ 
@@ -229,10 +236,22 @@ Deno.serve(async (req) => {
             .eq("record_type", recordType)
             .eq("record_id", recordId);
           
+          // Parse the error to give a more helpful message
+          let userMessage = "Payment cannot be voided in QuickBooks";
+          try {
+            const errJson = JSON.parse(errText);
+            const detail = errJson?.Fault?.Error?.[0]?.Detail;
+            if (detail) {
+              userMessage = detail;
+            }
+          } catch {
+            // Keep default message
+          }
+          
           return new Response(
             JSON.stringify({ 
               success: true, 
-              message: "Credit card payment cannot be voided in QuickBooks - marked as deleted locally. You may need to void it manually in QuickBooks.",
+              message: `${userMessage}. Marked as deleted locally - you may need to void/delete it manually in QuickBooks.`,
               quickbooks_id: qbId,
               manual_action_required: true
             }),
