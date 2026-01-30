@@ -377,19 +377,25 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   }, [projectId, queryClient]);
 
   // Subscribe to Realtime changes on project_bills for this project
+  // We listen to all events and filter in the callback because:
+  // 1. New bills from QB may initially have project_id=null, then get updated
+  // 2. DELETE events don't reliably include filter-matching data
   useEffect(() => {
-    const filteredChannel = supabase
-      .channel(`project-bills-filtered-${projectId}`)
+    const channel = supabase
+      .channel(`project-bills-realtime-${projectId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "project_bills",
-          filter: `project_id=eq.${projectId}`,
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+        (payload) => {
+          // Check if the inserted bill is for this project
+          const newRow = payload.new as { project_id?: string } | undefined;
+          if (newRow?.project_id === projectId) {
+            queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+          }
         }
       )
       .on(
@@ -398,17 +404,17 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           event: "UPDATE",
           schema: "public",
           table: "project_bills",
-          filter: `project_id=eq.${projectId}`,
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+        (payload) => {
+          // Check if the bill is now or was previously for this project
+          const newRow = payload.new as { project_id?: string } | undefined;
+          const oldRow = payload.old as { project_id?: string } | undefined;
+          if (newRow?.project_id === projectId || oldRow?.project_id === projectId) {
+            queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+            queryClient.invalidateQueries({ queryKey: ["project-bill-payments", projectId] });
+          }
         }
       )
-      .subscribe();
-
-    // Separate channel for DELETE events
-    const deleteChannel = supabase
-      .channel(`project-bills-delete-${projectId}`)
       .on(
         "postgres_changes",
         {
@@ -426,8 +432,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       .subscribe();
 
     return () => {
-      supabase.removeChannel(filteredChannel);
-      supabase.removeChannel(deleteChannel);
+      supabase.removeChannel(channel);
     };
   }, [projectId, queryClient]);
 
