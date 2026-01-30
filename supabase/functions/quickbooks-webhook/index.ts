@@ -479,6 +479,69 @@ async function processEntityChange(
               error_message: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
             });
         }
+      } else if (entityType === "BillPayment") {
+        // For bill payments, automatically fetch and import
+        log("info", `Triggering automatic import for new bill payment ${qbId}`);
+        
+        try {
+          const fetchResult = await supabase.functions.invoke("quickbooks-fetch-bill-payment", {
+            body: {
+              companyId,
+              qbBillPaymentId: qbId,
+              realmId,
+              action: "fetch-single"
+            }
+          });
+
+          if (fetchResult.error) {
+            log("error", `Failed to fetch bill payment ${qbId}`, { error: fetchResult.error });
+            await supabase
+              .from("quickbooks_sync_log")
+              .insert({
+                company_id: companyId,
+                record_type: recordType,
+                record_id: null,
+                quickbooks_id: qbId,
+                sync_status: "import_failed",
+                last_sync_at: new Date().toISOString(),
+                error_message: `Auto-import failed: ${fetchResult.error}`
+              });
+          } else if (fetchResult.data?.error) {
+            log("warn", `Bill payment import returned error`, { error: fetchResult.data.error });
+            await supabase
+              .from("quickbooks_sync_log")
+              .insert({
+                company_id: companyId,
+                record_type: recordType,
+                record_id: null,
+                quickbooks_id: qbId,
+                sync_status: "import_failed",
+                last_sync_at: new Date().toISOString(),
+                error_message: fetchResult.data.error
+              });
+          } else {
+            log("info", `✓ Successfully imported bill payment ${qbId}`, { 
+              billPaymentId: fetchResult.data?.billPaymentId,
+              matchMethod: fetchResult.data?.matchMethod,
+              billId: fetchResult.data?.billId
+            });
+          }
+        } catch (err) {
+          log("error", `Exception importing bill payment ${qbId}`, { 
+            error: err instanceof Error ? err.message : String(err) 
+          });
+          await supabase
+            .from("quickbooks_sync_log")
+            .insert({
+              company_id: companyId,
+              record_type: recordType,
+              record_id: null,
+              quickbooks_id: qbId,
+              sync_status: "created_in_qb",
+              last_sync_at: new Date().toISOString(),
+              error_message: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
+            });
+        }
       } else {
         // For other entity types, just log the creation
         const { error: insertError } = await supabase
