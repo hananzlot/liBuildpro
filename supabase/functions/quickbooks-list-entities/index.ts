@@ -171,7 +171,12 @@ Deno.serve(async (req) => {
     switch (entityType) {
       case "accounts":
         // Get income and expense accounts
-        query = "SELECT * FROM Account WHERE AccountType IN ('Income', 'Other Income', 'Expense', 'Other Expense', 'Cost of Goods Sold') MAXRESULTS 500";
+        query = "SELECT * FROM Account WHERE AccountType IN ('Income', 'Other Income', 'Expense', 'Other Expense', 'Cost of Goods Sold', 'Other Current Liability') MAXRESULTS 500";
+        resultKey = "Account";
+        break;
+      case "allAccounts":
+        // Get ALL accounts for full GL mapping
+        query = "SELECT * FROM Account WHERE Active = true MAXRESULTS 1000";
         resultKey = "Account";
         break;
       case "items":
