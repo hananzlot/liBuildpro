@@ -4598,6 +4598,29 @@ function BillPaymentHistoryDialog({
         description: `Deleted bill payment of ${formatCurrency(payment?.payment_amount)}`,
       });
 
+      // Delete/void in QuickBooks first (before deleting locally)
+      if (companyId) {
+        try {
+          const { data: qbResult, error: qbError } = await supabase.functions.invoke("delete-quickbooks-record", {
+            body: {
+              companyId,
+              recordType: "bill_payment",
+              recordId: paymentId,
+              action: "void",
+            },
+          });
+          if (qbError) {
+            console.error("QuickBooks delete error:", qbError);
+          } else if (qbResult?.manual_action_required) {
+            toast.info(qbResult.message, { duration: 6000 });
+          } else if (qbResult?.success) {
+            console.log("Bill payment deleted/voided in QuickBooks");
+          }
+        } catch (err) {
+          console.error("Failed to delete from QuickBooks:", err);
+        }
+      }
+
       const { error } = await supabase
         .from("bill_payments")
         .delete()
