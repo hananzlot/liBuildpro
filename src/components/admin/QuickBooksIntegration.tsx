@@ -186,10 +186,12 @@ export function QuickBooksIntegration() {
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
               <div className="space-y-1">
                 <p className="text-sm font-medium">Company ID: {connection.realm_id}</p>
-                <p className="text-xs text-muted-foreground">
-                  Connected {format(new Date(connection.connected_at), "MMM d, yyyy")}
-                </p>
-                {connection.last_sync_at && (
+                {connection.connected_at && !isNaN(new Date(connection.connected_at).getTime()) && (
+                  <p className="text-xs text-muted-foreground">
+                    Connected {format(new Date(connection.connected_at), "MMM d, yyyy")}
+                  </p>
+                )}
+                {connection.last_sync_at && !isNaN(new Date(connection.last_sync_at).getTime()) && (
                   <p className="text-xs text-muted-foreground">
                     Last synced {format(new Date(connection.last_sync_at), "MMM d, yyyy 'at' h:mm a")}
                   </p>
