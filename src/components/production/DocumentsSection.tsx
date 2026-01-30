@@ -232,31 +232,61 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     },
   });
 
-  // Delete mutation
+  // Delete mutation - handles documents, bills, and agreements
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      if (!deleteTarget || deleteTarget.source !== "document") return;
+      if (!deleteTarget) return;
       
-      // Delete from storage
+      // Delete file from storage based on source
       try {
-        const urlParts = deleteTarget.file_url.split("/project-attachments/");
-        if (urlParts.length > 1) {
-          await supabase.storage.from("project-attachments").remove([urlParts[1]]);
+        if (deleteTarget.source === "document") {
+          const urlParts = deleteTarget.file_url.split("/project-attachments/");
+          if (urlParts.length > 1) {
+            await supabase.storage.from("project-attachments").remove([urlParts[1]]);
+          }
+        } else if (deleteTarget.source === "agreement") {
+          const urlParts = deleteTarget.file_url.split("/contracts/");
+          if (urlParts.length > 1) {
+            await supabase.storage.from("contracts").remove([urlParts[1]]);
+          }
+        } else if (deleteTarget.source === "bill") {
+          const urlParts = deleteTarget.file_url.split("/project-attachments/");
+          if (urlParts.length > 1) {
+            await supabase.storage.from("project-attachments").remove([urlParts[1]]);
+          }
         }
       } catch (e) {
         console.error("Failed to delete file from storage:", e);
       }
 
-      // Delete record
-      const { error } = await supabase
-        .from("project_documents")
-        .delete()
-        .eq("id", deleteTarget.id);
-      if (error) throw error;
+      // Delete or update record based on source
+      if (deleteTarget.source === "document") {
+        const { error } = await supabase
+          .from("project_documents")
+          .delete()
+          .eq("id", deleteTarget.id);
+        if (error) throw error;
+      } else if (deleteTarget.source === "agreement") {
+        // Clear the attachment_url instead of deleting the agreement record
+        const { error } = await supabase
+          .from("project_agreements")
+          .update({ attachment_url: null })
+          .eq("id", deleteTarget.id);
+        if (error) throw error;
+      } else if (deleteTarget.source === "bill") {
+        // Clear the attachment_url instead of deleting the bill record
+        const { error } = await supabase
+          .from("project_bills")
+          .update({ attachment_url: null })
+          .eq("id", deleteTarget.id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       toast.success("Document deleted");
       queryClient.invalidateQueries({ queryKey: ["project-documents", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["project-agreement-attachments", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["project-bill-attachments", projectId] });
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
     },
@@ -278,10 +308,6 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   };
 
   const handleDeleteClick = (doc: Document) => {
-    if (doc.source !== "document") {
-      toast.error("This file is attached to a bill or agreement. Edit that record to remove it.");
-      return;
-    }
     setDeleteTarget(doc);
     setDeleteDialogOpen(true);
   };
@@ -400,13 +426,13 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
                       >
                         <ExternalLink className="h-3 w-3" />
                       </Button>
-                      {doc.source === "document" && isAdmin && (
+                      {isAdmin && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 text-destructive"
                           onClick={() => handleDeleteClick(doc)}
-                          title="Delete"
+                          title={doc.source === "document" ? "Delete" : "Remove attachment"}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -483,9 +509,14 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete document?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteTarget?.source === "document" ? "Delete document?" : "Remove attachment?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete "{deleteTarget?.file_name}". This action cannot be undone.
+              {deleteTarget?.source === "document" 
+                ? `This will permanently delete "${deleteTarget?.file_name}". This action cannot be undone.`
+                : `This will remove the attachment from "${deleteTarget?.file_name}" and delete the file from storage. The ${deleteTarget?.source} record will remain.`
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -494,7 +525,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
               onClick={() => deleteMutation.mutate()}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {deleteTarget?.source === "document" ? "Delete" : "Remove"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
