@@ -406,15 +406,41 @@ async function processEntityChange(
       }
       
       if (invoiceId) {
-        // Mark the invoice as deleted/voided by setting amount to 0 or adding a note
+        // Mark the invoice as deleted in local DB (no explicit status column exists)
+        // We:
+        // - zero out financials
+        // - set exclude_from_qb=true to prevent re-sync attempts
+        // - prefix invoice_number so the UI clearly reflects the deleted state
+
+        const { data: existingInvoice, error: existingInvoiceError } = await supabase
+          .from("project_invoices")
+          .select("invoice_number")
+          .eq("company_id", companyId)
+          .eq("id", invoiceId)
+          .maybeSingle();
+
+        if (existingInvoiceError) {
+          log("warn", `Failed to load existing invoice_number before marking deleted`, {
+            error: existingInvoiceError.message,
+          });
+        }
+
+        const currentInvoiceNumber = existingInvoice?.invoice_number || `QB-${qbId}`;
+        const deletedInvoiceNumber = currentInvoiceNumber.startsWith("DELETED-")
+          ? currentInvoiceNumber
+          : `DELETED-${currentInvoiceNumber}`;
+
         const { error: deleteError } = await supabase
           .from("project_invoices")
           .update({
+            invoice_number: deletedInvoiceNumber,
             amount: 0,
             total_expected: 0,
+            payments_received: 0,
             open_balance: 0,
-            notes: `Deleted in QuickBooks on ${new Date().toISOString()}`
+            exclude_from_qb: true,
           })
+          .eq("company_id", companyId)
           .eq("id", invoiceId);
         
         if (deleteError) {
@@ -456,7 +482,7 @@ async function processEntityChange(
         .update({ 
           sync_status: "deleted_in_qb",
           synced_at: new Date().toISOString(),
-          error_message: "Deleted in QuickBooks"
+          sync_error: "Deleted in QuickBooks"
         })
         .eq("id", syncLog.id);
       
@@ -480,8 +506,8 @@ async function processEntityChange(
         .from("quickbooks_sync_log")
         .update({
           sync_status: "pending_refresh",
-          last_sync_at: new Date().toISOString(),
-          error_message: `${operation} detected in QuickBooks at ${entity.lastUpdated}`
+          synced_at: new Date().toISOString(),
+          sync_error: `${operation} detected in QuickBooks at ${entity.lastUpdated}`
         })
         .eq("id", syncLog.id);
       
@@ -518,8 +544,8 @@ async function processEntityChange(
                 record_id: null,
                 quickbooks_id: qbId,
                 sync_status: "import_failed",
-                last_sync_at: new Date().toISOString(),
-                error_message: `Auto-import failed: ${fetchResult.error}`
+                synced_at: new Date().toISOString(),
+                sync_error: `Auto-import failed: ${fetchResult.error}`
               });
           } else if (fetchResult.data?.error) {
             log("warn", `Invoice import returned error`, { error: fetchResult.data.error });
@@ -531,8 +557,8 @@ async function processEntityChange(
                 record_id: null,
                 quickbooks_id: qbId,
                 sync_status: "import_failed",
-                last_sync_at: new Date().toISOString(),
-                error_message: fetchResult.data.error
+                synced_at: new Date().toISOString(),
+                sync_error: fetchResult.data.error
               });
           } else {
             log("info", `✓ Successfully imported invoice ${qbId}`, { 
@@ -552,8 +578,8 @@ async function processEntityChange(
               record_id: null,
               quickbooks_id: qbId,
               sync_status: "created_in_qb",
-              last_sync_at: new Date().toISOString(),
-              error_message: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
+              synced_at: new Date().toISOString(),
+              sync_error: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
             });
         }
       } else if (entityType === "Payment") {
@@ -580,8 +606,8 @@ async function processEntityChange(
                 record_id: null,
                 quickbooks_id: qbId,
                 sync_status: "import_failed",
-                last_sync_at: new Date().toISOString(),
-                error_message: `Auto-import failed: ${fetchResult.error}`
+                synced_at: new Date().toISOString(),
+                sync_error: `Auto-import failed: ${fetchResult.error}`
               });
           } else if (fetchResult.data?.error) {
             log("warn", `Payment import returned error`, { error: fetchResult.data.error });
@@ -593,8 +619,8 @@ async function processEntityChange(
                 record_id: null,
                 quickbooks_id: qbId,
                 sync_status: "import_failed",
-                last_sync_at: new Date().toISOString(),
-                error_message: fetchResult.data.error
+                synced_at: new Date().toISOString(),
+                sync_error: fetchResult.data.error
               });
           } else {
             log("info", `✓ Successfully imported payment ${qbId}`, { 
@@ -615,8 +641,8 @@ async function processEntityChange(
               record_id: null,
               quickbooks_id: qbId,
               sync_status: "created_in_qb",
-              last_sync_at: new Date().toISOString(),
-              error_message: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
+              synced_at: new Date().toISOString(),
+              sync_error: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
             });
         }
       } else if (entityType === "Bill") {
@@ -643,8 +669,8 @@ async function processEntityChange(
                 record_id: null,
                 quickbooks_id: qbId,
                 sync_status: "import_failed",
-                last_sync_at: new Date().toISOString(),
-                error_message: `Auto-import failed: ${fetchResult.error}`
+                synced_at: new Date().toISOString(),
+                sync_error: `Auto-import failed: ${fetchResult.error}`
               });
           } else if (fetchResult.data?.error) {
             log("warn", `Bill import returned error`, { error: fetchResult.data.error });
@@ -656,8 +682,8 @@ async function processEntityChange(
                 record_id: null,
                 quickbooks_id: qbId,
                 sync_status: "import_failed",
-                last_sync_at: new Date().toISOString(),
-                error_message: fetchResult.data.error
+                synced_at: new Date().toISOString(),
+                sync_error: fetchResult.data.error
               });
           } else {
             log("info", `✓ Successfully imported bill ${qbId}`, { 
@@ -679,8 +705,8 @@ async function processEntityChange(
               record_id: null,
               quickbooks_id: qbId,
               sync_status: "created_in_qb",
-              last_sync_at: new Date().toISOString(),
-              error_message: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
+              synced_at: new Date().toISOString(),
+              sync_error: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
             });
         }
       } else if (entityType === "BillPayment") {
@@ -707,8 +733,8 @@ async function processEntityChange(
                 record_id: null,
                 quickbooks_id: qbId,
                 sync_status: "import_failed",
-                last_sync_at: new Date().toISOString(),
-                error_message: `Auto-import failed: ${fetchResult.error}`
+                synced_at: new Date().toISOString(),
+                sync_error: `Auto-import failed: ${fetchResult.error}`
               });
           } else if (fetchResult.data?.error) {
             log("warn", `Bill payment import returned error`, { error: fetchResult.data.error });
@@ -720,8 +746,8 @@ async function processEntityChange(
                 record_id: null,
                 quickbooks_id: qbId,
                 sync_status: "import_failed",
-                last_sync_at: new Date().toISOString(),
-                error_message: fetchResult.data.error
+                synced_at: new Date().toISOString(),
+                sync_error: fetchResult.data.error
               });
           } else {
             log("info", `✓ Successfully imported bill payment ${qbId}`, { 
@@ -742,8 +768,8 @@ async function processEntityChange(
               record_id: null,
               quickbooks_id: qbId,
               sync_status: "created_in_qb",
-              last_sync_at: new Date().toISOString(),
-              error_message: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
+              synced_at: new Date().toISOString(),
+              sync_error: `Exception during auto-import: ${err instanceof Error ? err.message : String(err)}`
             });
         }
       } else {
@@ -756,8 +782,8 @@ async function processEntityChange(
             record_id: null,
             quickbooks_id: qbId,
             sync_status: "created_in_qb",
-            last_sync_at: new Date().toISOString(),
-            error_message: `Created in QuickBooks at ${entity.lastUpdated}`
+            synced_at: new Date().toISOString(),
+            sync_error: `Created in QuickBooks at ${entity.lastUpdated}`
           });
         
         if (insertError) {
