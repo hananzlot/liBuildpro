@@ -32,7 +32,7 @@ export function InviteCompanyAdminDialog({
 }: InviteCompanyAdminDialogProps) {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [result, setResult] = useState<{ tempPassword: string } | null>(null);
+  const [result, setResult] = useState<{ tempPassword: string | null; isExistingUser: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
 
   const inviteMutation = useMutation({
@@ -54,8 +54,10 @@ export function InviteCompanyAdminDialog({
       return data;
     },
     onSuccess: (data) => {
-      setResult({ tempPassword: data.tempPassword });
-      toast.success("Invitation sent successfully!");
+      setResult({ tempPassword: data.tempPassword, isExistingUser: data.isExistingUser });
+      toast.success(data.isExistingUser 
+        ? "Existing user reassigned to this company!" 
+        : "Invitation sent successfully!");
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to send invitation");
@@ -107,40 +109,44 @@ export function InviteCompanyAdminDialog({
 
         {result ? (
           <div className="space-y-4 py-4">
-            <Alert className="border-green-200 bg-green-50">
-              <Check className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                Invitation sent! The new admin will receive an email with login instructions.
+            <Alert className="border-primary/20 bg-primary/5">
+              <Check className="h-4 w-4 text-primary" />
+              <AlertDescription className="text-foreground">
+                {result.isExistingUser 
+                  ? "Existing user has been reassigned to this company as an admin. They'll see the change on their next login."
+                  : "Invitation sent! The new admin will receive an email with login instructions."}
               </AlertDescription>
             </Alert>
 
-            <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">
-                Backup: Temporary Password
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  value={result.tempPassword}
-                  readOnly
-                  className="font-mono text-sm"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCopyPassword}
-                >
-                  {copied ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
+            {result.tempPassword && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">
+                  Backup: Temporary Password
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={result.tempPassword}
+                    readOnly
+                    className="font-mono text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyPassword}
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Share this password manually if the email doesn't arrive.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Share this password manually if the email doesn't arrive.
-              </p>
-            </div>
+            )}
 
             <DialogFooter>
               <Button onClick={handleClose}>Done</Button>
