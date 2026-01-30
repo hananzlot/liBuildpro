@@ -109,16 +109,21 @@ Deno.serve(async (req) => {
       return mappings?.find((m) => m.mapping_type === type && m.is_default);
     };
     // Helper to check if customer exists - first via mapping, then via QB name search
+    // NOTE: Customer mappings are stored against the *contact UUID* (contacts.id), not the project id.
     async function checkCustomerExists(project: any): Promise<{ exists: boolean; id: string | null; name: string; fromMapping: boolean }> {
       const customerName = project.project_name || project.project_address || `Project ${project.project_number}`;
-      
-      // First check if there's a manual mapping for this project
-      const projectMapping = mappings?.find(
-        (m) => m.mapping_type === "customer" && m.source_value === project.id
-      );
-      if (projectMapping) {
-        console.log(`Found customer mapping for project ${project.id}: QB ID ${projectMapping.qbo_id}`);
-        return { exists: true, id: projectMapping.qbo_id, name: projectMapping.qbo_name || customerName, fromMapping: true };
+
+      const mappingSource = project.contact_uuid || project.contact_id || null;
+
+      // First check if there's a manual mapping for this project's contact
+      if (mappingSource) {
+        const mapped = mappings?.find(
+          (m) => m.mapping_type === "customer" && m.source_value === mappingSource
+        );
+        if (mapped) {
+          console.log(`Found customer mapping for contact ${mappingSource}: QB ID ${mapped.qbo_id}`);
+          return { exists: true, id: mapped.qbo_id, name: mapped.qbo_name || customerName, fromMapping: true };
+        }
       }
       
       // Fall back to QB name search
@@ -212,7 +217,7 @@ Deno.serve(async (req) => {
         if (recordId) {
           const { data: invoice } = await supabase
             .from("project_invoices")
-            .select("*, projects!inner(id, project_name, project_address, project_number)")
+            .select("*, projects!inner(id, project_name, project_address, project_number, contact_uuid, contact_id)")
             .eq("id", recordId)
             .single();
           
@@ -229,7 +234,7 @@ Deno.serve(async (req) => {
       if (syncType === "payment" && recordId) {
         const { data: payment } = await supabase
           .from("project_payments")
-          .select("*, projects!inner(id, project_name, project_address, project_number)")
+          .select("*, projects!inner(id, project_name, project_address, project_number, contact_uuid, contact_id)")
           .eq("id", recordId)
           .single();
         
@@ -276,7 +281,7 @@ Deno.serve(async (req) => {
       } else {
         let invoiceQuery = supabase
           .from("project_invoices")
-          .select("*, projects!inner(id, project_name, project_address, project_number)")
+          .select("*, projects!inner(id, project_name, project_address, project_number, contact_uuid, contact_id)")
           .eq("projects.company_id", companyId)
           .eq("exclude_from_qb", false);
 
@@ -386,7 +391,7 @@ Deno.serve(async (req) => {
       } else {
         let paymentQuery = supabase
           .from("project_payments")
-          .select("*, projects!inner(id, project_name, project_address, project_number, company_id)")
+          .select("*, projects!inner(id, project_name, project_address, project_number, company_id, contact_uuid, contact_id)")
           .eq("projects.company_id", companyId)
           .eq("exclude_from_qb", false);
 
