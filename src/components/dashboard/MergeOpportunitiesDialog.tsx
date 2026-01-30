@@ -74,6 +74,7 @@ type MergeField = {
 
 const MERGE_FIELDS: MergeField[] = [
   { key: "name", label: "Opportunity Name", icon: FileText },
+  { key: "contact_uuid", label: "Contact", icon: User },
   { key: "address", label: "Address", icon: MapPin },
   { key: "scope_of_work", label: "Scope of Work", icon: FileText },
   { key: "monetary_value", label: "Value", icon: DollarSign, format: (v) => v ? `$${Number(v).toLocaleString()}` : "—" },
@@ -278,10 +279,13 @@ export function MergeOpportunitiesDialog({
         }
       });
 
-      // Always keep primary's core fields
+      // Always keep primary's ghl_id
       mergedData.ghl_id = primaryOpp.ghl_id;
-      mergedData.contact_id = primaryOpp.contact_id;
-      mergedData.contact_uuid = primaryOpp.contact_uuid;
+      
+      // Use contact from the selected field, not forced from primary
+      const contactSource = fieldSelections["contact_uuid"] === "A" ? oppA : oppB;
+      mergedData.contact_id = contactSource.contact_id;
+      mergedData.contact_uuid = contactSource.contact_uuid;
       mergedData.updated_at = new Date().toISOString();
 
       // 1. Update the primary opportunity with merged data
@@ -462,8 +466,16 @@ export function MergeOpportunitiesDialog({
     const selected = fieldSelections[field.key];
 
     // Handle assigned_to specially to show names
-    const finalDisplayA = field.key === "assigned_to" ? getUserName(valueA as string) : displayA;
-    const finalDisplayB = field.key === "assigned_to" ? getUserName(valueB as string) : displayB;
+    let finalDisplayA = field.key === "assigned_to" ? getUserName(valueA as string) : displayA;
+    let finalDisplayB = field.key === "assigned_to" ? getUserName(valueB as string) : displayB;
+    
+    // Handle contact_uuid specially to show contact names
+    if (field.key === "contact_uuid") {
+      const contactA = contacts.find(c => c.id === oppA?.contact_uuid || c.ghl_id === oppA?.contact_id);
+      const contactB = contacts.find(c => c.id === oppB?.contact_uuid || c.ghl_id === oppB?.contact_id);
+      finalDisplayA = contactA?.contact_name || contactA?.email || oppA?.contact_uuid || "—";
+      finalDisplayB = contactB?.contact_name || contactB?.email || oppB?.contact_uuid || "—";
+    }
 
     // Determine which side is secondary (will be deleted)
     const secondarySide = primary === "A" ? "B" : "A";
