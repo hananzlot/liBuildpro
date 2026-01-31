@@ -387,7 +387,15 @@ export function MergeContactsDialog({
     },
     onSuccess: (data) => {
       toast.success(`Merged contacts into "${data.primary.contact_name}"`);
-      queryClient.invalidateQueries({ queryKey: ["ghl-metrics"] });
+      // IMPORTANT: useGHLMetrics is a composition of multiple queries.
+      // Invalidating a non-existent "ghl-metrics" key won't refresh the UI.
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["contact_notes"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl_tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
       handleOpenChange(false);
     },
     onError: (error) => {
