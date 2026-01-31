@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit } from "@/hooks/useAuditLog";
 import { formatCurrency, cn } from "@/lib/utils";
+import { fetchAllPages } from "@/lib/supabasePagination";
 import { 
   Search, 
   Plus, 
@@ -269,29 +270,32 @@ export default function Production() {
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number, agreement_signed_date, lead_source")
-        .eq("company_id", companyId)
-        .is("deleted_at", null) // Only show non-deleted projects
-        .order("project_number", { ascending: false });
-      
-      if (error) throw error;
-      return data as (Project & { 
-        lead_cost_percent: number | null; 
-        commission_split_pct: number | null;
-        primary_commission_pct: number | null;
-        secondary_commission_pct: number | null;
-        tertiary_commission_pct: number | null;
-        quaternary_commission_pct: number | null;
-        deleted_at: string | null;
-        estimated_project_cost: number | null;
-        sold_dispatch_value: number | null;
-        agreement_signed_date: string | null;
-        lead_source: string | null;
-        project_scope_dispatch: string | null;
-        customer_email: string | null;
-      })[];
+      return fetchAllPages(async (from, to) => {
+        const { data, error } = await supabase
+          .from("projects")
+          .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number, agreement_signed_date, lead_source")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .order("project_number", { ascending: false })
+          .range(from, to);
+        
+        if (error) throw error;
+        return data as (Project & { 
+          lead_cost_percent: number | null; 
+          commission_split_pct: number | null;
+          primary_commission_pct: number | null;
+          secondary_commission_pct: number | null;
+          tertiary_commission_pct: number | null;
+          quaternary_commission_pct: number | null;
+          deleted_at: string | null;
+          estimated_project_cost: number | null;
+          sold_dispatch_value: number | null;
+          agreement_signed_date: string | null;
+          lead_source: string | null;
+          project_scope_dispatch: string | null;
+          customer_email: string | null;
+        })[];
+      });
     },
     enabled: !!companyId,
   });

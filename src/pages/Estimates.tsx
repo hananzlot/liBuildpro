@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { fetchAllPages } from "@/lib/supabasePagination";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,19 +111,22 @@ export default function Estimates() {
     setSearchParams({ view });
   };
 
-  // Fetch estimates - with optimized caching for faster navigation
+  // Fetch estimates - paginated to handle large datasets
   const { data: estimates, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["estimates", companyId],
     queryFn: async () => {
       if (!companyId) return [];
-      const { data, error } = await supabase
-        .from("estimates")
-        .select("*")
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false });
+      return fetchAllPages<Estimate>(async (from, to) => {
+        const { data, error } = await supabase
+          .from("estimates")
+          .select("*")
+          .eq("company_id", companyId)
+          .order("created_at", { ascending: false })
+          .range(from, to);
 
-      if (error) throw error;
-      return data as Estimate[];
+        if (error) throw error;
+        return data as Estimate[];
+      });
     },
     enabled: !!companyId,
     staleTime: 2 * 60 * 1000, // 2 minutes - reduced to catch portal updates sooner

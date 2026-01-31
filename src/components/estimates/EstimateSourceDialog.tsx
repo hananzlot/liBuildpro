@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { fetchAllPages } from "@/lib/supabasePagination";
 import {
   Dialog,
   DialogContent,
@@ -48,22 +49,25 @@ export function EstimateSourceDialog({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
 
-  // Fetch opportunities with contact info
+  // Fetch opportunities with contact info - paginated to handle large datasets
   const { data: opportunities = [], isLoading } = useQuery({
     queryKey: ["opportunities-for-estimate", companyId],
     queryFn: async () => {
       if (!companyId) return [];
       
-      // Fetch opportunities
-      const { data: opps, error } = await supabase
-        .from("opportunities")
-        .select("id, ghl_id, name, contact_id, contact_uuid, address, scope_of_work, monetary_value, status")
-        .eq("company_id", companyId)
-        .in("status", ["open", "won"])
-        .order("ghl_date_added", { ascending: false })
-        .limit(200);
-      
-      if (error) throw error;
+      // Fetch opportunities - paginated to get all open/won opportunities
+      const opps = await fetchAllPages(async (from, to) => {
+        const { data, error } = await supabase
+          .from("opportunities")
+          .select("id, ghl_id, name, contact_id, contact_uuid, address, scope_of_work, monetary_value, status")
+          .eq("company_id", companyId)
+          .in("status", ["open", "won"])
+          .order("ghl_date_added", { ascending: false })
+          .range(from, to);
+        
+        if (error) throw error;
+        return data;
+      });
       
       // Fetch contacts for these opportunities (by UUID for better reliability)
       const contactUuids = [...new Set(opps?.filter(o => o.contact_uuid).map(o => o.contact_uuid) || [])];
