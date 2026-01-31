@@ -82,8 +82,7 @@ export function GlobalAdminSearch() {
         .from("opportunities")
         .select("ghl_id, name, status, monetary_value, pipeline_stage_id, stage_name, contact_id, ghl_date_added, address")
         .eq("company_id", companyId)
-        .order("ghl_date_added", { ascending: false })
-        .limit(2000);
+        .order("ghl_date_added", { ascending: false });
       if (error) throw error;
       return data as Opportunity[];
     },
