@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { fetchAllPages } from "@/lib/supabasePagination";
 import { DateRange } from "react-day-picker";
 
 export interface AnalyticsFilters {
@@ -123,18 +124,21 @@ export interface CashFlowTimelinePoint {
 export function useProductionAnalytics(filters: AnalyticsFilters) {
   const { companyId } = useCompanyContext();
 
-  // Fetch all projects
+  // Fetch all projects - paginated to handle >1000 projects
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
     queryKey: ["analytics-projects", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .order("project_number", { ascending: false });
-      if (error) throw error;
-      return data;
+      return fetchAllPages(async (from, to) => {
+        const { data, error } = await supabase
+          .from("projects")
+          .select("*")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .order("project_number", { ascending: false })
+          .range(from, to);
+        if (error) throw error;
+        return data;
+      });
     },
     enabled: !!companyId,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -150,12 +154,15 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
   const { data: agreements = [] } = useQuery({
     queryKey: ["analytics-agreements", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_agreements")
-        .select("id, project_id, total_price, agreement_signed_date")
-        .eq("company_id", companyId);
-      if (error) throw error;
-      return data;
+      return fetchAllPages(async (from, to) => {
+        const { data, error } = await supabase
+          .from("project_agreements")
+          .select("id, project_id, total_price, agreement_signed_date")
+          .eq("company_id", companyId)
+          .range(from, to);
+        if (error) throw error;
+        return data;
+      });
     },
     enabled: !!companyId,
     ...financialCacheOptions,
@@ -164,15 +171,18 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
   const { data: invoices = [] } = useQuery({
     queryKey: ["analytics-invoices", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_invoices")
-        .select(`
-          id, project_id, invoice_number, invoice_date, amount, payments_received, open_balance,
-          payment_phase:project_payment_phases(phase_name, description)
-        `)
-        .eq("company_id", companyId);
-      if (error) throw error;
-      return data;
+      return fetchAllPages(async (from, to) => {
+        const { data, error } = await supabase
+          .from("project_invoices")
+          .select(`
+            id, project_id, invoice_number, invoice_date, amount, payments_received, open_balance,
+            payment_phase:project_payment_phases(phase_name, description)
+          `)
+          .eq("company_id", companyId)
+          .range(from, to);
+        if (error) throw error;
+        return data;
+      });
     },
     enabled: !!companyId,
     ...financialCacheOptions,
@@ -181,12 +191,15 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
   const { data: payments = [] } = useQuery({
     queryKey: ["analytics-payments", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_payments")
-        .select("id, project_id, payment_amount, payment_status, bank_name, projected_received_date, payment_schedule")
-        .eq("company_id", companyId);
-      if (error) throw error;
-      return data;
+      return fetchAllPages(async (from, to) => {
+        const { data, error } = await supabase
+          .from("project_payments")
+          .select("id, project_id, payment_amount, payment_status, bank_name, projected_received_date, payment_schedule")
+          .eq("company_id", companyId)
+          .range(from, to);
+        if (error) throw error;
+        return data;
+      });
     },
     enabled: !!companyId,
     ...financialCacheOptions,
@@ -195,12 +208,15 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
   const { data: bills = [] } = useQuery({
     queryKey: ["analytics-bills", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_bills")
-        .select("id, project_id, bill_amount, amount_paid, balance, installer_company, category, bill_ref, memo, scheduled_payment_date, scheduled_payment_amount, is_voided")
-        .eq("company_id", companyId);
-      if (error) throw error;
-      return data;
+      return fetchAllPages(async (from, to) => {
+        const { data, error } = await supabase
+          .from("project_bills")
+          .select("id, project_id, bill_amount, amount_paid, balance, installer_company, category, bill_ref, memo, scheduled_payment_date, scheduled_payment_amount, is_voided")
+          .eq("company_id", companyId)
+          .range(from, to);
+        if (error) throw error;
+        return data;
+      });
     },
     enabled: !!companyId,
     ...financialCacheOptions,
@@ -209,12 +225,15 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
   const { data: billPayments = [] } = useQuery({
     queryKey: ["analytics-bill-payments", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bill_payments")
-        .select("id, bill_id, payment_amount, payment_date, payment_method")
-        .eq("company_id", companyId);
-      if (error) throw error;
-      return data;
+      return fetchAllPages(async (from, to) => {
+        const { data, error } = await supabase
+          .from("bill_payments")
+          .select("id, bill_id, payment_amount, payment_date, payment_method")
+          .eq("company_id", companyId)
+          .range(from, to);
+        if (error) throw error;
+        return data;
+      });
     },
     enabled: !!companyId,
     ...financialCacheOptions,
@@ -223,12 +242,15 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
   const { data: commissionPayments = [] } = useQuery({
     queryKey: ["analytics-commission-payments", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("commission_payments")
-        .select("id, project_id, salesperson_name, payment_amount, payment_date, payment_method")
-        .eq("company_id", companyId);
-      if (error) throw error;
-      return data;
+      return fetchAllPages(async (from, to) => {
+        const { data, error } = await supabase
+          .from("commission_payments")
+          .select("id, project_id, salesperson_name, payment_amount, payment_date, payment_method")
+          .eq("company_id", companyId)
+          .range(from, to);
+        if (error) throw error;
+        return data;
+      });
     },
     enabled: !!companyId,
     ...financialCacheOptions,

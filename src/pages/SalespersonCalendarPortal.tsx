@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabasePagination";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, addDays, subDays, isToday, isSameDay, parseISO } from "date-fns";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -188,38 +189,44 @@ export default function SalespersonCalendarPortal() {
     gcTime: 30 * 60 * 1000, // 30 minutes
   });
 
-  // Fetch contacts for appointment names - cache longer since names rarely change
+  // Fetch contacts for appointment names - paginated to handle large datasets
   const { data: contacts = [] } = useQuery({
     queryKey: ["salesperson-portal-contacts", salesperson?.company_id],
     queryFn: async () => {
       if (!salesperson?.company_id) return [];
 
-      const { data, error } = await supabase
-        .from("contacts")
-        .select("id, ghl_id, contact_name, phone, email")
-        .eq("company_id", salesperson.company_id);
+      return fetchAllPages<Contact>(async (from, to) => {
+        const { data, error } = await supabase
+          .from("contacts")
+          .select("id, ghl_id, contact_name, phone, email")
+          .eq("company_id", salesperson.company_id)
+          .range(from, to);
 
-      if (error) throw error;
-      return data as Contact[];
+        if (error) throw error;
+        return data as Contact[];
+      });
     },
     enabled: !!salesperson?.company_id,
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
   });
 
-  // Fetch opportunities for scope of work
+  // Fetch opportunities for scope of work - paginated to handle large datasets
   const { data: opportunities = [] } = useQuery({
     queryKey: ["salesperson-portal-opportunities", salesperson?.company_id],
     queryFn: async () => {
       if (!salesperson?.company_id) return [];
 
-      const { data, error } = await supabase
-        .from("opportunities")
-        .select("id, ghl_id, name, contact_id, scope_of_work, monetary_value, stage_name")
-        .eq("company_id", salesperson.company_id);
+      return fetchAllPages<Opportunity>(async (from, to) => {
+        const { data, error } = await supabase
+          .from("opportunities")
+          .select("id, ghl_id, name, contact_id, scope_of_work, monetary_value, stage_name")
+          .eq("company_id", salesperson.company_id)
+          .range(from, to);
 
-      if (error) throw error;
-      return data as Opportunity[];
+        if (error) throw error;
+        return data as Opportunity[];
+      });
     },
     enabled: !!salesperson?.company_id,
     staleTime: 5 * 60 * 1000, // 5 minutes
