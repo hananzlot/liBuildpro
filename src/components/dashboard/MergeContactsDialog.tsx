@@ -272,39 +272,68 @@ export function MergeContactsDialog({
       if (updateError) throw updateError;
 
       // 2. Transfer related records from secondary to primary
+      // Build OR conditions properly - only include non-null values
+      const buildOrCondition = (uuid: string, ghlId: string | null | undefined) => {
+        const conditions: string[] = [`contact_uuid.eq.${uuid}`];
+        if (ghlId) {
+          conditions.push(`contact_id.eq.${ghlId}`);
+        }
+        return conditions.join(",");
+      };
+      
+      const secondaryOrCondition = buildOrCondition(secondaryContact.id, secondaryContact.ghl_id);
+
       // Opportunities
-      await supabase
+      const { error: oppError, count: oppCount } = await supabase
         .from("opportunities")
         .update({
           contact_id: primaryContact.ghl_id,
           contact_uuid: primaryContact.id,
         })
         .eq("company_id", companyId)
-        .or(`contact_uuid.eq.${secondaryContact.id},contact_id.eq.${secondaryContact.ghl_id}`);
+        .or(secondaryOrCondition);
+      
+      if (oppError) {
+        console.error("Failed to transfer opportunities:", oppError);
+      } else {
+        console.log(`Transferred ${oppCount ?? 'some'} opportunities`);
+      }
 
       // Appointments
-      await supabase
+      const { error: aptError, count: aptCount } = await supabase
         .from("appointments")
         .update({
           contact_id: primaryContact.ghl_id,
           contact_uuid: primaryContact.id,
         })
         .eq("company_id", companyId)
-        .or(`contact_uuid.eq.${secondaryContact.id},contact_id.eq.${secondaryContact.ghl_id}`);
+        .or(secondaryOrCondition);
+      
+      if (aptError) {
+        console.error("Failed to transfer appointments:", aptError);
+      } else {
+        console.log(`Transferred ${aptCount ?? 'some'} appointments`);
+      }
 
       // Contact Notes
-      await supabase
+      const { error: noteError, count: noteCount } = await supabase
         .from("contact_notes")
         .update({
           contact_id: primaryContact.ghl_id || primaryContact.id,
           contact_uuid: primaryContact.id,
         })
         .eq("company_id", companyId)
-        .or(`contact_uuid.eq.${secondaryContact.id},contact_id.eq.${secondaryContact.ghl_id}`);
+        .or(secondaryOrCondition);
+      
+      if (noteError) {
+        console.error("Failed to transfer notes:", noteError);
+      } else {
+        console.log(`Transferred ${noteCount ?? 'some'} notes`);
+      }
 
       // Tasks
       if (secondaryContact.ghl_id) {
-        await supabase
+        const { error: taskError } = await supabase
           .from("ghl_tasks")
           .update({
             contact_id: primaryContact.ghl_id,
@@ -312,27 +341,39 @@ export function MergeContactsDialog({
           })
           .eq("company_id", companyId)
           .eq("contact_id", secondaryContact.ghl_id);
+        
+        if (taskError) {
+          console.error("Failed to transfer tasks:", taskError);
+        }
       }
 
       // Estimates
-      await supabase
+      const { error: estError } = await supabase
         .from("estimates")
         .update({
           contact_id: primaryContact.ghl_id,
           contact_uuid: primaryContact.id,
         })
         .eq("company_id", companyId)
-        .or(`contact_uuid.eq.${secondaryContact.id},contact_id.eq.${secondaryContact.ghl_id}`);
+        .or(secondaryOrCondition);
+      
+      if (estError) {
+        console.error("Failed to transfer estimates:", estError);
+      }
 
       // Projects
-      await supabase
+      const { error: projError } = await supabase
         .from("projects")
         .update({
           contact_id: primaryContact.ghl_id,
           contact_uuid: primaryContact.id,
         })
         .eq("company_id", companyId)
-        .or(`contact_uuid.eq.${secondaryContact.id},contact_id.eq.${secondaryContact.ghl_id}`);
+        .or(secondaryOrCondition);
+      
+      if (projError) {
+        console.error("Failed to transfer projects:", projError);
+      }
 
       // 3. Delete the secondary contact
       const { error: deleteError } = await supabase
