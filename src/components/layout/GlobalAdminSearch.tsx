@@ -67,6 +67,25 @@ interface Estimate {
   created_at: string | null;
 }
 
+async function fetchAllPages<T>(
+  fetchPage: (from: number, to: number) => Promise<T[] | null | undefined>,
+  pageSize = 1000
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+
+  while (true) {
+    const page = await fetchPage(from, from + pageSize - 1);
+    const items = page ?? [];
+    all.push(...items);
+
+    if (items.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return all;
+}
+
 export function GlobalAdminSearch() {
   const navigate = useNavigate();
   const { companyId } = useCompanyContext();
@@ -78,13 +97,21 @@ export function GlobalAdminSearch() {
   const { data: opportunities = [] } = useQuery({
     queryKey: ["global-search-opportunities", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("opportunities")
-        .select("ghl_id, name, status, monetary_value, pipeline_stage_id, stage_name, contact_id, ghl_date_added, address")
-        .eq("company_id", companyId)
-        .order("ghl_date_added", { ascending: false });
-      if (error) throw error;
-      return data as Opportunity[];
+      // IMPORTANT: Supabase defaults to 1000 rows per query.
+      // For large tenants, pagination is required or older opps will never appear in search.
+      return fetchAllPages<Opportunity>(async (from, to) => {
+        const { data, error } = await supabase
+          .from("opportunities")
+          .select(
+            "ghl_id, name, status, monetary_value, pipeline_stage_id, stage_name, contact_id, ghl_date_added, address"
+          )
+          .eq("company_id", companyId)
+          .order("ghl_date_added", { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+        return data as Opportunity[];
+      });
     },
     enabled: !!companyId && isOpen,
     staleTime: 60 * 1000,
@@ -94,13 +121,17 @@ export function GlobalAdminSearch() {
   const { data: contacts = [] } = useQuery({
     queryKey: ["global-search-contacts", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("contacts")
-        .select("id, ghl_id, contact_name, first_name, last_name, email, phone, custom_fields")
-        .eq("company_id", companyId)
-        .limit(1000);
-      if (error) throw error;
-      return data as Contact[];
+      return fetchAllPages<Contact>(async (from, to) => {
+        const { data, error } = await supabase
+          .from("contacts")
+          .select("id, ghl_id, contact_name, first_name, last_name, email, phone, custom_fields")
+          .eq("company_id", companyId)
+          .order("ghl_date_added", { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+        return data as Contact[];
+      });
     },
     enabled: !!companyId && isOpen,
     staleTime: 60 * 1000,
