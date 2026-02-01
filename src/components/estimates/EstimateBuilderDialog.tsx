@@ -2446,17 +2446,22 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   ) : (
                     <Plus className="mr-2 h-4 w-4" />
                   )}
-                  Save As New
+                  {existingEstimate?.estimate?.status && existingEstimate.estimate.status !== 'draft' 
+                    ? "Create New Estimate" 
+                    : "Save As New"}
                 </Button>
               )}
-              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Save Estimate
-              </Button>
+              {/* Hide Save Estimate for sent/signed proposals - they shouldn't be modified */}
+              {(!existingEstimate?.estimate?.status || existingEstimate.estimate.status === 'draft') && (
+                <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Save Estimate
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 onClick={() => {
@@ -3854,25 +3859,27 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 </TabsContent>
 
                 <TabsContent value="terms" className="mt-0 space-y-4">
-                  {/* Save button for Terms tab */}
-                  <Button 
-                    onClick={() => saveMutation.mutate()} 
-                    disabled={saveMutation.isPending}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {saveMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" />
-                        Save Estimate
-                      </>
-                    )}
-                  </Button>
+                  {/* Save button for Terms tab - only show for drafts */}
+                  {(!existingEstimate?.estimate?.status || existingEstimate.estimate.status === 'draft') && (
+                    <Button 
+                      onClick={() => saveMutation.mutate()} 
+                      disabled={saveMutation.isPending}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {saveMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Save Estimate
+                        </>
+                      )}
+                    </Button>
+                  )}
                   
                   <Card>
                     <CardHeader>
