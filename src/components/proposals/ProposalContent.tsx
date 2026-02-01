@@ -365,31 +365,74 @@ export function ProposalContent({
         </Card>
       )}
 
-      {/* Scope of Work */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Scope of Work
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Work Scope Description */}
-          {showScope && estimate.work_scope_description && (
-            <div className="bg-muted/50 rounded-lg p-4 mb-4">
-              <p className="whitespace-pre-wrap text-sm">{estimate.work_scope_description}</p>
-            </div>
-          )}
+      {/* Scope of Work - only render if there's content to show */}
+      {((showScope && estimate.work_scope_description) || (showLineItems && (groups.length > 0 || ungroupedItems.length > 0))) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Scope of Work
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Work Scope Description */}
+            {showScope && estimate.work_scope_description && (
+              <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                <p className="whitespace-pre-wrap text-sm">{estimate.work_scope_description}</p>
+              </div>
+            )}
 
-          {/* Grouped Line Items */}
-          {showLineItems && groups.map((group) => (
-            <div key={group.id} className="space-y-3">
-              <h4 className="font-semibold text-lg">{group.group_name}</h4>
-              {group.description && (
-                <p className="text-sm text-muted-foreground">{group.description}</p>
-              )}
+            {/* Grouped Line Items */}
+            {showLineItems && groups.map((group) => {
+              const items = groupedItems[group.id] || [];
+              if (items.length === 0) return null;
+              return (
+                <div key={group.id} className="space-y-3">
+                  <h4 className="font-semibold text-lg">{group.group_name}</h4>
+                  {group.description && (
+                    <p className="text-sm text-muted-foreground">{group.description}</p>
+                  )}
+                  <div className="space-y-2">
+                    {items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium">{item.description}</p>
+                          {showDetails && (
+                            <p className="text-sm text-muted-foreground">
+                              {item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''} × {formatCurrency(item.unit_price)}
+                            </p>
+                          )}
+                        </div>
+                        {showDetails && (
+                          <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                        )}
+                      </div>
+                    ))}
+                    {/* Group Subtotal */}
+                    {showDetails && items.length > 0 && (
+                      <div className="flex justify-between items-center pt-2 mt-2 border-t border-dashed">
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {group.group_name} Subtotal
+                        </span>
+                        <span className="font-semibold">
+                          {formatCurrency(
+                            items.reduce((sum, item) => sum + (item.line_total || 0), 0)
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Ungrouped Line Items */}
+            {showLineItems && ungroupedItems.length > 0 && (
               <div className="space-y-2">
-                {groupedItems[group.id]?.map((item) => (
+                {ungroupedItems.map((item) => (
                   <div
                     key={item.id}
                     className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
@@ -407,48 +450,11 @@ export function ProposalContent({
                     )}
                   </div>
                 ))}
-                {/* Group Subtotal */}
-                {showDetails && groupedItems[group.id]?.length > 0 && (
-                  <div className="flex justify-between items-center pt-2 mt-2 border-t border-dashed">
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {group.group_name} Subtotal
-                    </span>
-                    <span className="font-semibold">
-                      {formatCurrency(
-                        groupedItems[group.id].reduce((sum, item) => sum + (item.line_total || 0), 0)
-                      )}
-                    </span>
-                  </div>
-                )}
               </div>
-            </div>
-          ))}
-
-          {/* Ungrouped Line Items */}
-          {showLineItems && ungroupedItems.length > 0 && (
-            <div className="space-y-2">
-              {ungroupedItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
-                >
-                  <div className="flex-1">
-                    <p className="font-medium">{item.description}</p>
-                    {showDetails && (
-                      <p className="text-sm text-muted-foreground">
-                        {item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''} × {formatCurrency(item.unit_price)}
-                      </p>
-                    )}
-                  </div>
-                  {showDetails && (
-                    <p className="font-medium">{formatCurrency(item.line_total)}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pricing Summary */}
       <Card>
