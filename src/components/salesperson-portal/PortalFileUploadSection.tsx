@@ -352,25 +352,41 @@ export function PortalFileUploadSection({
                   ) : documents.length > 0 && (
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2">Recent uploads</p>
-                      <ScrollArea className="max-h-[200px]">
-                        <div className="space-y-1.5">
-                          {documents.slice(0, 10).map((doc) => (
-                            <div
-                              key={doc.id}
-                              className="flex items-center gap-2 p-2 rounded bg-muted/50 text-sm cursor-pointer hover:bg-muted transition-colors"
-                              onClick={() => {
-                                setSelectedDoc(doc);
-                                setViewerOpen(true);
-                              }}
-                            >
-                              {getFileIcon(doc.file_type)}
-                              <span className="flex-1 truncate text-xs">{doc.file_name}</span>
-                              <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              <span className="text-[10px] text-muted-foreground shrink-0">
-                                {format(new Date(doc.created_at), "MMM d")}
-                              </span>
-                            </div>
-                          ))}
+                      <ScrollArea className="max-h-[280px]">
+                        <div className="grid grid-cols-3 gap-2">
+                          {documents.slice(0, 12).map((doc) => {
+                            const isImage = doc.file_type?.startsWith("image/");
+                            return (
+                              <div
+                                key={doc.id}
+                                className="relative group cursor-pointer rounded-lg overflow-hidden border bg-muted/30 hover:border-primary/50 transition-colors"
+                                onClick={() => {
+                                  setSelectedDoc(doc);
+                                  setViewerOpen(true);
+                                }}
+                              >
+                                <div className="aspect-square relative">
+                                  {isImage ? (
+                                    <img
+                                      src={doc.file_url}
+                                      alt={doc.file_name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                                      {getFileIcon(doc.file_type)}
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                                    <Eye className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                </div>
+                                <div className="p-1.5 bg-background/80 backdrop-blur-sm">
+                                  <p className="text-[10px] truncate text-muted-foreground">{doc.file_name}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </ScrollArea>
                     </div>
