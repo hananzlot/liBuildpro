@@ -492,7 +492,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       discountAmount = formData.discount_value;
     }
     
-    const total = subtotal + taxAmount - discountAmount;
+    // Total = Subtotal - Discount (tax is tracked separately but not added to total)
+    const total = subtotal - discountAmount;
     // Deposit = min(total * percent, max_amount)
     const percentDeposit = (total * formData.deposit_percent) / 100;
     const depositAmount = Math.min(percentDeposit, formData.deposit_max_amount);
@@ -4052,12 +4053,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
               </div>
               
-              {formData.tax_rate > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax ({formData.tax_rate}%)</span>
-                  <span>{formatCurrency(totals.taxAmount)}</span>
-                </div>
-              )}
+              {/* Tax line hidden - not relevant to proposal UI */}
               
               {totals.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
