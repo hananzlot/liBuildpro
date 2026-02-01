@@ -129,7 +129,12 @@ export default function Estimates() {
       });
     },
     enabled: !!companyId,
-    staleTime: 2 * 60 * 1000, // 2 minutes - reduced to catch portal updates sooner
+    // IMPORTANT: We persist React Query cache across reloads.
+    // If totals change (e.g. discount updates), a "fresh" cached list can still show old totals.
+    // Always refetch on mount so Proposals view reflects the database immediately.
+    staleTime: 2 * 60 * 1000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     gcTime: 30 * 60 * 1000, // 30 minutes
   });
 
