@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { formatUnit } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,24 +12,25 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SignatureCanvas } from './SignatureCanvas';
 import { ClientComments } from './ClientComments';
-import { CompanyHeader } from '@/components/proposals/CompanyHeader';
 import { ComplianceSigningFlow } from './ComplianceSigningFlow';
 import {
-  FileText,
-  Calendar,
-  MapPin,
-  Phone,
-  Mail,
-  DollarSign,
+  ProposalContent,
+  getStatusBadge,
+  type ProposalEstimate,
+  type ProposalGroup,
+  type ProposalLineItem,
+  type ProposalPaymentPhase,
+  type ProposalSignature,
+  type ProposalPhoto,
+} from '@/components/proposals/ProposalContent';
+import {
   CheckCircle2,
   XCircle,
-  Clock,
   Building,
   AlertCircle,
   Loader2,
   Users,
   FileSignature,
-  Image as ImageIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -46,33 +46,6 @@ interface PortalEstimateViewProps {
     signer_order: number;
     status: string;
   };
-}
-
-interface LineItem {
-  id: string;
-  description: string;
-  quantity: number;
-  unit: string;
-  unit_price: number;
-  line_total: number;
-  item_type: string;
-  group_id: string | null;
-}
-
-interface Group {
-  id: string;
-  group_name: string;
-  description: string | null;
-  sort_order: number;
-}
-
-interface PaymentPhase {
-  id: string;
-  phase_name: string;
-  percent: number;
-  amount: number;
-  due_type: string;
-  description: string | null;
 }
 
 interface EstimateSigner {
@@ -209,24 +182,24 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         }
 
         // Fetch estimate photos if estimate has a linked project
-        let estimatePhotos: any[] = [];
+        let estimatePhotos: ProposalPhoto[] = [];
         if (estimate.project_id) {
           const { data: photos } = await supabase
             .from('project_documents')
-            .select('*')
+            .select('id, file_url, file_name')
             .eq('project_id', estimate.project_id)
             .eq('category', 'Estimate Photo')
             .order('created_at', { ascending: false });
-          estimatePhotos = photos || [];
+          estimatePhotos = (photos || []) as ProposalPhoto[];
         }
 
         return {
           token: tokenData,
-          estimate,
-          groups: groups || [],
-          lineItems: lineItems || [],
-          paymentSchedule: paymentSchedule || [],
-          signatures: signatures || [],
+          estimate: estimate as ProposalEstimate,
+          groups: (groups || []) as ProposalGroup[],
+          lineItems: (lineItems || []) as ProposalLineItem[],
+          paymentSchedule: (paymentSchedule || []) as ProposalPaymentPhase[],
+          signatures: (signatures || []) as ProposalSignature[],
           currentSigner: signer,
           allSigners: allSigners || [],
           isMultiSigner: true,
@@ -314,24 +287,24 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         }
 
         // Fetch estimate photos if estimate has a linked project
-        let estimatePhotos: any[] = [];
+        let estimatePhotos: ProposalPhoto[] = [];
         if (estimate.project_id) {
           const { data: photos } = await supabase
             .from('project_documents')
-            .select('*')
+            .select('id, file_url, file_name')
             .eq('project_id', estimate.project_id)
             .eq('category', 'Estimate Photo')
             .order('created_at', { ascending: false });
-          estimatePhotos = photos || [];
+          estimatePhotos = (photos || []) as ProposalPhoto[];
         }
 
         return {
           token: tokenData,
-          estimate,
-          groups: groups || [],
-          lineItems: lineItems || [],
-          paymentSchedule: paymentSchedule || [],
-          signatures: signatures || [],
+          estimate: estimate as ProposalEstimate,
+          groups: (groups || []) as ProposalGroup[],
+          lineItems: (lineItems || []) as ProposalLineItem[],
+          paymentSchedule: (paymentSchedule || []) as ProposalPaymentPhase[],
+          signatures: (signatures || []) as ProposalSignature[],
           signature: signatures?.[0] || null,
           isMultiSigner: false,
           estimatePhotos,
@@ -341,23 +314,13 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
   });
 
   // Fetch compliance package enabled setting when we have company_id
-  // CRITICAL: Only run when portalData is fully loaded to prevent race conditions
   useEffect(() => {
-    // Don't run until portalData is loaded
-    if (!portalData) {
-      return;
-    }
+    if (!portalData) return;
 
     const fetchComplianceSetting = async () => {
-      // IMPORTANT: client_portal_tokens.company_id can be null in some legacy rows.
-      // Always fall back to the estimate's company_id so compliance can still work.
       const effectiveCompanyId = portalData.token?.company_id || portalData.estimate?.company_id;
 
-      console.log('[Compliance] Fetching setting for company:', effectiveCompanyId);
-
       if (!effectiveCompanyId) {
-        // Don't block the signing flow forever if company_id can't be resolved.
-        console.log('[Compliance] No company ID found, disabling compliance');
         setCompliancePackageEnabled(false);
         setComplianceSettingLoaded(true);
         return;
@@ -370,17 +333,12 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         .eq('setting_key', 'compliance_package_enabled')
         .maybeSingle();
       
-      console.log('[Compliance] company_settings query result:', { data, error });
-      
       if (!error) {
         const enabled = String(data?.setting_value ?? '').toLowerCase() === 'true';
-        console.log('[Compliance] Setting enabled from company_settings:', enabled);
         setCompliancePackageEnabled(enabled);
         setComplianceSettingLoaded(true);
       } else {
-        // Fallback: if the setting isn't readable (e.g. permission/RLS), infer enablement
-        // from whether the company has any active compliance templates.
-        console.log('[Compliance] Falling back to template check due to error:', error);
+        // Fallback to template check
         const { data: template } = await supabase
           .from('compliance_document_templates')
           .select('id')
@@ -389,9 +347,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           .limit(1)
           .maybeSingle();
 
-        const enabled = !!template?.id;
-        console.log('[Compliance] Setting enabled from templates fallback:', enabled);
-        setCompliancePackageEnabled(enabled);
+        setCompliancePackageEnabled(!!template?.id);
         setComplianceSettingLoaded(true);
       }
     };
@@ -465,21 +421,12 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             })
             .eq('id', portalData!.estimate.id);
 
-          // Update project status to "Contract Signed" if there's a linked project
+          // Update project status
           if (portalData!.estimate.project_id) {
-            // Also link the project to the opportunity if not already linked
             const projectUpdate: Record<string, unknown> = {
               project_status: 'Contract Signed',
               agreement_signed_date: new Date().toISOString().split('T')[0],
             };
-            
-            // Link opportunity to project if estimate has opportunity_id
-            if (portalData!.estimate.opportunity_id) {
-              projectUpdate.opportunity_id = portalData!.estimate.opportunity_id;
-            }
-            if (portalData!.estimate.opportunity_uuid) {
-              projectUpdate.opportunity_uuid = portalData!.estimate.opportunity_uuid;
-            }
             
             await supabase
               .from('projects')
@@ -498,18 +445,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             }).catch((err) => console.error('Failed to generate contract PDF:', err));
           }
 
-          // Update linked opportunity status to "won"
-          if (portalData!.estimate.opportunity_id) {
-            supabase.functions.invoke('update-ghl-opportunity', {
-              body: {
-                ghl_id: portalData!.estimate.opportunity_id,
-                status: 'won',
-                company_id: portalData!.estimate.company_id,
-              },
-            }).catch((err) => console.error('Failed to update opportunity status:', err));
-          }
-
-          // Send notification that all parties have signed
+          // Send notification
           supabase.functions.invoke('send-proposal-notification', {
             body: {
               estimateId: portalData!.estimate.id,
@@ -520,7 +456,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             },
           }).catch((err) => console.error('Failed to send admin notification:', err));
         } else {
-          // Send notification that this signer has signed
+          // Send partial sign notification
           supabase.functions.invoke('send-proposal-notification', {
             body: {
               estimateId: portalData!.estimate.id,
@@ -542,21 +478,12 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           })
           .eq('id', portalData!.estimate.id);
 
-        // Update project status to "Contract Signed" if there's a linked project
+        // Update project status
         if (portalData!.estimate.project_id) {
-          // Also link the project to the opportunity if not already linked
           const projectUpdate: Record<string, unknown> = {
             project_status: 'Contract Signed',
             agreement_signed_date: new Date().toISOString().split('T')[0],
           };
-          
-          // Link opportunity to project if estimate has opportunity_id
-          if (portalData!.estimate.opportunity_id) {
-            projectUpdate.opportunity_id = portalData!.estimate.opportunity_id;
-          }
-          if (portalData!.estimate.opportunity_uuid) {
-            projectUpdate.opportunity_uuid = portalData!.estimate.opportunity_uuid;
-          }
           
           await supabase
             .from('projects')
@@ -574,18 +501,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           }).catch((err) => console.error('Failed to generate contract PDF:', err));
         }
 
-        // Update linked opportunity status to "won"
-        if (portalData!.estimate.opportunity_id) {
-          supabase.functions.invoke('update-ghl-opportunity', {
-            body: {
-              ghl_id: portalData!.estimate.opportunity_id,
-              status: 'won',
-              company_id: portalData!.estimate.company_id,
-            },
-          }).catch((err) => console.error('Failed to update opportunity status:', err));
-        }
-
-        // Send notification email to admin
+        // Send notifications
         supabase.functions.invoke('send-proposal-notification', {
           body: {
             estimateId: portalData!.estimate.id,
@@ -594,7 +510,6 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           },
         }).catch((err) => console.error('Failed to send admin notification:', err));
 
-        // Send confirmation email to customer
         supabase.functions.invoke('send-customer-confirmation', {
           body: {
             estimateId: portalData!.estimate.id,
@@ -619,7 +534,6 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
   const declineMutation = useMutation({
     mutationFn: async () => {
       if (portalData!.isMultiSigner) {
-        // Update signer status to declined
         await supabase
           .from('estimate_signers')
           .update({
@@ -629,7 +543,6 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           })
           .eq('id', portalData!.currentSigner.id);
 
-        // Mark estimate as declined
         await supabase
           .from('estimates')
           .update({
@@ -649,7 +562,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           .eq('id', portalData!.estimate.id);
       }
 
-      // Send notification email to admin
+      // Send notification
       supabase.functions.invoke('send-proposal-notification', {
         body: {
           estimateId: portalData!.estimate.id,
@@ -659,7 +572,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         },
       }).catch((err) => console.error('Failed to send admin notification:', err));
 
-      // Send confirmation email to customer
+      // Send confirmation to customer
       const customerEmail = portalData!.isMultiSigner 
         ? portalData!.currentSigner.signer_email 
         : portalData!.estimate.customer_email;
@@ -684,14 +597,6 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
       toast.error(error.message);
     },
   });
-
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '$0.00';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
 
   if (isLoading) {
     return (
@@ -721,32 +626,10 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
   if (!portalData) return null;
 
   const { estimate, groups, lineItems, paymentSchedule, signatures, estimatePhotos } = portalData;
-  const signature = portalData.signature || signatures?.[0];
   const currentSigner = portalData.currentSigner;
   const allSigners: EstimateSigner[] = portalData.allSigners || [];
-  const photos = estimatePhotos || [];
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-      draft: { label: 'Draft', variant: 'outline' },
-      sent: { label: 'Awaiting Review', variant: 'secondary' },
-      viewed: { label: 'Viewed', variant: 'secondary' },
-      accepted: { label: 'Accepted', variant: 'default' },
-      declined: { label: 'Declined', variant: 'destructive' },
-      expired: { label: 'Expired', variant: 'outline' },
-    };
-    const config = statusConfig[status] || { label: status, variant: 'outline' };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  const groupedItems = groups.reduce((acc: Record<string, LineItem[]>, group: Group) => {
-    acc[group.id] = lineItems.filter((item: LineItem) => item.group_id === group.id);
-    return acc;
-  }, {});
-
-  const ungroupedItems = lineItems.filter((item: LineItem) => !item.group_id);
-
-  // Determine if current user can sign
+  // Determine signing state
   const canSign = portalData.isMultiSigner
     ? currentSigner && ['sent', 'viewed', 'pending'].includes(currentSigner.status)
     : ['sent', 'viewed', 'needs_changes'].includes(estimate.status);
@@ -754,10 +637,150 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
   const currentSignerHasSigned = portalData.isMultiSigner && currentSigner?.status === 'signed';
   const isSigned = estimate.status === 'accepted';
   const isDeclined = estimate.status === 'declined' || (portalData.isMultiSigner && currentSigner?.status === 'declined');
-
-  // Calculate signing progress for multi-signer
   const signedCount = allSigners.filter(s => s.status === 'signed').length;
   const totalSigners = allSigners.length;
+
+  // Build custom header content for multi-signer progress
+  const multiSignerProgress = portalData.isMultiSigner && allSigners.length > 1 ? (
+    <>
+      <Card>
+        <CardContent className="py-4">
+          <div className="flex items-center gap-3 mb-3">
+            <Users className="h-5 w-5 text-muted-foreground" />
+            <span className="font-medium">Signing Progress</span>
+          </div>
+          <div className="grid gap-2">
+            {allSigners.map((signer: EstimateSigner) => (
+              <div 
+                key={signer.id} 
+                className={`flex items-center justify-between p-2 rounded ${
+                  signer.id === currentSigner?.id ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                    {signer.signer_order}
+                  </div>
+                  <span className="text-sm">
+                    {signer.signer_name}
+                    {signer.id === currentSigner?.id && (
+                      <span className="text-primary ml-1">(You)</span>
+                    )}
+                  </span>
+                </div>
+                <Badge variant={
+                  signer.status === 'signed' ? 'default' : 
+                  signer.status === 'declined' ? 'destructive' : 
+                  'secondary'
+                }>
+                  {signer.status === 'signed' ? 'Signed' : 
+                   signer.status === 'declined' ? 'Declined' :
+                   signer.status === 'viewed' ? 'Viewed' : 'Pending'}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Current signer signed but waiting for others */}
+      {currentSignerHasSigned && !isSigned && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="py-4 flex items-center gap-3">
+            <CheckCircle2 className="h-6 w-6 text-blue-600" />
+            <div>
+              <p className="font-medium text-blue-800">You have signed this proposal</p>
+              <p className="text-sm text-blue-600">
+                Waiting for {totalSigners - signedCount} more signature(s) to complete the agreement.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </>
+  ) : null;
+
+  // Build custom footer content for action buttons and comments
+  const footerContent = (
+    <>
+      {/* Comments Section (single signer only) */}
+      {!portalData.isMultiSigner && (
+        <Card>
+          <CardContent className="pt-6">
+            <ClientComments
+              estimateId={estimate.id}
+              portalTokenId={portalData.token.id}
+              commenterName={estimate.customer_name || ''}
+              commenterEmail={estimate.customer_email || ''}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Action Buttons */}
+      {canSign && (
+        <Card className="border-2 border-primary bg-primary/5">
+          <CardContent className="py-6">
+            <div className="text-center mb-4">
+              <h3 className="font-semibold text-lg">Ready to proceed?</h3>
+              <p className="text-sm text-muted-foreground">
+                {portalData.isMultiSigner 
+                  ? `Review the proposal above and add your signature (${signedCount + 1} of ${totalSigners})`
+                  : complianceComplete 
+                    ? 'All required documents signed. You can now sign the proposal.'
+                    : 'Review the proposal above and accept or request changes'}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                size="lg"
+                onClick={() => setDeclineDialogOpen(true)}
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Request Changes / Decline
+              </Button>
+              <Button
+                className="flex-1"
+                size="lg"
+                disabled={!complianceSettingLoaded}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+
+                  if (!complianceComplete && !portalData.isMultiSigner && compliancePackageEnabled) {
+                    toast.message('Opening required documents…');
+                    setComplianceFlowOpen(true);
+                  } else {
+                    setSignatureDialogOpen(true);
+                  }
+                }}
+              >
+                {!complianceSettingLoaded ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : complianceComplete || !compliancePackageEnabled ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Sign Proposal
+                  </>
+                ) : (
+                  <>
+                    <FileSignature className="h-4 w-4 mr-2" />
+                    Approve & Sign Documents
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </>
+  );
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -780,540 +803,21 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-        {/* Company Header */}
-        <CompanyHeader companyId={portalData?.token?.company_id || portalData?.estimate?.company_id} />
-
-        {/* Multi-signer Progress */}
-        {portalData.isMultiSigner && allSigners.length > 1 && (
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3 mb-3">
-                <Users className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">Signing Progress</span>
-              </div>
-              <div className="grid gap-2">
-                {allSigners.map((signer: EstimateSigner) => (
-                  <div 
-                    key={signer.id} 
-                    className={`flex items-center justify-between p-2 rounded ${
-                      signer.id === currentSigner?.id ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-                        {signer.signer_order}
-                      </div>
-                      <span className="text-sm">
-                        {signer.signer_name}
-                        {signer.id === currentSigner?.id && (
-                          <span className="text-primary ml-1">(You)</span>
-                        )}
-                      </span>
-                    </div>
-                    <Badge variant={
-                      signer.status === 'signed' ? 'default' : 
-                      signer.status === 'declined' ? 'destructive' : 
-                      'secondary'
-                    }>
-                      {signer.status === 'signed' ? 'Signed' : 
-                       signer.status === 'declined' ? 'Declined' :
-                       signer.status === 'viewed' ? 'Viewed' : 'Pending'}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Status Banner */}
-        {currentSignerHasSigned && !isSigned && (
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="py-4 flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-blue-600" />
-              <div>
-                <p className="font-medium text-blue-800">You have signed this proposal</p>
-                <p className="text-sm text-blue-600">
-                  Waiting for {totalSigners - signedCount} more signature(s) to complete the agreement.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {isSigned && (
-          <Card className="bg-green-50 border-green-200">
-            <CardContent className="py-4 flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-              <div>
-                <p className="font-medium text-green-800">Proposal Accepted</p>
-                <p className="text-sm text-green-600">
-                  {portalData.isMultiSigner 
-                    ? `All ${totalSigners} parties have signed this agreement.`
-                    : `Signed by ${signature?.signer_name} on ${format(new Date(signature?.signed_at || estimate.signed_at), 'MMM d, yyyy')}`
-                  }
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {isDeclined && (
-          <Card className="bg-red-50 border-red-200">
-            <CardContent className="py-4 flex items-center gap-3">
-              <XCircle className="h-6 w-6 text-red-600" />
-              <div>
-                <p className="font-medium text-red-800">Proposal Declined</p>
-                {estimate.decline_reason && (
-                  <p className="text-sm text-red-600">Reason: {estimate.decline_reason}</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Estimate Header */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Proposal #{estimate.estimate_number}</p>
-                <CardTitle className="text-2xl mt-1">{estimate.estimate_title}</CardTitle>
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-primary">{formatCurrency(estimate.total)}</p>
-                <p className="text-sm text-muted-foreground">Total Amount</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Customer & Project Info */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <h4 className="font-medium text-sm text-muted-foreground">PREPARED FOR</h4>
-                <p className="font-medium text-lg">{estimate.customer_name}</p>
-                {estimate.customer_email && (
-                  <p className="text-sm flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    {estimate.customer_email}
-                  </p>
-                )}
-                {estimate.customer_phone && (
-                  <p className="text-sm flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    {estimate.customer_phone}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-3">
-                <h4 className="font-medium text-sm text-muted-foreground">PROJECT LOCATION</h4>
-                {estimate.job_address && (
-                  <p className="text-sm flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    {estimate.job_address}
-                  </p>
-                )}
-                <div className="flex gap-4 text-sm">
-                  <span className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    {format(new Date(estimate.estimate_date), 'MMM d, yyyy')}
-                  </span>
-                  {estimate.expiration_date && (
-                    <span className="flex items-center gap-2 text-orange-600">
-                      <Clock className="h-4 w-4" />
-                      Expires: {format(new Date(estimate.expiration_date), 'MMM d, yyyy')}
-                    </span>
-                  )}
-                </div>
-                {estimate.salesperson_name && (
-                  <p className="text-sm flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    Sales Rep: {estimate.salesperson_name}
-                  </p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* AI Analysis (Project Understanding & Assumptions) */}
-        {(() => {
-          const ai = (estimate as any)?.ai_analysis as
-            | {
-                project_understanding?: string[];
-                assumptions?: string[];
-                inclusions?: string[];
-                exclusions?: string[];
-              }
-            | null;
-
-          const hasAny =
-            !!ai &&
-            ((ai.project_understanding?.length ?? 0) > 0 ||
-              (ai.assumptions?.length ?? 0) > 0 ||
-              (ai.inclusions?.length ?? 0) > 0 ||
-              (ai.exclusions?.length ?? 0) > 0);
-
-          if (!hasAny) return null;
-
-          const renderBullets = (items?: string[]) => {
-            if (!items || items.length === 0) return null;
-            return (
-              <ul className="mt-2 space-y-1 text-sm">
-                {items.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <span className="text-muted-foreground">•</span>
-                    <span className="whitespace-pre-wrap">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            );
-          };
-
-          return (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building className="h-5 w-5" />
-                  Project Understanding & Assumptions
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {(ai.project_understanding?.length ?? 0) > 0 && (
-                  <section>
-                    <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                      Project Understanding
-                    </h4>
-                    {renderBullets(ai.project_understanding)}
-                  </section>
-                )}
-
-                {(ai.assumptions?.length ?? 0) > 0 && (
-                  <section>
-                    <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                      Assumptions
-                    </h4>
-                    {renderBullets(ai.assumptions)}
-                  </section>
-                )}
-
-                {(((ai.inclusions?.length ?? 0) > 0) || ((ai.exclusions?.length ?? 0) > 0)) && (
-                  <section className="grid md:grid-cols-2 gap-6">
-                    {(ai.inclusions?.length ?? 0) > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                          Inclusions
-                        </h4>
-                        {renderBullets(ai.inclusions)}
-                      </div>
-                    )}
-                    {(ai.exclusions?.length ?? 0) > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                          Exclusions
-                        </h4>
-                        {renderBullets(ai.exclusions)}
-                      </div>
-                    )}
-                  </section>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })()}
-
-        {/* Scope of Work */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Scope of Work
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Work Scope Description */}
-            {estimate.show_scope_to_customer && estimate.work_scope_description && (
-              <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                <p className="whitespace-pre-wrap text-sm">{estimate.work_scope_description}</p>
-              </div>
-            )}
-            {estimate.show_line_items_to_customer && groups.map((group: Group) => (
-              <div key={group.id} className="space-y-3">
-                <h4 className="font-semibold text-lg">{group.group_name}</h4>
-                {group.description && (
-                  <p className="text-sm text-muted-foreground">{group.description}</p>
-                )}
-                <div className="space-y-2">
-                {groupedItems[group.id]?.map((item: LineItem) => (
-                    <div
-                      key={item.id}
-                      className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium">{item.description}</p>
-                        {estimate.show_details_to_customer && (
-                          <p className="text-sm text-muted-foreground">
-                            {item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''} × {formatCurrency(item.unit_price)}
-                          </p>
-                        )}
-                      </div>
-                      {estimate.show_details_to_customer && (
-                        <p className="font-medium">{formatCurrency(item.line_total)}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {estimate.show_line_items_to_customer && ungroupedItems.length > 0 && (
-              <div className="space-y-2">
-              {ungroupedItems.map((item: LineItem) => (
-                  <div
-                    key={item.id}
-                    className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <p className="font-medium">{item.description}</p>
-                      {estimate.show_details_to_customer && (
-                        <p className="text-sm text-muted-foreground">
-                          {item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''} × {formatCurrency(item.unit_price)}
-                        </p>
-                      )}
-                    </div>
-                    {estimate.show_details_to_customer && (
-                      <p className="font-medium">{formatCurrency(item.line_total)}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Totals */}
-            <Separator />
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal</span>
-                <span>{formatCurrency(estimate.subtotal)}</span>
-              </div>
-              {(estimate.discount_amount || 0) > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Discount</span>
-                  <span>-{formatCurrency(estimate.discount_amount)}</span>
-                </div>
-              )}
-              <Separator />
-              <div className="flex justify-between text-xl font-bold">
-                <span>Total</span>
-                <span>{formatCurrency(estimate.total)}</span>
-              </div>
-              {estimate.deposit_required && (estimate.deposit_amount || 0) > 0 && (
-                <div className="flex justify-between text-sm font-medium text-primary">
-                  <span>Deposit Due</span>
-                  <span>{formatCurrency(estimate.deposit_amount)}</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Payment Schedule */}
-        {paymentSchedule.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Payment Schedule
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {paymentSchedule.map((phase: PaymentPhase, index: number) => (
-                  <div
-                    key={phase.id}
-                    className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{phase.phase_name}</p>
-                      {phase.description && (
-                        <p className="text-sm text-muted-foreground">{phase.description}</p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatCurrency(phase.amount)}</p>
-                      <p className="text-sm text-muted-foreground">{phase.percent}%</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Estimate Photos */}
-        {photos.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="h-5 w-5" />
-                Project Photos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {photos.map((photo: any) => (
-                  <div
-                    key={photo.id}
-                    className="aspect-square rounded-lg overflow-hidden border bg-muted"
-                  >
-                    <img
-                      src={photo.file_url}
-                      alt={photo.file_name || 'Estimate photo'}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Terms & Conditions - Notes are internal only, not shown to customer */}
-        {estimate.terms_and_conditions && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Terms & Conditions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm whitespace-pre-wrap">{estimate.terms_and_conditions}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Signatures Display */}
-        {signatures && signatures.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-600">
-                <CheckCircle2 className="h-5 w-5" />
-                {portalData.isMultiSigner ? 'Signatures' : 'Signed Document'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {signatures.map((sig: any, index: number) => (
-                  <div key={sig.id} className="p-4 bg-muted/50 rounded-lg space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      {portalData.isMultiSigner ? `Signer ${index + 1}:` : 'Signed by:'}
-                    </p>
-                    {sig.signature_type === 'typed' ? (
-                      <p
-                        style={{ fontFamily: sig.signature_font, fontSize: '28px' }}
-                        className="text-foreground"
-                      >
-                        {sig.signature_data}
-                      </p>
-                    ) : (
-                      <img
-                        src={sig.signature_data}
-                        alt="Signature"
-                        className="max-h-20 object-contain"
-                      />
-                    )}
-                    <p className="text-sm text-muted-foreground">
-                      {sig.signer_name} • {sig.signer_email} • {format(new Date(sig.signed_at), 'MMM d, yyyy h:mm a')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Comments Section */}
-        {!portalData.isMultiSigner && (
-          <Card>
-            <CardContent className="pt-6">
-              <ClientComments
-                estimateId={estimate.id}
-                portalTokenId={portalData.token.id}
-                commenterName={estimate.customer_name}
-                commenterEmail={estimate.customer_email || ''}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Action Buttons */}
-        {canSign && (
-          <Card className="border-2 border-primary bg-primary/5">
-            <CardContent className="py-6">
-              <div className="text-center mb-4">
-                <h3 className="font-semibold text-lg">Ready to proceed?</h3>
-                <p className="text-sm text-muted-foreground">
-                  {portalData.isMultiSigner 
-                    ? `Review the proposal above and add your signature (${signedCount + 1} of ${totalSigners})`
-                    : complianceComplete 
-                      ? 'All required documents signed. You can now sign the proposal.'
-                      : 'Review the proposal above and accept or request changes'}
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  size="lg"
-                  onClick={() => setDeclineDialogOpen(true)}
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Request Changes / Decline
-                </Button>
-                <Button
-                  className="flex-1"
-                  size="lg"
-                  disabled={!complianceSettingLoaded}
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    // Only show compliance flow if:
-                    // 1. Compliance package is enabled for this company
-                    // 2. Compliance is not already complete
-                    // 3. Not in multi-signer mode (which skips compliance)
-                    if (!complianceComplete && !portalData.isMultiSigner && compliancePackageEnabled) {
-                      toast.message('Opening required documents…');
-                      setComplianceFlowOpen(true);
-                    } else {
-                      setSignatureDialogOpen(true);
-                    }
-                  }}
-                >
-                  {!complianceSettingLoaded ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Loading...
-                    </>
-                  ) : complianceComplete || !compliancePackageEnabled ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Sign Proposal
-                    </>
-                  ) : (
-                    <>
-                      <FileSignature className="h-4 w-4 mr-2" />
-                      Approve & Sign Documents
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      {/* Main Content - using shared ProposalContent component */}
+      <div className="max-w-5xl mx-auto">
+        <ProposalContent
+          estimate={estimate}
+          groups={groups}
+          lineItems={lineItems}
+          paymentSchedule={paymentSchedule}
+          signatures={signatures}
+          photos={estimatePhotos}
+          showStatusBanner={!portalData.isMultiSigner} // Multi-signer has custom status UI
+          showSalesperson={true}
+          showNotes={false}
+          headerContent={multiSignerProgress}
+          footerContent={footerContent}
+        />
       </div>
 
       {/* Signature Dialog */}
@@ -1357,36 +861,52 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             />
 
             {signatureData && (
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <span className="text-sm text-green-700">Signature captured</span>
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Your signature:</p>
+                {signatureData.type === 'typed' ? (
+                  <p style={{ fontFamily: signatureData.font, fontSize: '24px' }}>
+                    {signatureData.data}
+                  </p>
+                ) : (
+                  <img src={signatureData.data} alt="Your signature" className="max-h-16" />
+                )}
               </div>
             )}
 
-            <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-start gap-2">
               <Checkbox
                 id="terms"
                 checked={agreedToTerms}
                 onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
               />
-              <label htmlFor="terms" className="text-sm cursor-pointer">
-                I have read and agree to the terms and conditions. I understand this constitutes a legally binding agreement.
+              <label htmlFor="terms" className="text-sm leading-relaxed cursor-pointer">
+                I have read and agree to the terms and conditions, scope of work, and payment schedule outlined in this proposal.
               </label>
             </div>
 
-            <Button
-              onClick={() => signMutation.mutate()}
-              disabled={!signatureData || !agreedToTerms || !signerName || !signerEmail || signMutation.isPending}
-              className="w-full"
-              size="lg"
-            >
-              {signMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-              )}
-              Submit Signature
-            </Button>
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setSignatureDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => signMutation.mutate()}
+                disabled={!signatureData || !agreedToTerms || !signerName || signMutation.isPending}
+              >
+                {signMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Signing...
+                  </>
+                ) : (
+                  'Sign & Accept'
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1397,17 +917,17 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           <DialogHeader>
             <DialogTitle>Request Changes or Decline</DialogTitle>
             <DialogDescription>
-              Let us know if you need any changes to the proposal or if you'd like to decline.
+              Let us know if you'd like any changes to the proposal or if you'd prefer to decline.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Feedback / Reason</Label>
+              <Label>Your feedback or reason for declining</Label>
               <Textarea
                 value={declineReason}
                 onChange={(e) => setDeclineReason(e.target.value)}
-                placeholder="Please describe any changes you need or your reason for declining..."
+                placeholder="Please let us know what changes you'd like or why you're declining..."
                 rows={4}
               />
             </div>
@@ -1415,42 +935,43 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             <div className="flex gap-3">
               <Button
                 variant="outline"
-                onClick={() => setDeclineDialogOpen(false)}
                 className="flex-1"
+                onClick={() => setDeclineDialogOpen(false)}
               >
                 Cancel
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => declineMutation.mutate()}
-                disabled={declineMutation.isPending}
                 className="flex-1"
+                onClick={() => declineMutation.mutate()}
+                disabled={!declineReason.trim() || declineMutation.isPending}
               >
                 {declineMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Submitting...
+                  </>
                 ) : (
-                  <XCircle className="h-4 w-4 mr-2" />
+                  'Submit Response'
                 )}
-                Submit Response
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Compliance Documents Signing Flow */}
-      {portalData && (
+      {/* Compliance Signing Flow */}
+      {!portalData.isMultiSigner && (
         <ComplianceSigningFlow
           open={complianceFlowOpen}
           onOpenChange={setComplianceFlowOpen}
           estimateId={estimate.id}
-          companyId={portalData.token.company_id || estimate.company_id}
-          customerName={signerName || estimate.customer_name || ''}
-          customerEmail={signerEmail || estimate.customer_email || ''}
+          companyId={portalData.token?.company_id || estimate.company_id || ''}
+          customerName={estimate.customer_name || ''}
+          customerEmail={estimate.customer_email || ''}
           onAllSigned={() => {
             setComplianceComplete(true);
             setComplianceFlowOpen(false);
-            // Automatically open the main proposal signature dialog
             setSignatureDialogOpen(true);
           }}
         />
