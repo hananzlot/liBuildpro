@@ -158,8 +158,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     if (open) {
       setCurrentEstimateId(sourceEstimateId || null);
       setWasManuallyCleared(false); // Reset manual clear flag on dialog open
+
+      // Force-refresh the edit query when opening an existing estimate.
+      // This avoids showing persisted stale data in the builder.
+      if (sourceEstimateId) {
+        queryClient.invalidateQueries({ queryKey: ["estimate-edit", sourceEstimateId] });
+      }
     }
-  }, [open, sourceEstimateId]);
+  }, [open, sourceEstimateId, queryClient]);
   
   // isEditing is true if we have a current estimate ID (either from prop or after first save)
   const isEditing = !!currentEstimateId && !isCloneMode;
@@ -606,6 +612,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   });
 
   // Fetch existing estimate if editing or cloning
+  // IMPORTANT: React Query cache is persisted (IndexedDB). If an estimate was updated
+  // in another tab/session, a "fresh" cached copy can show stale totals in the builder.
+  // Force a refetch whenever the builder is opened/focused.
   const { data: existingEstimate, isLoading: loadingEstimate } = useQuery({
     queryKey: ["estimate-edit", sourceEstimateId],
     queryFn: async () => {
@@ -627,6 +636,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       };
     },
     enabled: !!sourceEstimateId && open,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   // Populate form when editing (skip if user manually cleared during this session)
