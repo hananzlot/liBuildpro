@@ -817,8 +817,23 @@ export default function Estimates() {
         open={builderOpen}
         onOpenChange={(open) => {
           if (!open) {
-            // Navigate back to estimates list when closing
-            navigate(`/estimates${currentView !== 'list' ? `?view=${currentView}` : ''}`, { replace: true });
+            // Determine correct tab based on estimate status when closing
+            let targetView: ViewType = currentView;
+            if (editingEstimateId) {
+              const estimate = estimates?.find(e => e.id === editingEstimateId);
+              if (estimate) {
+                if (estimate.status === 'draft') {
+                  targetView = 'list';
+                } else if (['sent', 'viewed', 'needs_changes'].includes(estimate.status)) {
+                  targetView = 'proposals';
+                } else if (estimate.status === 'accepted') {
+                  targetView = 'contracts';
+                } else if (estimate.status === 'declined') {
+                  targetView = 'declined';
+                }
+              }
+            }
+            navigate(`/estimates${targetView !== 'list' ? `?view=${targetView}` : ''}`, { replace: true });
             setLinkedOpportunity(null);
             setCreateOpportunityOnSave(false);
           }
