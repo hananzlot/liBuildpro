@@ -30,6 +30,7 @@ import {
   Loader2,
   Users,
   FileSignature,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -207,6 +208,18 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             .eq('id', estimate.id);
         }
 
+        // Fetch estimate photos if estimate has a linked project
+        let estimatePhotos: any[] = [];
+        if (estimate.project_id) {
+          const { data: photos } = await supabase
+            .from('project_documents')
+            .select('*')
+            .eq('project_id', estimate.project_id)
+            .eq('category', 'Estimate Photo')
+            .order('created_at', { ascending: false });
+          estimatePhotos = photos || [];
+        }
+
         return {
           token: tokenData,
           estimate,
@@ -217,6 +230,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           currentSigner: signer,
           allSigners: allSigners || [],
           isMultiSigner: true,
+          estimatePhotos,
         };
       } else {
         // Legacy single signer flow
@@ -299,6 +313,18 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             .eq('id', estimate.id);
         }
 
+        // Fetch estimate photos if estimate has a linked project
+        let estimatePhotos: any[] = [];
+        if (estimate.project_id) {
+          const { data: photos } = await supabase
+            .from('project_documents')
+            .select('*')
+            .eq('project_id', estimate.project_id)
+            .eq('category', 'Estimate Photo')
+            .order('created_at', { ascending: false });
+          estimatePhotos = photos || [];
+        }
+
         return {
           token: tokenData,
           estimate,
@@ -308,6 +334,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           signatures: signatures || [],
           signature: signatures?.[0] || null,
           isMultiSigner: false,
+          estimatePhotos,
         };
       }
     },
@@ -693,10 +720,11 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
 
   if (!portalData) return null;
 
-  const { estimate, groups, lineItems, paymentSchedule, signatures } = portalData;
+  const { estimate, groups, lineItems, paymentSchedule, signatures, estimatePhotos } = portalData;
   const signature = portalData.signature || signatures?.[0];
   const currentSigner = portalData.currentSigner;
   const allSigners: EstimateSigner[] = portalData.allSigners || [];
+  const photos = estimatePhotos || [];
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -1119,6 +1147,34 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                       <p className="font-medium">{formatCurrency(phase.amount)}</p>
                       <p className="text-sm text-muted-foreground">{phase.percent}%</p>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Estimate Photos */}
+        {photos.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5" />
+                Project Photos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {photos.map((photo: any) => (
+                  <div
+                    key={photo.id}
+                    className="aspect-square rounded-lg overflow-hidden border bg-muted"
+                  >
+                    <img
+                      src={photo.file_url}
+                      alt={photo.file_name || 'Estimate photo'}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 ))}
               </div>

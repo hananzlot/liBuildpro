@@ -41,7 +41,7 @@ serve(async (req) => {
     // Fetch related data
     const settingKeys = ['company_name', 'company_address', 'company_phone', 'license_number', 'license_type', 'license_holder_name', 'app_base_url'];
     
-    const [groupsRes, itemsRes, scheduleRes, signaturesRes, companySettingsRes, appSettingsRes] = await Promise.all([
+    const [groupsRes, itemsRes, scheduleRes, signaturesRes, companySettingsRes, appSettingsRes, photosRes] = await Promise.all([
       supabase.from('estimate_groups').select('*').eq('estimate_id', estimateId).order('sort_order'),
       supabase.from('estimate_line_items').select('*').eq('estimate_id', estimateId).order('sort_order'),
       supabase.from('estimate_payment_schedule').select('*').eq('estimate_id', estimateId).order('sort_order'),
@@ -53,12 +53,21 @@ serve(async (req) => {
         : Promise.resolve({ data: [] }),
       // Fall back to app_settings
       supabase.from('app_settings').select('setting_key, setting_value').in('setting_key', settingKeys),
+      // Fetch estimate photos if the estimate has a linked project
+      estimate.project_id
+        ? supabase.from('project_documents').select('*')
+            .eq('project_id', estimate.project_id)
+            .eq('category', 'Estimate Photo')
+            .order('created_at', { ascending: false })
+            .limit(8)  // Limit to 8 photos to prevent PDF bloat
+        : Promise.resolve({ data: [] }),
     ]);
 
     const groups = groupsRes.data || [];
     const lineItems = itemsRes.data || [];
     const paymentSchedule = scheduleRes.data || [];
     const signatures = signaturesRes.data || [];
+    const estimatePhotos = photosRes.data || [];
     
     // Merge settings: company_settings override app_settings
     const settingsMap: Record<string, string> = {};
@@ -561,6 +570,101 @@ serve(async (req) => {
         const paymentAmtWidth = helveticaBold.widthOfTextAtSize(paymentAmtText, 10);
         page.drawText(paymentAmtText, { x: paymentRightEdge - paymentAmtWidth, y: yPos, size: 10, font: helveticaBold, color: black });
         yPos -= 14;
+      }
+      yPos -= 20;
+    }
+
+    // PROJECT PHOTOS - embed estimate photos if any exist
+    if (estimatePhotos.length > 0) {
+      checkNewPage(150);
+      
+      page.drawText('PROJECT PHOTOS', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+      yPos -= 5;
+      page.drawLine({
+        start: { x: margin, y: yPos },
+        end: { x: width - margin, y: yPos },
+        thickness: 1,
+        color: lightGray,
+      });
+      yPos -= 15;
+
+      // Render photos in a 2-column grid
+      const photoWidth = (contentWidth - 20) / 2;  // 2 columns with 20px gap
+      const photoHeight = 150;
+      let photoX = margin;
+      let photosInRow = 0;
+
+      for (const photo of estimatePhotos) {
+        try {
+          // Check if we need a new page for this photo
+          checkNewPage(photoHeight + 20);
+
+          // Fetch the image
+          const imageResponse = await fetch(photo.file_url);
+          if (!imageResponse.ok) {
+            console.warn(`Failed to fetch photo: ${photo.file_url}`);
+            continue;
+          }
+
+          const imageBuffer = await imageResponse.arrayBuffer();
+          const imageBytes = new Uint8Array(imageBuffer);
+
+          // Determine image type and embed appropriately
+          let embeddedImage;
+          const fileType = photo.file_type?.toLowerCase() || '';
+          const fileName = photo.file_name?.toLowerCase() || '';
+          
+          if (fileType.includes('png') || fileName.endsWith('.png')) {
+            embeddedImage = await pdfDoc.embedPng(imageBytes);
+          } else if (fileType.includes('jpeg') || fileType.includes('jpg') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+            embeddedImage = await pdfDoc.embedJpg(imageBytes);
+          } else {
+            // Try as JPEG by default for other formats
+            try {
+              embeddedImage = await pdfDoc.embedJpg(imageBytes);
+            } catch {
+              embeddedImage = await pdfDoc.embedPng(imageBytes);
+            }
+          }
+
+          // Calculate scaling to fit in the grid cell while maintaining aspect ratio
+          const imgDims = embeddedImage.scale(1);
+          const scaleX = photoWidth / imgDims.width;
+          const scaleY = photoHeight / imgDims.height;
+          const scale = Math.min(scaleX, scaleY);
+          const scaledWidth = imgDims.width * scale;
+          const scaledHeight = imgDims.height * scale;
+
+          // Center the image in its cell
+          const offsetX = (photoWidth - scaledWidth) / 2;
+          const offsetY = (photoHeight - scaledHeight) / 2;
+
+          page.drawImage(embeddedImage, {
+            x: photoX + offsetX,
+            y: yPos - scaledHeight - offsetY,
+            width: scaledWidth,
+            height: scaledHeight,
+          });
+
+          photosInRow++;
+          if (photosInRow === 2) {
+            // Move to next row
+            yPos -= photoHeight + 10;
+            photoX = margin;
+            photosInRow = 0;
+          } else {
+            // Move to next column
+            photoX += photoWidth + 20;
+          }
+        } catch (imgError) {
+          console.error(`Failed to embed photo ${photo.file_name}:`, imgError);
+          // Skip failed photos silently
+        }
+      }
+
+      // If we ended mid-row, move down
+      if (photosInRow > 0) {
+        yPos -= photoHeight + 10;
       }
       yPos -= 20;
     }

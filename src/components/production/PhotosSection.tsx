@@ -36,11 +36,23 @@ import {
 interface PhotosSectionProps {
   projectId: string;
   uploadLimitMb?: number;
+  /** Category to assign to uploaded photos. Defaults to 'Project Photo'. */
+  photoCategory?: string;
+  /** Filter to only show photos from this category. If not set, shows all photos. */
+  filterCategory?: string;
+  /** Custom title for the section header */
+  sectionTitle?: string;
 }
 
 type ViewMode = 'grid' | 'timeline' | 'categorized';
 
-export function PhotosSection({ projectId, uploadLimitMb = 15 }: PhotosSectionProps) {
+export function PhotosSection({ 
+  projectId, 
+  uploadLimitMb = 15,
+  photoCategory = 'Project Photo',
+  filterCategory,
+  sectionTitle = 'Project Photos',
+}: PhotosSectionProps) {
   const { companyId } = useCompanyContext();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
@@ -68,11 +80,15 @@ export function PhotosSection({ projectId, uploadLimitMb = 15 }: PhotosSectionPr
     enabled: !!projectId,
   });
 
-  // Filter to only show images
-  const images = documents.filter(doc => 
-    doc.file_type?.startsWith('image/') || 
-    /\.(jpg|jpeg|png|gif|webp)$/i.test(doc.file_name)
-  );
+  // Filter to only show images, optionally filtering by category
+  const images = documents.filter(doc => {
+    const isImage = doc.file_type?.startsWith('image/') || 
+      /\.(jpg|jpeg|png|gif|webp)$/i.test(doc.file_name);
+    if (!isImage) return false;
+    // If filterCategory is set, only include matching categories
+    if (filterCategory && doc.category !== filterCategory) return false;
+    return true;
+  });
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -117,8 +133,8 @@ export function PhotosSection({ projectId, uploadLimitMb = 15 }: PhotosSectionPr
             file_name: file.name,
             file_url: publicUrl,
             file_type: file.type,
-            category: 'Project Photo',
-            notes: 'Uploaded via project detail',
+            category: photoCategory,
+            notes: `Uploaded via ${photoCategory === 'Estimate Photo' ? 'estimate builder' : 'project detail'}`,
             company_id: companyId
           });
 
@@ -238,7 +254,7 @@ export function PhotosSection({ projectId, uploadLimitMb = 15 }: PhotosSectionPr
           <div className="flex items-center justify-between">
             <CardTitle className="text-xs font-medium flex items-center gap-2">
               <Camera className="h-3 w-3" />
-              Project Photos
+              {sectionTitle}
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-2">
                 {images.length}
               </Badge>
