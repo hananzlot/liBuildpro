@@ -100,22 +100,6 @@ export function EstimatePreviewDialog({
   const handleGeneratePdf = async () => {
     if (!estimateId || !data?.estimate) return;
 
-    // Check if AI sections exist
-    const ai = data.estimate.ai_analysis;
-    const hasAiSections =
-      !!ai &&
-      ((Array.isArray(ai.project_understanding) && ai.project_understanding.length > 0) ||
-        (Array.isArray(ai.assumptions) && ai.assumptions.length > 0) ||
-        (Array.isArray(ai.inclusions) && ai.inclusions.length > 0) ||
-        (Array.isArray(ai.exclusions) && ai.exclusions.length > 0));
-
-    if (!hasAiSections) {
-      toast.warning(
-        'AI sections are not saved on this estimate yet. Open the estimate, click Regenerate AI, then Save—after that the PDF preview will include Project Understanding / Assumptions / Inclusions & Exclusions.'
-      );
-      return;
-    }
-
     setGeneratingPdf(true);
     try {
       const { data: pdfData, error } = await supabase.functions.invoke('generate-contract-pdf', {
