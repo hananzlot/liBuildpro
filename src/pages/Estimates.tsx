@@ -323,9 +323,9 @@ export default function Estimates() {
         .eq("is_active", true);
 
       if (signerTokens && signerTokens.length > 0) {
-        // Build links for all signers
+        // Build links for all signers - use estimate_token param for multi-signer tokens
         const baseUrl = window.location.origin;
-        const links = signerTokens.map((t: any) => `${baseUrl}/portal?token=${t.token}`);
+        const links = signerTokens.map((t: any) => `${baseUrl}/portal?estimate_token=${t.token}`);
         
         await navigator.clipboard.writeText(links.join('\n'));
         toast.success(`Copied ${signerTokens.length} portal link(s) to clipboard`);
