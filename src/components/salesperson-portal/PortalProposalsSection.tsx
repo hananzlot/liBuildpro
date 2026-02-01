@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, ExternalLink, Loader2, ChevronDown, ChevronUp, Eye } from "lucide-react";
+import { FileText, ExternalLink, Loader2, ChevronDown, ChevronUp, Eye, Globe } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 
@@ -108,13 +109,12 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
     refetchInterval: 60 * 1000, // Auto-refresh every minute
   });
 
-  const handleOpenProposal = (estimate: Estimate) => {
-    // Open the preview dialog instead of redirecting
+  const handleOpenProposalPreview = (estimate: Estimate) => {
+    // Open the preview dialog
     setSelectedEstimateId(estimate.id);
   };
 
-  const handleOpenPortal = (e: React.MouseEvent, estimate: Estimate) => {
-    e.stopPropagation(); // Prevent row click from triggering preview
+  const handleOpenPortal = (estimate: Estimate) => {
     if (estimate.portal_token) {
       const portalUrl = `${appBaseUrl || window.location.origin}/portal/${estimate.portal_token}`;
       window.open(portalUrl, "_blank");
@@ -208,12 +208,7 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
                   {estimates.map((estimate) => (
                     <div
                       key={estimate.id}
-                      className={`p-3 rounded-lg border bg-card transition-colors ${
-                        estimate.portal_token 
-                          ? "cursor-pointer hover:bg-muted/50" 
-                          : ""
-                      }`}
-                      onClick={() => handleOpenProposal(estimate)}
+                      className="p-3 rounded-lg border bg-card"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
@@ -244,18 +239,29 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
                           <span className="font-semibold text-sm text-primary whitespace-nowrap">
                             {formatCurrency(estimate.total)}
                           </span>
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Eye className="h-4 w-4 text-primary" />
-                            {estimate.portal_token && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <button
-                                onClick={(e) => handleOpenPortal(e, estimate)}
-                                className="p-0.5 hover:bg-muted rounded"
-                                title="Open customer portal"
+                                className="p-1.5 hover:bg-muted rounded flex items-center gap-1"
+                                title="Open options"
                               >
-                                <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                                <Eye className="h-4 w-4 text-primary" />
+                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
                               </button>
-                            )}
-                          </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenProposalPreview(estimate)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Proposal Preview
+                              </DropdownMenuItem>
+                              {estimate.portal_token && (
+                                <DropdownMenuItem onClick={() => handleOpenPortal(estimate)}>
+                                  <Globe className="h-4 w-4 mr-2" />
+                                  Open Customer Portal
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     </div>

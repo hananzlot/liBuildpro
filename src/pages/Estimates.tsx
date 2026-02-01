@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload, ChevronDown, Eye, Globe } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
 import { format } from "date-fns";
@@ -312,26 +313,21 @@ export default function Estimates() {
     navigate(`/estimates/builder/clone:${estimate.id}`);
   };
 
-  // Copy portal link for a proposal and open in new tab
-  const handleCopyPortalLink = async (estimateId: string) => {
+  // Open proposal preview (estimate-only view)
+  const handleOpenProposalPreview = async (estimateId: string) => {
     try {
       // First check for multi-signer tokens (estimate_portal_tokens)
       const { data: signerTokens } = await supabase
         .from("estimate_portal_tokens")
-        .select("token, signer_id, estimate_signers(signer_name, signer_email)")
+        .select("token")
         .eq("estimate_id", estimateId)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .limit(1);
 
       if (signerTokens && signerTokens.length > 0) {
-        // Build links for all signers - use estimate_token param for multi-signer tokens
         const baseUrl = window.location.origin;
-        const links = signerTokens.map((t: any) => `${baseUrl}/portal?estimate_token=${t.token}`);
-        
-        await navigator.clipboard.writeText(links.join('\n'));
-        toast.success(`Copied ${signerTokens.length} portal link(s) to clipboard`);
-        
-        // Open the first link in a new tab
-        window.open(links[0], '_blank');
+        const link = `${baseUrl}/portal?estimate_token=${signerTokens[0].token}`;
+        window.open(link, '_blank');
         return;
       }
 
@@ -345,44 +341,50 @@ export default function Estimates() {
 
       if (legacyToken) {
         const portalLink = `${window.location.origin}/portal?token=${legacyToken.token}`;
-        await navigator.clipboard.writeText(portalLink);
-        toast.success("Portal link copied to clipboard");
-        
-        // Open in new tab
         window.open(portalLink, '_blank');
         return;
       }
 
-      // Fallback: Check for project-based portal token (when estimate shares a project with another estimate)
+      toast.error("No proposal link found");
+    } catch (error) {
+      console.error("Error opening proposal preview:", error);
+      toast.error("Failed to open proposal preview");
+    }
+  };
+
+  // Open full customer project portal
+  const handleOpenCustomerPortal = async (estimateId: string) => {
+    try {
+      // Get the project_id from the estimate
       const { data: estimate } = await supabase
         .from("estimates")
         .select("project_id")
         .eq("id", estimateId)
         .single();
 
-      if (estimate?.project_id) {
-        const { data: projectToken } = await supabase
-          .from("client_portal_tokens")
-          .select("token")
-          .eq("project_id", estimate.project_id)
-          .eq("is_active", true)
-          .maybeSingle();
-
-        if (projectToken) {
-          const portalLink = `${window.location.origin}/portal?token=${projectToken.token}`;
-          await navigator.clipboard.writeText(portalLink);
-          toast.success("Portal link copied to clipboard (via project)");
-          
-          // Open in new tab
-          window.open(portalLink, '_blank');
-          return;
-        }
+      if (!estimate?.project_id) {
+        toast.error("No project linked to this estimate");
+        return;
       }
 
-      toast.error("No portal link found for this proposal");
+      // Check for project-based portal token
+      const { data: projectToken } = await supabase
+        .from("client_portal_tokens")
+        .select("token")
+        .eq("project_id", estimate.project_id)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (projectToken) {
+        const portalLink = `${window.location.origin}/portal/${projectToken.token}`;
+        window.open(portalLink, '_blank');
+        return;
+      }
+
+      toast.error("No customer portal found for this project");
     } catch (error) {
-      console.error("Error copying portal link:", error);
-      toast.error("Failed to copy portal link");
+      console.error("Error opening customer portal:", error);
+      toast.error("Failed to open customer portal");
     }
   };
 
@@ -555,14 +557,27 @@ export default function Estimates() {
                           >
                             <Upload className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleCopyPortalLink(estimate.id)}
-                            title="Copy Portal Link"
-                          >
-                            <Link2 className="h-4 w-4" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Open Portal Links"
+                              >
+                                <Link2 className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenProposalPreview(estimate.id)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Open Proposal Preview
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenCustomerPortal(estimate.id)}>
+                                <Globe className="h-4 w-4 mr-2" />
+                                Open Customer Portal
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           <Button
                             variant="ghost"
                             size="icon"
