@@ -3712,13 +3712,21 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               onChange={(e) => {
                                 const val = e.target.value;
                                 if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                                  setFormData({ ...formData, deposit_percent: parseFloat(val) || 0 });
+                                  const numVal = parseFloat(val) || 0;
+                                  // Cap at company default deposit percent
+                                  const maxPercent = estimateDefaults?.percent ?? 100;
+                                  const cappedVal = Math.min(numVal, maxPercent);
+                                  setFormData({ ...formData, deposit_percent: cappedVal });
                                 }
                               }}
                               disabled={!formData.deposit_required}
                               className="w-16 h-7 text-sm"
+                              title={estimateDefaults ? `Max: ${estimateDefaults.percent}% (from company settings)` : undefined}
                             />
                             <span className="text-[10px] text-muted-foreground">%</span>
+                            {estimateDefaults && (
+                              <span className="text-[10px] text-muted-foreground/60">(max {estimateDefaults.percent}%)</span>
+                            )}
                             <span className="text-[10px] text-muted-foreground">or max</span>
                             <span className="text-[10px] text-muted-foreground">$</span>
                             <Input
