@@ -153,6 +153,26 @@ MISSING INFORMATION RULES (CRITICAL)
 
 =====================================================================
 
+ASSUMPTIONS CONTENT RULES (CUSTOMER-FACING)
+
+The assumptions, inclusions, exclusions, and project_understanding arrays are shown directly to customers in proposals.
+
+NEVER include internal pricing methodology such as:
+- Regional cost multipliers (e.g., "1.15x multiplier applied")
+- Markup percentages or markup strategy
+- Labor rate calculations or internal cost formulas
+- Pricing system references or cost adjustment notes
+
+ONLY include project-related assumptions like:
+- Scope boundaries (work is limited to described areas)
+- Site conditions (normal access, no hazardous materials unless noted)
+- Material grades (mid-grade finishes assumed)
+- Permit/inspection requirements
+- Customer responsibilities (appliances provided by owner, etc.)
+- Schedule assumptions (normal working hours, weather permitting)
+
+=====================================================================
+
 PAYMENT TERMS (ALWAYS REQUIRED)
 
 - Deposit rules are dictated by company settings. If deposit_rules are provided, follow them.
