@@ -737,7 +737,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           .map((s: any) => ({ ...s }))
       );
 
-      // Set linked project
+      // Set linked project - CRITICAL for Photos tab visibility
+      console.log("[EstimateBuilder] Setting linkedProjectId:", est.project_id);
       setLinkedProjectId(est.project_id || null);
       
       // CRITICAL: Set linked opportunity and contact IDs from existing estimate
@@ -2610,11 +2611,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   </>
                 )}
                 {/* Photos tab - always visible when project is linked */}
-                {linkedProjectId && (
+                {linkedProjectId ? (
                   <TabsTrigger value="photos" className="flex items-center gap-2">
                     <Image className="h-4 w-4" />
                     Photos
                   </TabsTrigger>
+                ) : (
+                  /* Debug: render hidden placeholder to confirm linkedProjectId state */
+                  null
                 )}
               </TabsList>
 
