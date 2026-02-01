@@ -386,7 +386,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setPlansFileUrl(draft.plansFileUrl);
       setPlansFileName(draft.plansFileName);
       setDraftRestored(true);
-      setWasManuallyCleared(true);
+      // Only set wasManuallyCleared for NEW estimates (no sourceEstimateId)
+      // For existing estimates, we want DB data to take precedence over stale drafts
+      if (!sourceEstimateId) {
+        setWasManuallyCleared(true);
+      }
     };
 
     // Try sessionStorage first (synchronous, instant)
