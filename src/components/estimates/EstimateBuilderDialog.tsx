@@ -159,6 +159,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     if (open) {
       setCurrentEstimateId(sourceEstimateId || null);
       setWasManuallyCleared(false); // Reset manual clear flag on dialog open
+      // Reset linked project id when opening, so it never leaks between estimates
+      setLinkedProjectId(null);
 
       // Force-refresh the edit query when opening an existing estimate.
       // This avoids showing persisted stale data in the builder.
@@ -739,7 +741,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       // Set linked project - CRITICAL for Photos tab visibility
       console.log("[EstimateBuilder] Setting linkedProjectId:", est.project_id);
-      setLinkedProjectId(est.project_id || null);
+      // IMPORTANT: if we just created a project during this session, keep that value
+      // even if the edit query hasn't refetched yet (it may still have project_id = null).
+      setLinkedProjectId((prev) => prev || est.project_id || null);
       
       // CRITICAL: Set linked opportunity and contact IDs from existing estimate
       // Without this, re-saving an existing estimate clears these links
@@ -2148,6 +2152,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       // Update the current estimate ID so subsequent saves update instead of creating new
       if (savedEstimateId && !currentEstimateId) {
         setCurrentEstimateId(savedEstimateId);
+      }
+
+      // If we just created/linked a project inside the mutation, force a refetch of the edit query
+      // so `existingEstimate.estimate.project_id` is up-to-date.
+      if (savedEstimateId) {
+        queryClient.invalidateQueries({ queryKey: ["estimate-edit", savedEstimateId] });
       }
       queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
       queryClient.invalidateQueries({ queryKey: ["opportunities"] });
