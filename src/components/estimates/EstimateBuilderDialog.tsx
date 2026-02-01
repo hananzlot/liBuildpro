@@ -2435,23 +2435,26 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   Debug
                 </Button>
               )}
-              {isGeneratingScope ? (
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAiProgress(true)}
-                  className="border-primary/50 text-primary"
-                >
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  View Progress
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={generateScope}
-                >
-                  <Wand2 className="mr-2 h-4 w-4" />
-                  AI Generate Scope
-                </Button>
+              {/* Hide AI Generate Scope button for read-only proposals */}
+              {!isProposalReadOnly && (
+                isGeneratingScope ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAiProgress(true)}
+                    className="border-primary/50 text-primary"
+                  >
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    View Progress
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={generateScope}
+                  >
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    AI Generate Scope
+                  </Button>
+                )
               )}
               {isEditing && (
                 <Button 
