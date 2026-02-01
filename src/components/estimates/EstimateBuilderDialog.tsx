@@ -2610,15 +2610,41 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     </TabsTrigger>
                   </>
                 )}
-                {/* Photos tab - always visible when project is linked */}
+                {/* Photos tab - always visible, triggers save+project creation if needed */}
                 {linkedProjectId ? (
                   <TabsTrigger value="photos" className="flex items-center gap-2">
                     <Image className="h-4 w-4" />
                     Photos
                   </TabsTrigger>
                 ) : (
-                  /* Debug: render hidden placeholder to confirm linkedProjectId state */
-                  null
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="flex items-center gap-2 h-9 px-3 text-sm font-medium"
+                    disabled={saveMutation.isPending || isProposalReadOnly}
+                    onClick={async () => {
+                      // Save estimate which will auto-create project, then switch to photos tab
+                      try {
+                        const savedId = await saveMutation.mutateAsync();
+                        if (savedId) {
+                          // Give a moment for linkedProjectId to be set
+                          setTimeout(() => {
+                            setActiveTab("photos");
+                          }, 300);
+                        }
+                      } catch (err) {
+                        // Error already handled by mutation
+                      }
+                    }}
+                  >
+                    {saveMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    Upload Photos
+                  </Button>
                 )}
               </TabsList>
 
@@ -4079,8 +4105,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 </TabsContent>
 
                 {/* Photos Tab */}
-                {linkedProjectId && (
-                  <TabsContent value="photos" className="mt-0">
+                <TabsContent value="photos" className="mt-0">
+                  {linkedProjectId ? (
                     <PhotosSection 
                       projectId={linkedProjectId} 
                       uploadLimitMb={15}
@@ -4088,8 +4114,33 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       filterCategory="Estimate Photo"
                       sectionTitle="Estimate Photos"
                     />
-                  </TabsContent>
-                )}
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center mb-4">
+                        <Image className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground mb-4">
+                        Save the estimate first to upload photos
+                      </p>
+                      <Button
+                        onClick={() => saveMutation.mutate()}
+                        disabled={saveMutation.isPending}
+                      >
+                        {saveMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Save & Continue
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
               </ScrollArea>
             </Tabs>
           </div>
