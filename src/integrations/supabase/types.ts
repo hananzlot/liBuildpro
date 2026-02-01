@@ -4348,6 +4348,7 @@ export type Database = {
           category: string | null
           company_id: string | null
           created_at: string | null
+          estimate_id: string | null
           file_name: string
           file_type: string | null
           file_url: string
@@ -4361,6 +4362,7 @@ export type Database = {
           category?: string | null
           company_id?: string | null
           created_at?: string | null
+          estimate_id?: string | null
           file_name: string
           file_type?: string | null
           file_url: string
@@ -4374,6 +4376,7 @@ export type Database = {
           category?: string | null
           company_id?: string | null
           created_at?: string | null
+          estimate_id?: string | null
           file_name?: string
           file_type?: string | null
           file_url?: string
@@ -4389,6 +4392,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_documents_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
             referencedColumns: ["id"]
           },
           {

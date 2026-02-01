@@ -4219,6 +4219,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       photoCategory="Estimate Photo"
                       filterCategory="Estimate Photo"
                       sectionTitle="Estimate Photos"
+                      estimateId={currentEstimateId || undefined}
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12 text-center">

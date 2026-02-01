@@ -73,7 +73,7 @@ export function EstimatePreviewDialog({
         .select('*')
         .eq('estimate_id', estimateId);
 
-      // Fetch estimate photos if estimate has a linked project
+      // Fetch estimate photos scoped to this specific estimate
       let estimatePhotos: ProposalPhoto[] = [];
       if (estimate.project_id) {
         const { data: photos } = await supabase
@@ -81,6 +81,7 @@ export function EstimatePreviewDialog({
           .select('id, file_url, file_name')
           .eq('project_id', estimate.project_id)
           .eq('category', 'Estimate Photo')
+          .eq('estimate_id', estimateId) // Only photos for this specific estimate
           .order('created_at', { ascending: false });
         estimatePhotos = (photos || []) as ProposalPhoto[];
       }
