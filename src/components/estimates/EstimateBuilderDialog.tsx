@@ -611,6 +611,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     staleTime: 0, // Always fetch fresh settings
   });
 
+  // Invalidate cache when dialog opens with an estimate ID to ensure fresh data
+  useEffect(() => {
+    if (open && sourceEstimateId) {
+      queryClient.invalidateQueries({ queryKey: ["estimate-edit", sourceEstimateId] });
+    }
+  }, [open, sourceEstimateId, queryClient]);
+
   // Fetch existing estimate if editing or cloning
   // IMPORTANT: React Query cache is persisted (IndexedDB). If an estimate was updated
   // in another tab/session, a "fresh" cached copy can show stale totals in the builder.
@@ -637,6 +644,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     },
     enabled: !!sourceEstimateId && open,
     staleTime: 0,
+    gcTime: 0, // Don't cache this at all - always fetch fresh
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -2393,7 +2401,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl flex items-center gap-2">
               <span>
-                {isEditing ? "Edit Estimate" : isCloneMode ? "New Estimate (from Declined)" : "New Estimate"}
+                {isEditing 
+                  ? (existingEstimate?.estimate?.status && existingEstimate.estimate.status !== 'draft' 
+                      ? "Review Proposal" 
+                      : "Edit Estimate")
+                  : isCloneMode ? "New Estimate (from Declined)" : "New Estimate"}
               </span>
               {isEditing && (existingEstimate as any)?.estimate?.estimate_number && (
                 <Badge variant="outline" className="text-xs">
