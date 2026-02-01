@@ -484,19 +484,45 @@ export function PortalEstimateDetailSheet({
                   )}
                 </div>
 
-                {/* Total */}
+                {/* Pricing Summary */}
                 <Separator className="my-4" />
-                <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg">
-                  <span className="font-semibold flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    Total
-                  </span>
-                  <span className="text-xl font-bold text-primary">
-                    ${calculateTotal().toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
+                <div className="p-4 bg-primary/5 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Subtotal</span>
+                    <span className="font-medium">
+                      ${(hasItemChanges ? calculateTotal() : (estimate.subtotal ?? 0)).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  {(estimate.discount_amount || 0) > 0 && (
+                    <div className="flex items-center justify-between text-green-600">
+                      <span className="text-sm">Discount</span>
+                      <span className="font-medium">
+                        -${(estimate.discount_amount || 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  <Separator className="my-2" />
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Total
+                    </span>
+                    <span className="text-xl font-bold text-primary">
+                      ${(hasItemChanges 
+                        ? calculateTotal() - (estimate.discount_amount || 0)
+                        : (estimate.total ?? 0)
+                      ).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
                 </div>
               </ScrollArea>
 
