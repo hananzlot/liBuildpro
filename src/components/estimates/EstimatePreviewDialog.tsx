@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   XCircle,
   FileDown,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -149,12 +150,25 @@ export function EstimatePreviewDialog({
         .select('*')
         .eq('estimate_id', estimateId);
 
+      // Fetch estimate photos if estimate has a linked project
+      let estimatePhotos: any[] = [];
+      if (estimate.project_id) {
+        const { data: photos } = await supabase
+          .from('project_documents')
+          .select('*')
+          .eq('project_id', estimate.project_id)
+          .eq('category', 'Estimate Photo')
+          .order('created_at', { ascending: false });
+        estimatePhotos = photos || [];
+      }
+
       return {
         estimate,
         groups: groups || [],
         lineItems: lineItems || [],
         paymentSchedule: paymentSchedule || [],
         signatures: signatures || [],
+        estimatePhotos,
       };
     },
     enabled: !!estimateId && open,
@@ -175,6 +189,7 @@ export function EstimatePreviewDialog({
   const lineItems = data?.lineItems || [];
   const paymentSchedule = data?.paymentSchedule || [];
   const signatures = data?.signatures || [];
+  const estimatePhotos = data?.estimatePhotos || [];
   const showLineItems = estimate?.show_line_items_to_customer ?? false;
   const showDetails = estimate?.show_details_to_customer ?? false;
   const showScope = estimate?.show_scope_to_customer ?? false;
@@ -587,7 +602,33 @@ export function EstimatePreviewDialog({
                 </Card>
               )}
 
-              {/* Terms & Conditions */}
+              {/* Estimate Photos */}
+              {estimatePhotos.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ImageIcon className="h-5 w-5" />
+                      Project Photos
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {estimatePhotos.map((photo: any) => (
+                        <div
+                          key={photo.id}
+                          className="aspect-square rounded-lg overflow-hidden border bg-muted"
+                        >
+                          <img
+                            src={photo.file_url}
+                            alt={photo.file_name || 'Estimate photo'}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               {estimate.terms_and_conditions && (
                 <Card>
                   <CardHeader>

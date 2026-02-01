@@ -4077,7 +4077,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 {/* Photos Tab */}
                 {linkedProjectId && (
                   <TabsContent value="photos" className="mt-0">
-                    <PhotosSection projectId={linkedProjectId} uploadLimitMb={15} />
+                    <PhotosSection 
+                      projectId={linkedProjectId} 
+                      uploadLimitMb={15}
+                      photoCategory="Estimate Photo"
+                      filterCategory="Estimate Photo"
+                      sectionTitle="Estimate Photos"
+                    />
                   </TabsContent>
                 )}
               </ScrollArea>
