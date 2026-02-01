@@ -372,6 +372,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setDidAttemptDraftRestore(false);
       return;
     }
+
+    // IMPORTANT: For existing estimates (edit/clone), do NOT auto-restore drafts.
+    // Drafts are meant to protect unsaved work for *new* estimates; restoring them
+    // for existing records can display stale totals (e.g., old discount values).
+    if (sourceEstimateId) {
+      setDidAttemptDraftRestore(true);
+      return;
+    }
     
     const restoreFromDraft = (draft: typeof draftData) => {
       console.log('Restoring draft:', draft.formData?.job_address);
@@ -411,7 +419,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       .finally(() => {
         setDidAttemptDraftRestore(true);
       });
-  }, [open, loadDraft, loadDraftDB]);
+  }, [open, loadDraft, loadDraftDB, sourceEstimateId]);
 
   // Fetch projects for linking
   const { data: projects = [] } = useQuery({
