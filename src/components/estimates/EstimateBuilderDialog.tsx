@@ -988,6 +988,45 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     setPlansFileName(null);
   };
 
+  // Helper to persist AI analysis to the database immediately (for existing estimates)
+  const persistAIAnalysis = useCallback(async (estimateId: string | null, aiAnalysis: AISummary) => {
+    if (!estimateId || !companyId) return;
+    
+    // Only persist if there's actual content
+    const hasContent = 
+      aiAnalysis.project_understanding.length > 0 ||
+      aiAnalysis.assumptions.length > 0 ||
+      aiAnalysis.inclusions.length > 0 ||
+      aiAnalysis.exclusions.length > 0 ||
+      aiAnalysis.missing_info.length > 0;
+    
+    if (!hasContent) return;
+    
+    try {
+      const { error } = await supabase
+        .from('estimates')
+        .update({ 
+          ai_analysis: {
+            project_understanding: aiAnalysis.project_understanding,
+            assumptions: aiAnalysis.assumptions,
+            inclusions: aiAnalysis.inclusions,
+            exclusions: aiAnalysis.exclusions,
+            missing_info: aiAnalysis.missing_info,
+          }
+        })
+        .eq('id', estimateId)
+        .eq('company_id', companyId);
+      
+      if (error) {
+        console.error('Failed to persist AI analysis:', error);
+      } else {
+        console.log('AI analysis persisted to database');
+      }
+    } catch (err) {
+      console.error('Error persisting AI analysis:', err);
+    }
+  }, [companyId]);
+
   // Helper to process AI scope result and update state - always replaces existing groups
   const applyAIScope = useCallback((scope: any) => {
     // Replace all groups with AI-generated ones - always use the form's default markup
@@ -1069,18 +1108,22 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
     
     // Capture AI summary sections if provided
-    setAiSummary({
+    const newAiSummary = {
       project_understanding: scope.project_understanding || [],
       assumptions: scope.assumptions || [],
       inclusions: scope.inclusions || [],
       exclusions: scope.exclusions || [],
       missing_info: scope.missing_info || [],
-    });
+    };
+    setAiSummary(newAiSummary);
     
     // AI Summary card defaults to collapsed - user can expand if needed
 
     toast.success("AI estimate generated successfully!");
     setActiveTab("scope");
+    
+    // Return the AI summary so callers can persist it immediately
+    return newAiSummary;
   }, [formData.default_markup_percent]);
 
   // Check for completed/recovered AI generation jobs and apply results
@@ -1116,7 +1159,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         const result = completedJob.result_json as { scope?: any; recovered?: boolean };
         if (result.scope) {
           console.log('Found completed AI job, applying results...');
-          applyAIScope(result.scope);
+          const aiAnalysis = applyAIScope(result.scope);
+          // Persist AI analysis immediately for existing estimates
+          if (aiAnalysis) {
+            persistAIAnalysis(currentEstimateId, aiAnalysis);
+          }
           toast.success(result.recovered 
             ? "Recovered AI-generated estimate applied!" 
             : "AI-generated estimate applied from previous session!");
@@ -1375,7 +1422,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             if (job.result_json.warning) {
               toast.warning(job.result_json.warning);
             }
-            applyAIScope(job.result_json.scope);
+            const aiAnalysis = applyAIScope(job.result_json.scope);
+            // Persist AI analysis immediately for existing estimates
+            if (aiAnalysis && currentEstimateId) {
+              persistAIAnalysis(currentEstimateId, aiAnalysis);
+            }
           } catch (e) {
             console.error('Failed to apply AI scope:', e);
             toast.error('Failed to apply AI-generated scope');
@@ -1489,7 +1540,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         if (data.warning) {
           toast.warning(data.warning);
         }
-        applyAIScope(data.scope);
+        const aiAnalysis = applyAIScope(data.scope);
+        // Persist AI analysis immediately for existing estimates
+        if (aiAnalysis && currentEstimateId) {
+          persistAIAnalysis(currentEstimateId, aiAnalysis);
+        }
         setIsGeneratingScope(false);
         subscription?.unsubscribe();
         queueSubscription?.unsubscribe();
@@ -1521,7 +1576,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             .then(({ data: finalJob }) => {
               if (finalJob?.status === 'completed' && finalJob.result_json) {
                 const result = finalJob.result_json as { scope: any; warning?: string };
-                applyAIScope(result.scope);
+                const aiAnalysis = applyAIScope(result.scope);
+                // Persist AI analysis immediately for existing estimates
+                if (aiAnalysis && currentEstimateId) {
+                  persistAIAnalysis(currentEstimateId, aiAnalysis);
+                }
                 toast.success("AI scope loaded from background job");
               } else if (finalJob?.status === 'pending' || finalJob?.status === 'processing') {
                 toast.error('AI generation timed out. The job may still complete - check back later.');
