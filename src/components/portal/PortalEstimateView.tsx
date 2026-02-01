@@ -1069,12 +1069,6 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                 <span>Subtotal</span>
                 <span>{formatCurrency(estimate.subtotal)}</span>
               </div>
-              {(estimate.tax_amount || 0) > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span>Tax ({estimate.tax_rate}%)</span>
-                  <span>{formatCurrency(estimate.tax_amount)}</span>
-                </div>
-              )}
               {(estimate.discount_amount || 0) > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Discount</span>

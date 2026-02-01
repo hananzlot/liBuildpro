@@ -804,14 +804,6 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                     <span className="text-muted-foreground">Subtotal</span>
                     <span>{formatCurrency(selectedEstimate.subtotal)}</span>
                   </div>
-                  {selectedEstimate.tax_amount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Tax ({selectedEstimate.tax_rate}%)
-                      </span>
-                      <span>{formatCurrency(selectedEstimate.tax_amount)}</span>
-                    </div>
-                  )}
                   {selectedEstimate.discount_amount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Discount</span>

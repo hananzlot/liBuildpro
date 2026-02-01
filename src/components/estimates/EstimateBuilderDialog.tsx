@@ -489,12 +489,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       sum + group.items.reduce((itemSum, item) => itemSum + (item.quantity * item.cost), 0), 0
     );
     
-    const taxableAmount = groups.reduce((sum, group) => 
-      sum + group.items.filter(item => item.is_taxable).reduce((itemSum, item) => itemSum + item.line_total, 0), 0
-    );
-    
-    const taxAmount = (taxableAmount * formData.tax_rate) / 100;
-    
     let discountAmount = 0;
     if (formData.discount_type === "percent") {
       discountAmount = (subtotal * formData.discount_value) / 100;
@@ -502,7 +496,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       discountAmount = formData.discount_value;
     }
     
-    // Total = Subtotal - Discount (tax is tracked separately but not added to total)
+    // Total = Subtotal - Discount (no tax)
     const total = subtotal - discountAmount;
     // Deposit = min(total * percent, max_amount)
     const percentDeposit = (total * formData.deposit_percent) / 100;
@@ -510,8 +504,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     const grossProfit = subtotal - totalCost;
     const marginPercent = subtotal > 0 ? (grossProfit / subtotal) * 100 : 0;
     
-    return { subtotal, totalCost, grossProfit, marginPercent, taxAmount, discountAmount, total, depositAmount };
-  }, [groups, formData.tax_rate, formData.discount_type, formData.discount_value, formData.deposit_percent, formData.deposit_max_amount]);
+    return { subtotal, totalCost, grossProfit, marginPercent, discountAmount, total, depositAmount };
+  }, [groups, formData.discount_type, formData.discount_value, formData.deposit_percent, formData.deposit_max_amount]);
 
   const totals = calculateTotals();
 
@@ -1157,7 +1151,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         // Create/save estimate with all current form data
         toast.info("Saving estimate before AI generation...");
         
-        const { subtotal, taxAmount, discountAmount, total } = calculateTotals();
+        const { subtotal, discountAmount, total } = calculateTotals();
         
         const estimateData = {
           customer_name: formData.customer_name,
@@ -1171,11 +1165,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           deposit_required: formData.deposit_required,
           deposit_percent: formData.deposit_percent,
           deposit_max_amount: formData.deposit_max_amount,
-          tax_rate: formData.tax_rate,
+          tax_rate: 0,
           discount_type: formData.discount_type,
           discount_value: formData.discount_value,
           subtotal,
-          tax_amount: taxAmount,
+          tax_amount: 0,
           discount_amount: discountAmount,
           total,
           notes: formData.notes || null,
@@ -1225,7 +1219,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         // Update existing estimate with current form data before AI generation
         toast.info("Updating estimate before AI generation...");
         
-        const { subtotal, taxAmount, discountAmount, total } = calculateTotals();
+        const { subtotal, discountAmount, total } = calculateTotals();
         
         const estimateData = {
           customer_name: formData.customer_name,
@@ -1239,11 +1233,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           deposit_required: formData.deposit_required,
           deposit_percent: formData.deposit_percent,
           deposit_max_amount: formData.deposit_max_amount,
-          tax_rate: formData.tax_rate,
+          tax_rate: 0,
           discount_type: formData.discount_type,
           discount_value: formData.discount_value,
           subtotal,
-          tax_amount: taxAmount,
+          tax_amount: 0,
           discount_amount: discountAmount,
           total,
           notes: formData.notes || null,
@@ -1795,7 +1789,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         throw new Error("Validation failed");
       }
 
-      const { subtotal, taxAmount, discountAmount, total, depositAmount } = calculateTotals();
+      const { subtotal, discountAmount, total, depositAmount } = calculateTotals();
       
       // When editing, preserve existing status; for new estimates use draft
       const currentStatus = isEditing && existingEstimate?.estimate?.status 
@@ -1830,11 +1824,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         deposit_required: formData.deposit_required,
         deposit_percent: formData.deposit_percent,
         deposit_max_amount: formData.deposit_max_amount,
-        tax_rate: formData.tax_rate,
+        tax_rate: 0,
         discount_type: formData.discount_type,
         discount_value: formData.discount_value,
         subtotal,
-        tax_amount: taxAmount,
+        tax_amount: 0,
         discount_amount: discountAmount,
         total,
         notes: formData.notes || null,
@@ -2115,7 +2109,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         throw new Error("Validation failed");
       }
 
-      const { subtotal, taxAmount, discountAmount, total, depositAmount } = calculateTotals();
+      const { subtotal, discountAmount, total, depositAmount } = calculateTotals();
       
       // Get source estimate data to preserve links (project, opportunity, contact)
       const sourceEstimate = existingEstimate?.estimate;
@@ -2133,11 +2127,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         deposit_required: formData.deposit_required,
         deposit_percent: formData.deposit_percent,
         deposit_max_amount: formData.deposit_max_amount,
-        tax_rate: formData.tax_rate,
+        tax_rate: 0,
         discount_type: formData.discount_type,
         discount_value: formData.discount_value,
         subtotal,
-        tax_amount: taxAmount,
+        tax_amount: 0,
         discount_amount: discountAmount,
         total,
         notes: formData.notes || null,
@@ -3517,22 +3511,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           </div>
                         </div>
 
-                        {/* Tax Rate */}
-                        <div className="border rounded p-2 bg-background min-w-0">
-                          <Label htmlFor="tax_rate" className="text-[10px] text-muted-foreground mb-0.5 block">Tax</Label>
-                          <div className="flex items-center gap-1">
-                            <Input
-                              id="tax_rate"
-                              type="text"
-                              inputMode="decimal"
-                              value={formData.tax_rate}
-                              onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
-                              className="w-12 h-7 text-sm"
-                              placeholder="9.5"
-                            />
-                            <span className="text-xs text-muted-foreground">%</span>
-                          </div>
-                        </div>
 
                         {/* Deposit */}
                         <div className="border rounded p-2 bg-background min-w-0">
@@ -3636,32 +3614,23 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               onBlur={() => {
                                 const finalPrice = parseFloat(finalPriceDraft);
                                 if (!isNaN(finalPrice) && finalPrice >= 0) {
-                                  const preTaxTotal = totals.subtotal + totals.taxAmount;
-                                  
-                                  if (finalPrice > preTaxTotal) {
+                                  if (finalPrice > totals.subtotal) {
                                     const bufferAmount = 1200;
                                     
                                     if (totals.subtotal > 0 && totals.totalCost > 0) {
                                       const targetPreDiscountTotal = finalPrice + bufferAmount;
-                                      const currentPreDiscountTotal = totals.subtotal + totals.taxAmount;
-                                      const scaleFactor = targetPreDiscountTotal / currentPreDiscountTotal;
+                                      const scaleFactor = targetPreDiscountTotal / totals.subtotal;
                                       const newMarkupPercent = ((totals.subtotal * scaleFactor / totals.totalCost) - 1) * 100;
                                       
                                       let newSubtotal = 0;
-                                      let newTaxableAmount = 0;
                                       groups.forEach(g => {
                                         g.items.forEach(item => {
                                           const newUnitPrice = Math.round(item.cost * (1 + newMarkupPercent / 100) * 100) / 100;
                                           const newLineTotal = Math.round(item.quantity * newUnitPrice * 100) / 100;
                                           newSubtotal += newLineTotal;
-                                          if (item.is_taxable) {
-                                            newTaxableAmount += newLineTotal;
-                                          }
                                         });
                                       });
-                                      const newTaxAmount = (newTaxableAmount * formData.tax_rate) / 100;
-                                      const newPreDiscountTotal = newSubtotal + newTaxAmount;
-                                      const requiredDiscount = Math.round((newPreDiscountTotal - finalPrice) * 100) / 100;
+                                      const requiredDiscount = Math.round((newSubtotal - finalPrice) * 100) / 100;
                                       
                                       setGroups(prevGroups => prevGroups.map(g => ({
                                         ...g,
@@ -3684,7 +3653,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                       }));
                                     }
                                   } else {
-                                    const newDiscount = Math.max(0, preTaxTotal - finalPrice);
+                                    const newDiscount = Math.max(0, totals.subtotal - finalPrice);
                                     setFormData({ 
                                       ...formData, 
                                       discount_type: 'fixed',

@@ -513,13 +513,6 @@ serve(async (req) => {
     page.drawText(subtotalText, { x: totalsRightEdge - subtotalWidth, y: yPos, size: 10, font: helvetica, color: black });
     yPos -= 16;
 
-    if ((estimate.tax_amount || 0) > 0) {
-      const taxText = formatCurrency(estimate.tax_amount);
-      const taxWidth = helvetica.widthOfTextAtSize(taxText, 10);
-      page.drawText(`Tax (${estimate.tax_rate}%):`, { x: totalsX, y: yPos, size: 10, font: helvetica, color: black });
-      page.drawText(taxText, { x: totalsRightEdge - taxWidth, y: yPos, size: 10, font: helvetica, color: black });
-      yPos -= 16;
-    }
 
     if ((estimate.discount_amount || 0) > 0) {
       const discountText = `-${formatCurrency(estimate.discount_amount)}`;
