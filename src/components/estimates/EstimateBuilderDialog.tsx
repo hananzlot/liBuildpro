@@ -169,6 +169,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   
   // isEditing is true if we have a current estimate ID (either from prop or after first save)
   const isEditing = !!currentEstimateId && !isCloneMode;
+  
   // Form state
   const [formData, setFormData] = useState<EstimateFormData>({
     customer_name: "",
@@ -649,6 +650,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
+
+  // isProposalReadOnly is true when viewing a proposal (sent, viewed, accepted, declined - anything except draft)
+  // This prevents editing proposals that have been sent to customers
+  const isProposalReadOnly = !!(existingEstimate?.estimate?.status && existingEstimate.estimate.status !== 'draft');
 
   // Populate form when editing (skip if user manually cleared during this session)
   useEffect(() => {
@@ -2541,6 +2546,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   {/* Next button for Customer tab */}
                   <TabNextButton currentTab="customer" validation={validateCustomerTab()} />
                   
+                  {/* Read-only notice for proposals */}
+                  {isProposalReadOnly && (
+                    <div className="bg-muted/50 border border-muted-foreground/20 rounded-lg p-3 flex items-center gap-2 text-sm text-muted-foreground">
+                      <Eye className="h-4 w-4" />
+                      <span>This proposal has been sent and cannot be edited. Use "Create New Estimate" to create a copy.</span>
+                    </div>
+                  )}
+                  
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base">Customer Information</CardTitle>
@@ -2554,6 +2567,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                           placeholder="John Smith"
                           className={getFieldErrorClass(formData.customer_name)}
+                          disabled={isProposalReadOnly}
                         />
                       </div>
                       <div className="space-y-2">
@@ -2566,6 +2580,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           placeholder="john@example.com"
                           required
                           className={getFieldErrorClass(formData.customer_email)}
+                          disabled={isProposalReadOnly}
                         />
                       </div>
                       <div className="space-y-2">
@@ -2575,6 +2590,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           value={formData.customer_phone}
                           onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
                           placeholder="(555) 123-4567"
+                          disabled={isProposalReadOnly}
                         />
                       </div>
                       <div className="space-y-2">
@@ -2585,6 +2601,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           onChange={(e) => setFormData({ ...formData, estimate_title: e.target.value })}
                           placeholder="Kitchen Remodel"
                           className={getFieldErrorClass(formData.estimate_title)}
+                          disabled={isProposalReadOnly}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-2">
@@ -2596,6 +2613,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           placeholder="123 Main St, Los Angeles, CA 90001"
                           required
                           className={getFieldErrorClass(formData.job_address)}
+                          disabled={isProposalReadOnly}
                         />
                         <p className="text-xs text-muted-foreground">Include full address with city, state, and ZIP code for accurate pricing</p>
                       </div>
@@ -2606,6 +2624,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           type="date"
                           value={formData.estimate_date}
                           onChange={(e) => setFormData({ ...formData, estimate_date: e.target.value })}
+                          disabled={isProposalReadOnly}
                         />
                       </div>
                       <div className="space-y-2">
@@ -2615,6 +2634,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           type="date"
                           value={formData.expiration_date}
                           onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
+                          disabled={isProposalReadOnly}
                         />
                       </div>
                       <div className="space-y-2">
@@ -2622,6 +2642,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                         <Select
                           value={formData.salesperson_name || ""}
                           onValueChange={(value) => setFormData({ ...formData, salesperson_name: value })}
+                          disabled={isProposalReadOnly}
                         >
                           <SelectTrigger className={!formData.salesperson_name?.trim() ? "border-destructive" : ""}>
                             <SelectValue placeholder="Select salesperson..." />
@@ -2652,6 +2673,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                         <Select
                           value={linkedProjectId || "none"}
                           onValueChange={(value) => setLinkedProjectId(value === "none" ? null : value)}
+                          disabled={isProposalReadOnly}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select a project to link..." />
@@ -2675,8 +2697,16 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 </TabsContent>
 
                 <TabsContent value="scope" className="mt-0 space-y-4">
-                  {/* Custom button logic for Scope tab */}
+                  {/* Custom button logic for Scope tab - hide AI buttons for read-only proposals */}
                   {(() => {
+                    if (isProposalReadOnly) {
+                      // For proposals, just show Next button if there's content
+                      if (totals.total > 0) {
+                        return <TabNextButton currentTab="scope" validation={validateScopeTab()} />;
+                      }
+                      return null;
+                    }
+                    
                     const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim() && formData.salesperson_name?.trim();
                     const hasWorkScope = formData.work_scope_description?.trim()?.length > 0;
                     const hasEstimateValue = totals.total > 0;
@@ -2763,6 +2793,7 @@ Kitchen remodel:
 
 The more detail you provide, the more accurate the AI-generated estimate will be."
                             className="min-h-[150px]"
+                            disabled={isProposalReadOnly}
                           />
                           <p className="text-xs text-muted-foreground mt-2">
                             Include measurements (sqft, linear ft, quantities) and specific materials. 
@@ -2859,12 +2890,15 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       </>
                     ) : (
                       <>
-                        <div className="flex items-center justify-end mb-2">
-                          <Button onClick={addGroup} size="sm" variant="outline">
-                            <FolderPlus className="mr-2 h-4 w-4" />
-                            Add Area
-                          </Button>
-                        </div>
+                        {/* Hide Add Area button for read-only proposals */}
+                        {!isProposalReadOnly && (
+                          <div className="flex items-center justify-end mb-2">
+                            <Button onClick={addGroup} size="sm" variant="outline">
+                              <FolderPlus className="mr-2 h-4 w-4" />
+                              Add Area
+                            </Button>
+                          </div>
+                        )}
                         <Card>
                         <Collapsible open={showLineItems} onOpenChange={setShowLineItems}>
                           <CardHeader className="py-3">
@@ -2883,40 +2917,43 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   {groups.reduce((sum, g) => sum + g.items.length, 0)} items
                                 </Badge>
                               </CollapsibleTrigger>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSkipAutoRecovery(true);
-                                    setWasManuallyCleared(true);
-                                    setGroups([]);
-                                    setPaymentSchedule([]);
-                                    setAiSummary({ ...emptyAiSummary });
-                                    setShowAiSummary(false);
-                                  }}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Clear All
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => {
-                                    setGroups([]);
-                                    setPaymentSchedule([]);
-                                    setTimeout(() => generateScope(), 100);
-                                  }}
-                                  disabled={isGeneratingScope || !canGenerateAI}
-                                  title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Clear and regenerate with AI'}
-                                >
-                                  {isGeneratingScope ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Wand2 className="mr-2 h-4 w-4" />
-                                  )}
-                                  Regenerate AI
-                                </Button>
-                              </div>
+                              {/* Hide Clear All / Regenerate buttons for read-only proposals */}
+                              {!isProposalReadOnly && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSkipAutoRecovery(true);
+                                      setWasManuallyCleared(true);
+                                      setGroups([]);
+                                      setPaymentSchedule([]);
+                                      setAiSummary({ ...emptyAiSummary });
+                                      setShowAiSummary(false);
+                                    }}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Clear All
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setGroups([]);
+                                      setPaymentSchedule([]);
+                                      setTimeout(() => generateScope(), 100);
+                                    }}
+                                    disabled={isGeneratingScope || !canGenerateAI}
+                                    title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Clear and regenerate with AI'}
+                                  >
+                                    {isGeneratingScope ? (
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Wand2 className="mr-2 h-4 w-4" />
+                                    )}
+                                    Regenerate AI
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           </CardHeader>
                           <CollapsibleContent>
@@ -2937,6 +2974,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                     onChange={(e) => updateGroup(group.id, { group_name: e.target.value })}
                                     className="font-semibold border-0 p-0 h-auto focus-visible:ring-0 min-w-[120px] flex-1"
                                     onClick={(e) => e.stopPropagation()}
+                                    disabled={isProposalReadOnly}
                                   />
                                   <Badge variant="secondary" className="ml-2 shrink-0">
                                     {group.items.length} items
@@ -2945,23 +2983,26 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                     {formatCurrency(group.items.reduce((sum, i) => sum + i.line_total, 0))}
                                   </Badge>
                                 </CollapsibleTrigger>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => addLineItem(group.id)}
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => deleteGroup(group.id)}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
+                                {/* Hide Add/Delete buttons for read-only proposals */}
+                                {!isProposalReadOnly && (
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => addLineItem(group.id)}
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => deleteGroup(group.id)}
+                                      className="text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             </CardHeader>
                             <CollapsibleContent>
@@ -2992,6 +3033,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                           className="flex-1 min-w-[200px] min-h-[32px] text-sm resize-none overflow-hidden py-1.5"
                                           placeholder="Item description"
                                           rows={1}
+                                          disabled={isProposalReadOnly}
                                           onInput={(e) => {
                                             const target = e.target as HTMLTextAreaElement;
                                             target.style.height = 'auto';
@@ -3016,10 +3058,12 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                               }
                                             }}
                                             className="w-16 h-8 text-sm"
+                                            disabled={isProposalReadOnly}
                                           />
                                           <Select
                                             value={item.unit}
                                             onValueChange={(v) => updateLineItem(group.id, item.id, { unit: v })}
+                                            disabled={isProposalReadOnly}
                                           >
                                             <SelectTrigger className="w-20 h-8 text-xs">
                                               <SelectValue />
@@ -3060,6 +3104,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                             }}
                                             className="w-20 h-8 text-sm"
                                             placeholder="0.00"
+                                            disabled={isProposalReadOnly}
                                           />
                                           {/* Material $ field */}
                                           <Input
@@ -3089,6 +3134,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                             }}
                                             className="w-20 h-8 text-sm"
                                             placeholder="0.00"
+                                            disabled={isProposalReadOnly}
                                           />
                                           {/* Markup % field */}
                                           <Input
@@ -3108,6 +3154,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                             }}
                                             className="w-16 h-8 text-sm"
                                             placeholder="35"
+                                            disabled={isProposalReadOnly}
                                           />
                                           {/* Price field */}
                                           <Input
@@ -3131,18 +3178,22 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                               setUnitPriceDrafts((prev) => ({ ...prev, [item.id]: formatMoney(normalized) }));
                                             }}
                                             className="w-24 h-8 text-sm"
+                                            disabled={isProposalReadOnly}
                                           />
                                           <div className="w-24 text-sm font-medium text-right">
                                             {formatCurrency(item.line_total)}
                                           </div>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => deleteLineItem(group.id, item.id)}
-                                            className="w-8 h-8 p-0 text-destructive"
-                                          >
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
+                                          {/* Hide delete button for read-only proposals */}
+                                          {!isProposalReadOnly && (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => deleteLineItem(group.id, item.id)}
+                                              className="w-8 h-8 p-0 text-destructive"
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          )}
                                         </div>
                                       </div>
                                     ))}
@@ -3962,6 +4013,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         onChange={(e) => setFormData({ ...formData, terms_and_conditions: e.target.value })}
                         placeholder="Enter terms and conditions..."
                         rows={6}
+                        disabled={isProposalReadOnly}
                       />
                     </CardContent>
                   </Card>
