@@ -265,9 +265,9 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         supabase.from('estimate_line_items').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
         supabase.from('estimate_payment_schedule').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
         supabase.from('estimate_signatures').select('*').eq('estimate_id', selectedEstimateId),
-        // Fetch estimate photos from the linked project
+        // Fetch estimate photos scoped to this specific estimate
         estimateProjectId 
-          ? supabase.from('project_documents').select('id, file_url, file_name').eq('project_id', estimateProjectId).eq('category', 'Estimate Photo').order('created_at', { ascending: false })
+          ? supabase.from('project_documents').select('id, file_url, file_name').eq('project_id', estimateProjectId).eq('category', 'Estimate Photo').eq('estimate_id', selectedEstimateId).order('created_at', { ascending: false })
           : Promise.resolve({ data: [] }),
       ]);
 

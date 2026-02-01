@@ -181,7 +181,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             .eq('id', estimate.id);
         }
 
-        // Fetch estimate photos if estimate has a linked project
+        // Fetch estimate photos scoped to this specific estimate
         let estimatePhotos: ProposalPhoto[] = [];
         if (estimate.project_id) {
           const { data: photos } = await supabase
@@ -189,6 +189,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             .select('id, file_url, file_name')
             .eq('project_id', estimate.project_id)
             .eq('category', 'Estimate Photo')
+            .eq('estimate_id', estimate.id) // Only photos for this specific estimate
             .order('created_at', { ascending: false });
           estimatePhotos = (photos || []) as ProposalPhoto[];
         }
@@ -287,6 +288,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         }
 
         // Fetch estimate photos if estimate has a linked project
+        // Fetch estimate photos scoped to this specific estimate
         let estimatePhotos: ProposalPhoto[] = [];
         if (estimate.project_id) {
           const { data: photos } = await supabase
@@ -294,6 +296,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             .select('id, file_url, file_name')
             .eq('project_id', estimate.project_id)
             .eq('category', 'Estimate Photo')
+            .eq('estimate_id', estimate.id) // Only photos for this specific estimate
             .order('created_at', { ascending: false });
           estimatePhotos = (photos || []) as ProposalPhoto[];
         }

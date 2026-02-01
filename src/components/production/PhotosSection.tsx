@@ -42,6 +42,8 @@ interface PhotosSectionProps {
   filterCategory?: string;
   /** Custom title for the section header */
   sectionTitle?: string;
+  /** Optional estimate ID to scope photos to a specific estimate/proposal */
+  estimateId?: string;
 }
 
 type ViewMode = 'grid' | 'timeline' | 'categorized';
@@ -52,6 +54,7 @@ export function PhotosSection({
   photoCategory = 'Project Photo',
   filterCategory,
   sectionTitle = 'Project Photos',
+  estimateId,
 }: PhotosSectionProps) {
   const { companyId } = useCompanyContext();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -65,15 +68,21 @@ export function PhotosSection({
 
   const maxFileSize = uploadLimitMb * 1024 * 1024;
 
-  // Fetch all project documents
+  // Fetch project documents, optionally scoped to a specific estimate
   const { data: documents = [], isLoading } = useQuery({
-    queryKey: ['project-photos', projectId],
+    queryKey: ['project-photos', projectId, estimateId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('project_documents')
         .select('*')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false });
+        .eq('project_id', projectId);
+      
+      // If estimateId is provided, filter to only show photos for this estimate
+      if (estimateId) {
+        query = query.eq('estimate_id', estimateId);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -135,7 +144,8 @@ export function PhotosSection({
             file_type: file.type,
             category: photoCategory,
             notes: `Uploaded via ${photoCategory === 'Estimate Photo' ? 'estimate builder' : 'project detail'}`,
-            company_id: companyId
+            company_id: companyId,
+            estimate_id: estimateId || null, // Scope to specific estimate if provided
           });
 
         if (dbError) {
@@ -149,8 +159,9 @@ export function PhotosSection({
 
       if (successCount > 0) {
         toast.success(`Uploaded ${successCount} photo${successCount > 1 ? 's' : ''}`);
-        queryClient.invalidateQueries({ queryKey: ['project-photos', projectId] });
+        queryClient.invalidateQueries({ queryKey: ['project-photos', projectId, estimateId] });
         queryClient.invalidateQueries({ queryKey: ['project-portal'] });
+        queryClient.invalidateQueries({ queryKey: ['estimate-preview'] });
       }
     } catch (err) {
       console.error('Upload error:', err);
@@ -187,8 +198,9 @@ export function PhotosSection({
       if (error) throw error;
 
       toast.success('Photo deleted');
-      queryClient.invalidateQueries({ queryKey: ['project-photos', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project-photos', projectId, estimateId] });
       queryClient.invalidateQueries({ queryKey: ['project-portal'] });
+      queryClient.invalidateQueries({ queryKey: ['estimate-preview'] });
       
       // Close lightbox if deleting current image
       if (selectedImage?.id === photoToDelete.id) {
