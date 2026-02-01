@@ -31,6 +31,7 @@ import {
   Mail,
   Loader2,
   FileSignature,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -255,11 +256,19 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     queryFn: async () => {
       if (!selectedEstimateId) return null;
 
-      const [groupsRes, itemsRes, scheduleRes, signaturesRes] = await Promise.all([
+      // Get the estimate's project_id for photos
+      const estimateForPhotos = estimates.find(e => e.id === selectedEstimateId);
+      const estimateProjectId = estimateForPhotos?.project_id || projectId;
+
+      const [groupsRes, itemsRes, scheduleRes, signaturesRes, photosRes] = await Promise.all([
         supabase.from('estimate_groups').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
         supabase.from('estimate_line_items').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
         supabase.from('estimate_payment_schedule').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
         supabase.from('estimate_signatures').select('*').eq('estimate_id', selectedEstimateId),
+        // Fetch estimate photos from the linked project
+        estimateProjectId 
+          ? supabase.from('project_documents').select('id, file_url, file_name').eq('project_id', estimateProjectId).eq('category', 'Estimate Photo').order('created_at', { ascending: false })
+          : Promise.resolve({ data: [] }),
       ]);
 
       return {
@@ -267,6 +276,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         lineItems: itemsRes.data || [],
         paymentSchedule: scheduleRes.data || [],
         signatures: signaturesRes.data || [],
+        photos: photosRes.data || [],
       };
     },
     enabled: !!selectedEstimateId && viewingProposal,
@@ -508,6 +518,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     const lineItems = estimateDetails?.lineItems || [];
     const paymentSchedule = estimateDetails?.paymentSchedule || [];
     const signatures = estimateDetails?.signatures || [];
+    const photos = estimateDetails?.photos || [];
     
 
     const groupedItems = groups.reduce((acc: Record<string, LineItem[]>, group: Group) => {
@@ -857,6 +868,34 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                             {formatCurrency((selectedEstimate.total || 0) * (phase.percent / 100))}
                           </p>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Project Photos */}
+            {photos.length > 0 && (
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5" />
+                    Project Photos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {photos.map((photo: { id: string; file_url: string; file_name: string | null }) => (
+                      <div
+                        key={photo.id}
+                        className="aspect-square rounded-lg overflow-hidden border bg-muted"
+                      >
+                        <img
+                          src={photo.file_url}
+                          alt={photo.file_name || 'Project photo'}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                     ))}
                   </div>
