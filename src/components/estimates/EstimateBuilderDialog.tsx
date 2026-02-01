@@ -2141,6 +2141,61 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         }
       }
 
+      // Also create project for EXISTING estimates that don't have one yet (outside !isEditing block)
+      if (isEditing && !linkedProjectId && savedEstimateId) {
+        try {
+          const { data: locationSetting } = await supabase
+            .from("company_integrations")
+            .select("location_id")
+            .eq("company_id", companyId)
+            .eq("provider", "ghl")
+            .eq("is_active", true)
+            .maybeSingle();
+
+          const locationId = locationSetting?.location_id || "local";
+
+          const nameParts = formData.customer_name.trim().split(" ");
+          const firstName = nameParts[0] || "";
+          const lastName = nameParts.slice(1).join(" ") || "";
+
+          const { data: newProject, error: projectError } = await supabase
+            .from("projects")
+            .insert({
+              project_name: formData.estimate_title || formData.customer_name,
+              project_status: "Estimate",
+              project_address: formData.job_address || null,
+              customer_first_name: firstName || null,
+              customer_last_name: lastName || null,
+              customer_email: formData.customer_email || null,
+              cell_phone: formData.customer_phone || null,
+              primary_salesperson: formData.salesperson_name || null,
+              opportunity_id: linkedOpportunityGhlId || null,
+              opportunity_uuid: linkedOpportunityUuid || null,
+              contact_id: linkedContactId || null,
+              contact_uuid: linkedContactUuid || null,
+              location_id: locationId,
+              company_id: companyId,
+              created_by: user?.id,
+            })
+            .select()
+            .single();
+
+          if (projectError) {
+            console.error("Failed to create project for existing estimate:", projectError);
+          } else if (newProject) {
+            await supabase
+              .from("estimates")
+              .update({ project_id: newProject.id })
+              .eq("id", savedEstimateId);
+            
+            setLinkedProjectId(newProject.id);
+            console.log("Created project for existing estimate:", newProject.id);
+          }
+        } catch (err) {
+          console.error("Failed to create project for existing estimate:", err);
+        }
+      }
+
       return savedEstimateId;
     },
     onSuccess: (savedEstimateId: string | null) => {
