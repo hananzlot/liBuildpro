@@ -21,7 +21,7 @@ import {
   Plus, Trash2, Save, Wand2, Loader2, GripVertical, 
   User, MapPin, Calendar, DollarSign, Percent, FileText,
   ChevronDown, ChevronRight, FolderPlus, TrendingUp, Copy,
-  Upload, X, FileIcon, ArrowRight, AlertCircle, HelpCircle, CheckCircle2, Eye
+  Upload, X, FileIcon, ArrowRight, AlertCircle, HelpCircle, CheckCircle2, Eye, Image
 } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -29,6 +29,7 @@ import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
 import { AIGenerationProgress } from "./AIGenerationProgress";
 import { MissingInfoPanel, parseMissingInfo, groupByCategory, MultiSelectDropdown, type ParsedQuestion } from "./MissingInfoPanel";
 import { AISummaryCard } from "./AISummaryCard";
+import { PhotosSection } from "@/components/production/PhotosSection";
 
 import type { LinkedOpportunity } from "./EstimateSourceDialog";
 
@@ -2072,6 +2073,67 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             // Don't fail the save for this
           }
         }
+
+        // Auto-create project with status "Estimate" for new estimates without a project
+        if (!linkedProjectId && savedEstimateId) {
+          try {
+            // Get location_id from company settings
+            const { data: locationSetting } = await supabase
+              .from("company_integrations")
+              .select("location_id")
+              .eq("company_id", companyId)
+              .eq("provider", "ghl")
+              .eq("is_active", true)
+              .maybeSingle();
+
+            const locationId = locationSetting?.location_id || "local";
+
+            // Parse customer name
+            const nameParts = formData.customer_name.trim().split(" ");
+            const firstName = nameParts[0] || "";
+            const lastName = nameParts.slice(1).join(" ") || "";
+
+            // Create project with status "Estimate"
+            const { data: newProject, error: projectError } = await supabase
+              .from("projects")
+              .insert({
+                project_name: formData.estimate_title || formData.customer_name,
+                project_status: "Estimate",
+                project_address: formData.job_address || null,
+                customer_first_name: firstName || null,
+                customer_last_name: lastName || null,
+                customer_email: formData.customer_email || null,
+                cell_phone: formData.customer_phone || null,
+                primary_salesperson: formData.salesperson_name || null,
+                opportunity_id: linkedOpportunityGhlId || null,
+                opportunity_uuid: linkedOpportunityUuid || null,
+                contact_id: linkedContactId || null,
+                contact_uuid: linkedContactUuid || null,
+                location_id: locationId,
+                company_id: companyId,
+                created_by: user?.id,
+              })
+              .select()
+              .single();
+
+            if (projectError) {
+              console.error("Failed to create project for estimate:", projectError);
+            } else if (newProject) {
+              // Link estimate to the new project
+              await supabase
+                .from("estimates")
+                .update({ project_id: newProject.id })
+                .eq("id", savedEstimateId);
+              
+              // Update local state
+              setLinkedProjectId(newProject.id);
+              console.log("Created project with status 'Estimate' and linked to estimate:", newProject.id);
+            }
+          } catch (err) {
+            console.error("Failed to create project for estimate:", err);
+            // Don't fail the save for this
+          }
+        }
       }
 
       return savedEstimateId;
@@ -2546,6 +2608,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                       Terms & Notes
                     </TabsTrigger>
                   </>
+                )}
+                {/* Photos tab - always visible when project is linked */}
+                {linkedProjectId && (
+                  <TabsTrigger value="photos" className="flex items-center gap-2">
+                    <Image className="h-4 w-4" />
+                    Photos
+                  </TabsTrigger>
                 )}
               </TabsList>
 
@@ -4004,6 +4073,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     </CardContent>
                   </Card>
                 </TabsContent>
+
+                {/* Photos Tab */}
+                {linkedProjectId && (
+                  <TabsContent value="photos" className="mt-0">
+                    <PhotosSection projectId={linkedProjectId} uploadLimitMb={15} />
+                  </TabsContent>
+                )}
               </ScrollArea>
             </Tabs>
           </div>

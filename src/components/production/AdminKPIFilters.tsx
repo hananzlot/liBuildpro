@@ -7,9 +7,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { RotateCcw, Search, Filter } from "lucide-react";
 
 // All available project statuses
-export const PROJECT_STATUSES = ["Pre-Estimate", "Proposal", "New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"];
+export const PROJECT_STATUSES = ["Estimate", "Pre-Estimate", "Proposal", "New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"];
 
-// Default statuses - excludes Pre-Estimate and Proposal
+// Default statuses - excludes Estimate, Pre-Estimate and Proposal
 export const DEFAULT_PROJECT_STATUSES = ["New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"];
 
 interface AdminKPIFiltersProps {
