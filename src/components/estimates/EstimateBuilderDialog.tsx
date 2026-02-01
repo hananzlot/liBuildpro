@@ -294,6 +294,25 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     loadDraft: loadDraftDB,
     deleteDraft: deleteDraftDB,
   } = useEstimateDraftDB();
+
+  // Auto-save visibility toggles directly to the database when editing an existing estimate
+  const autoSaveVisibilityToggle = useCallback(async (field: 'show_scope_to_customer' | 'show_line_items_to_customer' | 'show_details_to_customer', value: boolean) => {
+    if (!currentEstimateId || isCloneMode) return;
+    
+    try {
+      const { error } = await supabase
+        .from('estimates')
+        .update({ [field]: value })
+        .eq('id', currentEstimateId);
+      
+      if (error) {
+        console.error('Failed to auto-save visibility toggle:', error);
+        toast.error('Failed to save visibility setting');
+      }
+    } catch (err) {
+      console.error('Error auto-saving visibility toggle:', err);
+    }
+  }, [currentEstimateId, isCloneMode]);
   
   // Memoize draft data to avoid unnecessary re-saves
   const draftData = useMemo(() => ({
@@ -4108,7 +4127,10 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         </div>
                         <Switch
                           checked={formData.show_scope_to_customer}
-                          onCheckedChange={(checked) => setFormData({ ...formData, show_scope_to_customer: checked })}
+                          onCheckedChange={(checked) => {
+                            setFormData({ ...formData, show_scope_to_customer: checked });
+                            autoSaveVisibilityToggle('show_scope_to_customer', checked);
+                          }}
                         />
                       </div>
                       <div className="flex items-center justify-between pt-4 border-t">
@@ -4120,7 +4142,15 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         </div>
                         <Switch
                           checked={formData.show_line_items_to_customer}
-                          onCheckedChange={(checked) => setFormData({ ...formData, show_line_items_to_customer: checked })}
+                          onCheckedChange={(checked) => {
+                            setFormData({ ...formData, show_line_items_to_customer: checked });
+                            autoSaveVisibilityToggle('show_line_items_to_customer', checked);
+                            // Also disable details if line items are hidden
+                            if (!checked && formData.show_details_to_customer) {
+                              setFormData(prev => ({ ...prev, show_line_items_to_customer: checked, show_details_to_customer: false }));
+                              autoSaveVisibilityToggle('show_details_to_customer', false);
+                            }
+                          }}
                         />
                       </div>
                       <div className="flex items-center justify-between pt-4 border-t">
@@ -4132,7 +4162,10 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         </div>
                         <Switch
                           checked={formData.show_details_to_customer}
-                          onCheckedChange={(checked) => setFormData({ ...formData, show_details_to_customer: checked })}
+                          onCheckedChange={(checked) => {
+                            setFormData({ ...formData, show_details_to_customer: checked });
+                            autoSaveVisibilityToggle('show_details_to_customer', checked);
+                          }}
                           disabled={!formData.show_line_items_to_customer}
                         />
                       </div>
