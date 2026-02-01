@@ -469,7 +469,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return sp?.id || null;
   }, [salespeople]);
 
-  // Calculate totals including cost and profit
+  // Format phone number as (XXX) XXX-XXXX
+  const formatPhoneNumber = useCallback((value: string) => {
+    // Remove all non-digit characters
+    const digits = value.replace(/\D/g, '');
+    
+    // Format based on length
+    if (digits.length === 0) return '';
+    if (digits.length <= 3) return `(${digits}`;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  }, []);
   const calculateTotals = useCallback(() => {
     const subtotal = groups.reduce((sum, group) => 
       sum + group.items.reduce((itemSum, item) => itemSum + item.line_total, 0), 0
@@ -2591,8 +2601,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                         <Label htmlFor="customer_phone">Phone</Label>
                         <Input
                           id="customer_phone"
-                          value={formData.customer_phone}
-                          onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
+                          value={formatPhoneNumber(formData.customer_phone)}
+                          onChange={(e) => {
+                            const formatted = formatPhoneNumber(e.target.value);
+                            setFormData({ ...formData, customer_phone: formatted });
+                          }}
                           placeholder="(555) 123-4567"
                           disabled={isProposalReadOnly}
                         />
