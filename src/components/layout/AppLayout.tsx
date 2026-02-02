@@ -84,14 +84,24 @@ export function AppLayout({
               {headerContent}
             </div>
             <div className="flex items-center gap-2">
-              {/* Quick Web Search - opens Google in app tab */}
+              {/* Quick Web Search - opens Google in popup window */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
                     variant="ghost" 
                     size="icon" 
                     className="h-8 w-8"
-                    onClick={() => openTab('/browser?url=' + encodeURIComponent('https://www.google.com'), 'Web Search')}
+                    onClick={() => {
+                      const width = 1024;
+                      const height = 768;
+                      const left = window.screenX + (window.outerWidth - width) / 2;
+                      const top = window.screenY + (window.outerHeight - height) / 2;
+                      window.open(
+                        'https://www.google.com',
+                        'WebSearch',
+                        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+                      );
+                    }}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
