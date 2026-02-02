@@ -68,7 +68,7 @@ import { MissingProjectsSection } from "@/components/production/MissingProjectsS
 import { SubcontractorsManagement } from "@/components/production/SubcontractorsManagement";
 import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement";
 import { ScopeSubmissionsManagement } from "@/components/production/ScopeSubmissionsManagement";
-import { SubcontractorWarningsCard } from "@/components/production/SubcontractorWarningsCard";
+import { WarningsDialog } from "@/components/production/WarningsDialog";
 import { ProjectImportDialog } from "@/components/production/ProjectImportDialog";
 import { AdminKPIFilters, PROJECT_STATUSES } from "@/components/production/AdminKPIFilters";
 import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
@@ -1636,6 +1636,15 @@ export default function Production() {
                       Add Test Project
                     </Button>
                   )}
+                  {/* Warnings Button */}
+                  <WarningsDialog
+                    warningCounts={warningCounts}
+                    bookkeepingWarningCounts={bookkeepingWarningCounts}
+                    totalWarnings={totalWarnings}
+                    totalBookkeepingWarnings={totalBookkeepingWarnings}
+                    onOpenWarningSheet={handleOpenWarningSheet}
+                    onOpenPendingDeposits={() => setPendingDepositsSheetOpen(true)}
+                  />
                   <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
                     <Upload className="h-4 w-4 mr-2" />
                     Import
@@ -1794,147 +1803,6 @@ export default function Production() {
                 </CollapsibleContent>
               </Collapsible>
 
-          {/* Warnings Section - Three Columns */}
-          {(totalWarnings > 0 || totalBookkeepingWarnings > 0) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {/* Financial Warnings */}
-              {totalWarnings > 0 && (
-                <Card className="border-amber-500/30 bg-amber-500/5">
-                  <CardHeader className="pb-1 pt-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />
-                      <CardTitle className="text-sm">Financial Warnings</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pb-3 px-4">
-                    <div className="flex flex-wrap gap-2">
-                      {warningCounts.missingContract > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/20"
-                          onClick={() => handleOpenWarningSheet('missingContract')}
-                        >
-                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-destructive text-destructive-foreground border-0">
-                            C
-                          </Badge>
-                          No Contract: {warningCounts.missingContract}
-                        </Button>
-                      )}
-                      {warningCounts.missingPhases > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs bg-orange-500/10 border-orange-500/30 text-orange-600 hover:bg-orange-500/20"
-                          onClick={() => handleOpenWarningSheet('missingPhases')}
-                        >
-                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-orange-500 text-white border-0">
-                            P
-                          </Badge>
-                          No Phases: {warningCounts.missingPhases}
-                        </Button>
-                      )}
-                      {warningCounts.phaseMismatch > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20"
-                          onClick={() => handleOpenWarningSheet('phaseMismatch')}
-                        >
-                          <AlertTriangle className="h-3 w-3 mr-1.5" />
-                          Phase Mismatch: {warningCounts.phaseMismatch}
-                        </Button>
-                      )}
-                      {warningCounts.contractMismatch > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
-                          onClick={() => handleOpenWarningSheet('contractMismatch')}
-                        >
-                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-red-500 text-white border-0">
-                            $
-                          </Badge>
-                          Contract Mismatch: {warningCounts.contractMismatch}
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Bookkeeping Warnings */}
-              {totalBookkeepingWarnings > 0 && (
-                <Card className="border-blue-500/30 bg-blue-500/5">
-                  <CardHeader className="pb-1 pt-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-blue-500" />
-                      <CardTitle className="text-sm">Bookkeeping Warnings</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pb-3 px-4">
-                    <div className="flex flex-wrap gap-2">
-                      {bookkeepingWarningCounts.missingSalesperson > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs bg-blue-500/10 border-blue-500/30 text-blue-600 hover:bg-blue-500/20"
-                          onClick={() => handleOpenWarningSheet('missingSalesperson')}
-                        >
-                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-blue-500 text-white border-0">
-                            S
-                          </Badge>
-                          No Salesperson: {bookkeepingWarningCounts.missingSalesperson}
-                        </Button>
-                      )}
-                      {bookkeepingWarningCounts.missingCompletionDate > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
-                          onClick={() => handleOpenWarningSheet('missingCompletionDate')}
-                        >
-                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-red-500 text-white border-0">
-                            E
-                          </Badge>
-                          No End Date: {bookkeepingWarningCounts.missingCompletionDate}
-                        </Button>
-                      )}
-                      {bookkeepingWarningCounts.overdueChecklists > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs bg-orange-500/10 border-orange-500/30 text-orange-600 hover:bg-orange-500/20"
-                          onClick={() => handleOpenWarningSheet('overdueChecklists')}
-                        >
-                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-orange-500 text-white border-0">
-                            C
-                          </Badge>
-                          Overdue Checklists: {bookkeepingWarningCounts.overdueChecklists}
-                        </Button>
-                      )}
-                      {bookkeepingWarningCounts.pendingDeposits > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs bg-purple-500/10 border-purple-500/30 text-purple-600 hover:bg-purple-500/20"
-                          onClick={() => setPendingDepositsSheetOpen(true)}
-                        >
-                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-purple-500 text-white border-0">
-                            $
-                          </Badge>
-                          Pending Deposits: {bookkeepingWarningCounts.pendingDeposits}
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Subcontractor Expiration Warnings - in same grid */}
-              <SubcontractorWarningsCard />
-            </div>
-          )}
 
               {/* Missing Projects from Won Opportunities - Admin Only */}
               {isAdmin && <MissingProjectsSection />}
