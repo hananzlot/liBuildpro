@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import {
   Table,
   TableBody,
@@ -95,6 +96,7 @@ export function AppointmentsTable({
   users = [],
   onFilteredCountChange
 }: AppointmentsTableProps) {
+  const { openTab } = useAppTabs();
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -616,8 +618,10 @@ export function AppointmentsTable({
   };
 
   const handleRowClick = (appointment: Appointment) => {
-    setSelectedAppointment(appointment);
-    setSheetOpen(true);
+    // Open in a new tab using the full-page route
+    const id = appointment.id || appointment.ghl_id;
+    const title = appointment.title || 'Appointment';
+    openTab(`/appointment/${id}`, title);
   };
 
   const handleSort = (column: SortColumn) => {
