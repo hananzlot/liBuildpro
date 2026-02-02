@@ -10,6 +10,7 @@ import { SubscriptionGuard } from "@/components/subscription/SubscriptionGuard";
 import { AppRoutes } from "@/components/routing/AppRoutes";
 import { createIDBPersister } from "@/lib/queryPersister";
 import { usePreventSwipeNavigation } from "@/hooks/usePreventSwipeNavigation";
+import { AppTabsProvider } from "@/contexts/AppTabsContext";
 
 // Component to apply global hooks
 function GlobalHooks() {
@@ -56,7 +57,9 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <AppRoutes />
+              <AppTabsProvider>
+                <AppRoutes />
+              </AppTabsProvider>
             </BrowserRouter>
           </TooltipProvider>
         </SubscriptionGuard>
