@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { fetchAllPages } from "@/lib/supabasePagination";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,7 +19,6 @@ import { toast } from "sonner";
 import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
 import { format } from "date-fns";
 import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet";
-import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
 import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
 import { ContractPrintDialog } from "@/components/estimates/ContractPrintDialog";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
@@ -68,18 +68,13 @@ const statusLabels: Record<string, string> = {
 
 export default function Estimates() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { estimateId: urlEstimateId, editId: urlEditId } = useParams<{ estimateId?: string; editId?: string }>();
+  const { estimateId: urlEstimateId } = useParams<{ estimateId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentView = (searchParams.get("view") as ViewType) || "list";
   const { isAdmin } = useAuth();
   const { companyId } = useCompanyContext();
+  const { openTab } = useAppTabs();
   const queryClient = useQueryClient();
-  
-  // Route-based builder state: /estimates/builder or /estimates/builder/:editId
-  const isBuilderRoute = location.pathname.startsWith('/estimates/builder');
-  const builderOpen = isBuilderRoute;
-  const editingEstimateId = urlEditId || null;
   
   const [sendDialogEstimate, setSendDialogEstimate] = useState<Estimate | null>(null);
   const [isResendMode, setIsResendMode] = useState(false);
@@ -89,22 +84,32 @@ export default function Estimates() {
   
   // New estimate source dialog state
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
-  const [linkedOpportunity, setLinkedOpportunity] = useState<LinkedOpportunity | null>(null);
-  const [createOpportunityOnSave, setCreateOpportunityOnSave] = useState(false);
 
-  // Handle source dialog continue - navigate to builder route
-  const handleSourceDialogContinue = (opportunity: LinkedOpportunity | null, createOpp: boolean) => {
-    setLinkedOpportunity(opportunity);
-    setCreateOpportunityOnSave(createOpp);
+  // Handle source dialog continue - navigate to new estimate page in a tab
+  const handleSourceDialogContinue = (opportunity: LinkedOpportunity | null, _createOpp: boolean) => {
     setSourceDialogOpen(false);
-    // Navigate to builder route (new estimate)
-    navigate('/estimates/builder');
+    // Build URL with opportunity params if provided
+    let url = '/estimate/new';
+    if (opportunity?.id || opportunity?.ghl_id) {
+      const params = new URLSearchParams();
+      if (opportunity.id) params.set('opportunityId', opportunity.id);
+      if (opportunity.ghl_id) params.set('opportunityGhlId', opportunity.ghl_id);
+      if (opportunity.name) params.set('name', opportunity.name);
+      if (opportunity.contact_name) params.set('contactName', opportunity.contact_name);
+      if (opportunity.contact_email) params.set('contactEmail', opportunity.contact_email);
+      if (opportunity.contact_phone) params.set('contactPhone', opportunity.contact_phone);
+      if (opportunity.address) params.set('address', opportunity.address);
+      if (opportunity.scope_of_work) params.set('scope', opportunity.scope_of_work);
+      if (opportunity.salesperson_name) params.set('salesperson', opportunity.salesperson_name);
+      if (opportunity.contact_uuid) params.set('contactUuid', opportunity.contact_uuid);
+      if (opportunity.contact_id) params.set('contactId', opportunity.contact_id);
+      url = `/estimate/new?${params.toString()}`;
+    }
+    openTab(url, 'New Estimate');
   };
 
   // Handle new estimate button click
   const handleNewEstimateClick = () => {
-    setLinkedOpportunity(null);
-    setCreateOpportunityOnSave(false);
     setSourceDialogOpen(true);
   };
 
@@ -310,7 +315,7 @@ export default function Estimates() {
   // Handle creating a new estimate from a declined one
   const handleCreateNewFromDeclined = (estimate: Estimate) => {
     // Navigate to builder with clone prefix
-    navigate(`/estimates/builder/clone:${estimate.id}`);
+    openTab(`/estimate/clone:${estimate.id}`, `Clone Estimate #${estimate.estimate_number}`);
   };
 
   // Open proposal preview (estimate-only view)
@@ -542,7 +547,7 @@ export default function Estimates() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => navigate(`/estimates/builder/${estimate.id}`)}
+                        onClick={() => openTab(`/estimate/${estimate.id}`, `Edit Estimate #${estimate.estimate_number}`)}
                         title="Edit"
                       >
                         <Edit className="h-4 w-4" />
@@ -827,37 +832,6 @@ export default function Estimates() {
         onContinue={handleSourceDialogContinue}
       />
 
-      {/* Estimate Builder Dialog - route-based so it stays open across tab switches */}
-      <EstimateBuilderDialog
-        open={builderOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            // Determine correct tab based on estimate status when closing
-            let targetView: ViewType = currentView;
-            if (editingEstimateId) {
-              const estimate = estimates?.find(e => e.id === editingEstimateId);
-              if (estimate) {
-                if (estimate.status === 'draft') {
-                  targetView = 'list';
-                } else if (['sent', 'viewed', 'needs_changes'].includes(estimate.status)) {
-                  targetView = 'proposals';
-                } else if (estimate.status === 'accepted') {
-                  targetView = 'contracts';
-                } else if (estimate.status === 'declined') {
-                  targetView = 'declined';
-                }
-              }
-            }
-            navigate(`/estimates${targetView !== 'list' ? `?view=${targetView}` : ''}`, { replace: true });
-            setLinkedOpportunity(null);
-            setCreateOpportunityOnSave(false);
-          }
-        }}
-        estimateId={editingEstimateId}
-        linkedOpportunity={linkedOpportunity}
-        createOpportunityOnSave={createOpportunityOnSave}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["estimates", companyId] })}
-      />
 
       {/* Send Proposal Dialog */}
       {sendDialogEstimate && (

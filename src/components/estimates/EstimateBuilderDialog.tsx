@@ -41,6 +41,8 @@ interface EstimateBuilderDialogProps {
   linkedOpportunity?: LinkedOpportunity | null;
   createOpportunityOnSave?: boolean;
   initialWorkScope?: string;
+  /** Render mode: 'dialog' (default) shows in a modal, 'page' renders inline content */
+  mode?: 'dialog' | 'page';
 }
 
 interface LineItem {
@@ -135,7 +137,7 @@ const units = ["hours", "sqft", "linear ft", "each", "set", "unit", "day", "week
 
 const generateId = () => crypto.randomUUID();
 
-export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess, linkedOpportunity, createOpportunityOnSave = false, initialWorkScope }: EstimateBuilderDialogProps) {
+export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess, linkedOpportunity, createOpportunityOnSave = false, initialWorkScope, mode = 'dialog' }: EstimateBuilderDialogProps) {
   const { user, isSuperAdmin } = useAuth();
   const { companyId: contextCompanyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -2689,7 +2691,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     );
   };
 
+  // Page mode: render inline without Dialog wrapper
+  const isPageMode = mode === 'page';
+
   if (loadingEstimate && isEditing) {
+    if (isPageMode) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      );
+    }
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
@@ -2706,6 +2718,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     );
   }
 
+  // Page mode renders the dialog with special styling to appear inline
+  const pageModClass = isPageMode ? 'estimate-builder-page-mode' : '';
   return (
     <>
       {/* AI Generation Progress Overlay */}
@@ -2720,11 +2734,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
-          className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0"
-          onInteractOutside={(e) => e.preventDefault()}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onEscapeKeyDown={(e) => e.preventDefault()}
+          className={`max-w-[95vw] w-full h-[90vh] flex flex-col p-0 ${isPageMode ? 'estimate-builder-page-mode' : ''}`}
+          onInteractOutside={(e) => isPageMode || e.preventDefault()}
+          onPointerDownOutside={(e) => isPageMode || e.preventDefault()}
+          onEscapeKeyDown={(e) => isPageMode || e.preventDefault()}
           hideCloseButton
+          data-page-mode={isPageMode || undefined}
         >
           <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">

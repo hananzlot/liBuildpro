@@ -7,6 +7,8 @@ import AuditLog from "@/pages/AuditLog";
 import FollowUp from "@/pages/FollowUp";
 import MagazineSales from "@/pages/MagazineSales";
 import Estimates from "@/pages/Estimates";
+import EstimateBuilder from "@/pages/EstimateBuilder";
+import ProjectEditor from "@/pages/ProjectEditor";
 import Documents from "@/pages/Documents";
 import ClientPortal from "@/pages/ClientPortal";
 import DocumentPortal from "@/pages/DocumentPortal";
@@ -196,7 +198,7 @@ export function AppRoutes() {
           }
         />
         
-        {/* Estimates - list, detail, and builder routes */}
+        {/* Estimates - list and detail routes */}
         <Route
           path="/estimates"
           element={
@@ -213,20 +215,39 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        {/* Estimate builder route - keeps dialog open across tab switches */}
+        
+        {/* Estimate builder - full page routes that open in tabs */}
         <Route
-          path="/estimates/builder"
+          path="/estimate/new"
           element={
             <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="estimates">
-              <Estimates />
+              <EstimateBuilder />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/estimates/builder/:editId"
+          path="/estimate/:id"
           element={
             <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="estimates">
-              <Estimates />
+              <EstimateBuilder />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Project editor - full page routes that open in tabs */}
+        <Route
+          path="/project/new"
+          element={
+            <ProtectedRoute requiredRole="production" requiredFeature="production">
+              <ProjectEditor />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/project/:id/edit"
+          element={
+            <ProtectedRoute requiredRole="production" requiredFeature="production">
+              <ProjectEditor />
             </ProtectedRoute>
           }
         />
