@@ -2865,7 +2865,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         onClose={() => setShowAiProgress(false)}
       />
       
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={isPageMode ? undefined : onOpenChange}>
         <DialogContent 
           className={`${isPageMode ? 'w-full h-full' : 'max-w-[95vw] w-full h-[90vh]'} flex flex-col p-0`}
           onInteractOutside={(e) => isPageMode || e.preventDefault()}
