@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, ExternalLink } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePortalChatNotifications } from "@/hooks/usePortalChatNotifications";
@@ -82,6 +82,21 @@ export function AppLayout({
               {headerContent}
             </div>
             <div className="flex items-center gap-2">
+              {/* Quick Web Search - opens Google in new tab */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={() => window.open('https://www.google.com', '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Open Web Search</TooltipContent>
+              </Tooltip>
+              
               <DropdownMenu>
                 <Tooltip>
                   <TooltipTrigger asChild>
