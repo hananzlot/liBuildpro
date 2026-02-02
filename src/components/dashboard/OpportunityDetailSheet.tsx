@@ -156,6 +156,8 @@ interface OpportunityDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   allOpportunities?: Opportunity[];
   initialTaskGhlId?: string | null;
+  /** Render mode: 'sheet' (default) shows in a slide-over, 'page' renders inline content */
+  mode?: 'sheet' | 'page';
 }
 const OPPORTUNITY_STATUSES = ["open", "won", "lost", "abandoned"];
 const extractCustomField = (customFields: unknown, fieldId: string): string | null => {
@@ -172,7 +174,8 @@ export function OpportunityDetailSheet({
   open,
   onOpenChange,
   allOpportunities = [],
-  initialTaskGhlId = null
+  initialTaskGhlId = null,
+  mode = 'sheet'
 }: OpportunityDetailSheetProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -2392,8 +2395,11 @@ export function OpportunityDetailSheet({
     }
   };
 
-  return <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-3xl overflow-y-auto p-0">
+  const isPageMode = mode === 'page';
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className={`w-full sm:max-w-3xl overflow-y-auto p-0 ${isPageMode ? 'opportunity-detail-page-mode' : ''}`} data-page-mode={isPageMode || undefined}>
         {/* Header */}
         <div className="sticky top-0 bg-background border-b p-4">
           <SheetHeader>
@@ -3833,5 +3839,6 @@ export function OpportunityDetailSheet({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Sheet>;
+    </Sheet>
+  );
 }
