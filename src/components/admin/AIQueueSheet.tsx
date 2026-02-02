@@ -177,7 +177,7 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
         <TableBody>
           {queuedJobs.map((job) => {
             const progress = getProgressPercent(job);
-            const jobAddress = job.request_params?.job_address || "Unknown address";
+            const jobAddress = (job.request_params?.jobAddress || job.request_params?.job_address || "Unknown address") as string;
             
             return (
               <TableRow key={job.id}>
@@ -312,7 +312,7 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
           </TableHeader>
           <TableBody>
             {historyJobs.map((job) => {
-              const jobAddress = job.request_params?.job_address || "Unknown address";
+              const jobAddress = (job.request_params?.jobAddress || job.request_params?.job_address || "Unknown address") as string;
               const duration = formatDuration(job.started_at, job.completed_at);
               
               return (
@@ -457,9 +457,9 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
             <AlertDialogTitle>Cancel AI Generation?</AlertDialogTitle>
             <AlertDialogDescription>
               This will remove the job from the queue. The estimate will remain but won't have AI-generated content.
-              {deleteConfirmJob?.request_params?.job_address && (
+              {(deleteConfirmJob?.request_params?.jobAddress || deleteConfirmJob?.request_params?.job_address) && (
                 <span className="block mt-2 font-medium text-foreground">
-                  Project: {deleteConfirmJob.request_params.job_address}
+                  Project: {(deleteConfirmJob.request_params.jobAddress || deleteConfirmJob.request_params.job_address) as string}
                 </span>
               )}
             </AlertDialogDescription>
