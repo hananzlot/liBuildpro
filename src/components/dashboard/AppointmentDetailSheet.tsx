@@ -1124,7 +1124,7 @@ export function AppointmentDetailSheet({
   const isPageMode = mode === 'page';
 
   return (
-    <Sheet open={open} onOpenChange={isPageMode ? undefined : onOpenChange}>
+    <Sheet open={open} modal={!isPageMode} onOpenChange={isPageMode ? undefined : onOpenChange}>
       <SheetContent 
         className={`${isPageMode ? 'w-full h-full' : 'sm:max-w-xl'} overflow-y-auto p-0`}
         disablePortal={isPageMode}

@@ -716,7 +716,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const isPageMode = mode === 'page';
 
   return (
-    <Sheet open={open} onOpenChange={isPageMode ? undefined : onOpenChange}>
+    <Sheet open={open} modal={!isPageMode} onOpenChange={isPageMode ? undefined : onOpenChange}>
       <SheetContent 
         className={isPageMode ? "w-full h-full overflow-y-auto" : "w-full sm:max-w-6xl overflow-y-auto"}
         disablePortal={isPageMode}
