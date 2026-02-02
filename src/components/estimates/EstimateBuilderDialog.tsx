@@ -289,6 +289,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Track validation attempts to show field highlighting
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   
+  // Track which save button was clicked to show loading only on that button
+  const [savingAction, setSavingAction] = useState<'save' | 'saveClose' | null>(null);
+  
   // Flag to track if we've restored a draft (to prevent overwriting with empty data)
   const [draftRestored, setDraftRestored] = useState(false);
 
@@ -2793,8 +2796,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               {/* Hide Save Estimate for sent/signed proposals - they shouldn't be modified */}
               {(!existingEstimate?.estimate?.status || existingEstimate.estimate.status === 'draft') && (
                 <>
-                  <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                    {saveMutation.isPending ? (
+                  <Button 
+                    onClick={() => {
+                      setSavingAction('save');
+                      saveMutation.mutate();
+                    }} 
+                    disabled={saveMutation.isPending}
+                  >
+                    {saveMutation.isPending && savingAction === 'save' ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <Save className="mr-2 h-4 w-4" />
@@ -2805,6 +2814,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     variant="secondary"
                     disabled={saveMutation.isPending}
                     onClick={async () => {
+                      setSavingAction('saveClose');
                       try {
                         await saveMutation.mutateAsync();
                         onOpenChange(false);
@@ -2813,7 +2823,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                       }
                     }}
                   >
-                    {saveMutation.isPending ? (
+                    {saveMutation.isPending && savingAction === 'saveClose' ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <Save className="mr-2 h-4 w-4" />
