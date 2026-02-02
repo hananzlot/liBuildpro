@@ -29,14 +29,17 @@ export function EstimateBuilderContent({
     <div className="h-full flex flex-col estimate-builder-page">
       <EstimateBuilderDialog
         open={true}
-        onOpenChange={(open) => {
-          if (!open) onClose();
+        onOpenChange={() => {
+          // In page mode, don't auto-close on onOpenChange events.
+          // The tab should remain open until explicitly closed via the tab bar
+          // or the dialog's own close/save actions.
         }}
         estimateId={estimateId}
         linkedOpportunity={linkedOpportunity}
         createOpportunityOnSave={createOpportunityOnSave}
         initialWorkScope={initialWorkScope}
         onSuccess={onSuccess}
+        onClose={onClose}
         mode="page"
       />
     </div>

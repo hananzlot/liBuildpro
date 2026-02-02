@@ -154,6 +154,8 @@ interface OpportunityDetailSheetProps {
   conversations?: Conversation[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Explicit close handler for page mode (called when user clicks close button) */
+  onClose?: () => void;
   allOpportunities?: Opportunity[];
   initialTaskGhlId?: string | null;
   /** Render mode: 'sheet' (default) shows in a slide-over, 'page' renders inline content */
@@ -173,6 +175,7 @@ export function OpportunityDetailSheet({
   conversations = [],
   open,
   onOpenChange,
+  onClose,
   allOpportunities = [],
   initialTaskGhlId = null,
   mode = 'sheet'
