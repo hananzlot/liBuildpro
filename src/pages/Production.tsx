@@ -2031,9 +2031,8 @@ export default function Production() {
                   <p className="text-sm">Projects will appear here when opportunities are marked as won</p>
                 </div>
               ) : (
-              <div className="max-h-[70vh] overflow-auto -mx-4 px-4">
-                  <div className="min-w-0 overflow-x-auto">
-                    <table className="w-full caption-bottom text-sm min-w-[1200px]">
+                <div className="max-h-[70vh] overflow-auto">
+                  <table className="w-full caption-bottom text-sm">
                     <TableHeader className="[&_tr]:border-b">
                       <TableRow className="[&_th]:sticky [&_th]:top-0 [&_th]:bg-card [&_th]:z-10 bg-card hover:bg-card">
                         <TableHead className="w-16 cursor-pointer hover:bg-muted/50" onClick={() => handleSort('project_number')}>
@@ -2361,7 +2360,6 @@ export default function Production() {
                       })}
                     </TableBody>
                   </table>
-                  </div>
                 </div>
               )}
             </CardContent>

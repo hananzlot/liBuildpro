@@ -64,15 +64,15 @@ export function AppLayout({
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full overflow-x-hidden">
+      <div className="min-h-screen flex w-full">
         <AppSidebar 
           onAdminAction={onAdminAction} 
           onChangePassword={() => setChangePasswordOpen(true)}
         />
         
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {/* Header */}
-          <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between px-4">
+          <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <SidebarTrigger />
               {/* Always show GlobalAdminSearch for admin users */}
@@ -103,11 +103,9 @@ export function AppLayout({
             </div>
           </header>
 
-          {/* Main content */}
-          <main className="flex-1 min-w-0 overflow-hidden">
-            <div className="h-full min-w-0 overflow-y-auto overflow-x-hidden">
-              {children}
-            </div>
+          {/* Main content - allows horizontal scroll within tables/content */}
+          <main className="flex-1 min-w-0 overflow-auto">
+            {children}
           </main>
         </div>
       </div>
