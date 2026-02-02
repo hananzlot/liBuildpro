@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
+import { AppTabBar } from "./AppTabBar";
 import { GlobalAdminSearch } from "./GlobalAdminSearch";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,6 +15,7 @@ import { HelpCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePortalChatNotifications } from "@/hooks/usePortalChatNotifications";
+import { AppTabsProvider } from "@/contexts/AppTabsContext";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -102,6 +104,9 @@ export function AppLayout({
               {showNotifications && <NotificationBell />}
             </div>
           </header>
+
+          {/* Inner Tab Bar */}
+          <AppTabBar />
 
           {/* Main content - allows horizontal scroll within tables/content */}
           <main className="flex-1 min-w-0 overflow-auto">
