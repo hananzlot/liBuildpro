@@ -9,6 +9,7 @@ import MagazineSales from "@/pages/MagazineSales";
 import Estimates from "@/pages/Estimates";
 import EstimateBuilder from "@/pages/EstimateBuilder";
 import ProjectEditor from "@/pages/ProjectEditor";
+import ProjectDetail from "@/pages/ProjectDetail";
 import OpportunityDetail from "@/pages/OpportunityDetail";
 import AppointmentDetail from "@/pages/AppointmentDetail";
 import ExternalBrowser from "@/pages/ExternalBrowser";
@@ -208,6 +209,16 @@ export function AppRoutes() {
           element={
             <ProtectedRoute requiredRole="production" requiredFeature="production">
               <Production />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Project detail - full page route that opens in tabs */}
+        <Route
+          path="/project/:id"
+          element={
+            <ProtectedRoute requiredRole="production" requiredFeature="production">
+              <ProjectDetail />
             </ProtectedRoute>
           }
         />
