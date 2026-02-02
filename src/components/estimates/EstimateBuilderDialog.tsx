@@ -2177,6 +2177,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             const lastName = nameParts.slice(1).join(" ") || "";
 
             // Create project with status "Estimate"
+            // For Pre-estimate projects, auto-populate salesperson and project manager from estimate
             const { data: newProject, error: projectError } = await supabase
               .from("projects")
               .insert({
@@ -2188,6 +2189,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 customer_email: formData.customer_email || null,
                 cell_phone: formData.customer_phone || null,
                 primary_salesperson: formData.salesperson_name || null,
+                project_manager: formData.salesperson_name || null, // Auto-populate PM from salesperson
                 opportunity_id: linkedOpportunityGhlId || null,
                 opportunity_uuid: linkedOpportunityUuid || null,
                 contact_id: linkedContactId || null,
@@ -2236,6 +2238,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           const firstName = nameParts[0] || "";
           const lastName = nameParts.slice(1).join(" ") || "";
 
+          // For Pre-estimate projects, auto-populate salesperson and project manager from estimate
           const { data: newProject, error: projectError } = await supabase
             .from("projects")
             .insert({
@@ -2247,6 +2250,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               customer_email: formData.customer_email || null,
               cell_phone: formData.customer_phone || null,
               primary_salesperson: formData.salesperson_name || null,
+              project_manager: formData.salesperson_name || null, // Auto-populate PM from salesperson
               opportunity_id: linkedOpportunityGhlId || null,
               opportunity_uuid: linkedOpportunityUuid || null,
               contact_id: linkedContactId || null,
@@ -2684,14 +2688,35 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               )}
               {/* Hide Save Estimate for sent/signed proposals - they shouldn't be modified */}
               {(!existingEstimate?.estimate?.status || existingEstimate.estimate.status === 'draft') && (
-                <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                  {saveMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  Save Estimate
-                </Button>
+                <>
+                  <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                    {saveMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Save Estimate
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={saveMutation.isPending}
+                    onClick={async () => {
+                      try {
+                        await saveMutation.mutateAsync();
+                        onOpenChange(false);
+                      } catch (err) {
+                        // Error handled by mutation
+                      }
+                    }}
+                  >
+                    {saveMutation.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Save & Close
+                  </Button>
+                </>
               )}
               <Button 
                 variant="outline" 
