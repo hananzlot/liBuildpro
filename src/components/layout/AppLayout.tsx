@@ -15,7 +15,7 @@ import { HelpCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePortalChatNotifications } from "@/hooks/usePortalChatNotifications";
-import { AppTabsProvider } from "@/contexts/AppTabsContext";
+
 
 interface AppLayoutProps {
   children: React.ReactNode;
