@@ -154,6 +154,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Track the current estimate ID (updated after first save for new estimates)
   const [currentEstimateId, setCurrentEstimateId] = useState<string | null>(sourceEstimateId || null);
   
+  // Track when the dialog was opened - used to determine if a draft is from the current session
+  // Using a ref to persist across re-renders within the same session
+  const dialogOpenedAtRef = useRef<number | null>(null);
+  
   // Reset currentEstimateId and wasManuallyCleared when dialog opens with a different estimateId
   useEffect(() => {
     if (open) {
@@ -161,12 +165,20 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setWasManuallyCleared(false); // Reset manual clear flag on dialog open
       // Reset linked project id when opening, so it never leaks between estimates
       setLinkedProjectId(null);
+      // Track when this session started (for draft restoration logic)
+      // Only set if not already set (persists across re-renders within same session)
+      if (dialogOpenedAtRef.current === null) {
+        dialogOpenedAtRef.current = Date.now();
+      }
 
       // Force-refresh the edit query when opening an existing estimate.
       // This avoids showing persisted stale data in the builder.
       if (sourceEstimateId) {
         queryClient.invalidateQueries({ queryKey: ["estimate-edit", sourceEstimateId] });
       }
+    } else {
+      // Reset when dialog closes
+      dialogOpenedAtRef.current = null;
     }
   }, [open, sourceEstimateId, queryClient]);
   
@@ -402,15 +414,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return;
     }
 
-    // IMPORTANT: For existing estimates (edit/clone), do NOT auto-restore drafts.
-    // Drafts are meant to protect unsaved work for *new* estimates; restoring them
-    // for existing records can display stale totals (e.g., old discount values).
-    if (sourceEstimateId) {
-      setDidAttemptDraftRestore(true);
-      return;
-    }
-    
-    const restoreFromDraft = (draft: typeof draftData) => {
+    const restoreFromDraft = (draft: typeof draftData & { savedAt?: number }) => {
       console.log('Restoring draft:', draft.formData?.job_address);
       setFormData(draft.formData);
       setGroups(draft.groups || []);
@@ -423,14 +427,34 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setPlansFileUrl(draft.plansFileUrl);
       setPlansFileName(draft.plansFileName);
       setDraftRestored(true);
-      // Only set wasManuallyCleared for NEW estimates (no sourceEstimateId)
-      // For existing estimates, we want DB data to take precedence over stale drafts
-      if (!sourceEstimateId) {
-        setWasManuallyCleared(true);
-      }
+      // Prevent DB data from overwriting restored draft
+      setWasManuallyCleared(true);
     };
 
-    // Try sessionStorage first (synchronous, instant)
+    // Helper to check if draft is from current editing session (within last 30 seconds of dialog open)
+    // This allows restoration when user switches tabs but prevents stale drafts from previous sessions
+    const isDraftFromCurrentSession = (draftSavedAt: number | undefined): boolean => {
+      if (!draftSavedAt) return false;
+      // If dialog just opened, check if draft was saved very recently (within 30 seconds before open)
+      // This handles the case where user switched tabs and came back
+      const sessionStartBuffer = 30 * 1000; // 30 seconds buffer
+      const openedAt = dialogOpenedAtRef.current;
+      return openedAt ? draftSavedAt >= (openedAt - sessionStartBuffer) : false;
+    };
+
+    // For existing estimates (edit mode), only restore drafts from the CURRENT session
+    // This preserves edits when switching tabs but prevents stale data from previous sessions
+    if (sourceEstimateId) {
+      const sessionDraft = loadDraft();
+      if (sessionDraft && isDraftFromCurrentSession(sessionDraft.savedAt)) {
+        console.log('Restoring current-session draft for existing estimate');
+        restoreFromDraft(sessionDraft);
+      }
+      setDidAttemptDraftRestore(true);
+      return;
+    }
+    
+    // For NEW estimates: restore any available draft (original behavior)
     const sessionDraft = loadDraft();
     if (sessionDraft) {
       restoreFromDraft(sessionDraft);
@@ -438,7 +462,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return;
     }
 
-    // Otherwise try DB (async fallback)
+    // Otherwise try DB (async fallback) - only for new estimates
     loadDraftDB()
       .then((dbDraft) => {
         if (dbDraft) {
