@@ -1122,7 +1122,10 @@ export function AppointmentDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className={`sm:max-w-xl overflow-y-auto p-0 ${isPageMode ? 'appointment-detail-page-mode' : ''}`} data-page-mode={isPageMode || undefined}>
+      <SheetContent 
+        className={`${isPageMode ? 'w-full h-full' : 'sm:max-w-xl'} overflow-y-auto p-0`}
+        disablePortal={isPageMode}
+      >
         {/* Header - Contact Details Sticky */}
         <div className="sticky top-0 bg-background border-b p-4 z-10">
           <SheetHeader className="space-y-2">

@@ -2718,8 +2718,125 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     );
   }
 
-  // Page mode renders the dialog with special styling to appear inline
-  const pageModClass = isPageMode ? 'estimate-builder-page-mode' : '';
+  // Shared header buttons
+  const headerButtons = (
+    <>
+      {isSuperAdmin && isEditing && (
+        <Button 
+          variant="outline" 
+          size="sm"
+          className="text-muted-foreground" 
+          onClick={() => {
+            const debugInfo = `Estimate ID: ${estimateId}\nOpportunity GHL ID: ${linkedOpportunityGhlId || 'null'}\nOpportunity UUID: ${linkedOpportunityUuid || 'null'}\nProject ID: ${linkedProjectId || 'null'}`;
+            navigator.clipboard.writeText(debugInfo);
+            toast.success("Debug info copied to clipboard");
+          }}
+        >
+          <Copy className="h-3.5 w-3.5 mr-1" />
+          Debug
+        </Button>
+      )}
+      {/* Hide AI Generate Scope button for read-only proposals */}
+      {!isProposalReadOnly && (
+        isGeneratingScope ? (
+          <Button
+            variant="outline"
+            onClick={() => setShowAiProgress(true)}
+            className="border-primary/50 text-primary"
+          >
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            View Progress
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            onClick={generateScope}
+          >
+            <Wand2 className="mr-2 h-4 w-4" />
+            {groups.length > 0 ? 'Regenerate AI Scope' : 'AI Generate Scope'}
+          </Button>
+        )
+      )}
+      {isEditing && (
+        <Button 
+          variant="outline" 
+          onClick={() => saveAsNewMutation.mutate()} 
+          disabled={saveAsNewMutation.isPending}
+        >
+          {saveAsNewMutation.isPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="mr-2 h-4 w-4" />
+          )}
+          {existingEstimate?.estimate?.status && existingEstimate.estimate.status !== 'draft' 
+            ? "Create New Estimate" 
+            : "Save As New"}
+        </Button>
+      )}
+      {/* Hide Save Estimate for sent/signed proposals - they shouldn't be modified */}
+      {(!existingEstimate?.estimate?.status || existingEstimate.estimate.status === 'draft') && (
+        <>
+          <Button 
+            onClick={() => {
+              setSavingAction('save');
+              saveMutation.mutate();
+            }} 
+            disabled={saveMutation.isPending}
+          >
+            {saveMutation.isPending && savingAction === 'save' ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Save Estimate
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={saveMutation.isPending}
+            onClick={async () => {
+              setSavingAction('saveClose');
+              try {
+                await saveMutation.mutateAsync();
+                onOpenChange(false);
+              } catch (err) {
+                // Error handled by mutation
+              }
+            }}
+          >
+            {saveMutation.isPending && savingAction === 'saveClose' ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Save & Close
+          </Button>
+        </>
+      )}
+      <Button 
+        variant="outline" 
+        onClick={() => {
+          if (isGeneratingScope) {
+            toast.info("AI generation will continue in the background. Re-open this estimate to see progress.", {
+              duration: 5000,
+            });
+          }
+          // Delete the DB draft on close (user abandoned without saving)
+          clearDraft();
+          deleteDraftDB();
+          onOpenChange(false);
+        }}
+      >
+        Close
+      </Button>
+    </>
+  );
+
+  const titleText = isEditing 
+    ? (existingEstimate?.estimate?.status && existingEstimate.estimate.status !== 'draft' 
+        ? "Review Proposal" 
+        : "Edit Estimate")
+    : isCloneMode ? "New Estimate (from Declined)" : "New Estimate";
+
   return (
     <>
       {/* AI Generation Progress Overlay */}
@@ -2734,140 +2851,28 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
-          className={`max-w-[95vw] w-full h-[90vh] flex flex-col p-0 ${isPageMode ? 'estimate-builder-page-mode' : ''}`}
+          className={`${isPageMode ? 'w-full h-full' : 'max-w-[95vw] w-full h-[90vh]'} flex flex-col p-0`}
           onInteractOutside={(e) => isPageMode || e.preventDefault()}
           onPointerDownOutside={(e) => isPageMode || e.preventDefault()}
           onEscapeKeyDown={(e) => isPageMode || e.preventDefault()}
           hideCloseButton
-          data-page-mode={isPageMode || undefined}
+          disablePortal={isPageMode}
         >
           <DialogHeader className="px-6 py-4 border-b">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl flex items-center gap-2">
-              <span>
-                {isEditing 
-                  ? (existingEstimate?.estimate?.status && existingEstimate.estimate.status !== 'draft' 
-                      ? "Review Proposal" 
-                      : "Edit Estimate")
-                  : isCloneMode ? "New Estimate (from Declined)" : "New Estimate"}
-              </span>
-              {isEditing && (existingEstimate as any)?.estimate?.estimate_number && (
-                <Badge variant="outline" className="text-xs">
-                  Est #{(existingEstimate as any).estimate.estimate_number}
-                </Badge>
-              )}
-            </DialogTitle>
-            <div className="flex items-center gap-2">
-              {isSuperAdmin && isEditing && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="text-muted-foreground" 
-                  onClick={() => {
-                    const debugInfo = `Estimate ID: ${estimateId}\nOpportunity GHL ID: ${linkedOpportunityGhlId || 'null'}\nOpportunity UUID: ${linkedOpportunityUuid || 'null'}\nProject ID: ${linkedProjectId || 'null'}`;
-                    navigator.clipboard.writeText(debugInfo);
-                    toast.success("Debug info copied to clipboard");
-                  }}
-                >
-                  <Copy className="h-3.5 w-3.5 mr-1" />
-                  Debug
-                </Button>
-              )}
-              {/* Hide AI Generate Scope button for read-only proposals */}
-              {!isProposalReadOnly && (
-                isGeneratingScope ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowAiProgress(true)}
-                    className="border-primary/50 text-primary"
-                  >
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    View Progress
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    onClick={generateScope}
-                  >
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    {groups.length > 0 ? 'Regenerate AI Scope' : 'AI Generate Scope'}
-                  </Button>
-                )
-              )}
-              {isEditing && (
-                <Button 
-                  variant="outline" 
-                  onClick={() => saveAsNewMutation.mutate()} 
-                  disabled={saveAsNewMutation.isPending}
-                >
-                  {saveAsNewMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="mr-2 h-4 w-4" />
-                  )}
-                  {existingEstimate?.estimate?.status && existingEstimate.estimate.status !== 'draft' 
-                    ? "Create New Estimate" 
-                    : "Save As New"}
-                </Button>
-              )}
-              {/* Hide Save Estimate for sent/signed proposals - they shouldn't be modified */}
-              {(!existingEstimate?.estimate?.status || existingEstimate.estimate.status === 'draft') && (
-                <>
-                  <Button 
-                    onClick={() => {
-                      setSavingAction('save');
-                      saveMutation.mutate();
-                    }} 
-                    disabled={saveMutation.isPending}
-                  >
-                    {saveMutation.isPending && savingAction === 'save' ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-2 h-4 w-4" />
-                    )}
-                    Save Estimate
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    disabled={saveMutation.isPending}
-                    onClick={async () => {
-                      setSavingAction('saveClose');
-                      try {
-                        await saveMutation.mutateAsync();
-                        onOpenChange(false);
-                      } catch (err) {
-                        // Error handled by mutation
-                      }
-                    }}
-                  >
-                    {saveMutation.isPending && savingAction === 'saveClose' ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-2 h-4 w-4" />
-                    )}
-                    Save & Close
-                  </Button>
-                </>
-              )}
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  if (isGeneratingScope) {
-                    toast.info("AI generation will continue in the background. Re-open this estimate to see progress.", {
-                      duration: 5000,
-                    });
-                  }
-                  // Delete the DB draft on close (user abandoned without saving)
-                  clearDraft();
-                  deleteDraftDB();
-                  onOpenChange(false);
-                }}
-              >
-                Close
-              </Button>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <span>{titleText}</span>
+                {isEditing && (existingEstimate as any)?.estimate?.estimate_number && (
+                  <Badge variant="outline" className="text-xs">
+                    Est #{(existingEstimate as any).estimate.estimate_number}
+                  </Badge>
+                )}
+              </DialogTitle>
+              <div className="flex items-center gap-2">
+                {headerButtons}
+              </div>
             </div>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
           {/* Main Content Area */}
