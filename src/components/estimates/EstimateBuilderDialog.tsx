@@ -38,6 +38,8 @@ interface EstimateBuilderDialogProps {
   onOpenChange: (open: boolean) => void;
   estimateId?: string | null;
   onSuccess?: () => void;
+  /** Explicit close handler for page mode (called when user clicks close/cancel) */
+  onClose?: () => void;
   linkedOpportunity?: LinkedOpportunity | null;
   createOpportunityOnSave?: boolean;
   initialWorkScope?: string;
@@ -137,7 +139,7 @@ const units = ["hours", "sqft", "linear ft", "each", "set", "unit", "day", "week
 
 const generateId = () => crypto.randomUUID();
 
-export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess, linkedOpportunity, createOpportunityOnSave = false, initialWorkScope, mode = 'dialog' }: EstimateBuilderDialogProps) {
+export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess, onClose, linkedOpportunity, createOpportunityOnSave = false, initialWorkScope, mode = 'dialog' }: EstimateBuilderDialogProps) {
   const { user, isSuperAdmin } = useAuth();
   const { companyId: contextCompanyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -2579,7 +2581,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       
       queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
       toast.success("New estimate created from copy!");
-      onOpenChange(false);
+      // In page mode use onClose, in dialog mode use onOpenChange
+      if (mode === 'page' && onClose) {
+        onClose();
+      } else {
+        onOpenChange(false);
+      }
       onSuccess?.();
     },
     onError: (error: Error) => {
@@ -2693,6 +2700,15 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   // Page mode: render inline without Dialog wrapper
   const isPageMode = mode === 'page';
+  
+  // Helper to handle closing - uses onClose in page mode, onOpenChange in dialog mode
+  const handleClose = () => {
+    if (isPageMode && onClose) {
+      onClose();
+    } else {
+      onOpenChange(false);
+    }
+  };
 
   if (loadingEstimate && isEditing) {
     if (isPageMode) {
@@ -2797,7 +2813,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               setSavingAction('saveClose');
               try {
                 await saveMutation.mutateAsync();
-                onOpenChange(false);
+                handleClose();
               } catch (err) {
                 // Error handled by mutation
               }
@@ -2823,7 +2839,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           // Delete the DB draft on close (user abandoned without saving)
           clearDraft();
           deleteDraftDB();
-          onOpenChange(false);
+          handleClose();
         }}
       >
         Close

@@ -178,6 +178,8 @@ interface AppointmentDetailSheetProps {
   appointments?: Appointment[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Explicit close handler for page mode (called when user clicks close button) */
+  onClose?: () => void;
   onOpenOpportunity?: (opportunity: Opportunity) => void;
   onRefresh?: () => void;
   /** Render mode: 'sheet' (default) shows in a slide-over, 'page' renders inline content */
@@ -204,6 +206,7 @@ export function AppointmentDetailSheet({
   appointments = [],
   open,
   onOpenChange,
+  onClose,
   onOpenOpportunity,
   onRefresh,
   mode = 'sheet'

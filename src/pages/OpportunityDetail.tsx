@@ -97,9 +97,11 @@ export default function OpportunityDetail() {
           users={relatedData?.users || []}
           appointments={relatedData?.appointments || []}
           open={true}
-          onOpenChange={(open) => {
-            if (!open) handleClose();
+          onOpenChange={() => {
+            // In page mode, don't auto-close on onOpenChange events.
+            // The tab should remain open until explicitly closed via the tab bar.
           }}
+          onClose={handleClose}
           mode="page"
         />
       </div>
