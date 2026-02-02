@@ -9,6 +9,13 @@ import { PortalChatProvider } from "@/contexts/PortalChatContext";
 import { SubscriptionGuard } from "@/components/subscription/SubscriptionGuard";
 import { AppRoutes } from "@/components/routing/AppRoutes";
 import { createIDBPersister } from "@/lib/queryPersister";
+import { usePreventSwipeNavigation } from "@/hooks/usePreventSwipeNavigation";
+
+// Component to apply global hooks
+function GlobalHooks() {
+  usePreventSwipeNavigation();
+  return null;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +52,7 @@ const App = () => (
       <PortalChatProvider>
         <SubscriptionGuard>
           <TooltipProvider>
+            <GlobalHooks />
             <Toaster />
             <Sonner />
             <BrowserRouter>
