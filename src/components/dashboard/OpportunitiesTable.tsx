@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -169,6 +170,7 @@ export function OpportunitiesTable({
   const { companyId } = useCompanyContext();
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
+  const { openTab } = useAppTabs();
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState<string[]>([]);
@@ -721,8 +723,10 @@ export function OpportunitiesTable({
   };
 
   const handleRowClick = (opportunity: Opportunity) => {
-    setSelectedOpportunity(opportunity);
-    setSheetOpen(true);
+    // Open in a new tab using the full-page route
+    const id = opportunity.id || opportunity.ghl_id;
+    const title = opportunity.name || 'Opportunity';
+    openTab(`/opportunity/${id}`, title);
   };
 
   const handleSort = (column: SortColumn) => {
