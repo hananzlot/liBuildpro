@@ -63,8 +63,12 @@ const DialogContent = React.forwardRef<
         onFocusOutside?.(e);
         // In page mode, allow focus to move freely (e.g., to tab bar)
         if (disablePortal) return;
-        // Always prevent focus-outside dismissal - this handles tab switches
-        if (!e.defaultPrevented) e.preventDefault();
+        // Only prevent focus-outside dismissal when the browser actually loses focus
+        // (switching tabs/windows). Allow normal in-app focus changes/clicks.
+        const originalEvent = "detail" in e && e.detail?.originalEvent;
+        if (!e.defaultPrevented && shouldPreventDismissOnWindowBlur(originalEvent as Event | undefined)) {
+          e.preventDefault();
+        }
       }}
       onInteractOutside={(e) => {
         // In page mode, allow all interactions outside the content (e.g., clicking tab bar)
