@@ -2303,7 +2303,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       }
 
       // Also create project for EXISTING estimates that don't have one yet (outside !isEditing block)
-      if (isEditing && !linkedProjectId && savedEstimateId) {
+      // IMPORTANT: Check both linkedProjectId state AND existingEstimate.project_id to avoid creating duplicates
+      const existingProjectId = linkedProjectId || existingEstimate?.estimate?.project_id;
+      if (isEditing && !existingProjectId && savedEstimateId) {
         try {
           const { data: locationSetting } = await supabase
             .from("company_integrations")
