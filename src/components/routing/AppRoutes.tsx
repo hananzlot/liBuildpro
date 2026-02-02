@@ -11,6 +11,7 @@ import EstimateBuilder from "@/pages/EstimateBuilder";
 import ProjectEditor from "@/pages/ProjectEditor";
 import OpportunityDetail from "@/pages/OpportunityDetail";
 import AppointmentDetail from "@/pages/AppointmentDetail";
+import ExternalBrowser from "@/pages/ExternalBrowser";
 import Documents from "@/pages/Documents";
 import ClientPortal from "@/pages/ClientPortal";
 import DocumentPortal from "@/pages/DocumentPortal";
@@ -331,6 +332,16 @@ export function AppRoutes() {
         
         {/* Help pages - public */}
         <Route path="/help/quickbooks" element={<QuickBooksHelp />} />
+        
+        {/* External browser - embedded web view */}
+        <Route
+          path="/browser"
+          element={
+            <ProtectedRoute>
+              <ExternalBrowser />
+            </ProtectedRoute>
+          }
+        />
         
         {/* Super Admin Portal Routes */}
         <Route path="/super-admin" element={<SuperAdminDashboard />} />

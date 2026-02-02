@@ -15,6 +15,7 @@ import { HelpCircle, ExternalLink } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePortalChatNotifications } from "@/hooks/usePortalChatNotifications";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 
 
 interface AppLayoutProps {
@@ -31,6 +32,7 @@ export function AppLayout({
   headerContent 
 }: AppLayoutProps) {
   const { updatePassword, isAdmin } = useAuth();
+  const { openTab } = useAppTabs();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -82,14 +84,14 @@ export function AppLayout({
               {headerContent}
             </div>
             <div className="flex items-center gap-2">
-              {/* Quick Web Search - opens Google in new tab */}
+              {/* Quick Web Search - opens Google in app tab */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
                     variant="ghost" 
                     size="icon" 
                     className="h-8 w-8"
-                    onClick={() => window.open('https://www.google.com', '_blank')}
+                    onClick={() => openTab('/browser?url=' + encodeURIComponent('https://www.google.com'), 'Web Search')}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
