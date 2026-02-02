@@ -369,6 +369,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   }, [open, didAttemptDraftRestore, draftData, saveDraft, saveDraftDB]);
   
   // Force save draft when tab visibility changes (user switches tabs)
+  // AND restore draft when user returns to the tab
   useEffect(() => {
     if (!open) return;
     
@@ -380,6 +381,30 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           saveLatestDraft();
           flushPendingDB(); // Also flush pending DB draft
         }, 0);
+      } else if (document.visibilityState === 'visible') {
+        // User came back to this tab - restore the draft if it exists
+        // This handles the case where the component didn't remount but data could be stale
+        const sessionDraft = loadDraft();
+        if (sessionDraft) {
+          // Only restore if the draft was saved within the last 3 seconds
+          // This ensures we're restoring recent edits, not old stale data
+          const draftAge = Date.now() - (sessionDraft.savedAt || 0);
+          const maxDraftAge = 3 * 1000; // 3 seconds as per user requirement
+          
+          if (draftAge <= maxDraftAge) {
+            console.log('Restoring draft on tab return (age: ' + draftAge + 'ms)');
+            setFormData(sessionDraft.formData);
+            setGroups(sessionDraft.groups || []);
+            setPaymentSchedule(sessionDraft.paymentSchedule || []);
+            // Don't change activeTab - keep user on current tab
+            setAiSummary(sessionDraft.aiSummary || { ...emptyAiSummary });
+            setLinkedProjectId(sessionDraft.linkedProjectId);
+            setLinkedOpportunityUuid(sessionDraft.linkedOpportunityUuid);
+            setLinkedOpportunityGhlId(sessionDraft.linkedOpportunityGhlId);
+            setPlansFileUrl(sessionDraft.plansFileUrl);
+            setPlansFileName(sessionDraft.plansFileName);
+          }
+        }
       }
     };
     
@@ -404,7 +429,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handlePageHide);
     };
-  }, [open, saveLatestDraft, flushPendingDB]);
+  }, [open, saveLatestDraft, flushPendingDB, loadDraft]);
   
   // Restore draft from sessionStorage (or DB fallback) when dialog opens
   useEffect(() => {
