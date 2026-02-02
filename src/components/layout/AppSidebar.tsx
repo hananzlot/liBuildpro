@@ -7,7 +7,7 @@ import { useAIGenerationQueue } from "@/hooks/useAIGenerationQueue";
 import { VersionBumpDialog } from "@/components/layout/VersionBumpDialog";
 import { AIQueueSheet } from "@/components/admin/AIQueueSheet";
 import { CompanySwitcher } from "@/components/layout/CompanySwitcher";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { 
   LayoutDashboard, 
@@ -305,8 +305,7 @@ interface AppSidebarProps {
 export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps) {
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
-  const navigate = useNavigate();
-  const { handleNavigation, openTab } = useAppTabs();
+  const { openTab } = useAppTabs();
   const { 
     user, profile, company, isAdmin, isSuperAdmin, isMagazine, isProduction, 
     isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, 
@@ -319,18 +318,10 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { activeCount: aiQueueCount } = useAIGenerationQueue();
   const collapsed = state === "collapsed";
 
-  // Handle navigation with tab support (middle-click/ctrl+click opens new tab)
+  // Handle navigation - always opens as a tab
   const handleNavClick = (e: React.MouseEvent, url: string, title: string) => {
-    const isMiddleClick = e.button === 1;
-    const isCtrlClick = e.ctrlKey || e.metaKey;
-    
-    if (isMiddleClick || isCtrlClick) {
-      e.preventDefault();
-      openTab(url, title);
-    } else {
-      e.preventDefault();
-      navigate(url);
-    }
+    e.preventDefault();
+    openTab(url, title);
     closeSidebar();
   };
 
@@ -532,13 +523,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                         <a 
                           href={subItem.url}
                           onClick={(e) => handleNavClick(e, subItem.url, subItem.title)}
-                          onMouseDown={(e) => {
-                            if (e.button === 1) {
-                              e.preventDefault();
-                              openTab(subItem.url, subItem.title);
-                              closeSidebar();
-                            }
-                          }}
                           className={`flex items-center gap-2 ${isSubActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}`}
                         >
                           {subItem.icon && <subItem.icon className="h-3 w-3" />}
@@ -627,14 +611,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           <a 
             href={item.url}
             onClick={(e) => handleNavClick(e, item.url || '/', item.title)}
-            onMouseDown={(e) => {
-              // Handle middle-click
-              if (e.button === 1) {
-                e.preventDefault();
-                openTab(item.url || '/', item.title);
-                closeSidebar();
-              }
-            }}
             className={`flex items-center gap-2 ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : ''}`}
           >
             <item.icon className="h-4 w-4" />
@@ -764,7 +740,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                         isActive={location.pathname.startsWith('/super-admin')}
                         onClick={() => {
                           closeSidebar();
-                          navigate('/super-admin');
+                          openTab('/super-admin', 'Super Admin');
                         }}
                       >
                         <Building2 className="h-4 w-4" />
@@ -803,7 +779,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                               sessionStorage.removeItem('crm-welcome-dismissed');
                               toast.info("Role simulation disabled");
                               // Navigate to dashboard
-                              navigate('/');
+                              openTab('/', 'Dashboard');
                             } else {
                               setSimulatedRole(value as AppRole);
                               toast.info(`Now viewing as: ${value}`);
@@ -853,7 +829,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                         tooltip={item.title}
                         onClick={() => {
                           closeSidebar();
-                          navigate('/admin/settings');
+                          openTab('/admin/settings', 'Admin Settings');
                         }}
                       >
                         <item.icon className="h-4 w-4" />
