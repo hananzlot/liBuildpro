@@ -86,12 +86,16 @@ interface ProjectDetailSheetProps {
   project: Project | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Explicit close handler for page mode (called when user clicks close button) */
+  onClose?: () => void;
   onUpdate: () => void;
   autoOpenBillDialog?: boolean;
   onBillDialogOpened?: () => void;
   initialTab?: string;
   initialFinanceSubTab?: 'bills' | 'history';
   highlightInvoiceId?: string | null;
+  /** Render mode: 'sheet' (default) shows in a slide-over, 'page' renders inline content */
+  mode?: 'sheet' | 'page';
 }
 
 const statusColors: Record<string, string> = {
@@ -103,7 +107,7 @@ const statusColors: Record<string, string> = {
   "Cancelled": "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
-export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab, initialFinanceSubTab, highlightInvoiceId }: ProjectDetailSheetProps) {
+export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab, initialFinanceSubTab, highlightInvoiceId, mode = 'sheet' }: ProjectDetailSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isSuperAdmin, user } = useAuth();
@@ -709,9 +713,14 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
     sendChatReplyMutation.mutate(portalChatReply);
   };
 
+  const isPageMode = mode === 'page';
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-6xl overflow-y-auto">
+      <SheetContent 
+        className={isPageMode ? "w-full h-full overflow-y-auto" : "w-full sm:max-w-6xl overflow-y-auto"}
+        disablePortal={isPageMode}
+      >
         <SheetHeader className="pb-2">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary/10 p-2">

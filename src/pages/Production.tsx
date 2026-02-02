@@ -1336,8 +1336,18 @@ export default function Production() {
     setProjectInitialFinanceSubTab(financeSubTab);
     setReturnToAfterProjectClose(returnTo || null);
     setHighlightedInvoiceId(highlightInvoiceId || null);
-    // Navigate to project URL instead of setting local state
-    navigate(`/production/${project.id}`);
+    
+    // Build the URL with optional query params
+    let url = `/project/${project.id}`;
+    const params = new URLSearchParams();
+    if (initialTab) params.set('tab', initialTab);
+    if (financeSubTab) params.set('financeTab', financeSubTab);
+    if (highlightInvoiceId) params.set('highlightInvoice', highlightInvoiceId);
+    if (params.toString()) url += `?${params.toString()}`;
+    
+    // Open in a new tab using the full-page route
+    const title = `#${project.project_number} - ${project.project_name}`;
+    openTab(url, title);
   };
 
   // Helper to get the best available date for a project (for filtering)
