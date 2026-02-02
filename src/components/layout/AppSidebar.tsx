@@ -338,14 +338,12 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const [aiQueueOpen, setAiQueueOpen] = useState(false);
 
   const closeSidebar = () => {
-    // Close sidebar on both mobile and desktop
-    setTimeout(() => {
-      if (isMobile) {
+    // Only close sidebar on mobile, not desktop
+    if (isMobile) {
+      setTimeout(() => {
         setOpenMobile(false);
-      } else {
-        setOpen(false);
-      }
-    }, 100);
+      }, 100);
+    }
   };
 
   const handleSidebarContentClickCapture = (event: React.MouseEvent) => {
