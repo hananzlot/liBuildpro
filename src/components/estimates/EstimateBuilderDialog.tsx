@@ -385,14 +385,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         // User came back to this tab - restore the draft if it exists
         // This handles the case where the component didn't remount but data could be stale
         const sessionDraft = loadDraft();
-        if (sessionDraft) {
-          // Only restore if the draft was saved within the last 3 seconds
-          // This ensures we're restoring recent edits, not old stale data
-          const draftAge = Date.now() - (sessionDraft.savedAt || 0);
-          const maxDraftAge = 3 * 1000; // 3 seconds as per user requirement
+        if (sessionDraft && sessionDraft.savedAt) {
+          // Restore if the draft was saved AFTER the dialog was opened in this session
+          // This ensures we restore any edits made during this editing session
+          const dialogOpenTime = dialogOpenedAtRef.current || 0;
           
-          if (draftAge <= maxDraftAge) {
-            console.log('Restoring draft on tab return (age: ' + draftAge + 'ms)');
+          if (sessionDraft.savedAt >= dialogOpenTime) {
+            console.log('Restoring draft on tab return (saved at:', new Date(sessionDraft.savedAt).toISOString(), ')');
             setFormData(sessionDraft.formData);
             setGroups(sessionDraft.groups || []);
             setPaymentSchedule(sessionDraft.paymentSchedule || []);
