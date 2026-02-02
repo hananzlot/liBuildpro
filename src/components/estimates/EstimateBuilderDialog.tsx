@@ -540,7 +540,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return sp?.id || null;
   }, [salespeople]);
 
-  // Format phone number as (XXX) XXX-XXXX
   const formatPhoneNumber = useCallback((value: string) => {
     // Remove all non-digit characters
     const digits = value.replace(/\D/g, '');
@@ -730,6 +729,37 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // isProposalReadOnly is true when viewing a proposal (sent, viewed, accepted, declined - anything except draft)
   // This prevents editing proposals that have been sent to customers
   const isProposalReadOnly = !!(existingEstimate?.estimate?.status && existingEstimate.estimate.status !== 'draft');
+
+  // Sync salesperson to linked project when estimate is in pre-proposal (draft) status
+  const syncSalespersonToProject = useCallback(async (salespersonName: string) => {
+    // Only sync if:
+    // 1. We have a linked project
+    // 2. The estimate is in draft status (pre-proposal)
+    const projectId = linkedProjectId || existingEstimate?.estimate?.project_id;
+    const estimateStatus = existingEstimate?.estimate?.status;
+    
+    if (!projectId || (estimateStatus && estimateStatus !== 'draft')) {
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          primary_salesperson: salespersonName || null,
+          project_manager: salespersonName || null,
+        })
+        .eq('id', projectId);
+      
+      if (error) {
+        console.error('Failed to sync salesperson to project:', error);
+      } else {
+        console.log('Synced salesperson to project:', salespersonName);
+      }
+    } catch (err) {
+      console.error('Error syncing salesperson to project:', err);
+    }
+  }, [linkedProjectId, existingEstimate?.estimate?.project_id, existingEstimate?.estimate?.status]);
 
   // Populate form when editing (skip if user manually cleared during this session)
   useEffect(() => {
@@ -2968,7 +2998,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                         <Label htmlFor="salesperson_name">Salesperson <span className="text-destructive">*</span></Label>
                         <Select
                           value={formData.salesperson_name || ""}
-                          onValueChange={(value) => setFormData({ ...formData, salesperson_name: value })}
+                          onValueChange={(value) => {
+                            setFormData({ ...formData, salesperson_name: value });
+                            // Sync to linked project if estimate is in pre-proposal (draft) status
+                            syncSalespersonToProject(value);
+                          }}
                           disabled={isProposalReadOnly}
                         >
                           <SelectTrigger className={!formData.salesperson_name?.trim() ? "border-destructive" : ""}>
