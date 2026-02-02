@@ -51,6 +51,8 @@ interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
   hideCloseButton?: boolean;
+  /** When true, renders inline without portal/overlay (for page mode) */
+  disablePortal?: boolean;
 }
 
 const shouldPreventDismissOnWindowBlur = (event?: Event) => {
@@ -68,12 +70,16 @@ const shouldPreventDismissOnWindowBlur = (event?: Event) => {
 };
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, hideCloseButton, onFocusOutside, onInteractOutside, onEscapeKeyDown, ...props }, ref) => (
-    <SheetPortal>
-      <SheetOverlay />
+  ({ side = "right", className, children, hideCloseButton, disablePortal, onFocusOutside, onInteractOutside, onEscapeKeyDown, ...props }, ref) => {
+    const content = (
       <SheetPrimitive.Content
         ref={ref}
-        className={cn(sheetVariants({ side }), className)}
+        className={cn(
+          disablePortal 
+            ? "relative w-full h-full flex flex-col bg-background"
+            : sheetVariants({ side }), 
+          className
+        )}
         // Keep sheets open when the browser tab loses focus (Radix considers this
         // a "focus outside" interaction and will dismiss by default).
         onFocusOutside={(e) => {
@@ -82,6 +88,10 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
           if (!e.defaultPrevented) e.preventDefault();
         }}
         onInteractOutside={(e) => {
+          if (disablePortal) {
+            e.preventDefault();
+            return;
+          }
           onInteractOutside?.(e);
           // Prevent dismissal when switching tabs/windows, but allow normal outside clicks
           const originalEvent = 'detail' in e && e.detail?.originalEvent;
@@ -97,15 +107,27 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
         {...props}
       >
         {children}
-        {!hideCloseButton && (
+        {!hideCloseButton && !disablePortal && (
           <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Content>
-    </SheetPortal>
-  ),
+    );
+
+    // In page mode (disablePortal), render content directly without portal/overlay
+    if (disablePortal) {
+      return content;
+    }
+
+    return (
+      <SheetPortal>
+        <SheetOverlay />
+        {content}
+      </SheetPortal>
+    );
+  },
 );
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 

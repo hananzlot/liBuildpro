@@ -2399,7 +2399,10 @@ export function OpportunityDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className={`w-full sm:max-w-3xl overflow-y-auto p-0 ${isPageMode ? 'opportunity-detail-page-mode' : ''}`} data-page-mode={isPageMode || undefined}>
+      <SheetContent 
+        className={`${isPageMode ? 'w-full h-full' : 'w-full sm:max-w-3xl'} overflow-y-auto p-0`}
+        disablePortal={isPageMode}
+      >
         {/* Header */}
         <div className="sticky top-0 bg-background border-b p-4">
           <SheetHeader>

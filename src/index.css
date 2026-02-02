@@ -265,16 +265,24 @@
   flex-direction: column;
 }
 
-/* Fix for dialog portal container in page mode */
-.estimate-builder-page [role="dialog"],
-.project-editor-page [role="dialog"] {
-  position: static !important;
+/* 
+ * Page mode for Dialog/Sheet components 
+ * When rendered as a full page instead of modal, we need to:
+ * 1. Hide the overlay
+ * 2. Make content position static (not fixed)
+ * 3. Make it fill the available space
+ */
+
+/* Target the Radix Dialog portal when inside a page mode container */
+.estimate-builder-page [data-radix-dialog-overlay],
+.project-editor-page [data-radix-dialog-overlay] {
+  display: none !important;
 }
 
-/* Detail page mode for Sheets (Opportunity/Appointment) */
-.opportunity-detail-page-mode,
-.appointment-detail-page-mode {
-  position: relative !important;
+/* Make the dialog content render inline, not as a fixed modal */
+.estimate-builder-page-mode,
+.project-editor-page-mode {
+  position: static !important;
   inset: auto !important;
   transform: none !important;
   max-width: 100% !important;
@@ -287,14 +295,31 @@
   animation: none !important;
 }
 
-/* Hide the sheet overlay when in page mode */
+/* Detail page mode for Sheets (Opportunity/Appointment) */
+.opportunity-detail-page-mode,
+.appointment-detail-page-mode {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  animation: none !important;
+}
+
+/* Hide the overlay when in page mode */
 .opportunity-detail-page [data-radix-dialog-overlay],
-.appointment-detail-page [data-radix-dialog-overlay],
-[data-page-mode="true"] ~ [data-radix-dialog-overlay] {
+.appointment-detail-page [data-radix-dialog-overlay] {
   display: none !important;
 }
 
-/* Make sheet portal render inline in page mode */
+/* Make dialog/sheet portal content render inline in page mode */
+.estimate-builder-page [data-radix-dialog-content],
+.project-editor-page [data-radix-dialog-content],
 .opportunity-detail-page [data-radix-dialog-content],
 .appointment-detail-page [data-radix-dialog-content] {
   position: static !important;
