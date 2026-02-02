@@ -1473,6 +1473,9 @@ export default function Production() {
     };
   }, [allPayments, allBillPayments, allCommissionPayments, isWithinKpiRange]);
 
+  // Statuses to exclude from financial/bookkeeping warnings
+  const EXCLUDED_WARNING_STATUSES = ['Proposal', 'Pre-Estimate', 'Estimate'];
+
   // Calculate warning counts
   const warningCounts = useMemo(() => {
     const counts = {
@@ -1482,9 +1485,9 @@ export default function Production() {
       contractMismatch: 0,
     };
     
-    // Only count warnings for non-Proposal and non-archived projects
+    // Only count warnings for non-excluded status and non-archived projects
     const activeProjectIds = new Set(
-      projects.filter(p => p.project_status !== 'Proposal' && !p.deleted_at).map(p => p.id)
+      projects.filter(p => !EXCLUDED_WARNING_STATUSES.includes(p.project_status || '') && !p.deleted_at).map(p => p.id)
     );
     
     Object.entries(projectFinancials).forEach(([projectId, f]) => {
@@ -1510,8 +1513,8 @@ export default function Production() {
       pendingDeposits: 0,
     };
     
-    // Exclude Proposal status and archived projects from bookkeeping warnings
-    const activeProjects = projects.filter(p => p.project_status !== 'Proposal' && !p.deleted_at);
+    // Exclude early-stage statuses and archived projects from bookkeeping warnings
+    const activeProjects = projects.filter(p => !EXCLUDED_WARNING_STATUSES.includes(p.project_status || '') && !p.deleted_at);
     
     activeProjects.forEach((p) => {
       if (!p.primary_salesperson || p.primary_salesperson.trim() === '') {
@@ -1562,12 +1565,12 @@ export default function Production() {
           }
         }
       });
-      return projects.filter(p => p.project_status !== 'Proposal' && !p.deleted_at && projectsWithOverdue.has(p.id));
+      return projects.filter(p => !EXCLUDED_WARNING_STATUSES.includes(p.project_status || '') && !p.deleted_at && projectsWithOverdue.has(p.id));
     }
     
-    // Exclude Proposal status and archived projects from all warnings
+    // Exclude early-stage statuses and archived projects from all warnings
     return projects.filter(p => {
-      if (p.project_status === 'Proposal' || p.deleted_at) return false;
+      if (EXCLUDED_WARNING_STATUSES.includes(p.project_status || '') || p.deleted_at) return false;
       const f = projectFinancials[p.id];
       switch (type) {
         case 'missingContract': return f?.hasMissingContract;
