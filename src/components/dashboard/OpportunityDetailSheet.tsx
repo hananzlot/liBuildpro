@@ -2401,7 +2401,7 @@ export function OpportunityDetailSheet({
   const isPageMode = mode === 'page';
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={isPageMode ? undefined : onOpenChange}>
       <SheetContent 
         className={`${isPageMode ? 'w-full h-full' : 'w-full sm:max-w-3xl'} overflow-y-auto p-0`}
         disablePortal={isPageMode}
