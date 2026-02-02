@@ -182,13 +182,16 @@ export function WarningsDialog({
         </DialogHeader>
         
         <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-4 pr-4">
+          <div className="space-y-3 pr-4">
             {/* Financial Warnings */}
             {totalWarnings > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold flex items-center gap-2">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+                <h4 className="text-sm font-semibold flex items-center gap-2 mb-3">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   Financial Warnings
+                  <Badge variant="outline" className="ml-auto bg-amber-500/20 text-amber-600 border-amber-500/30">
+                    {totalWarnings}
+                  </Badge>
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {warningCounts.missingContract > 0 && (
@@ -245,16 +248,15 @@ export function WarningsDialog({
               </div>
             )}
 
-            {totalWarnings > 0 && (totalBookkeepingWarnings > 0 || totalSubWarnings > 0) && (
-              <Separator />
-            )}
-
             {/* Bookkeeping Warnings */}
             {totalBookkeepingWarnings > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold flex items-center gap-2">
+              <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+                <h4 className="text-sm font-semibold flex items-center gap-2 mb-3">
                   <AlertTriangle className="h-4 w-4 text-blue-500" />
                   Bookkeeping Warnings
+                  <Badge variant="outline" className="ml-auto bg-blue-500/20 text-blue-600 border-blue-500/30">
+                    {totalBookkeepingWarnings}
+                  </Badge>
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {bookkeepingWarningCounts.missingSalesperson > 0 && (
@@ -313,16 +315,12 @@ export function WarningsDialog({
               </div>
             )}
 
-            {totalBookkeepingWarnings > 0 && totalSubWarnings > 0 && (
-              <Separator />
-            )}
-
             {/* Subcontractor Warnings */}
             {totalSubWarnings > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold flex items-center gap-2">
-                  <ShieldAlert className="h-4 w-4 text-amber-500" />
-                  Subcontractor Document Warnings
+              <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4">
+                <h4 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                  <ShieldAlert className="h-4 w-4 text-orange-500" />
+                  Subcontractor Documents
                   <div className="flex gap-1 ml-auto">
                     {subExpiredCount > 0 && (
                       <Badge variant="destructive" className="text-xs">
@@ -340,7 +338,7 @@ export function WarningsDialog({
                   {subWarnings.slice(0, 5).map((warning, idx) => (
                     <div
                       key={`${warning.subcontractor.id}-${warning.type}-${idx}`}
-                      className="flex items-center justify-between py-2 px-3 rounded-md bg-muted/50 border border-border/50"
+                      className="flex items-center justify-between py-2 px-3 rounded-md bg-background/80 border border-border/50"
                     >
                       <div className="flex items-center gap-3">
                         {warning.type === 'license' ? (
@@ -366,7 +364,7 @@ export function WarningsDialog({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="w-full mt-2"
                     onClick={() => {
                       setOpen(false);
                       navigate('/production?view=subcontractors');
