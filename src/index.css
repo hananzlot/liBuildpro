@@ -230,3 +230,41 @@
     print-color-adjust: exact !important;
   }
 }
+
+/* Estimate/Project Builder Page Mode */
+/* When rendered as a full page (not modal), override dialog styling */
+.estimate-builder-page-mode,
+.project-editor-page-mode {
+  /* Override the fixed positioning and transform from dialog */
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Hide the dialog overlay when in page mode */
+[data-page-mode="true"] ~ [data-radix-dialog-overlay],
+.estimate-builder-page [data-radix-dialog-overlay] {
+  display: none !important;
+}
+
+/* Ensure the parent container fills available space */
+.estimate-builder-page,
+.project-editor-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Fix for dialog portal container in page mode */
+.estimate-builder-page [role="dialog"],
+.project-editor-page [role="dialog"] {
+  position: static !important;
+}

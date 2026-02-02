@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate, useParams } from "react-router-dom";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DateRange } from "react-day-picker";
 import { parseISO, isWithinInterval, startOfDay, endOfDay, format } from "date-fns";
@@ -211,6 +212,7 @@ function ProjectSoldCard({
 export default function Production() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { openTab } = useAppTabs();
   const { projectId: urlProjectId } = useParams<{ projectId?: string }>();
   const { isAdmin, isSimulating, companyId } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1649,7 +1651,7 @@ export default function Production() {
                     <Upload className="h-4 w-4 mr-2" />
                     Import
                   </Button>
-                  <Button size="sm" onClick={() => setNewProjectOpen(true)}>
+                  <Button size="sm" onClick={() => openTab('/project/new', 'New Project')}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Project
                   </Button>

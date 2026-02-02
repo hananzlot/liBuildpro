@@ -4,6 +4,7 @@ import { Search, X, Briefcase, FolderKanban, FileText, CalendarCheck } from "luc
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -388,8 +389,10 @@ export function GlobalAdminSearch() {
     setSearchQuery("");
   };
 
+  const { openTab } = useAppTabs();
+  
   const handleSelectEstimate = (est: Estimate) => {
-    navigate(`/estimates/builder/${est.id}`);
+    openTab(`/estimate/${est.id}`, `Estimate #${est.estimate_number}`);
     setIsOpen(false);
     setSearchQuery("");
   };
