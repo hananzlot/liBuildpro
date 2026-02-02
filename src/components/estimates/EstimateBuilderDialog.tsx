@@ -2715,7 +2715,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     onClick={generateScope}
                   >
                     <Wand2 className="mr-2 h-4 w-4" />
-                    AI Generate Scope
+                    {groups.length > 0 ? 'Regenerate AI Scope' : 'AI Generate Scope'}
                   </Button>
                 )
               )}
@@ -3261,23 +3261,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   >
                                     <Trash2 className="mr-2 h-4 w-4" />
                                     Clear All
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => {
-                                      setGroups([]);
-                                      setPaymentSchedule([]);
-                                      setTimeout(() => generateScope(), 100);
-                                    }}
-                                    disabled={isGeneratingScope || !canGenerateAI}
-                                    title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Clear and regenerate with AI'}
-                                  >
-                                    {isGeneratingScope ? (
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Wand2 className="mr-2 h-4 w-4" />
-                                    )}
-                                    Regenerate AI
                                   </Button>
                                 </div>
                               )}
