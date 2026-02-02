@@ -2356,6 +2356,32 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         }
       }
 
+      // Update existing project's salesperson when estimate is in draft status
+      // This ensures the project reflects any salesperson changes made in the estimate
+      const currentProjectId = linkedProjectId || existingEstimate?.estimate?.project_id;
+      const currentEstimateStatus = existingEstimate?.estimate?.status;
+      
+      if (currentProjectId && (!currentEstimateStatus || currentEstimateStatus === 'draft')) {
+        try {
+          const { error: projectUpdateError } = await supabase
+            .from('projects')
+            .update({
+              primary_salesperson: formData.salesperson_name || null,
+              project_manager: formData.salesperson_name || null,
+            })
+            .eq('id', currentProjectId);
+          
+          if (projectUpdateError) {
+            console.error('Failed to update project salesperson:', projectUpdateError);
+          } else {
+            console.log('Updated project salesperson to:', formData.salesperson_name);
+          }
+        } catch (err) {
+          console.error('Error updating project salesperson:', err);
+          // Don't fail the save for this
+        }
+      }
+
       return savedEstimateId;
     },
     onSuccess: (savedEstimateId: string | null) => {
