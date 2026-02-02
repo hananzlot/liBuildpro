@@ -9,6 +9,8 @@ import MagazineSales from "@/pages/MagazineSales";
 import Estimates from "@/pages/Estimates";
 import EstimateBuilder from "@/pages/EstimateBuilder";
 import ProjectEditor from "@/pages/ProjectEditor";
+import OpportunityDetail from "@/pages/OpportunityDetail";
+import AppointmentDetail from "@/pages/AppointmentDetail";
 import Documents from "@/pages/Documents";
 import ClientPortal from "@/pages/ClientPortal";
 import DocumentPortal from "@/pages/DocumentPortal";
@@ -83,6 +85,16 @@ export function AppRoutes() {
           }
         />
         
+        {/* Opportunity detail - full page route that opens in tabs */}
+        <Route
+          path="/opportunity/:id"
+          element={
+            <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
+              <OpportunityDetail />
+            </ProtectedRoute>
+          }
+        />
+        
         {/* Appointments - list and detail routes */}
         <Route
           path="/appointments"
@@ -97,6 +109,16 @@ export function AppRoutes() {
           element={
             <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
               <Appointments />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Appointment detail - full page route that opens in tabs */}
+        <Route
+          path="/appointment/:id"
+          element={
+            <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
+              <AppointmentDetail />
             </ProtectedRoute>
           }
         />

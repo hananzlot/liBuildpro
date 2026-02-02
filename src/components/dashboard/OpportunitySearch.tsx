@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ export function OpportunitySearch({
   conversations = [],
 }: OpportunitySearchProps) {
   const navigate = useNavigate();
+  const { openTab } = useAppTabs();
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
 
@@ -168,8 +170,8 @@ export function OpportunitySearch({
   };
 
   const handleSelect = (opp: Opportunity) => {
-    // Navigate to the opportunity route so it stays open across tab switches
-    navigate(`/opportunities/${opp.ghl_id}`);
+    // Open in a new tab
+    openTab(`/opportunity/${opp.ghl_id}`, opp.name || 'Opportunity');
     setIsOpen(false);
     setSearchQuery("");
   };
