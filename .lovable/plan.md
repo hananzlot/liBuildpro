@@ -1,164 +1,97 @@
-# ✅ IMPLEMENTED
 
-# Project-to-Customer QuickBooks Mapping
+# Preventive Fix: Ensure Bills Are Properly Tagged to Customers in QuickBooks
 
 ## Problem Summary
-When syncing bill payments to QuickBooks, the system can't distinguish between bills for different projects/customers from the same vendor. This happens because:
 
-1. **Project #16** (14223 Haynes St, Margarit Minasyan) has no `contact_uuid`, so no QB customer mapping exists
-2. The QB Bill Selection dialog shows ALL unpaid bills for the vendor, not filtered by project/customer
-3. When syncing bills, the `CustomerRef` isn't correctly applied for job costing
+Bills created in QuickBooks aren't always tagged with a `CustomerRef` (for job costing), which causes them to not appear when filtering by project. This happens because:
 
-## Solution Overview
-Create a **project-to-customer mapping** workflow:
+1. The bill creation logic only looks for **contact-based customer mappings** (`mapping_type: 'customer'`)
+2. It ignores the newer **project-to-customer mappings** (`mapping_type: 'project_customer'`)
+3. Projects without a linked contact (`contact_uuid`) can't have their bills tagged at all
 
-1. When opening the QB Bill Selection dialog, check if the project has a QB customer mapping
-2. If not mapped, show a **customer selection step first** before showing bills
-3. Store the project-to-customer mapping for future syncs
-4. Filter bills by CustomerRef to only show relevant ones
+## Solution
 
----
-
-## Database Changes
-
-### Add New Mapping Type: `project_customer`
-Use the existing `quickbooks_mappings` table with a new `mapping_type`:
-
-```sql
--- Store project-to-customer mappings
--- source_value = project UUID
--- qbo_id = QuickBooks Customer ID
--- qbo_name = QB Customer display name
--- mapping_type = 'project_customer'
-```
-
-No schema change needed - the existing table structure supports this.
-
----
-
-## UI/UX Flow Changes
-
-### New Flow for Bill Payment Sync
-
-```text
-User clicks "Sync to QuickBooks"
-        |
-        v
-+---------------------------+
-| Check project QB mapping  |
-+---------------------------+
-        |
-   Has mapping? 
-        |
-    No  |   Yes
-        |     |
-        v     v
-+----------------+    +------------------+
-| QB Customer    |    | QB Bill          |
-| Selection      |--->| Selection        |
-| Dialog         |    | Dialog           |
-| (Step 1)       |    | (filtered by     |
-+----------------+    | CustomerRef)     |
-        |             +------------------+
-        |                     |
-   User selects               |
-   customer                   |
-        |                     |
-        v                     v
-+----------------+    +------------------+
-| Save mapping   |    | Sync bill        |
-| to DB          |--->| payment to QB    |
-+----------------+    +------------------+
-```
-
-### Customer Selection Options
-When no mapping exists:
-1. **Select existing QB customer** - User picks from dropdown
-2. **Skip QB sync** - Record payment locally only (no QB sync)
-3. **Create new customer in QB** - Creates customer from project name/address
+Update the bill sync logic to also check for `project_customer` mappings when determining the `CustomerRef` to attach to bill line items.
 
 ---
 
 ## Technical Implementation
 
-### 1. New Component: `QBCustomerMappingDialog`
-**File:** `src/components/production/analytics/QBCustomerMappingDialog.tsx`
+### File: `supabase/functions/sync-to-quickbooks/index.ts`
 
-A dialog that:
-- Fetches all QB customers via `quickbooks-list-entities`
-- Displays a searchable dropdown
-- Shows project info (name, customer name, address)
-- Options: Select Customer | Skip QB Sync | Cancel
+**Current Logic (lines 865-883):**
+```
+Only checks: mapping_type === "customer" with source_value matching contact_uuid or contact_id
+```
 
-### 2. Update `QBBillSelectionDialog`
-**File:** `src/components/production/analytics/QBBillSelectionDialog.tsx`
+**Updated Logic:**
+```
+1. First check: mapping_type === "project_customer" with source_value matching project.id
+2. Fallback: mapping_type === "customer" with source_value matching contact_uuid or contact_id
+```
 
-Changes:
-- Accept new `projectId` prop
-- Pass `projectId` to the edge function for customer-filtered bill fetching
-- Show customer name alongside each bill (for context)
+### Code Changes
 
-### 3. Update `quickbooks-list-vendor-bills` Edge Function
-**File:** `supabase/functions/quickbooks-list-vendor-bills/index.ts`
+Around line 865, update the customer mapping lookup for bills:
 
-Changes:
-- Accept optional `projectId` parameter
-- Look up project-to-customer mapping first
-- If mapping exists, filter QB query: `WHERE VendorRef = 'X' AND CustomerRef = 'Y'`
-- Return `customerName` and `customerId` in response for display
-- If no mapping, return all bills but include CustomerRef info for each
+```typescript
+// Look up customer mapping for job costing (link bill to project)
+let customerRef: { value: string; name?: string } | undefined;
+const projectId = bill.projects?.id;
+const contactUuid = bill.projects?.contact_uuid;
+const contactGhlId = bill.projects?.contact_id;
 
-### 4. Update `OutstandingAP.tsx` Payment Flow
-**File:** `src/pages/OutstandingAP.tsx`
+// Priority 1: Check for direct project_customer mapping
+if (projectId) {
+  const projectMapping = mappings?.find(m => 
+    m.mapping_type === "project_customer" && 
+    m.source_value === projectId
+  );
+  
+  if (projectMapping && projectMapping.qbo_id) {
+    customerRef = { 
+      value: projectMapping.qbo_id, 
+      name: projectMapping.qbo_name || undefined 
+    };
+    console.log(`Found project_customer mapping for bill job costing:`, customerRef);
+  }
+}
 
-Changes:
-- Add state for `customerMappingDialogOpen`
-- Include `projectId` in `pendingPaymentData`
-- Before opening bill selection, check if project has QB customer mapping
-- If no mapping: open Customer Mapping dialog first
-- Pass mapping info through the flow
-
-### 5. Create Project-Customer Mapping on Selection
-When user selects a QB customer in the Customer Mapping dialog:
-- Insert into `quickbooks_mappings`:
-  - `mapping_type: 'project_customer'`
-  - `source_value: {projectId}`
-  - `qbo_id: {selectedQBCustomerId}`
-  - `qbo_name: {selectedQBCustomerName}`
-- Then proceed to bill selection
-
----
-
-## Edge Cases Handled
-
-| Case | Behavior |
-|------|----------|
-| Project has contact with QB mapping | Use contact mapping (existing behavior) |
-| Project has direct project_customer mapping | Use project mapping |
-| Project has neither mapping | Show Customer Mapping dialog |
-| User clicks "Skip QB Sync" | Record payment locally, skip QB sync |
-| Same vendor, different projects | Each project shows only its customer's bills |
-| Customer not in QB yet | "Create new in QB" option available |
+// Priority 2: Fall back to contact-based customer mapping
+if (!customerRef && (contactUuid || contactGhlId)) {
+  const contactMapping = mappings?.find(m => 
+    m.mapping_type === "customer" && 
+    (m.source_value === contactUuid || m.source_value === contactGhlId)
+  );
+  
+  if (contactMapping && contactMapping.qbo_id) {
+    customerRef = { 
+      value: contactMapping.qbo_id, 
+      name: contactMapping.qbo_name || undefined 
+    };
+    console.log(`Found contact customer mapping for bill job costing:`, customerRef);
+  }
+}
+```
 
 ---
 
-## Files to Create/Modify
+## Summary of Changes
 
-### New Files
-1. `src/components/production/analytics/QBCustomerMappingDialog.tsx`
+| File | Change |
+|------|--------|
+| `supabase/functions/sync-to-quickbooks/index.ts` | Add `project_customer` mapping lookup before contact-based lookup when setting CustomerRef on bills |
 
-### Modified Files
-1. `src/components/production/analytics/QBBillSelectionDialog.tsx` - Add projectId, show customer info
-2. `supabase/functions/quickbooks-list-vendor-bills/index.ts` - Filter by CustomerRef
-3. `src/pages/OutstandingAP.tsx` - Add customer mapping check + dialog
+## Expected Outcome
 
----
+After this fix:
+- Bills created for projects with a `project_customer` mapping will automatically be tagged to the correct QuickBooks customer
+- The bill selection dialog will find these bills when filtering by project
+- Existing contact-based mappings continue to work as a fallback
+- No more "missing bill" issues for properly mapped projects
 
-## Benefits
+## Recommendation: UI Warning
 
-1. **Accurate job costing** - Bills are correctly linked to projects/customers in QB
-2. **Clear bill selection** - Only shows relevant bills for the specific project
-3. **Persistent mapping** - Once mapped, future syncs are automatic
-4. **Flexible** - Works with or without contacts, user can always override
-5. **Opt-out option** - Users can record payments locally without QB sync
-
+Additionally, consider adding a warning in the bill creation UI when:
+- The project has no QuickBooks customer mapping (neither `project_customer` nor `customer`)
+- This would alert users upfront that the bill won't be job-costed in QuickBooks
