@@ -828,6 +828,7 @@ export default function OutstandingAP() {
                           <TableHead>Ref</TableHead>
                           <TableHead className="text-right">Amount Paid</TableHead>
                           <TableHead>Method</TableHead>
+                          <TableHead>Check #</TableHead>
                           <TableHead>Bank</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -871,12 +872,13 @@ export default function OutstandingAP() {
                               {formatCurrencyWithDecimals(payment.payment_amount || 0)}
                             </TableCell>
                             <TableCell>{payment.payment_method || '-'}</TableCell>
+                            <TableCell>{payment.payment_reference || '-'}</TableCell>
                             <TableCell>{payment.bank_name || '-'}</TableCell>
                           </TableRow>
                         ))}
                         {paidBills.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                               No payments in this period
                             </TableCell>
                           </TableRow>
