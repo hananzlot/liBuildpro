@@ -502,6 +502,41 @@ async function processEntityChange(
     if (entityType === "BillPayment") {
       let billPaymentId = syncLog?.record_id;
       
+      // If no sync log, try to find the bill payment using the fetch function with fallback matching
+      if (!billPaymentId) {
+        log("info", `No sync log for deleted BillPayment ${qbId}, attempting fallback lookup`);
+        
+        // Call fetch-bill-payment with update-existing to try fallback matching
+        // This will return the local ID if found
+        try {
+          const { data: fetchResult, error: fetchError } = await supabase.functions.invoke("quickbooks-fetch-bill-payment", {
+            body: {
+              companyId,
+              qbBillPaymentId: qbId,
+              realmId,
+              action: "update-existing",
+            },
+          });
+          
+          // If the function found a match, it would have created a sync log entry
+          // Check if there's now a sync log
+          const { data: newSyncLog } = await supabase
+            .from("quickbooks_sync_log")
+            .select("record_id")
+            .eq("company_id", companyId)
+            .eq("record_type", "bill_payment")
+            .eq("quickbooks_id", qbId)
+            .maybeSingle();
+          
+          if (newSyncLog?.record_id) {
+            billPaymentId = newSyncLog.record_id;
+            log("info", `Found bill payment via fallback lookup: ${billPaymentId}`);
+          }
+        } catch (err) {
+          log("warn", `Fallback lookup failed for deleted BillPayment ${qbId}:`, String(err));
+        }
+      }
+      
       if (billPaymentId) {
         // First, get the bill_id so we can recalculate after deletion
         const { data: paymentRecord } = await supabase
