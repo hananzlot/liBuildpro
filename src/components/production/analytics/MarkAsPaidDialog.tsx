@@ -124,17 +124,16 @@ export function MarkAsPaidDialog({
     paymentAmount > 0 && 
     !exceedsBalance &&
     bankName && 
-    paymentMethod && 
-    paymentReference.trim();
+    paymentMethod;
 
   const handleSave = () => {
-    if (paymentAmount > 0 && !exceedsBalance && bankName && paymentMethod && paymentReference.trim()) {
+    if (paymentAmount > 0 && !exceedsBalance && bankName && paymentMethod) {
       onSave(payable.id, {
         paymentDate,
         amount: paymentAmount,
         bankName,
         paymentMethod,
-        paymentReference: paymentReference.trim(),
+        paymentReference: paymentReference.trim() || null,
       });
       onOpenChange(false);
     }
@@ -305,13 +304,15 @@ export function MarkAsPaidDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Reference <span className="text-destructive">*</span></Label>
+              <Label>Check # / Reference</Label>
               <Input
                 value={paymentReference}
                 onChange={(e) => setPaymentReference(e.target.value)}
-                placeholder="Check #, confirmation..."
-                className={cn(!paymentReference.trim() && "border-destructive/50")}
+                placeholder="Leave empty for QB to assign"
               />
+              <p className="text-xs text-muted-foreground">
+                If left empty, QuickBooks will schedule this check for printing and assign a check number automatically.
+              </p>
             </div>
           </div>
         </div>

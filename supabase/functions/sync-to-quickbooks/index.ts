@@ -1241,11 +1241,23 @@ Deno.serve(async (req) => {
           }
 
           if (syncRes.ok && syncData) {
+            const qbDocNumber = syncData.BillPayment?.DocNumber || null;
+            
+            // Update the local payment record with QB-assigned check number if we didn't have one
+            if (qbDocNumber && !billPayment.payment_reference) {
+              console.log(`Updating local bill payment ${billPayment.id} with QB-assigned check #: ${qbDocNumber}`);
+              await supabase
+                .from("bill_payments")
+                .update({ payment_reference: qbDocNumber })
+                .eq("id", billPayment.id);
+            }
+            
             await supabase.from("quickbooks_sync_log").upsert({
               company_id: companyId,
               record_type: "bill_payment",
               record_id: billPayment.id,
               quickbooks_id: syncData.BillPayment.Id,
+              qb_doc_number: qbDocNumber,
               sync_status: "synced",
               synced_at: new Date().toISOString(),
             }, { onConflict: "company_id,record_type,record_id" });
