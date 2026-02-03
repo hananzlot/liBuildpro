@@ -665,12 +665,19 @@ Deno.serve(async (req) => {
       // Update the bill payment - only sync metadata, NOT bank_name
       // Local bank_name is authoritative (references local banks table)
       // QB bank account name is different and mapped via quickbooks_mappings
+      log("info", "Updating local bill payment with QB data", {
+        localBillPaymentId,
+        qbDocNumber: qbBillPayment.DocNumber,
+        qbAmount: qbBillPayment.TotalAmt,
+        qbDate: qbBillPayment.TxnDate,
+      });
+      
       const { error: updateError } = await supabase
         .from("bill_payments")
         .update({
           payment_amount: qbBillPayment.TotalAmt || 0,
           payment_date: qbBillPayment.TxnDate || undefined,
-          payment_reference: qbBillPayment.DocNumber || undefined,
+          payment_reference: qbBillPayment.DocNumber || null,
           // Note: Do NOT update bank_name or payment_method from QB
           // These are locally-set values that should be preserved
         })
@@ -725,7 +732,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Upsert sync log entry
+      // Upsert sync log entry - include qb_doc_number for tracking
       await supabase
         .from("quickbooks_sync_log")
         .upsert({
@@ -733,13 +740,19 @@ Deno.serve(async (req) => {
           record_type: "bill_payment",
           record_id: localBillPaymentId,
           quickbooks_id: qbBillPaymentId,
+          qb_doc_number: qbBillPayment.DocNumber || null,
           sync_status: "synced",
           synced_at: new Date().toISOString(),
+          sync_error: null, // Clear any previous error
         }, {
           onConflict: "company_id,record_type,quickbooks_id"
         });
 
-      log("info", "Updated bill payment successfully", { billPaymentId: localBillPaymentId, billId });
+      log("info", "Updated bill payment successfully", { 
+        billPaymentId: localBillPaymentId, 
+        billId,
+        newDocNumber: qbBillPayment.DocNumber 
+      });
 
       const duration = Date.now() - startTime;
       return new Response(
