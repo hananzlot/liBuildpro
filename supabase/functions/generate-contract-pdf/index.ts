@@ -693,6 +693,24 @@ serve(async (req) => {
       yPos -= 20;
     }
 
+    // NOTES TO CUSTOMER
+    if (estimate.notes_to_customer) {
+      checkNewPage(60);
+      
+      page.drawText('NOTES', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+      yPos -= 5;
+      page.drawLine({
+        start: { x: margin, y: yPos },
+        end: { x: width - margin, y: yPos },
+        thickness: 1,
+        color: lightGray,
+      });
+      yPos -= 15;
+
+      drawWrappedText(estimate.notes_to_customer, margin + 5, contentWidth - 10, 10, helvetica, gray);
+      yPos -= 20;
+    }
+
     // SIGNATURE SECTION
     if (signatures.length > 0) {
       checkNewPage(120);

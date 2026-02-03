@@ -2521,6 +2521,7 @@ export type Database = {
           id: string
           job_address: string | null
           notes: string | null
+          notes_to_customer: string | null
           opportunity_id: string | null
           opportunity_uuid: string | null
           plans_file_url: string | null
@@ -2571,6 +2572,7 @@ export type Database = {
           id?: string
           job_address?: string | null
           notes?: string | null
+          notes_to_customer?: string | null
           opportunity_id?: string | null
           opportunity_uuid?: string | null
           plans_file_url?: string | null
@@ -2621,6 +2623,7 @@ export type Database = {
           id?: string
           job_address?: string | null
           notes?: string | null
+          notes_to_customer?: string | null
           opportunity_id?: string | null
           opportunity_uuid?: string | null
           plans_file_url?: string | null

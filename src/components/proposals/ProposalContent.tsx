@@ -92,6 +92,7 @@ export interface ProposalEstimate {
   deposit_amount?: number | null;
   terms_and_conditions?: string | null;
   notes?: string | null;
+  notes_to_customer?: string | null;
   status: string;
   signed_at?: string | null;
   project_id?: string | null;
@@ -616,11 +617,23 @@ export function ProposalContent({
         </Card>
       )}
 
-      {/* Additional Notes (internal, usually hidden from customers) */}
+      {/* Notes to Customer - Always visible when content exists */}
+      {estimate.notes_to_customer && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground whitespace-pre-wrap">{estimate.notes_to_customer}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Internal Notes (usually hidden from customers) */}
       {showNotes && estimate.notes && (
         <Card>
           <CardHeader>
-            <CardTitle>Additional Notes</CardTitle>
+            <CardTitle>Internal Notes</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground whitespace-pre-wrap">{estimate.notes}</p>
