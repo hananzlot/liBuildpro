@@ -1242,25 +1242,41 @@ Deno.serve(async (req) => {
 
           if (syncRes.ok && syncData) {
             const qbDocNumber = syncData.BillPayment?.DocNumber || null;
+            const qbBillPaymentId = syncData.BillPayment.Id;
+            
+            console.log(`Successfully synced bill payment to QB, ID: ${qbBillPaymentId}, DocNumber: ${qbDocNumber}`);
             
             // Update the local payment record with QB-assigned check number if we didn't have one
             if (qbDocNumber && !billPayment.payment_reference) {
               console.log(`Updating local bill payment ${billPayment.id} with QB-assigned check #: ${qbDocNumber}`);
-              await supabase
+              const { error: updateError } = await supabase
                 .from("bill_payments")
                 .update({ payment_reference: qbDocNumber })
                 .eq("id", billPayment.id);
+              
+              if (updateError) {
+                console.error(`Failed to update payment_reference: ${updateError.message}`);
+              }
             }
             
-            await supabase.from("quickbooks_sync_log").upsert({
+            // Create sync log entry to link local record to QB record
+            const { error: syncLogError } = await supabase.from("quickbooks_sync_log").upsert({
               company_id: companyId,
               record_type: "bill_payment",
               record_id: billPayment.id,
-              quickbooks_id: syncData.BillPayment.Id,
+              quickbooks_id: qbBillPaymentId,
               qb_doc_number: qbDocNumber,
               sync_status: "synced",
               synced_at: new Date().toISOString(),
             }, { onConflict: "company_id,record_type,record_id" });
+            
+            if (syncLogError) {
+              console.error(`Failed to create sync log for bill payment ${billPayment.id}: ${syncLogError.message}`);
+              // Still count as synced since QB has the record - the sync log failure is secondary
+            } else {
+              console.log(`Created sync log linking bill payment ${billPayment.id} to QB ${qbBillPaymentId}`);
+            }
+            
             results.synced++;
           } else {
             const errText = await syncRes.text();
