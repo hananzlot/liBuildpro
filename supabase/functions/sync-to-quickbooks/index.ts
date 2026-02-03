@@ -740,7 +740,14 @@ Deno.serve(async (req) => {
             .limit(1)
             .maybeSingle();
 
-          const existingQbId = existingSync?.quickbooks_id || null;
+          // If the existingQbId starts with "backfill-", it's a placeholder from data migration
+          // and not a real QuickBooks ID - treat as new bill
+          const rawExistingQbId = existingSync?.quickbooks_id || null;
+          const existingQbId = rawExistingQbId?.startsWith("backfill-") ? null : rawExistingQbId;
+          
+          if (rawExistingQbId?.startsWith("backfill-")) {
+            console.log(`Bill ${bill.id} has backfill placeholder ID (${rawExistingQbId}), will create new in QB`);
+          }
 
           // Get configured expense account mapping (global default)
           const globalExpenseAccountMapping = getMapping("expense_account");
