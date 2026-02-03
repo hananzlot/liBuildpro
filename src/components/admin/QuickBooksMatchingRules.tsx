@@ -191,7 +191,7 @@ export function QuickBooksMatchingRules({
       `${contact.first_name || ""} ${contact.last_name || ""}`.trim();
     const contactEmail = contact.email;
 
-    for (const customer of qbCustomers) {
+    for (const customer of (Array.isArray(qbCustomers) ? qbCustomers : [])) {
       // Check by email first (most reliable)
       if (config.customerRules.matchByEmail && contactEmail) {
         // QB customer name sometimes contains email
@@ -215,7 +215,7 @@ export function QuickBooksMatchingRules({
   const findVendorMatch = (sub: Subcontractor): QBEntity | null => {
     if (!sub.company_name) return null;
 
-    for (const vendor of qbVendors) {
+    for (const vendor of (Array.isArray(qbVendors) ? qbVendors : [])) {
       if (config.vendorRules.matchByCompanyName) {
         if (matchStrings(sub.company_name, vendor.name, config.vendorRules.nameMatchType)) {
           return vendor;
