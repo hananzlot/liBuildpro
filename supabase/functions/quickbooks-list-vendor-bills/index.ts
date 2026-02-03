@@ -134,8 +134,9 @@ Deno.serve(async (req) => {
     console.log(`Found vendor "${vendorName}" with ID: ${vendorId}`);
 
     // Step 2: Get all unpaid bills for this vendor (Balance > 0)
+    // Note: QuickBooks uses numeric comparison without quotes for Balance
     const billsSearchUrl = `${QB_BASE_URL}/${realm_id}/query?query=${encodeURIComponent(
-      `SELECT * FROM Bill WHERE VendorRef = '${vendorId}' AND Balance > '0' ORDERBY TxnDate DESC MAXRESULTS 100`
+      `SELECT * FROM Bill WHERE VendorRef = '${vendorId}' ORDERBY TxnDate DESC MAXRESULTS 100`
     )}`;
 
     const billsRes = await fetch(billsSearchUrl, { headers: qbHeaders });
@@ -158,10 +159,19 @@ Deno.serve(async (req) => {
     const billsData = await billsRes.json();
     const rawBills: QBBill[] = billsData.QueryResponse?.Bill || [];
 
-    console.log(`Found ${rawBills.length} unpaid bills for vendor ${vendorId}`);
+    console.log(`Found ${rawBills.length} total bills for vendor ${vendorId}`);
+    
+    // Filter to only include bills with a positive balance (unpaid)
+    // Also log raw balance values for debugging
+    rawBills.forEach((bill) => {
+      console.log(`Bill ${bill.Id} (${bill.DocNumber || 'no ref'}): TotalAmt=${bill.TotalAmt}, Balance=${bill.Balance}`);
+    });
+    
+    const unpaidBills = rawBills.filter((bill) => (bill.Balance || 0) > 0);
+    console.log(`${unpaidBills.length} bills have balance > 0`);
 
     // Map to our response format
-    const bills = rawBills.map((bill) => ({
+    const bills = unpaidBills.map((bill) => ({
       qbBillId: bill.Id,
       docNumber: bill.DocNumber || "",
       txnDate: bill.TxnDate || "",
