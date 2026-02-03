@@ -125,35 +125,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
 
-  // Subscribe to realtime changes on bills and bill_payments to keep data fresh
-  useEffect(() => {
-    if (!companyId) return;
 
-    const channel = supabase
-      .channel(`analytics-bills-realtime-${companyId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "project_bills" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["analytics-bills", companyId] });
-          queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "bill_payments" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["analytics-bills", companyId] });
-          queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments", companyId] });
-          queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [companyId, queryClient]);
   // Fetch all projects - paginated to handle >1000 projects
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
     queryKey: ["analytics-projects", companyId],
@@ -285,6 +257,36 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     enabled: !!companyId,
     ...financialCacheOptions,
   });
+
+  // Subscribe to realtime changes on bills and bill_payments to keep data fresh
+  useEffect(() => {
+    if (!companyId) return;
+
+    const channel = supabase
+      .channel(`analytics-bills-realtime-${companyId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "project_bills" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["analytics-bills", companyId] });
+          queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bill_payments" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["analytics-bills", companyId] });
+          queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments", companyId] });
+          queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, queryClient]);
 
   // Get unique salespeople
   const allSalespeople = useMemo(() => {
