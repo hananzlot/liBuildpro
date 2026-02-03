@@ -143,6 +143,15 @@ interface DBProfile {
   ghl_user_id: string | null;
 }
 
+interface DBSalesperson {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  ghl_user_id: string | null;
+  is_active: boolean;
+}
+
 export interface DBOpportunityEdit {
   id: string;
   opportunity_ghl_id: string;
@@ -393,6 +402,16 @@ async function fetchProfilesFromDB(companyId?: string | null): Promise<DBProfile
   return data || [];
 }
 
+async function fetchSalespeopleFromDB(companyId?: string | null): Promise<DBSalesperson[]> {
+  let query = supabase.from("salespeople").select("id, name, email, phone, ghl_user_id, is_active");
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
 // Fetch only recent edits (last 90 days) for performance
 async function fetchOpportunityEditsFromDB(companyId?: string | null): Promise<DBOpportunityEdit[]> {
   const ninetyDaysAgo = new Date();
@@ -528,6 +547,7 @@ function processMetrics(
   opportunities: DBOpportunity[],
   appointments: DBAppointment[],
   users: DBUser[],
+  salespeople: DBSalesperson[],
   dateRange?: DateRange,
 ): DashboardMetrics & {
   totalOpportunities: number;
@@ -577,11 +597,21 @@ function processMetrics(
       })
     : opportunities;
 
-  // Create user lookup map
+  // Create user lookup map - includes both GHL users and internal salespeople
   const userMap = new Map<string, string>();
   users.forEach((u) => {
     const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
     userMap.set(u.ghl_id, displayName);
+  });
+  // Add salespeople by their internal UUID (for appointments assigned by internal ID)
+  salespeople.forEach((sp) => {
+    if (sp.name) {
+      userMap.set(sp.id, sp.name);
+      // Also map by ghl_user_id if linked (might duplicate but ensures coverage)
+      if (sp.ghl_user_id && !userMap.has(sp.ghl_user_id)) {
+        userMap.set(sp.ghl_user_id, sp.name);
+      }
+    }
   });
 
   const now = new Date();
@@ -1107,6 +1137,17 @@ export function useGHLUsers() {
   });
 }
 
+export function useSalespeople() {
+  const { companyId } = useCompanyContext();
+
+  return useQuery({
+    queryKey: ["salespeople", companyId],
+    queryFn: () => fetchSalespeopleFromDB(companyId),
+    staleTime: 5 * 60 * 1000,
+    enabled: !!companyId,
+  });
+}
+
 export function useConversations() {
   const { companyId } = useCompanyContext();
 
@@ -1319,6 +1360,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const opportunitiesQuery = useOpportunities();
   const appointmentsQuery = useAppointments();
   const usersQuery = useGHLUsers();
+  const salespeopleQuery = useSalespeople();
   const conversationsQuery = useConversations();
   const tasksQuery = useTasks();
   const contactNotesQuery = useContactNotes();
@@ -1335,6 +1377,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
     opportunitiesQuery.isLoading ||
     appointmentsQuery.isLoading ||
     usersQuery.isLoading ||
+    salespeopleQuery.isLoading ||
     conversationsQuery.isLoading ||
     tasksQuery.isLoading ||
     contactNotesQuery.isLoading ||
@@ -1349,6 +1392,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
     opportunitiesQuery.error ||
     appointmentsQuery.error ||
     usersQuery.error ||
+    salespeopleQuery.error ||
     conversationsQuery.error ||
     tasksQuery.error ||
     contactNotesQuery.error ||
@@ -1553,6 +1597,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
         opportunitiesQuery.data,
         appointmentsQuery.data,
         usersQuery.data,
+        salespeopleQuery.data || [],
         dateRange,
       )
     : null;
@@ -1604,6 +1649,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
       opportunitiesQuery.refetch();
       appointmentsQuery.refetch();
       usersQuery.refetch();
+      salespeopleQuery.refetch();
       conversationsQuery.refetch();
       tasksQuery.refetch();
       contactNotesQuery.refetch();
