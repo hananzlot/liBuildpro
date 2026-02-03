@@ -412,14 +412,43 @@ export default function OutstandingAP() {
         .single();
       if (error) throw error;
       
-      // Clear scheduled payment fields
-      await supabase
+      // Recalculate bill rollup fields (amount_paid, balance)
+      const { data: bill } = await supabase
         .from("project_bills")
-        .update({
-          scheduled_payment_date: null,
-          scheduled_payment_amount: null,
-        })
-        .eq("id", billId);
+        .select("bill_amount")
+        .eq("id", billId)
+        .single();
+      
+      if (bill) {
+        const { data: allPayments } = await supabase
+          .from("bill_payments")
+          .select("payment_amount")
+          .eq("bill_id", billId);
+        
+        const totalPaid = (allPayments || []).reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+        const billAmount = bill.bill_amount || 0;
+        const newBalance = billAmount - totalPaid;
+        
+        // Update bill with recalculated totals and clear scheduled payment fields
+        await supabase
+          .from("project_bills")
+          .update({
+            amount_paid: totalPaid,
+            balance: newBalance,
+            scheduled_payment_date: null,
+            scheduled_payment_amount: null,
+          })
+          .eq("id", billId);
+      } else {
+        // Fallback: just clear scheduled payment fields
+        await supabase
+          .from("project_bills")
+          .update({
+            scheduled_payment_date: null,
+            scheduled_payment_amount: null,
+          })
+          .eq("id", billId);
+      }
 
       // Sync to QuickBooks if enabled
       let qbSynced = false;
