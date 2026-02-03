@@ -107,27 +107,37 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
   }, [activeTabId]);
 
   // Restore location when browser tab regains focus
+  // Key insight: If user navigated within the same base route (e.g., changed sub-tabs),
+  // we should UPDATE the stored path to match current location, not navigate away.
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         const savedActiveId = localStorage.getItem(`${STORAGE_KEY}-active`);
         const savedTabs = localStorage.getItem(STORAGE_KEY);
-        console.log('[TabRestore] Visibility changed to visible');
-        console.log('[TabRestore] savedActiveId:', savedActiveId);
-        console.log('[TabRestore] savedTabs:', savedTabs);
-        console.log('[TabRestore] current location:', location.pathname + location.search);
+        
         if (savedActiveId && savedTabs) {
           const parsedTabs = JSON.parse(savedTabs) as AppTab[];
           const activeTab = parsedTabs.find(t => t.id === savedActiveId);
-          console.log('[TabRestore] activeTab found:', activeTab);
+          
           if (activeTab) {
             const currentPath = location.pathname + location.search;
-            if (activeTab.path !== currentPath) {
-              console.log('[TabRestore] Navigating to:', activeTab.path);
+            const storedBasePath = activeTab.path.split('?')[0];
+            const currentBasePath = location.pathname;
+            
+            // If we're on the same base route, the user navigated within the tab
+            // Update stored path to current path instead of navigating back
+            if (storedBasePath === currentBasePath && activeTab.path !== currentPath) {
+              // User is on the same page but different sub-tab - update storage to match
+              const updatedTabs = parsedTabs.map(t => 
+                t.id === savedActiveId ? { ...t, path: currentPath } : t
+              );
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTabs));
+              setTabs(updatedTabs);
+            } else if (storedBasePath !== currentBasePath) {
+              // User is on a completely different route - restore to stored path
               navigate(activeTab.path);
-            } else {
-              console.log('[TabRestore] Already on correct path, no navigation needed');
             }
+            // If paths match exactly, do nothing
           }
         }
       }
