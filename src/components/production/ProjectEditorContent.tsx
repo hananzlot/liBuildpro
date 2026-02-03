@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,8 +16,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Loader2, Save, ArrowLeft } from "lucide-react";
+import { Loader2, Save, ArrowLeft, ChevronsUpDown, Check, UserPlus, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProjectEditorContentProps {
   projectId?: string | null;
@@ -91,7 +105,45 @@ export function ProjectEditorContent({
     },
     enabled: !!projectId,
   });
+  // Fetch contacts for linking
+  const { data: contacts = [] } = useQuery({
+    queryKey: ["contacts-for-project-link", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("contacts")
+        .select("id, contact_name, email, phone")
+        .eq("company_id", companyId)
+        .order("contact_name", { ascending: true })
+        .limit(500);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+    staleTime: 60 * 1000,
+  });
   
+  const [contactSearchOpen, setContactSearchOpen] = useState(false);
+  const [contactSearchQuery, setContactSearchQuery] = useState("");
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  
+  const filteredContacts = useMemo(() => {
+    if (!contactSearchQuery.trim()) return contacts.slice(0, 50);
+    const query = contactSearchQuery.toLowerCase();
+    return contacts
+      .filter(c => 
+        c.contact_name?.toLowerCase().includes(query) ||
+        c.email?.toLowerCase().includes(query) ||
+        c.phone?.includes(query)
+      )
+      .slice(0, 50);
+  }, [contacts, contactSearchQuery]);
+  
+  const selectedContact = useMemo(() => 
+    contacts.find(c => c.id === selectedContactId),
+    [contacts, selectedContactId]
+  );
+
   const [formData, setFormData] = useState({
     project_name: "",
     customer_first_name: "",
@@ -128,6 +180,10 @@ export function ProjectEditorContent({
         branch: existingProject.branch || "",
         install_notes: existingProject.install_notes || "",
       });
+      // Set existing contact_uuid when editing
+      if (existingProject.contact_uuid) {
+        setSelectedContactId(existingProject.contact_uuid);
+      }
     }
   }, [existingProject]);
 
@@ -148,6 +204,8 @@ export function ProjectEditorContent({
         lead_source: formData.lead_source || null,
         branch: formData.branch || null,
         install_notes: formData.install_notes || null,
+        // Include manually selected contact if provided
+        contact_uuid: selectedContactId || null,
       };
 
       if (isEditing && projectId) {
@@ -171,7 +229,7 @@ export function ProjectEditorContent({
         
         return data;
       } else {
-        // Create new project
+        // Create new project - note: trigger will auto-create contact if none selected but customer info provided
         const { data, error } = await supabase
           .from("projects")
           .insert({
@@ -342,61 +400,157 @@ export function ProjectEditorContent({
             <CardHeader>
               <CardTitle className="text-lg">Customer Information</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="customer_first_name">First Name</Label>
-                <Input
-                  id="customer_first_name"
-                  value={formData.customer_first_name}
-                  onChange={(e) => updateField("customer_first_name", e.target.value)}
-                  placeholder="First name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="customer_last_name">Last Name</Label>
-                <Input
-                  id="customer_last_name"
-                  value={formData.customer_last_name}
-                  onChange={(e) => updateField("customer_last_name", e.target.value)}
-                  placeholder="Last name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="customer_email">Email</Label>
-                <Input
-                  id="customer_email"
-                  type="email"
-                  value={formData.customer_email}
-                  onChange={(e) => updateField("customer_email", e.target.value)}
-                  placeholder="email@example.com"
-                />
-              </div>
-              <div>
-                <Label htmlFor="cell_phone">Cell Phone</Label>
-                <Input
-                  id="cell_phone"
-                  value={formData.cell_phone}
-                  onChange={(e) => updateField("cell_phone", e.target.value)}
-                  placeholder="(555) 555-5555"
-                />
-              </div>
-              <div>
-                <Label htmlFor="home_phone">Home Phone</Label>
-                <Input
-                  id="home_phone"
-                  value={formData.home_phone}
-                  onChange={(e) => updateField("home_phone", e.target.value)}
-                  placeholder="(555) 555-5555"
-                />
-              </div>
+            <CardContent className="space-y-4">
+              {/* Link to Existing Contact */}
               <div className="md:col-span-2">
-                <Label htmlFor="project_address">Address</Label>
-                <Input
-                  id="project_address"
-                  value={formData.project_address}
-                  onChange={(e) => updateField("project_address", e.target.value)}
-                  placeholder="Full address"
-                />
+                <Label>Link to Existing Contact</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Popover open={contactSearchOpen} onOpenChange={setContactSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={contactSearchOpen}
+                        className="flex-1 justify-between"
+                      >
+                        {selectedContact ? (
+                          <span className="truncate">
+                            {selectedContact.contact_name || selectedContact.email || "Unnamed Contact"}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Select existing contact or enter new info below...</span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command shouldFilter={false}>
+                        <CommandInput 
+                          placeholder="Search contacts by name, email, or phone..." 
+                          value={contactSearchQuery}
+                          onValueChange={setContactSearchQuery}
+                        />
+                        <CommandList>
+                          <CommandEmpty>No contacts found.</CommandEmpty>
+                          <CommandGroup>
+                            {filteredContacts.map((contact) => (
+                              <CommandItem
+                                key={contact.id}
+                                value={contact.id}
+                                onSelect={() => {
+                                  setSelectedContactId(contact.id);
+                                  setContactSearchOpen(false);
+                                  // Optionally populate form fields from contact
+                                  if (contact.contact_name) {
+                                    const parts = contact.contact_name.split(' ');
+                                    if (parts.length >= 2) {
+                                      updateField("customer_first_name", parts[0]);
+                                      updateField("customer_last_name", parts.slice(1).join(' '));
+                                    } else {
+                                      updateField("customer_first_name", contact.contact_name);
+                                    }
+                                  }
+                                  if (contact.email) updateField("customer_email", contact.email);
+                                  if (contact.phone) updateField("cell_phone", contact.phone);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedContactId === contact.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{contact.contact_name || "Unnamed"}</span>
+                                  {(contact.email || contact.phone) && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {[contact.email, contact.phone].filter(Boolean).join(" • ")}
+                                    </span>
+                                  )}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {selectedContactId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedContactId(null)}
+                      title="Clear linked contact"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {!selectedContactId && (
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <UserPlus className="h-3 w-3" />
+                    If no contact is selected, one will be created automatically from the info below.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="customer_first_name">First Name</Label>
+                  <Input
+                    id="customer_first_name"
+                    value={formData.customer_first_name}
+                    onChange={(e) => updateField("customer_first_name", e.target.value)}
+                    placeholder="First name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="customer_last_name">Last Name</Label>
+                  <Input
+                    id="customer_last_name"
+                    value={formData.customer_last_name}
+                    onChange={(e) => updateField("customer_last_name", e.target.value)}
+                    placeholder="Last name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="customer_email">Email</Label>
+                  <Input
+                    id="customer_email"
+                    type="email"
+                    value={formData.customer_email}
+                    onChange={(e) => updateField("customer_email", e.target.value)}
+                    placeholder="email@example.com"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="cell_phone">Cell Phone</Label>
+                  <Input
+                    id="cell_phone"
+                    value={formData.cell_phone}
+                    onChange={(e) => updateField("cell_phone", e.target.value)}
+                    placeholder="(555) 555-5555"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="home_phone">Home Phone</Label>
+                  <Input
+                    id="home_phone"
+                    value={formData.home_phone}
+                    onChange={(e) => updateField("home_phone", e.target.value)}
+                    placeholder="(555) 555-5555"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="project_address">Address</Label>
+                  <Input
+                    id="project_address"
+                    value={formData.project_address}
+                    onChange={(e) => updateField("project_address", e.target.value)}
+                    placeholder="Full address"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
