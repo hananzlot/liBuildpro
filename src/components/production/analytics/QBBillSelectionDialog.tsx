@@ -140,7 +140,12 @@ export function QBBillSelectionDialog({
 
   // Show confirmation dialog before creating new bill
   const handleCreateNewClick = () => {
-    setShowCreateConfirm(true);
+    // Close the main dialog first, then show confirmation
+    onOpenChange(false);
+    // Use setTimeout to ensure the main dialog closes before showing the alert
+    setTimeout(() => {
+      setShowCreateConfirm(true);
+    }, 100);
   };
 
   // User confirmed creating a new bill
@@ -148,6 +153,12 @@ export function QBBillSelectionDialog({
     setShowCreateConfirm(false);
     setSubmittingAction("create");
     onCreateNew();
+  };
+
+  // User cancelled the confirmation - reopen the main dialog
+  const handleConfirmCancel = () => {
+    setShowCreateConfirm(false);
+    onOpenChange(true);
   };
 
   const isSubmitting = submittingAction !== null;
@@ -333,8 +344,10 @@ export function QBBillSelectionDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation dialog for creating new bill */}
-      <AlertDialog open={showCreateConfirm} onOpenChange={setShowCreateConfirm}>
+      {/* Confirmation dialog for creating new bill - rendered outside main dialog */}
+      <AlertDialog open={showCreateConfirm} onOpenChange={(open) => {
+        if (!open) handleConfirmCancel();
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -357,7 +370,7 @@ export function QBBillSelectionDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>No, Go Back</AlertDialogCancel>
+            <AlertDialogCancel onClick={handleConfirmCancel}>No, Go Back</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmCreate}>
               Yes, Create New Bill
             </AlertDialogAction>
