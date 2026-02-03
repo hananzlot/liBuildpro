@@ -73,7 +73,7 @@ const Home = () => {
       description: "Track magazine advertising sales",
       icon: BookOpen,
       path: "/magazine-sales",
-      visible: (isAdmin || isMagazine || isSuperAdmin) && canUseFeature('magazine_sales'),
+      visible: isSuperAdmin && canUseFeature('magazine_sales'), // Super admin only
       color: "bg-orange-500/10 text-orange-600 dark:text-orange-400"
     },
     {

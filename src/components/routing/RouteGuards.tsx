@@ -134,9 +134,9 @@ export function DefaultPageRedirect() {
     return <Navigate to="/production" replace />;
   }
 
-  // Magazine role goes to magazine sales
-  if (isMagazine) {
-    return <Navigate to="/magazine-sales" replace />;
+  // Magazine role (without super_admin) - redirect to home since Magazine Sales is super admin only now
+  if (isMagazine && !isSuperAdmin) {
+    return <Home />;
   }
 
   // Contract manager goes to estimates
