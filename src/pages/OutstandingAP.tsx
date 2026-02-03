@@ -41,6 +41,7 @@ import { toast } from "sonner";
 import { SchedulePaymentDialog } from "@/components/production/analytics/SchedulePaymentDialog";
 import { MarkAsPaidDialog } from "@/components/production/analytics/MarkAsPaidDialog";
 import { EditBillPaymentDialog } from "@/components/production/analytics/EditBillPaymentDialog";
+import { QBBillSelectionDialog } from "@/components/production/analytics/QBBillSelectionDialog";
 
 // Type for paid bill records from the query
 interface PaidBillRecord {
@@ -112,8 +113,8 @@ export default function OutstandingAP() {
   const [editPaymentDialogOpen, setEditPaymentDialogOpen] = useState(false);
   const [paidSortField, setPaidSortField] = useState<PaidSortField>('payment_date');
   const [paidSortDir, setPaidSortDir] = useState<SortDir>('desc');
-  const [qbSyncConfirmOpen, setQbSyncConfirmOpen] = useState(false);
-  const [pendingPaymentData, setPendingPaymentData] = useState<{ billId: string; data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null } } | null>(null);
+  const [qbBillSelectionDialogOpen, setQbBillSelectionDialogOpen] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<{ billId: string; data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; vendorName: string; billRef: string | null } | null>(null);
 
   const { payablesWithCashImpact, isLoading } = useProductionAnalytics({
     dateRange: undefined,
@@ -388,7 +389,12 @@ export default function OutstandingAP() {
 
   // Mark as paid mutation with QuickBooks sync
   const markAsPaidMutation = useMutation({
-    mutationFn: async ({ billId, data, syncToQB }: { billId: string; data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; syncToQB: boolean }) => {
+    mutationFn: async ({ billId, data, syncToQB, selectedQbBillId }: { 
+      billId: string; 
+      data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; 
+      syncToQB: boolean;
+      selectedQbBillId?: string;
+    }) => {
       // Insert the bill payment
       const { data: paymentRecord, error } = await supabase
         .from("bill_payments")
@@ -416,14 +422,15 @@ export default function OutstandingAP() {
 
       // Sync to QuickBooks if enabled
       let qbSynced = false;
-      if (syncToQB && companyId && paymentRecord) {
+      if (syncToQB && companyId && paymentRecord && selectedQbBillId) {
         try {
-          // Sync the bill first (ensures it exists in QB)
+          // Link the local bill to the selected QB bill (without creating a new one)
           await supabase.functions.invoke("sync-to-quickbooks", {
             body: {
               companyId,
-              syncType: "bill",
+              syncType: "link_bill",
               recordId: billId,
+              qbBillId: selectedQbBillId,
             },
           });
           
@@ -457,9 +464,11 @@ export default function OutstandingAP() {
       queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
       queryClient.invalidateQueries({ queryKey: ["paid-bills"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-ap-due"] });
+      queryClient.invalidateQueries({ queryKey: ["qb-vendor-bills"] });
       setMarkAsPaidDialogOpen(false);
       setMarkingAsPaidPayable(null);
       setPendingPaymentData(null);
+      setQbBillSelectionDialogOpen(false);
     },
     onError: (error) => toast.error(`Failed to record: ${error.message}`),
   });
@@ -467,38 +476,38 @@ export default function OutstandingAP() {
   // Handler when user clicks "Record Payment" in the MarkAsPaidDialog
   const handleMarkAsPaidSave = useCallback((billId: string, data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }) => {
     if (isQBConnected) {
-      // Store pending data and show confirmation dialog
-      setPendingPaymentData({ billId, data });
-      setQbSyncConfirmOpen(true);
+      // Find the payable to get vendor name and bill ref
+      const payable = markingAsPaidPayable;
+      const vendorName = payable?.vendor || "";
+      const billRef = payable?.bill_ref || null;
+      
+      // Store pending data and show QB bill selection dialog
+      setPendingPaymentData({ billId, data, vendorName, billRef });
+      setQbBillSelectionDialogOpen(true);
     } else {
       // No QB connection, proceed directly without sync
       markAsPaidMutation.mutate({ billId, data, syncToQB: false });
     }
-  }, [isQBConnected, markAsPaidMutation]);
+  }, [isQBConnected, markAsPaidMutation, markingAsPaidPayable]);
 
-  // Handler when user confirms QB sync (proceeds with sync)
-  const handleConfirmWithQBSync = useCallback(() => {
+  // Handler when user selects a QB bill from the selection dialog
+  const handleQbBillSelected = useCallback((qbBillId: string, qbDocNumber: string) => {
     if (pendingPaymentData) {
       markAsPaidMutation.mutate({ 
         billId: pendingPaymentData.billId, 
         data: pendingPaymentData.data, 
-        syncToQB: true 
+        syncToQB: true,
+        selectedQbBillId: qbBillId,
       });
     }
-    setQbSyncConfirmOpen(false);
   }, [pendingPaymentData, markAsPaidMutation]);
 
-  // Handler when user wants to skip QB sync
-  const handleSkipQBSync = useCallback(() => {
-    if (pendingPaymentData) {
-      markAsPaidMutation.mutate({ 
-        billId: pendingPaymentData.billId, 
-        data: pendingPaymentData.data, 
-        syncToQB: false 
-      });
-    }
-    setQbSyncConfirmOpen(false);
-  }, [pendingPaymentData, markAsPaidMutation]);
+  // Handler when user cancels the QB bill selection
+  const handleQbBillSelectionCancel = useCallback(() => {
+    // Don't record the payment at all - just cancel
+    setPendingPaymentData(null);
+    setQbBillSelectionDialogOpen(false);
+  }, []);
 
   return (
     <AppLayout>
@@ -1150,28 +1159,16 @@ export default function OutstandingAP() {
         onSuccess={() => setEditingPayment(null)}
       />
 
-      {/* QuickBooks Sync Confirmation Dialog */}
-      <AlertDialog open={qbSyncConfirmOpen} onOpenChange={setQbSyncConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Sync to QuickBooks</AlertDialogTitle>
-            <AlertDialogDescription>
-              This payment will be synced to QuickBooks. Do you want to proceed?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setQbSyncConfirmOpen(false);
-              setPendingPaymentData(null);
-            }}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmWithQBSync}>
-              Proceed
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* QuickBooks Bill Selection Dialog */}
+      <QBBillSelectionDialog
+        open={qbBillSelectionDialogOpen}
+        onOpenChange={setQbBillSelectionDialogOpen}
+        vendorName={pendingPaymentData?.vendorName || ""}
+        localBillRef={pendingPaymentData?.billRef || null}
+        localBillAmount={pendingPaymentData?.data.amount || 0}
+        onSelect={handleQbBillSelected}
+        onCancel={handleQbBillSelectionCancel}
+      />
 
       {/* Clear Schedule Confirmation */}
       <AlertDialog open={clearScheduleConfirmOpen} onOpenChange={setClearScheduleConfirmOpen}>
