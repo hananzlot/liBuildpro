@@ -33,6 +33,8 @@ import SubscriptionPlans from "@/pages/super-admin/SubscriptionPlans";
 import PlatformEmailSettingsPage from "@/pages/super-admin/PlatformEmailSettings";
 import BackupManagement from "@/pages/super-admin/BackupManagement";
 import Onboarding from "@/pages/Onboarding";
+import OutstandingAR from "@/pages/OutstandingAR";
+import OutstandingAP from "@/pages/OutstandingAP";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import QuickBooksHelp from "@/pages/QuickBooksHelp";
@@ -219,6 +221,26 @@ export function AppRoutes() {
           element={
             <ProtectedRoute requiredRole="production" requiredFeature="production">
               <ProjectDetail />
+            </ProtectedRoute>
+          }
+          />
+        
+        {/* Outstanding AR - standalone page for tabs */}
+        <Route
+          path="/outstanding-ar"
+          element={
+            <ProtectedRoute requiredRole="production" requiredFeature="production">
+              <OutstandingAR />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Outstanding AP - standalone page for tabs */}
+        <Route
+          path="/outstanding-ap"
+          element={
+            <ProtectedRoute requiredRole="production" requiredFeature="production">
+              <OutstandingAP />
             </ProtectedRoute>
           }
         />

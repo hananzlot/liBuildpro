@@ -182,7 +182,7 @@ const navSections: NavSection[] = [
       { 
         title: "Outstanding AR", 
         dynamicSuffix: "ar",
-        url: "/production?view=analytics&tab=cashflow&section=ar", 
+        url: "/outstanding-ar", 
         icon: FileText,
         roles: ['super_admin', 'admin', 'production'],
         requiredFeature: 'production'
@@ -190,7 +190,7 @@ const navSections: NavSection[] = [
       { 
         title: "Outstanding AP", 
         dynamicSuffix: "ap",
-        url: "/production?view=analytics&tab=cashflow&section=payables", 
+        url: "/outstanding-ap", 
         icon: Briefcase,
         roles: ['super_admin', 'admin', 'production'],
         requiredFeature: 'production'
