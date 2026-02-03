@@ -37,6 +37,8 @@ const ROUTE_TITLES: Record<string, string> = {
   "/follow-up": "Follow-Up",
   "/admin": "Settings",
   "/audit-log": "Audit Log",
+  "/outstanding-ar": "Outstanding AR",
+  "/outstanding-ap": "Outstanding AP",
 };
 
 function getRouteTitle(path: string): string {
