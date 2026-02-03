@@ -903,6 +903,20 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
               </Card>
             )}
 
+            {/* Notes to Customer */}
+            {selectedEstimate.notes_to_customer && (
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle>Notes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                    {selectedEstimate.notes_to_customer}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Terms & Conditions */}
             {selectedEstimate.terms_and_conditions && (
               <Card className="border-0 shadow-lg">
