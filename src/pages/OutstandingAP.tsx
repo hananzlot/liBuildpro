@@ -35,7 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, formatCurrencyWithDecimals } from "@/lib/utils";
-import { Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2, Info } from "lucide-react";
+import { Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2, Info, ChevronUp, ChevronDown } from "lucide-react";
 import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import { SchedulePaymentDialog } from "@/components/production/analytics/SchedulePaymentDialog";
@@ -66,6 +66,8 @@ interface PaidBillRecord {
 
 type SortField = 'project_number' | 'vendor' | 'amount_due' | 'project_current_cash' | 'cash_after_payment' | 'scheduled_payment_date';
 type SortDir = 'asc' | 'desc';
+
+type PaidSortField = 'payment_date' | 'project_number' | 'vendor' | 'ref' | 'amount' | 'method' | 'check' | 'bank';
 
 // Get the next Friday from today (or today if it's Friday)
 const getNextFriday = (): Date => {
@@ -108,6 +110,8 @@ export default function OutstandingAP() {
   const [payableToClear, setPayableToClear] = useState<PayableWithCashImpact | null>(null);
   const [editingPayment, setEditingPayment] = useState<PaidBillRecord | null>(null);
   const [editPaymentDialogOpen, setEditPaymentDialogOpen] = useState(false);
+  const [paidSortField, setPaidSortField] = useState<PaidSortField>('payment_date');
+  const [paidSortDir, setPaidSortDir] = useState<SortDir>('desc');
 
   const { payablesWithCashImpact, isLoading } = useProductionAnalytics({
     dateRange: undefined,
@@ -155,6 +159,79 @@ export default function OutstandingAP() {
   const handlePaidBillClick = (payment: PaidBillRecord) => {
     setEditingPayment(payment);
     setEditPaymentDialogOpen(true);
+  };
+
+  // Handle sorting for the paid tab
+  const handlePaidSort = (field: PaidSortField) => {
+    if (paidSortField === field) {
+      setPaidSortDir(paidSortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setPaidSortField(field);
+      setPaidSortDir('asc');
+    }
+  };
+
+  // Filter and sort paid bills
+  const filteredAndSortedPaidBills = useMemo(() => {
+    let result = [...paidBills];
+    
+    // Text filter
+    if (search) {
+      const lower = search.toLowerCase();
+      result = result.filter(p => {
+        const project = p.bill?.project;
+        const vendor = p.bill?.installer_company;
+        return (
+          project?.project_name?.toLowerCase().includes(lower) ||
+          project?.project_address?.toLowerCase().includes(lower) ||
+          vendor?.toLowerCase().includes(lower) ||
+          p.bill?.bill_ref?.toLowerCase().includes(lower) ||
+          String(project?.project_number).includes(lower)
+        );
+      });
+    }
+    
+    // Sort
+    result.sort((a, b) => {
+      let cmp = 0;
+      switch (paidSortField) {
+        case 'payment_date':
+          cmp = (a.payment_date || '').localeCompare(b.payment_date || '');
+          break;
+        case 'project_number':
+          cmp = (a.bill?.project?.project_number || 0) - (b.bill?.project?.project_number || 0);
+          break;
+        case 'vendor':
+          cmp = (a.bill?.installer_company || '').localeCompare(b.bill?.installer_company || '');
+          break;
+        case 'ref':
+          cmp = (a.bill?.bill_ref || '').localeCompare(b.bill?.bill_ref || '');
+          break;
+        case 'amount':
+          cmp = (a.payment_amount || 0) - (b.payment_amount || 0);
+          break;
+        case 'method':
+          cmp = (a.payment_method || '').localeCompare(b.payment_method || '');
+          break;
+        case 'check':
+          cmp = (a.payment_reference || '').localeCompare(b.payment_reference || '');
+          break;
+        case 'bank':
+          cmp = (a.bank_name || '').localeCompare(b.bank_name || '');
+          break;
+      }
+      return paidSortDir === 'asc' ? cmp : -cmp;
+    });
+    
+    return result;
+  }, [paidBills, search, paidSortField, paidSortDir]);
+
+  // Sort icon component for paid table
+  const PaidSortIcon = ({ field }: { field: PaidSortField }) => {
+    if (paidSortField !== field) return <ChevronUp className="h-3 w-3 ml-1 opacity-30" />;
+    return paidSortDir === 'asc' 
+      ? <ChevronUp className="h-3 w-3 ml-1" />
+      : <ChevronDown className="h-3 w-3 ml-1" />;
   };
 
   // Filter and sort logic
@@ -822,32 +899,82 @@ export default function OutstandingAP() {
                     <Table className="print-table">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Payment Date</TableHead>
-                          <TableHead>Project</TableHead>
-                          <TableHead>Vendor</TableHead>
-                          <TableHead>Ref</TableHead>
-                          <TableHead className="text-right">Amount Paid</TableHead>
-                          <TableHead>Method</TableHead>
-                          <TableHead>Check #</TableHead>
-                          <TableHead>Bank</TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handlePaidSort('payment_date')}
+                          >
+                            <div className="flex items-center">
+                              Payment Date
+                              <PaidSortIcon field="payment_date" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handlePaidSort('project_number')}
+                          >
+                            <div className="flex items-center">
+                              Project
+                              <PaidSortIcon field="project_number" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handlePaidSort('vendor')}
+                          >
+                            <div className="flex items-center">
+                              Vendor
+                              <PaidSortIcon field="vendor" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handlePaidSort('ref')}
+                          >
+                            <div className="flex items-center">
+                              Ref
+                              <PaidSortIcon field="ref" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="text-right cursor-pointer hover:bg-muted/50"
+                            onClick={() => handlePaidSort('amount')}
+                          >
+                            <div className="flex items-center justify-end">
+                              Amount Paid
+                              <PaidSortIcon field="amount" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handlePaidSort('method')}
+                          >
+                            <div className="flex items-center">
+                              Method
+                              <PaidSortIcon field="method" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handlePaidSort('check')}
+                          >
+                            <div className="flex items-center">
+                              Check #
+                              <PaidSortIcon field="check" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handlePaidSort('bank')}
+                          >
+                            <div className="flex items-center">
+                              Bank
+                              <PaidSortIcon field="bank" />
+                            </div>
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {paidBills
-                          .filter(p => {
-                            if (!search) return true;
-                            const lower = search.toLowerCase();
-                            const project = p.bill?.project;
-                            const vendor = p.bill?.installer_company;
-                            return (
-                              project?.project_name?.toLowerCase().includes(lower) ||
-                              project?.project_address?.toLowerCase().includes(lower) ||
-                              vendor?.toLowerCase().includes(lower) ||
-                              p.bill?.bill_ref?.toLowerCase().includes(lower) ||
-                              String(project?.project_number).includes(lower)
-                            );
-                          })
-                          .map((payment) => (
+                        {filteredAndSortedPaidBills.map((payment) => (
                           <TableRow
                             key={payment.id}
                             className="cursor-pointer hover:bg-muted/50"
@@ -876,7 +1003,7 @@ export default function OutstandingAP() {
                             <TableCell>{payment.bank_name || '-'}</TableCell>
                           </TableRow>
                         ))}
-                        {paidBills.length === 0 && (
+                        {filteredAndSortedPaidBills.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                               No payments in this period
