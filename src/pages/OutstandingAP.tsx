@@ -40,6 +40,29 @@ import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInte
 import { toast } from "sonner";
 import { SchedulePaymentDialog } from "@/components/production/analytics/SchedulePaymentDialog";
 import { MarkAsPaidDialog } from "@/components/production/analytics/MarkAsPaidDialog";
+import { EditBillPaymentDialog } from "@/components/production/analytics/EditBillPaymentDialog";
+
+// Type for paid bill records from the query
+interface PaidBillRecord {
+  id: string;
+  payment_amount: number | null;
+  payment_date: string | null;
+  payment_method: string | null;
+  bank_name: string | null;
+  payment_reference: string | null;
+  bill: {
+    id: string;
+    bill_ref: string | null;
+    installer_company: string | null;
+    category: string | null;
+    project: {
+      id: string;
+      project_number: number | null;
+      project_name: string | null;
+      project_address: string | null;
+    } | null;
+  } | null;
+}
 
 type SortField = 'project_number' | 'vendor' | 'amount_due' | 'project_current_cash' | 'cash_after_payment' | 'scheduled_payment_date';
 type SortDir = 'asc' | 'desc';
@@ -83,6 +106,8 @@ export default function OutstandingAP() {
   const [markAsPaidDialogOpen, setMarkAsPaidDialogOpen] = useState(false);
   const [clearScheduleConfirmOpen, setClearScheduleConfirmOpen] = useState(false);
   const [payableToClear, setPayableToClear] = useState<PayableWithCashImpact | null>(null);
+  const [editingPayment, setEditingPayment] = useState<PaidBillRecord | null>(null);
+  const [editPaymentDialogOpen, setEditPaymentDialogOpen] = useState(false);
 
   const { payablesWithCashImpact, isLoading } = useProductionAnalytics({
     dateRange: undefined,
@@ -91,7 +116,7 @@ export default function OutstandingAP() {
   });
 
   // Fetch paid bills for the Paid tab
-  const { data: paidBills = [], isLoading: loadingPaidBills } = useQuery({
+  const { data: paidBills = [], isLoading: loadingPaidBills } = useQuery<PaidBillRecord[]>({
     queryKey: ["paid-bills", companyId, paidDateRange.from, paidDateRange.to],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -117,10 +142,20 @@ export default function OutstandingAP() {
         .order("payment_date", { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      // Cast the nested join results to our expected type
+      return (data || []).map(row => ({
+        ...row,
+        bill: Array.isArray(row.bill) ? row.bill[0] : row.bill,
+      })) as PaidBillRecord[];
     },
     enabled: !!companyId && activeTab === 'paid',
   });
+
+  // Handle clicking on a paid bill record to edit it
+  const handlePaidBillClick = (payment: PaidBillRecord) => {
+    setEditingPayment(payment);
+    setEditPaymentDialogOpen(true);
+  };
 
   // Filter and sort logic
   const filteredAndSorted = useMemo(() => {
@@ -815,7 +850,7 @@ export default function OutstandingAP() {
                           <TableRow
                             key={payment.id}
                             className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => payment.bill?.project?.id && handleProjectClick(payment.bill.project.id)}
+                            onClick={() => handlePaidBillClick(payment)}
                           >
                             <TableCell>
                               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600">
@@ -823,9 +858,11 @@ export default function OutstandingAP() {
                               </Badge>
                             </TableCell>
                             <TableCell className="max-w-[200px]">
-                              <div className="truncate font-medium">#{payment.bill?.project?.project_number}</div>
+                              <div className="truncate font-medium">
+                                {payment.bill?.project?.project_number ? `#${payment.bill.project.project_number}` : '-'}
+                              </div>
                               <div className="truncate text-xs text-muted-foreground">
-                                {payment.bill?.project?.project_address || payment.bill?.project?.project_name}
+                                {payment.bill?.project?.project_address || payment.bill?.project?.project_name || '-'}
                               </div>
                             </TableCell>
                             <TableCell className="font-medium">{payment.bill?.installer_company || '-'}</TableCell>
@@ -877,6 +914,14 @@ export default function OutstandingAP() {
         onSave={(billId, data) => {
           markAsPaidMutation.mutate({ billId, data });
         }}
+      />
+
+      {/* Edit Bill Payment Dialog */}
+      <EditBillPaymentDialog
+        open={editPaymentDialogOpen}
+        onOpenChange={setEditPaymentDialogOpen}
+        payment={editingPayment}
+        onSuccess={() => setEditingPayment(null)}
       />
 
       {/* Clear Schedule Confirmation */}
