@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { BrowserRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PortalChatProvider } from "@/contexts/PortalChatContext";
 import { SubscriptionGuard } from "@/components/subscription/SubscriptionGuard";
@@ -56,11 +56,11 @@ const App = () => (
             <GlobalHooks />
             <Toaster />
             <Sonner />
-            <BrowserRouter>
+            <MemoryRouter initialEntries={["/"]}>
               <AppTabsProvider>
                 <AppRoutes />
               </AppTabsProvider>
-            </BrowserRouter>
+            </MemoryRouter>
           </TooltipProvider>
         </SubscriptionGuard>
       </PortalChatProvider>
