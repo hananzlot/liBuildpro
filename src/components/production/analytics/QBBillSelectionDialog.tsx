@@ -57,7 +57,7 @@ export function QBBillSelectionDialog({
 }: QBBillSelectionDialogProps) {
   const { companyId } = useCompanyContext();
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<"select" | "create" | null>(null);
 
   // Fetch unpaid QB bills for this vendor (optionally filtered by project customer)
   const { data, isLoading, error, refetch } = useQuery({
@@ -111,7 +111,7 @@ export function QBBillSelectionDialog({
   useEffect(() => {
     if (!open) {
       setSelectedBillId(null);
-      setIsSubmitting(false);
+      setSubmittingAction(null);
     }
   }, [open]);
 
@@ -121,15 +121,17 @@ export function QBBillSelectionDialog({
 
   const handleSelect = () => {
     if (selectedBill) {
-      setIsSubmitting(true);
+      setSubmittingAction("select");
       onSelect(selectedBill.qbBillId, selectedBill.docNumber);
     }
   };
 
   const handleCreateNew = () => {
-    setIsSubmitting(true);
+    setSubmittingAction("create");
     onCreateNew();
   };
+
+  const isSubmitting = submittingAction !== null;
 
   const handleCancel = () => {
     onCancel();
@@ -295,15 +297,15 @@ export function QBBillSelectionDialog({
             onClick={handleCreateNew} 
             disabled={isSubmitting}
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+            {submittingAction === "create" && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
             Create New Bill in QB
           </Button>
           <Button 
             onClick={handleSelect} 
             disabled={!selectedBillId || !data?.bills?.length || isSubmitting}
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-            {isSubmitting ? "Processing..." : "Select Bill"}
+            {submittingAction === "select" && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+            {submittingAction === "select" ? "Processing..." : "Select Bill"}
           </Button>
         </DialogFooter>
       </DialogContent>
