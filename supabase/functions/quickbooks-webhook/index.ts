@@ -503,6 +503,15 @@ async function processEntityChange(
       let billPaymentId = syncLog?.record_id;
       
       if (billPaymentId) {
+        // First, get the bill_id so we can recalculate after deletion
+        const { data: paymentRecord } = await supabase
+          .from("bill_payments")
+          .select("bill_id")
+          .eq("id", billPaymentId)
+          .maybeSingle();
+        
+        const billId = paymentRecord?.bill_id;
+        
         // Delete the local bill payment record
         const { error: deleteError } = await supabase
           .from("bill_payments")
@@ -513,6 +522,45 @@ async function processEntityChange(
           log("error", `Failed to delete local bill payment`, { error: deleteError.message });
         } else {
           log("info", `✓ Deleted local bill payment ${billPaymentId}`);
+          
+          // Recalculate bill rollup fields (amount_paid, balance)
+          if (billId) {
+            const { data: bill } = await supabase
+              .from("project_bills")
+              .select("bill_amount")
+              .eq("id", billId)
+              .single();
+
+            if (bill) {
+              const { data: allPayments } = await supabase
+                .from("bill_payments")
+                .select("payment_amount")
+                .eq("bill_id", billId);
+
+              const totalPaid = (allPayments || []).reduce((sum: number, p: { payment_amount: number | null }) => sum + (p.payment_amount || 0), 0);
+              const billAmount = bill.bill_amount || 0;
+              const newBalance = billAmount - totalPaid;
+
+              const { error: rollupError } = await supabase
+                .from("project_bills")
+                .update({
+                  amount_paid: totalPaid,
+                  balance: newBalance,
+                })
+                .eq("id", billId);
+
+              if (rollupError) {
+                log("error", "Failed to update bill rollups after payment deletion", { error: rollupError.message });
+              } else {
+                log("info", "Recalculated bill rollups after payment deletion", { 
+                  billId, 
+                  totalPaid, 
+                  billAmount, 
+                  newBalance 
+                });
+              }
+            }
+          }
         }
       } else {
         log("info", `No local bill payment found for deleted QB BillPayment ${qbId}`);
