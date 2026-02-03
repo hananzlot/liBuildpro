@@ -89,49 +89,88 @@ Deno.serve(async (req) => {
       "Content-Type": "application/json",
     };
 
-    // Step 1: Find the vendor by name in QuickBooks
-    console.log(`Searching for vendor: "${vendorName}"`);
-    const escapedVendorName = vendorName.replace(/'/g, "\\'");
-    const vendorSearchUrl = `${QB_BASE_URL}/${realm_id}/query?query=${encodeURIComponent(
-      `SELECT * FROM Vendor WHERE DisplayName = '${escapedVendorName}'`
-    )}`;
-
-    const vendorRes = await fetch(vendorSearchUrl, { headers: qbHeaders });
+    // Step 1: Check if there's a mapping for this vendor name (via subcontractor)
+    // First try to find the subcontractor by name, then check for a QB mapping
+    console.log(`Looking up vendor mapping for: "${vendorName}"`);
     
-    if (!vendorRes.ok) {
-      const errText = await vendorRes.text();
-      console.error("Failed to search for vendor:", errText);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: "Failed to search for vendor in QuickBooks",
-          vendorFound: false,
-          vendorId: null,
-          bills: [] 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let vendorId: string | null = null;
+    let mappedQbName: string | null = null;
+
+    // Look up subcontractor by name to get their ID
+    const { data: subcontractor } = await supabase
+      .from("subcontractors")
+      .select("id, company_name")
+      .eq("company_id", companyId)
+      .ilike("company_name", vendorName)
+      .limit(1)
+      .single();
+
+    if (subcontractor) {
+      console.log(`Found subcontractor: ${subcontractor.id} (${subcontractor.company_name})`);
+      
+      // Check for QB mapping using the subcontractor ID
+      const { data: mapping } = await supabase
+        .from("quickbooks_mappings")
+        .select("qbo_id, qbo_name")
+        .eq("company_id", companyId)
+        .eq("mapping_type", "vendor")
+        .eq("source_value", subcontractor.id)
+        .limit(1)
+        .single();
+
+      if (mapping && mapping.qbo_id && mapping.qbo_id !== "PENDING_CREATE") {
+        vendorId = mapping.qbo_id;
+        mappedQbName = mapping.qbo_name;
+        console.log(`Found QB mapping: ${vendorName} -> QB Vendor ID ${vendorId} (${mappedQbName})`);
+      }
     }
 
-    const vendorData = await vendorRes.json();
-    const vendors: QBVendor[] = vendorData.QueryResponse?.Vendor || [];
+    // If no mapping found, fall back to searching by name in QuickBooks
+    if (!vendorId) {
+      console.log(`No mapping found, searching QuickBooks for vendor: "${vendorName}"`);
+      const escapedVendorName = vendorName.replace(/'/g, "\\'");
+      const vendorSearchUrl = `${QB_BASE_URL}/${realm_id}/query?query=${encodeURIComponent(
+        `SELECT * FROM Vendor WHERE DisplayName = '${escapedVendorName}'`
+      )}`;
 
-    if (vendors.length === 0) {
-      console.log(`Vendor "${vendorName}" not found in QuickBooks`);
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          vendorFound: false,
-          vendorId: null,
-          bills: [],
-          message: `Vendor "${vendorName}" not found in QuickBooks`
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const vendorRes = await fetch(vendorSearchUrl, { headers: qbHeaders });
+      
+      if (!vendorRes.ok) {
+        const errText = await vendorRes.text();
+        console.error("Failed to search for vendor:", errText);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Failed to search for vendor in QuickBooks",
+            vendorFound: false,
+            vendorId: null,
+            bills: [] 
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const vendorData = await vendorRes.json();
+      const vendors: QBVendor[] = vendorData.QueryResponse?.Vendor || [];
+
+      if (vendors.length === 0) {
+        console.log(`Vendor "${vendorName}" not found in QuickBooks`);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            vendorFound: false,
+            vendorId: null,
+            bills: [],
+            message: `Vendor "${vendorName}" not found in QuickBooks`
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      vendorId = vendors[0].Id;
     }
 
-    const vendorId = vendors[0].Id;
-    console.log(`Found vendor "${vendorName}" with ID: ${vendorId}`);
+    console.log(`Using QB Vendor ID: ${vendorId} for "${mappedQbName || vendorName}"`);
 
     // Step 2: Get all unpaid bills for this vendor (Balance > 0)
     // Note: QuickBooks uses numeric comparison without quotes for Balance
