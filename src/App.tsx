@@ -29,6 +29,30 @@ const queryClient = new QueryClient({
 
 const persister = createIDBPersister();
 
+// MemoryRouter doesn't reflect navigation in the URL, so if the browser reloads
+// (common when a tab is backgrounded/suspended), we must restore the last active
+// in-app tab ourselves.
+const INNER_TABS_STORAGE_KEY = "app-inner-tabs";
+
+function getInitialEntries(): string[] {
+  if (typeof window === "undefined") return ["/"];
+  try {
+    const savedTabs = window.localStorage.getItem(INNER_TABS_STORAGE_KEY);
+    const savedActiveId = window.localStorage.getItem(`${INNER_TABS_STORAGE_KEY}-active`);
+    const tabs = savedTabs ? (JSON.parse(savedTabs) as Array<{ id: string; path: string }>) : [];
+
+    const activeTab =
+      (savedActiveId ? tabs.find((t) => t.id === savedActiveId) : null) ||
+      (tabs.length ? tabs[tabs.length - 1] : null);
+
+    return [activeTab?.path || "/"];
+  } catch {
+    return ["/"];
+  }
+}
+
+const INITIAL_ENTRIES = getInitialEntries();
+
 const App = () => (
   <PersistQueryClientProvider
     client={queryClient}
@@ -56,7 +80,7 @@ const App = () => (
             <GlobalHooks />
             <Toaster />
             <Sonner />
-            <MemoryRouter initialEntries={["/"]}>
+            <MemoryRouter initialEntries={INITIAL_ENTRIES}>
               <AppTabsProvider>
                 <AppRoutes />
               </AppTabsProvider>
