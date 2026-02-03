@@ -479,6 +479,56 @@ async function processEntityChange(
       let billId = syncLog?.record_id;
       
       if (billId) {
+        // SAFETY CHECK: Before voiding, verify this is the only/correct mapping
+        // If a duplicate QB bill was incorrectly linked to an existing local bill,
+        // we should NOT void the original bill when the duplicate is deleted.
+        
+        // Check if the local bill has payments against it
+        const { data: existingPayments } = await supabase
+          .from("bill_payments")
+          .select("id, payment_amount")
+          .eq("bill_id", billId);
+        
+        const totalPayments = (existingPayments || []).reduce(
+          (sum: number, p: { payment_amount: number | null }) => sum + (p.payment_amount || 0), 
+          0
+        );
+        
+        if (totalPayments > 0) {
+          // Bill has payments - this is likely a real bill that shouldn't be voided
+          // Check if there's another QB bill linked to this same local bill
+          const { data: allSyncLogs } = await supabase
+            .from("quickbooks_sync_log")
+            .select("quickbooks_id, sync_status")
+            .eq("company_id", companyId)
+            .eq("record_type", "bill")
+            .eq("record_id", billId);
+          
+          if (allSyncLogs && allSyncLogs.length > 1) {
+            // Multiple QB bills linked to the same local bill - likely a duplicate issue
+            log("warn", `SAFETY: Bill ${billId} has ${allSyncLogs.length} QB bill mappings and ${existingPayments?.length} payments. Not voiding - may be incorrect mapping.`, {
+              qbBillsLinked: allSyncLogs.map((s: { quickbooks_id: string }) => s.quickbooks_id),
+              totalPayments
+            });
+            
+            // Just mark this sync log as deleted, don't void the bill
+            await supabase
+              .from("quickbooks_sync_log")
+              .update({
+                sync_status: "deleted_in_qb",
+                sync_error: "Deleted in QuickBooks (duplicate mapping detected, bill preserved)"
+              })
+              .eq("company_id", companyId)
+              .eq("record_type", "bill")
+              .eq("quickbooks_id", qbId);
+            
+            return;
+          }
+          
+          // Only one mapping but has payments - still warn but allow voiding
+          log("warn", `Bill ${billId} has ${totalPayments} in payments - verify this deletion is intentional`);
+        }
+        
         // Mark the bill as voided/deleted in local DB
         const { error: deleteError } = await supabase
           .from("project_bills")
@@ -495,6 +545,19 @@ async function processEntityChange(
         }
       } else {
         log("info", `No local bill found for deleted QB Bill ${qbId}`);
+      }
+      
+      // Update sync log to reflect deletion
+      if (syncLog) {
+        await supabase
+          .from("quickbooks_sync_log")
+          .update({
+            sync_status: "deleted_in_qb",
+            sync_error: "Deleted in QuickBooks"
+          })
+          .eq("company_id", companyId)
+          .eq("record_type", "bill")
+          .eq("quickbooks_id", qbId);
       }
     }
     
