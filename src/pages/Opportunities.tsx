@@ -9,9 +9,12 @@ import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { MergeOpportunitiesDialog } from "@/components/dashboard/MergeOpportunitiesDialog";
 import { DuplicateOpportunitiesAlert } from "@/components/dashboard/DuplicateOpportunitiesAlert";
+import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 
 const Opportunities = () => {
@@ -23,6 +26,8 @@ const Opportunities = () => {
   const [preselectedOpportunities, setPreselectedOpportunities] = useState<{ oppA: any; oppB: any } | null>(null);
   const [showAlternatingColors, setShowAlternatingColors] = useState(true);
   const [downloadCSVFn, setDownloadCSVFn] = useState<(() => void) | null>(null);
+  const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
+  const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(undefined);
 
   const handleDownloadCSVCallback = useCallback((fn: () => void) => {
     setDownloadCSVFn(() => fn);
@@ -124,7 +129,24 @@ const Opportunities = () => {
 
         {/* Top Actions Bar */}
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <h1 className="text-2xl font-bold text-foreground">Opportunities</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-foreground">Opportunities</h1>
+            <div className="flex items-center gap-2">
+              <Select value={tableDateField} onValueChange={(v) => setTableDateField(v as "updatedDate" | "createdDate")}>
+                <SelectTrigger className="w-[150px] h-9 text-xs bg-background border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  <SelectItem value="updatedDate">Last Edited</SelectItem>
+                  <SelectItem value="createdDate">Contact Created</SelectItem>
+                </SelectContent>
+              </Select>
+              <DateRangeFilter 
+                dateRange={tableDateRange} 
+                onDateRangeChange={setTableDateRange} 
+              />
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <Button
               variant={showAlternatingColors ? "secondary" : "ghost"}
@@ -173,6 +195,8 @@ const Opportunities = () => {
               showAlternatingColors={showAlternatingColors}
               onAlternatingColorsChange={setShowAlternatingColors}
               onDownloadCSV={handleDownloadCSVCallback}
+              tableDateField={tableDateField}
+              tableDateRange={tableDateRange}
             />
           )}
         </section>

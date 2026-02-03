@@ -145,6 +145,8 @@ interface OpportunitiesTableProps {
   showAlternatingColors?: boolean;
   onAlternatingColorsChange?: (value: boolean) => void;
   onDownloadCSV?: (downloadFn: () => void) => void;
+  tableDateField?: "updatedDate" | "createdDate";
+  tableDateRange?: DateRange;
 }
 
 type SortColumn = "name" | "stage" | "value" | "status" | "source" | "createdDate" | "updatedDate";
@@ -166,6 +168,8 @@ export function OpportunitiesTable({
   showAlternatingColors: externalShowAlternatingColors,
   onAlternatingColorsChange,
   onDownloadCSV,
+  tableDateField: externalTableDateField,
+  tableDateRange: externalTableDateRange,
 }: OpportunitiesTableProps) {
   const { companyId } = useCompanyContext();
   const { user, profile } = useAuth();
@@ -196,9 +200,13 @@ export function OpportunitiesTable({
   const [quickNoteContactName, setQuickNoteContactName] = useState<string>("");
   const [quickNoteText, setQuickNoteText] = useState("");
   const [isCreatingQuickNote, setIsCreatingQuickNote] = useState(false);
-  const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
-  const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(undefined);
+  const [internalTableDateField, setInternalTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
+  const [internalTableDateRange, setInternalTableDateRange] = useState<DateRange | undefined>(undefined);
   const [internalShowAlternatingColors, setInternalShowAlternatingColors] = useState(true);
+  
+  // Use external control if provided, otherwise use internal state
+  const tableDateField = externalTableDateField ?? internalTableDateField;
+  const tableDateRange = externalTableDateRange ?? internalTableDateRange;
   
   // Use external control if provided, otherwise use internal state
   const showAlternatingColors = externalShowAlternatingColors ?? internalShowAlternatingColors;
@@ -931,23 +939,7 @@ export function OpportunitiesTable({
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardHeader className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-styled pb-1">
-            {/* Date Range Filter for Table */}
-            <div className="flex items-center gap-2">
-              <Select value={tableDateField} onValueChange={(v) => { setTableDateField(v as "updatedDate" | "createdDate"); setCurrentPage(1); }}>
-                <SelectTrigger className="w-[150px] h-9 text-xs bg-background border-border">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border-border">
-                  <SelectItem value="updatedDate">Last Edited</SelectItem>
-                  <SelectItem value="createdDate">Contact Created</SelectItem>
-                </SelectContent>
-              </Select>
-              <DateRangeFilter 
-                dateRange={tableDateRange} 
-                onDateRangeChange={(range) => { setTableDateRange(range); setCurrentPage(1); }} 
-              />
-            </div>
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-styled pb-1 pl-1">
             <Select value={appointmentFilter} onValueChange={handleAppointmentFilterChange}>
               <SelectTrigger className="w-[160px] h-8 text-xs bg-background border-border">
                 <SelectValue placeholder="Filter by appointment" />
