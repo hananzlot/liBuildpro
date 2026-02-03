@@ -563,6 +563,18 @@ export function ProposalContent({
         </Card>
       )}
 
+      {/* Notes to Customer - Visible before T&C so customers see it prominently */}
+      {estimate.notes_to_customer && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground whitespace-pre-wrap">{estimate.notes_to_customer}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Terms & Conditions */}
       {estimate.terms_and_conditions && (
         <Card>
@@ -613,18 +625,6 @@ export function ProposalContent({
                 </p>
               </div>
             ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Notes to Customer - Always visible when content exists */}
-      {estimate.notes_to_customer && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground whitespace-pre-wrap">{estimate.notes_to_customer}</p>
           </CardContent>
         </Card>
       )}
