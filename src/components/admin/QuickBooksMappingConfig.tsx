@@ -596,13 +596,13 @@ export function QuickBooksMappingConfig() {
     return acc;
   }, {} as Record<string, QBEntity[]>);
 
-  const filteredQbCustomers = qbCustomers?.filter(c => 
-    c.name.toLowerCase().includes(customerSearch.toLowerCase())
-  ) || [];
+  const filteredQbCustomers = (Array.isArray(qbCustomers) ? qbCustomers : []).filter(c => 
+    c.name?.toLowerCase().includes(customerSearch.toLowerCase())
+  );
 
-  const filteredQbVendors = qbVendors?.filter(v => 
-    v.name.toLowerCase().includes(vendorSearch.toLowerCase())
-  ) || [];
+  const filteredQbVendors = (Array.isArray(qbVendors) ? qbVendors : []).filter(v => 
+    v.name?.toLowerCase().includes(vendorSearch.toLowerCase())
+  );
 
   // Contacts are already filtered server-side, so just use them directly
   const filteredContacts = contacts || [];
