@@ -19,9 +19,9 @@ import { AlertCircle, Building2, Loader2, Search, UserCircle } from "lucide-reac
 import { toast } from "sonner";
 
 interface QBCustomer {
-  Id: string;
-  DisplayName: string;
-  FullyQualifiedName?: string;
+  id: string;
+  name: string;
+  type?: string;
 }
 
 interface QBCustomerMappingDialogProps {
@@ -73,8 +73,7 @@ export function QBCustomerMappingDialog({
     if (!search) return customers;
     const lower = search.toLowerCase();
     return customers.filter((c) =>
-      c.DisplayName?.toLowerCase().includes(lower) ||
-      c.FullyQualifiedName?.toLowerCase().includes(lower)
+      c.name?.toLowerCase().includes(lower)
     );
   }, [customers, search]);
 
@@ -107,8 +106,8 @@ export function QBCustomerMappingDialog({
   const handleSelect = () => {
     if (selectedCustomer) {
       saveMappingMutation.mutate({
-        customerId: selectedCustomer.Id,
-        customerDisplayName: selectedCustomer.DisplayName,
+        customerId: selectedCustomer.id,
+        customerDisplayName: selectedCustomer.name,
       });
     }
   };
@@ -191,10 +190,10 @@ export function QBCustomerMappingDialog({
                   </div>
                 ) : (
                   filteredCustomers.map((customer) => {
-                    const isSelected = selectedCustomer?.Id === customer.Id;
+                    const isSelected = selectedCustomer?.id === customer.id;
                     return (
                       <div
-                        key={customer.Id}
+                        key={customer.id}
                         onClick={() => setSelectedCustomer(customer)}
                         className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                           isSelected
@@ -202,10 +201,7 @@ export function QBCustomerMappingDialog({
                             : "border-border hover:border-primary/50 hover:bg-muted/50"
                         }`}
                       >
-                        <div className="font-medium text-sm">{customer.DisplayName}</div>
-                        {customer.FullyQualifiedName && customer.FullyQualifiedName !== customer.DisplayName && (
-                          <div className="text-xs text-muted-foreground">{customer.FullyQualifiedName}</div>
-                        )}
+                        <div className="font-medium text-sm">{customer.name}</div>
                       </div>
                     );
                   })
