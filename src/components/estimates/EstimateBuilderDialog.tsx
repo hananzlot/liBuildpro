@@ -118,6 +118,7 @@ interface EstimateFormData {
   discount_type: string;
   discount_value: number;
   notes: string;
+  notes_to_customer: string;
   terms_and_conditions: string;
   work_scope_description: string;
   show_details_to_customer: boolean;
@@ -207,6 +208,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     discount_type: "percent",
     discount_value: 0,
     notes: "",
+    notes_to_customer: "",
     terms_and_conditions: "",
     work_scope_description: "",
     show_details_to_customer: false,
@@ -794,6 +796,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         discount_type: est.discount_type || "percent",
         discount_value: est.discount_value || 0,
         notes: est.notes || "",
+        notes_to_customer: (est as any).notes_to_customer || "",
         terms_and_conditions: est.terms_and_conditions || "",
         work_scope_description: est.work_scope_description || "",
         show_details_to_customer: est.show_details_to_customer ?? false,
@@ -917,6 +920,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         discount_type: "percent",
         discount_value: 0,
         notes: "",
+        notes_to_customer: "",
         terms_and_conditions: "",
         work_scope_description: "",
         show_details_to_customer: false,
@@ -1330,6 +1334,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           discount_amount: discountAmount,
           total,
           notes: formData.notes || null,
+          notes_to_customer: formData.notes_to_customer || null,
           terms_and_conditions: formData.terms_and_conditions || null,
           work_scope_description: formData.work_scope_description || null,
           created_by: user?.id || null,
@@ -1398,6 +1403,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           discount_amount: discountAmount,
           total,
           notes: formData.notes || null,
+          notes_to_customer: formData.notes_to_customer || null,
           terms_and_conditions: formData.terms_and_conditions || null,
           work_scope_description: formData.work_scope_description || null,
           project_id: linkedProjectId || null,
@@ -2001,6 +2007,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         discount_amount: discountAmount,
         total,
         notes: formData.notes || null,
+        notes_to_customer: formData.notes_to_customer || null,
         terms_and_conditions: formData.terms_and_conditions || null,
         work_scope_description: formData.work_scope_description || null,
         created_by: user?.id || null,
@@ -2458,6 +2465,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         discount_amount: discountAmount,
         total,
         notes: formData.notes || null,
+        notes_to_customer: formData.notes_to_customer || null,
         terms_and_conditions: formData.terms_and_conditions || null,
         work_scope_description: formData.work_scope_description || null,
         status: "draft" as const,
@@ -4399,13 +4407,27 @@ The more detail you provide, the more accurate the AI-generated estimate will be
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Notes</CardTitle>
+                      <CardTitle className="text-base">Internal Notes</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <Textarea
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                        placeholder="Add any notes about this estimate..."
+                        placeholder="Add internal notes (not visible to customer)..."
+                        rows={4}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Notes to Customer</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Textarea
+                        value={formData.notes_to_customer}
+                        onChange={(e) => setFormData({ ...formData, notes_to_customer: e.target.value })}
+                        placeholder="Add notes that will be shown to the customer on proposals and contracts..."
                         rows={4}
                       />
                     </CardContent>
