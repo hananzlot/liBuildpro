@@ -112,13 +112,21 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
       if (document.visibilityState === 'visible') {
         const savedActiveId = localStorage.getItem(`${STORAGE_KEY}-active`);
         const savedTabs = localStorage.getItem(STORAGE_KEY);
+        console.log('[TabRestore] Visibility changed to visible');
+        console.log('[TabRestore] savedActiveId:', savedActiveId);
+        console.log('[TabRestore] savedTabs:', savedTabs);
+        console.log('[TabRestore] current location:', location.pathname + location.search);
         if (savedActiveId && savedTabs) {
           const parsedTabs = JSON.parse(savedTabs) as AppTab[];
           const activeTab = parsedTabs.find(t => t.id === savedActiveId);
+          console.log('[TabRestore] activeTab found:', activeTab);
           if (activeTab) {
             const currentPath = location.pathname + location.search;
             if (activeTab.path !== currentPath) {
+              console.log('[TabRestore] Navigating to:', activeTab.path);
               navigate(activeTab.path);
+            } else {
+              console.log('[TabRestore] Already on correct path, no navigation needed');
             }
           }
         }
