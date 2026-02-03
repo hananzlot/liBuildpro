@@ -270,7 +270,7 @@ Deno.serve(async (req) => {
           quickbooks_id: qbBillPayment.Id,
           qb_doc_number: qbBillPayment.DocNumber || null,
           sync_status: "synced",
-          last_sync_at: new Date().toISOString(),
+          synced_at: new Date().toISOString(),
         });
         
         return new Response(
@@ -351,8 +351,9 @@ Deno.serve(async (req) => {
         record_type: "bill_payment",
         record_id: newBillPayment.id,
         quickbooks_id: qbBillPayment.Id,
+        qb_doc_number: qbBillPayment.DocNumber || null,
         sync_status: "synced",
-        last_sync_at: new Date().toISOString(),
+        synced_at: new Date().toISOString(),
       });
 
       log("info", "Created bill payment successfully", { billPaymentId: newBillPayment.id, matchMethod, billId });
@@ -809,8 +810,8 @@ Deno.serve(async (req) => {
                 .update({ 
                   record_id: result.data.billPaymentId,
                   sync_status: "synced",
-                  last_sync_at: new Date().toISOString(),
-                  error_message: null
+                  synced_at: new Date().toISOString(),
+                  sync_error: null
                 })
                 .eq("id", log_entry.id);
             }

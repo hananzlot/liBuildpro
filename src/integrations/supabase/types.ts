@@ -5533,6 +5533,7 @@ export type Database = {
           company_id: string
           created_at: string | null
           id: string
+          qb_doc_number: string | null
           quickbooks_id: string | null
           record_id: string
           record_type: string
@@ -5545,6 +5546,7 @@ export type Database = {
           company_id: string
           created_at?: string | null
           id?: string
+          qb_doc_number?: string | null
           quickbooks_id?: string | null
           record_id: string
           record_type: string
@@ -5557,6 +5559,7 @@ export type Database = {
           company_id?: string
           created_at?: string | null
           id?: string
+          qb_doc_number?: string | null
           quickbooks_id?: string | null
           record_id?: string
           record_type?: string
