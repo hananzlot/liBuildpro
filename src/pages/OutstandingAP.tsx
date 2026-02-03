@@ -339,6 +339,42 @@ export default function OutstandingAP() {
     payablesWithCashImpact.filter(p => p.scheduled_payment_date).length,
   [payablesWithCashImpact]);
 
+  // Group payables by project when groupByProject is true
+  const groupedByProject = useMemo(() => {
+    if (!groupByProject) return null;
+    
+    const groups: Record<string, {
+      project_id: string;
+      project_number: number;
+      project_name: string | null;
+      project_address: string | null;
+      project_current_cash: number;
+      payables: PayableWithCashImpact[];
+      total_due: number;
+    }> = {};
+    
+    for (const payable of filteredAndSorted) {
+      if (!groups[payable.project_id]) {
+        groups[payable.project_id] = {
+          project_id: payable.project_id,
+          project_number: payable.project_number,
+          project_name: payable.project_name,
+          project_address: payable.project_address,
+          project_current_cash: payable.project_current_cash,
+          payables: [],
+          total_due: 0,
+        };
+      }
+      groups[payable.project_id].payables.push(payable);
+      groups[payable.project_id].total_due += payable.amount_due;
+    }
+    
+    // Sort groups by project number
+    return Object.values(groups).sort((a, b) => 
+      sortDir === 'asc' ? a.project_number - b.project_number : b.project_number - a.project_number
+    );
+  }, [filteredAndSorted, groupByProject, sortDir]);
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
@@ -803,110 +839,246 @@ export default function OutstandingAP() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredAndSorted.map((payable) => (
-                          <TableRow
-                            key={payable.id}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleProjectClick(payable.project_id)}
-                          >
-                            <TableCell className="max-w-[200px]">
-                              <div className="truncate font-medium">#{payable.project_number}</div>
-                              <div className="truncate text-xs text-muted-foreground">
-                                {payable.project_address || payable.project_name}
-                              </div>
-                            </TableCell>
-                            <TableCell className="font-medium">{payable.vendor || '-'}</TableCell>
-                            <TableCell>{payable.bill_ref || '-'}</TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrencyWithDecimals(payable.total_bill)}
-                            </TableCell>
-                            <TableCell className="text-right font-medium text-destructive">
-                              {formatCurrencyWithDecimals(payable.amount_due)}
-                            </TableCell>
-                            <TableCell className={cn(
-                              "text-right",
-                              payable.project_current_cash >= 0 ? "text-emerald-600" : "text-destructive"
-                            )}>
-                              {formatCurrencyWithDecimals(payable.project_current_cash)}
-                            </TableCell>
-                            <TableCell className={cn(
-                              "text-right",
-                              payable.cash_if_this_paid >= 0 ? "text-emerald-600" : "text-destructive"
-                            )}>
-                              {formatCurrencyWithDecimals(payable.cash_if_this_paid)}
-                            </TableCell>
-                            <TableCell>
-                              {payable.scheduled_payment_date ? (
-                                <div className="flex items-center gap-1">
-                                  <Badge variant="outline" className="bg-primary/10 text-primary">
-                                    {format(parseISO(payable.scheduled_payment_date), 'MMM d')}
-                                  </Badge>
-                                  {payable.scheduled_payment_amount && payable.scheduled_payment_amount !== payable.amount_due && (
-                                    <span className="text-xs text-muted-foreground">
-                                      ({formatCurrencyWithDecimals(payable.scheduled_payment_amount)})
+                        {groupByProject && groupedByProject ? (
+                          // Grouped view - show project headers with nested bills
+                          groupedByProject.map((group) => (
+                            <>
+                              {/* Project header row */}
+                              <TableRow 
+                                key={`group-${group.project_id}`}
+                                className="bg-muted/50 cursor-pointer hover:bg-muted"
+                                onClick={() => handleProjectClick(group.project_id)}
+                              >
+                                <TableCell className="font-semibold">
+                                  <div className="flex items-center gap-2">
+                                    <span>#{group.project_number}</span>
+                                    <span className="text-muted-foreground font-normal">
+                                      {group.project_address || group.project_name}
                                     </span>
-                                  )}
+                                  </div>
+                                </TableCell>
+                                <TableCell colSpan={3} className="text-sm text-muted-foreground">
+                                  {group.payables.length} bill{group.payables.length !== 1 ? 's' : ''}
+                                </TableCell>
+                                <TableCell className="text-right font-semibold text-destructive">
+                                  {formatCurrencyWithDecimals(group.total_due)}
+                                </TableCell>
+                                <TableCell className={cn(
+                                  "text-right font-semibold",
+                                  group.project_current_cash >= 0 ? "text-emerald-600" : "text-destructive"
+                                )}>
+                                  {formatCurrencyWithDecimals(group.project_current_cash)}
+                                </TableCell>
+                                <TableCell></TableCell>
+                                <TableCell></TableCell>
+                                <TableCell></TableCell>
+                              </TableRow>
+                              {/* Individual bill rows */}
+                              {group.payables.map((payable) => (
+                                <TableRow
+                                  key={payable.id}
+                                  className="cursor-pointer hover:bg-muted/30"
+                                  onClick={() => handleProjectClick(payable.project_id)}
+                                >
+                                  <TableCell className="pl-8 text-muted-foreground text-sm">
+                                    └
+                                  </TableCell>
+                                  <TableCell className="font-medium">{payable.vendor || '-'}</TableCell>
+                                  <TableCell>{payable.bill_ref || '-'}</TableCell>
+                                  <TableCell className="text-right">
+                                    {formatCurrencyWithDecimals(payable.total_bill)}
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium text-destructive">
+                                    {formatCurrencyWithDecimals(payable.amount_due)}
+                                  </TableCell>
+                                  <TableCell></TableCell>
+                                  <TableCell className={cn(
+                                    "text-right",
+                                    payable.cash_if_this_paid >= 0 ? "text-emerald-600" : "text-destructive"
+                                  )}>
+                                    {formatCurrencyWithDecimals(payable.cash_if_this_paid)}
+                                  </TableCell>
+                                  <TableCell>
+                                    {payable.scheduled_payment_date ? (
+                                      <div className="flex items-center gap-1">
+                                        <Badge variant="outline" className="bg-primary/10 text-primary">
+                                          {format(parseISO(payable.scheduled_payment_date), 'MMM d')}
+                                        </Badge>
+                                        {payable.scheduled_payment_amount && payable.scheduled_payment_amount !== payable.amount_due && (
+                                          <span className="text-xs text-muted-foreground">
+                                            ({formatCurrencyWithDecimals(payable.scheduled_payment_amount)})
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted-foreground">-</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex items-center gap-1">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => {
+                                              setSchedulingPayable(payable);
+                                              setScheduleDialogOpen(true);
+                                            }}
+                                          >
+                                            <CalendarIcon className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Schedule Payment</TooltipContent>
+                                      </Tooltip>
+                                      {payable.scheduled_payment_date && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-7 w-7 text-destructive"
+                                              onClick={() => {
+                                                setPayableToClear(payable);
+                                                setClearScheduleConfirmOpen(true);
+                                              }}
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Clear Schedule</TooltipContent>
+                                        </Tooltip>
+                                      )}
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 text-emerald-600"
+                                            onClick={() => {
+                                              setMarkingAsPaidPayable(payable);
+                                              setMarkAsPaidDialogOpen(true);
+                                            }}
+                                          >
+                                            <Circle className="h-3.5 w-3.5 fill-current" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Mark as Paid</TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </>
+                          ))
+                        ) : (
+                          // Flat view - show all bills in a single list
+                          filteredAndSorted.map((payable) => (
+                            <TableRow
+                              key={payable.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => handleProjectClick(payable.project_id)}
+                            >
+                              <TableCell className="max-w-[200px]">
+                                <div className="truncate font-medium">#{payable.project_number}</div>
+                                <div className="truncate text-xs text-muted-foreground">
+                                  {payable.project_address || payable.project_name}
                                 </div>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center gap-1">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={() => {
-                                        setSchedulingPayable(payable);
-                                        setScheduleDialogOpen(true);
-                                      }}
-                                    >
-                                      <CalendarIcon className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Schedule Payment</TooltipContent>
-                                </Tooltip>
-                                {payable.scheduled_payment_date && (
+                              </TableCell>
+                              <TableCell className="font-medium">{payable.vendor || '-'}</TableCell>
+                              <TableCell>{payable.bill_ref || '-'}</TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrencyWithDecimals(payable.total_bill)}
+                              </TableCell>
+                              <TableCell className="text-right font-medium text-destructive">
+                                {formatCurrencyWithDecimals(payable.amount_due)}
+                              </TableCell>
+                              <TableCell className={cn(
+                                "text-right",
+                                payable.project_current_cash >= 0 ? "text-emerald-600" : "text-destructive"
+                              )}>
+                                {formatCurrencyWithDecimals(payable.project_current_cash)}
+                              </TableCell>
+                              <TableCell className={cn(
+                                "text-right",
+                                payable.cash_if_this_paid >= 0 ? "text-emerald-600" : "text-destructive"
+                              )}>
+                                {formatCurrencyWithDecimals(payable.cash_if_this_paid)}
+                              </TableCell>
+                              <TableCell>
+                                {payable.scheduled_payment_date ? (
+                                  <div className="flex items-center gap-1">
+                                    <Badge variant="outline" className="bg-primary/10 text-primary">
+                                      {format(parseISO(payable.scheduled_payment_date), 'MMM d')}
+                                    </Badge>
+                                    {payable.scheduled_payment_amount && payable.scheduled_payment_amount !== payable.amount_due && (
+                                      <span className="text-xs text-muted-foreground">
+                                        ({formatCurrencyWithDecimals(payable.scheduled_payment_amount)})
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-1">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 text-destructive"
+                                        className="h-7 w-7"
                                         onClick={() => {
-                                          setPayableToClear(payable);
-                                          setClearScheduleConfirmOpen(true);
+                                          setSchedulingPayable(payable);
+                                          setScheduleDialogOpen(true);
                                         }}
                                       >
-                                        <Trash2 className="h-3.5 w-3.5" />
+                                        <CalendarIcon className="h-3.5 w-3.5" />
                                       </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Clear Schedule</TooltipContent>
+                                    <TooltipContent>Schedule Payment</TooltipContent>
                                   </Tooltip>
-                                )}
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 text-emerald-600"
-                                      onClick={() => {
-                                        setMarkingAsPaidPayable(payable);
-                                        setMarkAsPaidDialogOpen(true);
-                                      }}
-                                    >
-                                      <Circle className="h-3.5 w-3.5 fill-current" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Mark as Paid</TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                                  {payable.scheduled_payment_date && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7 text-destructive"
+                                          onClick={() => {
+                                            setPayableToClear(payable);
+                                            setClearScheduleConfirmOpen(true);
+                                          }}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Clear Schedule</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-emerald-600"
+                                        onClick={() => {
+                                          setMarkingAsPaidPayable(payable);
+                                          setMarkAsPaidDialogOpen(true);
+                                        }}
+                                      >
+                                        <Circle className="h-3.5 w-3.5 fill-current" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Mark as Paid</TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
                         {filteredAndSorted.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
