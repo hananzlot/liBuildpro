@@ -106,14 +106,24 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeTabId]);
 
-  // Update active tab when location changes
+  // Update active tab when location changes (but skip on initial mount if we already have a valid activeTabId)
+  const initialMountRef = React.useRef(true);
   useEffect(() => {
+    // On initial mount, trust the activeTabId from localStorage if it exists and is valid
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      // If we already have a valid active tab ID that exists in our tabs, don't override it
+      if (activeTabId && tabs.some(t => t.id === activeTabId)) {
+        return;
+      }
+    }
+    
     const currentPath = location.pathname + location.search;
     const matchingTab = tabs.find(tab => tab.path === currentPath);
     if (matchingTab) {
       setActiveTabId(matchingTab.id);
     }
-  }, [location, tabs]);
+  }, [location, tabs, activeTabId]);
 
   const openTab = useCallback((path: string, title: string, icon?: string) => {
     // Check if tab already exists
