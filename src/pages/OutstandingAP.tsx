@@ -112,6 +112,8 @@ export default function OutstandingAP() {
   const [editPaymentDialogOpen, setEditPaymentDialogOpen] = useState(false);
   const [paidSortField, setPaidSortField] = useState<PaidSortField>('payment_date');
   const [paidSortDir, setPaidSortDir] = useState<SortDir>('desc');
+  const [qbSyncConfirmOpen, setQbSyncConfirmOpen] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<{ billId: string; data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null } } | null>(null);
 
   const { payablesWithCashImpact, isLoading } = useProductionAnalytics({
     dateRange: undefined,
@@ -154,6 +156,26 @@ export default function OutstandingAP() {
     },
     enabled: !!companyId && activeTab === 'paid',
   });
+
+  // Check if QuickBooks is connected for this company
+  const { data: qbConnection } = useQuery({
+    queryKey: ["qb-connection-status", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("quickbooks_connections")
+        .select("id, is_active, realm_id")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+    staleTime: 60000,
+  });
+
+  const isQBConnected = !!qbConnection?.is_active;
 
   // Handle clicking on a paid bill record to edit it
   const handlePaidBillClick = (payment: PaidBillRecord) => {
@@ -364,10 +386,11 @@ export default function OutstandingAP() {
     onError: (error) => toast.error(`Failed to clear: ${error.message}`),
   });
 
-  // Mark as paid mutation
+  // Mark as paid mutation with QuickBooks sync
   const markAsPaidMutation = useMutation({
-    mutationFn: async ({ billId, data }: { billId: string; data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null } }) => {
-      const { error } = await supabase
+    mutationFn: async ({ billId, data, syncToQB }: { billId: string; data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; syncToQB: boolean }) => {
+      // Insert the bill payment
+      const { data: paymentRecord, error } = await supabase
         .from("bill_payments")
         .insert({
           bill_id: billId,
@@ -377,10 +400,12 @@ export default function OutstandingAP() {
           payment_method: data.paymentMethod,
           payment_reference: data.paymentReference,
           company_id: companyId,
-        });
+        })
+        .select()
+        .single();
       if (error) throw error;
       
-      // Clear scheduled payment
+      // Clear scheduled payment fields
       await supabase
         .from("project_bills")
         .update({
@@ -388,18 +413,92 @@ export default function OutstandingAP() {
           scheduled_payment_amount: null,
         })
         .eq("id", billId);
+
+      // Sync to QuickBooks if enabled
+      let qbSynced = false;
+      if (syncToQB && companyId && paymentRecord) {
+        try {
+          // Sync the bill first (ensures it exists in QB)
+          await supabase.functions.invoke("sync-to-quickbooks", {
+            body: {
+              companyId,
+              syncType: "bill",
+              recordId: billId,
+            },
+          });
+          
+          // Then sync the bill payment
+          const { data: qbResult, error: qbError } = await supabase.functions.invoke("sync-to-quickbooks", {
+            body: {
+              companyId,
+              syncType: "bill_payment",
+              recordId: paymentRecord.id,
+            },
+          });
+          
+          if (!qbError && qbResult?.synced > 0) {
+            qbSynced = true;
+          }
+        } catch (err) {
+          console.error("Failed to sync to QuickBooks:", err);
+        }
+      }
+
+      return { qbSynced };
     },
-    onSuccess: () => {
-      toast.success("Payment recorded");
+    onSuccess: (result) => {
+      if (result.qbSynced) {
+        toast.success("Payment recorded and synced to QuickBooks");
+      } else {
+        toast.success("Payment recorded");
+      }
       queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
       queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
       queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["paid-bills"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-ap-due"] });
       setMarkAsPaidDialogOpen(false);
       setMarkingAsPaidPayable(null);
+      setPendingPaymentData(null);
     },
     onError: (error) => toast.error(`Failed to record: ${error.message}`),
   });
+
+  // Handler when user clicks "Record Payment" in the MarkAsPaidDialog
+  const handleMarkAsPaidSave = useCallback((billId: string, data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }) => {
+    if (isQBConnected) {
+      // Store pending data and show confirmation dialog
+      setPendingPaymentData({ billId, data });
+      setQbSyncConfirmOpen(true);
+    } else {
+      // No QB connection, proceed directly without sync
+      markAsPaidMutation.mutate({ billId, data, syncToQB: false });
+    }
+  }, [isQBConnected, markAsPaidMutation]);
+
+  // Handler when user confirms QB sync (proceeds with sync)
+  const handleConfirmWithQBSync = useCallback(() => {
+    if (pendingPaymentData) {
+      markAsPaidMutation.mutate({ 
+        billId: pendingPaymentData.billId, 
+        data: pendingPaymentData.data, 
+        syncToQB: true 
+      });
+    }
+    setQbSyncConfirmOpen(false);
+  }, [pendingPaymentData, markAsPaidMutation]);
+
+  // Handler when user wants to skip QB sync
+  const handleSkipQBSync = useCallback(() => {
+    if (pendingPaymentData) {
+      markAsPaidMutation.mutate({ 
+        billId: pendingPaymentData.billId, 
+        data: pendingPaymentData.data, 
+        syncToQB: false 
+      });
+    }
+    setQbSyncConfirmOpen(false);
+  }, [pendingPaymentData, markAsPaidMutation]);
 
   return (
     <AppLayout>
@@ -1040,9 +1139,7 @@ export default function OutstandingAP() {
         open={markAsPaidDialogOpen}
         onOpenChange={setMarkAsPaidDialogOpen}
         payable={markingAsPaidPayable}
-        onSave={(billId, data) => {
-          markAsPaidMutation.mutate({ billId, data });
-        }}
+        onSave={handleMarkAsPaidSave}
       />
 
       {/* Edit Bill Payment Dialog */}
@@ -1052,6 +1149,35 @@ export default function OutstandingAP() {
         payment={editingPayment}
         onSuccess={() => setEditingPayment(null)}
       />
+
+      {/* QuickBooks Sync Confirmation Dialog */}
+      <AlertDialog open={qbSyncConfirmOpen} onOpenChange={setQbSyncConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sync to QuickBooks?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This payment will be synced to QuickBooks. Do you want to proceed with the sync, or record the payment locally only?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => {
+              setQbSyncConfirmOpen(false);
+              setPendingPaymentData(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={handleSkipQBSync}
+            >
+              Record Locally Only
+            </Button>
+            <AlertDialogAction onClick={handleConfirmWithQBSync}>
+              Sync to QuickBooks
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Clear Schedule Confirmation */}
       <AlertDialog open={clearScheduleConfirmOpen} onOpenChange={setClearScheduleConfirmOpen}>
