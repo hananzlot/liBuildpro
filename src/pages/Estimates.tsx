@@ -547,7 +547,12 @@ export default function Estimates() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => openTab(`/estimate/${estimate.id}`, `Edit Estimate #${estimate.estimate_number}`)}
+                        onClick={() => openTab(
+                          `/estimate/${estimate.id}`, 
+                          estimate.status && estimate.status !== 'draft' 
+                            ? `Edit Proposal - ${estimate.customer_name || estimate.estimate_number}` 
+                            : `Edit Estimate #${estimate.estimate_number}`
+                        )}
                         title="Edit"
                       >
                         <Edit className="h-4 w-4" />
