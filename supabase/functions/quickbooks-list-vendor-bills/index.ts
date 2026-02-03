@@ -247,14 +247,12 @@ Deno.serve(async (req) => {
       console.log(`Filtering bills by QB Customer ID: ${qbCustomerId} (${qbCustomerName})`);
     }
 
-    // Step 3: Build the bill query - filter by customer if we have a mapping
-    let billQuery = `SELECT * FROM Bill WHERE VendorRef = '${vendorId}'`;
-    if (qbCustomerId) {
-      billQuery += ` AND CustomerRef = '${qbCustomerId}'`;
-    }
-    billQuery += ` ORDERBY TxnDate DESC MAXRESULTS 100`;
+    // Step 3: Build the bill query - NOTE: CustomerRef is NOT a queryable field in QB Bill entity
+    // We must fetch all bills for the vendor and filter by customer in JS
+    const billQuery = `SELECT * FROM Bill WHERE VendorRef = '${vendorId}' ORDERBY TxnDate DESC MAXRESULTS 100`;
 
     const billsSearchUrl = `${QB_BASE_URL}/${realm_id}/query?query=${encodeURIComponent(billQuery)}`;
+    console.log(`Fetching bills with query: ${billQuery}`);
 
     const billsRes = await fetch(billsSearchUrl, { headers: qbHeaders });
     
@@ -274,15 +272,23 @@ Deno.serve(async (req) => {
     }
 
     const billsData = await billsRes.json();
-    const rawBills: QBBill[] = billsData.QueryResponse?.Bill || [];
+    let rawBills: QBBill[] = billsData.QueryResponse?.Bill || [];
 
-    console.log(`Found ${rawBills.length} total bills for vendor ${vendorId}${qbCustomerId ? ` and customer ${qbCustomerId}` : ""}`);
+    console.log(`Found ${rawBills.length} total bills for vendor ${vendorId}`);
     
-    // Filter to only include bills with a positive balance (unpaid)
+    // Log all bills for debugging
     rawBills.forEach((bill) => {
       console.log(`Bill ${bill.Id} (${bill.DocNumber || 'no ref'}): TotalAmt=${bill.TotalAmt}, Balance=${bill.Balance}, CustomerRef=${bill.CustomerRef?.value || 'none'}`);
     });
+
+    // Filter by customer if we have a mapping (done in JS since QB doesn't support CustomerRef in Bill queries)
+    if (qbCustomerId) {
+      console.log(`Filtering ${rawBills.length} bills to only those with CustomerRef=${qbCustomerId}`);
+      rawBills = rawBills.filter((bill) => bill.CustomerRef?.value === qbCustomerId);
+      console.log(`${rawBills.length} bills match the customer filter`);
+    }
     
+    // Filter to only include bills with a positive balance (unpaid)
     const unpaidBills = rawBills.filter((bill) => (bill.Balance || 0) > 0);
     console.log(`${unpaidBills.length} bills have balance > 0`);
 
