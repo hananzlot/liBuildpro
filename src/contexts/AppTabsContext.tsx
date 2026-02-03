@@ -24,6 +24,7 @@ interface AppTabsContextType {
 const AppTabsContext = createContext<AppTabsContextType | undefined>(undefined);
 
 const STORAGE_KEY = "app-inner-tabs";
+const ACTIVE_TAB_SESSION_KEY = "app-inner-tabs-active-session";
 
 // Map routes to their display titles
 const ROUTE_TITLES: Record<string, string> = {
@@ -84,10 +85,17 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     }
   });
   
+  // Use sessionStorage for activeTabId - this is per browser tab, preventing
+  // cross-tab conflicts when multiple Chrome tabs have the app open
   const [activeTabId, setActiveTabId] = useState<string | null>(() => {
     try {
-      const saved = localStorage.getItem(`${STORAGE_KEY}-active`);
-      return saved || null;
+      // First try sessionStorage (per browser tab)
+      const sessionSaved = sessionStorage.getItem(ACTIVE_TAB_SESSION_KEY);
+      if (sessionSaved) return sessionSaved;
+      
+      // Fall back to localStorage for initial load (e.g., page refresh)
+      const localSaved = localStorage.getItem(`${STORAGE_KEY}-active`);
+      return localSaved || null;
     } catch {
       return null;
     }
@@ -98,10 +106,14 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs));
   }, [tabs]);
 
+  // Persist activeTabId to BOTH sessionStorage (for this browser tab) and 
+  // localStorage (for page refreshes and initial entries calculation)
   useEffect(() => {
     if (activeTabId) {
+      sessionStorage.setItem(ACTIVE_TAB_SESSION_KEY, activeTabId);
       localStorage.setItem(`${STORAGE_KEY}-active`, activeTabId);
     } else {
+      sessionStorage.removeItem(ACTIVE_TAB_SESSION_KEY);
       localStorage.removeItem(`${STORAGE_KEY}-active`);
     }
   }, [activeTabId]);
@@ -134,7 +146,9 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
       // Use setTimeout to ensure we run after React has settled
       setTimeout(() => {
         try {
-          const savedActiveId = localStorage.getItem(`${STORAGE_KEY}-active`);
+          // Use sessionStorage first (per browser tab), fall back to localStorage
+          const savedActiveId = sessionStorage.getItem(ACTIVE_TAB_SESSION_KEY) 
+            || localStorage.getItem(`${STORAGE_KEY}-active`);
           const savedTabs = localStorage.getItem(STORAGE_KEY);
           
           // Use ref to get current location (avoids stale closure issues)
