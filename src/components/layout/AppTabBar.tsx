@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppTabs } from "@/contexts/AppTabsContext";
@@ -7,6 +8,17 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 export function AppTabBar() {
   const { tabs, activeTabId, switchToTab, closeTab, closeAllTabs } = useAppTabs();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const tabsCountRef = useRef(tabs.length);
+
+  // Auto-scroll to the end when new tabs are added
+  useEffect(() => {
+    if (tabs.length > tabsCountRef.current && scrollContainerRef.current) {
+      // New tab was added, scroll to show it
+      scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+    }
+    tabsCountRef.current = tabs.length;
+  }, [tabs.length]);
 
   if (tabs.length === 0) {
     return null;
@@ -27,8 +39,11 @@ export function AppTabBar() {
         </TooltipTrigger>
         <TooltipContent side="bottom">Close all tabs</TooltipContent>
       </Tooltip>
-      <ScrollArea className="w-full">
-        <div className="flex items-center gap-1">
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-x-auto scrollbar-thin scrollbar-thumb-muted-foreground/20"
+      >
+        <div className="flex items-center gap-1 w-max">
           {tabs.map((tab) => (
             <div
               key={tab.id}
@@ -58,8 +73,7 @@ export function AppTabBar() {
             </div>
           ))}
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      </div>
     </div>
   );
 }
