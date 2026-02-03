@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Users, CreditCard, DollarSign, Activity, AlertTriangle } from "lucide-react";
+import { Building2, Users, CreditCard, DollarSign, Activity, AlertTriangle, Rocket, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -172,6 +172,39 @@ export default function SuperAdminDashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* Future Releases */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Rocket className="h-5 w-5 text-primary" />
+              <CardTitle>Future Releases</CardTitle>
+            </div>
+            <CardDescription>Upcoming features in development</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <Card className="border-dashed">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl p-2 bg-accent">
+                      <BookOpen className="h-4 w-4 text-accent-foreground" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm">Magazine Sales</CardTitle>
+                      <Badge variant="outline" className="mt-1 text-xs">Coming Soon</Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <p className="text-xs text-muted-foreground">
+                    Track magazine advertising sales and revenue across your platform.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* Recent Companies */}

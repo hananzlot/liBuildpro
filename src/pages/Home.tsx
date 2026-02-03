@@ -69,14 +69,6 @@ const Home = () => {
       color: "bg-purple-500/10 text-purple-600 dark:text-purple-400"
     },
     {
-      title: "Magazine Sales",
-      description: "Track magazine advertising sales",
-      icon: BookOpen,
-      path: "/magazine-sales",
-      visible: isSuperAdmin && canUseFeature('magazine_sales'), // Super admin only
-      color: "bg-orange-500/10 text-orange-600 dark:text-orange-400"
-    },
-    {
       title: "Super Admin Portal",
       description: "Manage tenants and platform settings",
       icon: Building2,
