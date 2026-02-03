@@ -106,21 +106,34 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeTabId]);
 
-  // Update active tab when location changes (but skip on initial mount if we already have a valid activeTabId)
-  const initialMountRef = React.useRef(true);
+  // Restore location when browser tab regains focus
   useEffect(() => {
-    // On initial mount, trust the activeTabId from localStorage if it exists and is valid
-    if (initialMountRef.current) {
-      initialMountRef.current = false;
-      // If we already have a valid active tab ID that exists in our tabs, don't override it
-      if (activeTabId && tabs.some(t => t.id === activeTabId)) {
-        return;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const savedActiveId = localStorage.getItem(`${STORAGE_KEY}-active`);
+        const savedTabs = localStorage.getItem(STORAGE_KEY);
+        if (savedActiveId && savedTabs) {
+          const parsedTabs = JSON.parse(savedTabs) as AppTab[];
+          const activeTab = parsedTabs.find(t => t.id === savedActiveId);
+          if (activeTab) {
+            const currentPath = location.pathname + location.search;
+            if (activeTab.path !== currentPath) {
+              navigate(activeTab.path);
+            }
+          }
+        }
       }
-    }
-    
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [navigate, location]);
+
+  // Update active tab when location changes
+  useEffect(() => {
     const currentPath = location.pathname + location.search;
     const matchingTab = tabs.find(tab => tab.path === currentPath);
-    if (matchingTab) {
+    if (matchingTab && matchingTab.id !== activeTabId) {
       setActiveTabId(matchingTab.id);
     }
   }, [location, tabs, activeTabId]);
