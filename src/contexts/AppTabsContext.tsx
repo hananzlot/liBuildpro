@@ -112,10 +112,12 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     locationRef.current = location;
   }, [location]);
 
-  // Restore location when browser tab regains focus
-  // Key insight: If user navigated within the same base route (e.g., changed sub-tabs),
-  // we should UPDATE the stored path to match current location, not navigate away.
-  // Use a ref to debounce and prevent multiple handlers from competing
+  // Restore location when browser tab regains focus.
+  // Source of truth is the persisted tab state (localStorage) because many "nested"
+  // in-tab navigation updates the tab path via updateActiveTabPath, not necessarily
+  // via react-router location.search. Never downgrade a stored tab path based on
+  // a less-specific current router location.
+  // Use a ref to debounce and prevent multiple handlers from competing.
   const isProcessingVisibility = useRef(false);
   
   useEffect(() => {
@@ -150,25 +152,16 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
             console.log('[TabRestore] activeTab found:', activeTab);
             
             if (activeTab) {
-              const storedBasePath = activeTab.path.split('?')[0];
-              const currentBasePath = currentLocation.pathname;
-              
-              console.log('[TabRestore] storedBasePath:', storedBasePath, 'currentBasePath:', currentBasePath);
-              
-              // If we're on the same base route, the user navigated within the tab
-              // Update stored path to current path instead of navigating back
-              if (storedBasePath === currentBasePath && activeTab.path !== currentPath) {
-                console.log('[TabRestore] Same base route, updating stored path to:', currentPath);
-                const updatedTabs = parsedTabs.map(t => 
-                  t.id === savedActiveId ? { ...t, path: currentPath } : t
-                );
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTabs));
-                setTabs(updatedTabs);
-              } else if (storedBasePath !== currentBasePath) {
-                console.log('[TabRestore] Different route, navigating to:', activeTab.path);
+              // Ensure the in-memory state is aligned with persisted state.
+              // (Helps after suspension/reload where React state might lag.)
+              setTabs(parsedTabs);
+              setActiveTabId(savedActiveId);
+
+              if (activeTab.path !== currentPath) {
+                console.log('[TabRestore] Restoring navigation to:', activeTab.path);
                 navigate(activeTab.path);
               } else {
-                console.log('[TabRestore] Paths match exactly, no action needed');
+                console.log('[TabRestore] Already on active tab path, no navigation needed');
               }
             }
           }
@@ -182,12 +175,34 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [navigate]); // Remove location from deps - we use ref instead
 
-  // Update active tab when location changes
+  // Update active tab when location changes.
+  // If the router location changes within the currently active tab, keep the active
+  // tab's stored path in sync *without* ever downgrading a more-specific stored path
+  // (e.g., one that includes query params) to a less-specific one.
   useEffect(() => {
     const currentPath = location.pathname + location.search;
     const matchingTab = tabs.find(tab => tab.path === currentPath);
-    if (matchingTab && matchingTab.id !== activeTabId) {
-      setActiveTabId(matchingTab.id);
+    if (matchingTab) {
+      if (matchingTab.id !== activeTabId) setActiveTabId(matchingTab.id);
+      return;
+    }
+
+    if (!activeTabId) return;
+    const activeTab = tabs.find(t => t.id === activeTabId);
+    if (!activeTab) return;
+
+    const activeBase = activeTab.path.split('?')[0];
+    const currentBase = location.pathname;
+    if (activeBase !== currentBase) return;
+
+    const activeHasSearch = activeTab.path.includes('?');
+    const currentHasSearch = !!location.search;
+
+    // Never overwrite a stored path that has query params with a path that doesn't.
+    if (activeHasSearch && !currentHasSearch) return;
+
+    if (activeTab.path !== currentPath) {
+      setTabs(prev => prev.map(t => (t.id === activeTabId ? { ...t, path: currentPath } : t)));
     }
   }, [location, tabs, activeTabId]);
 
