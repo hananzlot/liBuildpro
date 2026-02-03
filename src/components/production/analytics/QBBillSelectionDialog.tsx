@@ -67,6 +67,12 @@ export function QBBillSelectionDialog({
         body: { companyId, vendorName, projectId },
       });
       if (error) throw error;
+      
+      // Check for API-level errors (200 response with success: false)
+      if (data && data.success === false && data.error) {
+        throw new Error(data.error);
+      }
+      
       return data as {
         success: boolean;
         vendorFound: boolean;
