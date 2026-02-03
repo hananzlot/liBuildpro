@@ -271,14 +271,14 @@ const navSections: NavSection[] = [
   },
   {
     label: "Magazines",
-    roles: ['super_admin', 'admin', 'magazine'],
+    roles: ['super_admin'], // Only visible to super admins
     requiredFeature: 'magazine_sales',
     items: [
       { 
         title: "Magazine Sales", 
         url: "/magazine-sales", 
         icon: BookOpen,
-        roles: ['super_admin', 'admin', 'magazine'],
+        roles: ['super_admin'], // Only visible to super admins
         requiredFeature: 'magazine_sales'
       },
     ],

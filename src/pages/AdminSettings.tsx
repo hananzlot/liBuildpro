@@ -1317,18 +1317,6 @@ export default function AdminSettings() {
                             disabled={isTogglingKPI}
                           />
                         </div>
-                        <Separator />
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Magazine Sales</Label>
-                            <p className="text-xs text-muted-foreground">Show the Magazine Sales KPI card on dashboard</p>
-                          </div>
-                          <Switch
-                            checked={kpiVisibility.magazine_sales_visible}
-                            onCheckedChange={toggleMagazineSales}
-                            disabled={isTogglingKPI}
-                          />
-                        </div>
                       </CardContent>
                     </CollapsibleContent>
                   </Card>

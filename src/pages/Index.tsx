@@ -1,8 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Database, DollarSign, CalendarCheck, Trophy, Pencil, BookOpen, Receipt, HardDrive } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { Calendar, Database, DollarSign, CalendarCheck, Trophy, Pencil, Receipt, HardDrive } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,7 +38,6 @@ const Index = () => {
   const {
     user,
     isAdmin,
-    isMagazine,
     isProduction,
     isSimulating,
   } = useAuth();
@@ -89,22 +86,6 @@ const Index = () => {
     refetch
   } = useGHLMetrics(dateRange);
 
-  // Fetch magazine sales for dashboard KPI (only if user has access)
-  const { data: magazineSales = [] } = useQuery({
-    queryKey: ["magazine-sales-dashboard", companyId],
-    queryFn: async () => {
-      if (!companyId) return [];
-      const { data, error } = await supabase.from("magazine_sales").select("price, page_size, sections_sold").eq("company_id", companyId);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!companyId && (isAdmin || isMagazine)
-  });
-
-  // Calculate magazine sales total
-  const magazineSalesTotal = useMemo(() => {
-    return magazineSales.reduce((sum, sale) => sum + Number(sale.price || 0), 0);
-  }, [magazineSales]);
 
   const syncMutation = useSyncContacts();
   const syncGHL2Mutation = useSyncGHL2();
@@ -314,15 +295,6 @@ const Index = () => {
                   subtitle="In date range" 
                   icon={Receipt} 
                   onClick={() => setOpportunitySalesSheetOpen(true)} 
-                />
-              )}
-              {kpiVisibility.magazine_sales_visible && (isAdmin || isMagazine) && (
-                <ClickableMetricCard 
-                  title="Magazine Sales" 
-                  value={formatCurrency(magazineSalesTotal)} 
-                  subtitle={`${magazineSales.length} entries`} 
-                  icon={BookOpen} 
-                  onClick={() => navigate("/magazine-sales")} 
                 />
               )}
               <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
