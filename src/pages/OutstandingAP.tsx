@@ -42,6 +42,7 @@ import { SchedulePaymentDialog } from "@/components/production/analytics/Schedul
 import { MarkAsPaidDialog } from "@/components/production/analytics/MarkAsPaidDialog";
 import { EditBillPaymentDialog } from "@/components/production/analytics/EditBillPaymentDialog";
 import { QBBillSelectionDialog } from "@/components/production/analytics/QBBillSelectionDialog";
+import { QBCustomerMappingDialog } from "@/components/production/analytics/QBCustomerMappingDialog";
 
 // Type for paid bill records from the query
 interface PaidBillRecord {
@@ -115,7 +116,17 @@ export default function OutstandingAP() {
   const [paidSortField, setPaidSortField] = useState<PaidSortField>('payment_date');
   const [paidSortDir, setPaidSortDir] = useState<SortDir>('desc');
   const [qbBillSelectionDialogOpen, setQbBillSelectionDialogOpen] = useState(false);
-  const [pendingPaymentData, setPendingPaymentData] = useState<{ billId: string; data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; vendorName: string; billRef: string | null } | null>(null);
+  const [qbCustomerMappingDialogOpen, setQbCustomerMappingDialogOpen] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<{ 
+    billId: string; 
+    data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; 
+    vendorName: string; 
+    billRef: string | null;
+    projectId: string;
+    projectName: string;
+    customerName: string | null;
+    projectAddress: string | null;
+  } | null>(null);
 
   const { payablesWithCashImpact, isLoading } = useProductionAnalytics({
     dateRange: undefined,
@@ -527,21 +538,118 @@ export default function OutstandingAP() {
   });
 
   // Handler when user clicks "Record Payment" in the MarkAsPaidDialog
-  const handleMarkAsPaidSave = useCallback((billId: string, data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }) => {
-    if (isQBConnected) {
-      // Find the payable to get vendor name and bill ref
+  const handleMarkAsPaidSave = useCallback(async (billId: string, data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }) => {
+    if (isQBConnected && markingAsPaidPayable) {
+      // Find the payable to get project/vendor info
       const payable = markingAsPaidPayable;
       const vendorName = payable?.vendor || "";
       const billRef = payable?.bill_ref || null;
+      const projectId = payable?.project_id || "";
+      const projectName = payable?.project_name || "";
+      const projectAddress = payable?.project_address || null;
       
-      // Store pending data and show QB bill selection dialog
-      setPendingPaymentData({ billId, data, vendorName, billRef });
-      setQbBillSelectionDialogOpen(true);
+      // Fetch customer name from project if available
+      const { data: projectData } = await supabase
+        .from("projects")
+        .select("customer_first_name, customer_last_name")
+        .eq("id", projectId)
+        .single();
+      
+      const customerName = projectData 
+        ? [projectData.customer_first_name, projectData.customer_last_name].filter(Boolean).join(" ") || null
+        : null;
+      
+      // Store pending data
+      setPendingPaymentData({ 
+        billId, 
+        data, 
+        vendorName, 
+        billRef, 
+        projectId,
+        projectName,
+        customerName,
+        projectAddress,
+      });
+      
+      // Check if project has a QB customer mapping
+      const { data: projectMapping } = await supabase
+        .from("quickbooks_mappings")
+        .select("qbo_id, qbo_name")
+        .eq("company_id", companyId)
+        .eq("mapping_type", "project_customer")
+        .eq("source_value", projectId)
+        .maybeSingle();
+      
+      // Also check for contact mapping if no project mapping exists
+      let hasContactMapping = false;
+      if (!projectMapping) {
+        // Get the project's contact info
+        const { data: project } = await supabase
+          .from("projects")
+          .select("contact_uuid, contact_id")
+          .eq("id", projectId)
+          .single();
+        
+        if (project?.contact_uuid) {
+          const { data: contactMapping } = await supabase
+            .from("quickbooks_mappings")
+            .select("qbo_id")
+            .eq("company_id", companyId)
+            .eq("mapping_type", "customer")
+            .eq("source_value", project.contact_uuid)
+            .maybeSingle();
+          hasContactMapping = !!contactMapping?.qbo_id;
+        }
+        
+        if (!hasContactMapping && project?.contact_id) {
+          const { data: contactMapping } = await supabase
+            .from("quickbooks_mappings")
+            .select("qbo_id")
+            .eq("company_id", companyId)
+            .eq("mapping_type", "customer")
+            .eq("source_value", project.contact_id)
+            .maybeSingle();
+          hasContactMapping = !!contactMapping?.qbo_id;
+        }
+      }
+      
+      if (projectMapping || hasContactMapping) {
+        // Has mapping - go directly to bill selection
+        setQbBillSelectionDialogOpen(true);
+      } else {
+        // No mapping - show customer selection dialog first
+        setQbCustomerMappingDialogOpen(true);
+      }
     } else {
       // No QB connection, proceed directly without sync
       markAsPaidMutation.mutate({ billId, data, syncToQB: false });
     }
-  }, [isQBConnected, markAsPaidMutation, markingAsPaidPayable]);
+  }, [isQBConnected, markAsPaidMutation, markingAsPaidPayable, companyId]);
+
+  // Handler when user maps a project to a QB customer
+  const handleCustomerMapped = useCallback((customerId: string, customerName: string) => {
+    // Close mapping dialog and open bill selection
+    setQbCustomerMappingDialogOpen(false);
+    setQbBillSelectionDialogOpen(true);
+  }, []);
+
+  // Handler when user skips QB sync
+  const handleSkipQBSync = useCallback(() => {
+    if (pendingPaymentData) {
+      markAsPaidMutation.mutate({ 
+        billId: pendingPaymentData.billId, 
+        data: pendingPaymentData.data, 
+        syncToQB: false 
+      });
+    }
+    setQbCustomerMappingDialogOpen(false);
+  }, [pendingPaymentData, markAsPaidMutation]);
+
+  // Handler when user cancels customer mapping
+  const handleCustomerMappingCancel = useCallback(() => {
+    setPendingPaymentData(null);
+    setQbCustomerMappingDialogOpen(false);
+  }, []);
 
   // Handler when user selects a QB bill from the selection dialog
   const handleQbBillSelected = useCallback((qbBillId: string, qbDocNumber: string) => {
@@ -1241,9 +1349,23 @@ export default function OutstandingAP() {
         vendorName={pendingPaymentData?.vendorName || ""}
         localBillRef={pendingPaymentData?.billRef || null}
         localBillAmount={pendingPaymentData?.data.amount || 0}
+        projectId={pendingPaymentData?.projectId || null}
         onSelect={handleQbBillSelected}
         onCreateNew={handleQbBillCreateNew}
         onCancel={handleQbBillSelectionCancel}
+      />
+
+      {/* QuickBooks Customer Mapping Dialog */}
+      <QBCustomerMappingDialog
+        open={qbCustomerMappingDialogOpen}
+        onOpenChange={setQbCustomerMappingDialogOpen}
+        projectId={pendingPaymentData?.projectId || ""}
+        projectName={pendingPaymentData?.projectName || ""}
+        customerName={pendingPaymentData?.customerName || null}
+        projectAddress={pendingPaymentData?.projectAddress || null}
+        onMapped={handleCustomerMapped}
+        onSkipSync={handleSkipQBSync}
+        onCancel={handleCustomerMappingCancel}
       />
 
       {/* Clear Schedule Confirmation */}

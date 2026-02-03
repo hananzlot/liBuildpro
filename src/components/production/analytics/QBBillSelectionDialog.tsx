@@ -28,6 +28,8 @@ interface QBBill {
   totalAmt: number;
   balance: number;
   memo: string | null;
+  customerId?: string | null;
+  customerName?: string | null;
 }
 
 interface QBBillSelectionDialogProps {
@@ -36,6 +38,7 @@ interface QBBillSelectionDialogProps {
   vendorName: string;
   localBillRef: string | null;
   localBillAmount: number;
+  projectId?: string | null;
   onSelect: (qbBillId: string, qbDocNumber: string) => void;
   onCreateNew: () => void;
   onCancel: () => void;
@@ -47,6 +50,7 @@ export function QBBillSelectionDialog({
   vendorName,
   localBillRef,
   localBillAmount,
+  projectId,
   onSelect,
   onCreateNew,
   onCancel,
@@ -55,12 +59,12 @@ export function QBBillSelectionDialog({
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch unpaid QB bills for this vendor
+  // Fetch unpaid QB bills for this vendor (optionally filtered by project customer)
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["qb-vendor-bills", companyId, vendorName],
+    queryKey: ["qb-vendor-bills", companyId, vendorName, projectId],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("quickbooks-list-vendor-bills", {
-        body: { companyId, vendorName },
+        body: { companyId, vendorName, projectId },
       });
       if (error) throw error;
       return data as {
@@ -68,6 +72,9 @@ export function QBBillSelectionDialog({
         vendorFound: boolean;
         vendorId: string | null;
         bills: QBBill[];
+        projectCustomerId?: string | null;
+        projectCustomerName?: string | null;
+        hasProjectMapping?: boolean;
         error?: string;
         message?: string;
       };
@@ -150,6 +157,12 @@ export function QBBillSelectionDialog({
               <span className="text-muted-foreground">Payment Amount:</span>
               <span className="ml-2 font-medium">{formatCurrencyWithDecimals(localBillAmount)}</span>
             </div>
+            {data?.hasProjectMapping && data?.projectCustomerName && (
+              <div>
+                <span className="text-muted-foreground">QB Customer:</span>
+                <span className="ml-2 font-medium text-primary">{data.projectCustomerName}</span>
+              </div>
+            )}
           </div>
 
           {/* Loading state */}
@@ -239,6 +252,11 @@ export function QBBillSelectionDialog({
                             <span>Due: {format(parseISO(bill.dueDate), "MMM d, yyyy")}</span>
                           )}
                         </div>
+                        {bill.customerName && (
+                          <div className="text-xs text-muted-foreground">
+                            Customer: {bill.customerName}
+                          </div>
+                        )}
                         {bill.memo && (
                           <div className="text-xs text-muted-foreground truncate">
                             {bill.memo}
