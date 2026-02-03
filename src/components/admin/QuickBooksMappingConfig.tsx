@@ -534,6 +534,27 @@ export function QuickBooksMappingConfig() {
     },
   });
 
+  // Delete mapping mutation (for unmatching)
+  const deleteMappingMutation = useMutation({
+    mutationFn: async ({ mappingType, sourceValue }: { mappingType: string; sourceValue: string }) => {
+      const { error } = await supabase
+        .from("quickbooks_mappings")
+        .delete()
+        .eq("company_id", companyId)
+        .eq("mapping_type", mappingType)
+        .eq("source_value", sourceValue);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Mapping removed");
+      queryClient.invalidateQueries({ queryKey: ["qb-mappings"] });
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to remove mapping: " + error.message);
+    },
+  });
+
   const getDefaultMapping = (type: string) => {
     return mappings?.find((m) => m.mapping_type === type && m.is_default);
   };
@@ -954,9 +975,13 @@ export function QuickBooksMappingConfig() {
                         <Select
                           value={existingMapping?.qbo_id || ""}
                           onValueChange={(value) => {
-                            const customer = qbCustomers?.find((c) => c.id === value);
-                            if (customer) {
-                              handleSourceMapping("customer", contact.id, customer.id, customer.name);
+                            if (value === "_unmatch") {
+                              deleteMappingMutation.mutate({ mappingType: "customer", sourceValue: contact.id });
+                            } else {
+                              const customer = qbCustomers?.find((c) => c.id === value);
+                              if (customer) {
+                                handleSourceMapping("customer", contact.id, customer.id, customer.name);
+                              }
                             }
                           }}
                         >
@@ -964,6 +989,11 @@ export function QuickBooksMappingConfig() {
                             <SelectValue placeholder="Select QB customer" />
                           </SelectTrigger>
                           <SelectContent>
+                            {existingMapping && (
+                              <SelectItem value="_unmatch" className="text-destructive">
+                                ✕ Unmatch
+                              </SelectItem>
+                            )}
                             {filteredQbCustomers.map((customer) => (
                               <SelectItem key={customer.id} value={customer.id}>
                                 {customer.name}
@@ -1061,9 +1091,13 @@ export function QuickBooksMappingConfig() {
                           <Select
                             value={existingMapping?.qbo_id || ""}
                             onValueChange={(value) => {
-                              const vendor = qbVendors?.find((v) => v.id === value);
-                              if (vendor) {
-                                handleSourceMapping("vendor", sub.id, vendor.id, vendor.name);
+                              if (value === "_unmatch") {
+                                deleteMappingMutation.mutate({ mappingType: "vendor", sourceValue: sub.id });
+                              } else {
+                                const vendor = qbVendors?.find((v) => v.id === value);
+                                if (vendor) {
+                                  handleSourceMapping("vendor", sub.id, vendor.id, vendor.name);
+                                }
                               }
                             }}
                           >
@@ -1071,6 +1105,11 @@ export function QuickBooksMappingConfig() {
                               <SelectValue placeholder="Select QB vendor" />
                             </SelectTrigger>
                             <SelectContent>
+                              {existingMapping && (
+                                <SelectItem value="_unmatch" className="text-destructive">
+                                  ✕ Unmatch
+                                </SelectItem>
+                              )}
                               {filteredQbVendors.map((vendor) => (
                                 <SelectItem key={vendor.id} value={vendor.id}>
                                   {vendor.name}
