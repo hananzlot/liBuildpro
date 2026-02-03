@@ -396,6 +396,12 @@ export default function OutstandingAP() {
       selectedQbBillId?: string;
       forceCreateBill?: boolean;
     }) => {
+      // Get the vendor name from the bill for creating new QB bill
+      const { data: billData } = await supabase
+        .from("project_bills")
+        .select("installer_company")
+        .eq("id", billId)
+        .single();
       // Insert the bill payment
       const { data: paymentRecord, error } = await supabase
         .from("bill_payments")
@@ -436,13 +442,17 @@ export default function OutstandingAP() {
               },
             });
           } else {
-            // User chose to create a new bill in QB - sync the bill first
+            // User chose to create a new bill in QB - create a new bill for just the payment amount
             const { data: billSyncResult, error: billSyncError } = await supabase.functions.invoke("sync-to-quickbooks", {
               body: {
                 companyId,
                 syncType: "bill",
                 recordId: billId,
                 forceCreateBill: !!forceCreateBill,
+                // When creating a new QB bill from payment flow, use the payment amount, not the full bill amount
+                overrideBillAmount: data.amount,
+                overrideBillRef: data.paymentReference || undefined,
+                overrideBillMemo: `Payment on ${format(data.paymentDate, 'yyyy-MM-dd')}`,
               },
             });
             
