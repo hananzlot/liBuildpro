@@ -1,11 +1,12 @@
-import { X } from "lucide-react";
+import { X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function AppTabBar() {
-  const { tabs, activeTabId, switchToTab, closeTab } = useAppTabs();
+  const { tabs, activeTabId, switchToTab, closeTab, closeAllTabs } = useAppTabs();
 
   if (tabs.length === 0) {
     return null;
@@ -13,6 +14,19 @@ export function AppTabBar() {
 
   return (
     <div className="h-9 border-b border-border/50 bg-muted/30 flex items-center px-2 shrink-0">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0 mr-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={closeAllTabs}
+          >
+            <XCircle className="h-3.5 w-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Close all tabs</TooltipContent>
+      </Tooltip>
       <ScrollArea className="w-full">
         <div className="flex items-center gap-1">
           {tabs.map((tab) => (

@@ -13,6 +13,7 @@ interface AppTabsContextType {
   activeTabId: string | null;
   openTab: (path: string, title: string, icon?: string) => void;
   closeTab: (tabId: string) => void;
+  closeAllTabs: () => void;
   switchToTab: (tabId: string) => void;
   handleNavigation: (e: React.MouseEvent, path: string, title: string, icon?: string) => void;
 }
@@ -150,6 +151,11 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [tabs, activeTabId, navigate]);
 
+  const closeAllTabs = useCallback(() => {
+    setTabs([]);
+    setActiveTabId(null);
+  }, []);
+
   const switchToTab = useCallback((tabId: string) => {
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
@@ -182,6 +188,7 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
         activeTabId,
         openTab,
         closeTab,
+        closeAllTabs,
         switchToTab,
         handleNavigation,
       }}
