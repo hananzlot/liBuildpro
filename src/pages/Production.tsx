@@ -1349,7 +1349,7 @@ export default function Production() {
     if (params.toString()) url += `?${params.toString()}`;
     
     // Open in a new tab using the full-page route
-    const title = `#${project.project_number} - ${project.project_name}`;
+    const title = `Project-${project.project_number}`;
     openTab(url, title);
   };
 
@@ -1670,7 +1670,7 @@ export default function Production() {
                     <Upload className="h-4 w-4 mr-2" />
                     Import
                   </Button>
-                  <Button size="sm" onClick={() => openTab('/project/new', 'New Project')}>
+                  <Button size="sm" onClick={() => openTab('/project/new', 'Project-New')}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Project
                   </Button>
