@@ -81,6 +81,7 @@ export function QBBillSelectionDialog({
         projectCustomerId?: string | null;
         projectCustomerName?: string | null;
         hasProjectMapping?: boolean;
+        customerFilterWarning?: string | null;
         error?: string;
         message?: string;
       };
@@ -170,6 +171,14 @@ export function QBBillSelectionDialog({
               </div>
             )}
           </div>
+
+          {/* Customer filter warning (fallback to vendor bills) */}
+          {!isLoading && data?.customerFilterWarning && (
+            <div className="flex items-center gap-2 p-4 rounded-lg bg-muted text-muted-foreground">
+              <AlertCircle className="h-5 w-5" />
+              <span>{data.customerFilterWarning}</span>
+            </div>
+          )}
 
           {/* Loading state */}
           {isLoading && (

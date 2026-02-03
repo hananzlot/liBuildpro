@@ -15,10 +15,16 @@ interface QBBill {
   TotalAmt?: number;
   Balance?: number;
   PrivateNote?: string;
-  CustomerRef?: {
-    value: string;
-    name?: string;
-  };
+  // NOTE: Bills do not have a top-level CustomerRef. Customer/Project is stored
+  // on the expense lines (AccountBasedExpenseLineDetail / ItemBasedExpenseLineDetail).
+  Line?: Array<{
+    AccountBasedExpenseLineDetail?: {
+      CustomerRef?: { value: string; name?: string };
+    };
+    ItemBasedExpenseLineDetail?: {
+      CustomerRef?: { value: string; name?: string };
+    };
+  }>;
 }
 
 interface QBVendor {
@@ -91,6 +97,21 @@ Deno.serve(async (req) => {
       "Authorization": `Bearer ${access_token}`,
       "Accept": "application/json",
       "Content-Type": "application/json",
+    };
+
+    const getBillCustomerRefs = (bill: QBBill): Array<{ value: string; name?: string }> => {
+      const refs: Array<{ value: string; name?: string }> = [];
+      for (const line of bill.Line || []) {
+        const ref =
+          line?.AccountBasedExpenseLineDetail?.CustomerRef ||
+          line?.ItemBasedExpenseLineDetail?.CustomerRef;
+        if (ref?.value) refs.push(ref);
+      }
+      return refs;
+    };
+
+    const billMatchesCustomer = (bill: QBBill, customerId: string): boolean => {
+      return getBillCustomerRefs(bill).some((r) => r.value === customerId);
     };
 
     // Step 1: Look up project-to-customer mapping if projectId provided
@@ -276,24 +297,41 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${rawBills.length} total bills for vendor ${vendorId}`);
     
-    // Log all bills for debugging
+    // Log all bills for debugging (customer refs are on lines)
     rawBills.forEach((bill) => {
-      console.log(`Bill ${bill.Id} (${bill.DocNumber || 'no ref'}): TotalAmt=${bill.TotalAmt}, Balance=${bill.Balance}, CustomerRef=${bill.CustomerRef?.value || 'none'}`);
+      const refs = getBillCustomerRefs(bill);
+      console.log(
+        `Bill ${bill.Id} (${bill.DocNumber || "no ref"}): TotalAmt=${bill.TotalAmt}, Balance=${bill.Balance}, LineCustomerRefs=${refs.map((r) => r.value).join(",") || "none"}`
+      );
     });
 
     // Filter by customer if we have a mapping (done in JS since QB doesn't support CustomerRef in Bill queries)
+    // IMPORTANT: CustomerRef is on the bill lines, not top-level.
+    let customerFilterWarning: string | null = null;
     if (qbCustomerId) {
-      console.log(`Filtering ${rawBills.length} bills to only those with CustomerRef=${qbCustomerId}`);
-      rawBills = rawBills.filter((bill) => bill.CustomerRef?.value === qbCustomerId);
-      console.log(`${rawBills.length} bills match the customer filter`);
+      console.log(`Filtering ${rawBills.length} bills to only those with line CustomerRef=${qbCustomerId}`);
+      const matching = rawBills.filter((bill) => billMatchesCustomer(bill, qbCustomerId!));
+      console.log(`${matching.length} bills match the customer filter`);
+
+      // If none match, fall back to showing vendor bills (but warn), otherwise we'd incorrectly show “none”
+      // for customers whose bills aren’t job-costed/tagged to a customer in QB.
+      if (matching.length === 0 && rawBills.length > 0) {
+        customerFilterWarning =
+          "No QuickBooks bills were tagged to this project customer. Showing all unpaid bills for this vendor instead.";
+      } else {
+        rawBills = matching;
+      }
     }
     
     // Filter to only include bills with a positive balance (unpaid)
     const unpaidBills = rawBills.filter((bill) => (bill.Balance || 0) > 0);
     console.log(`${unpaidBills.length} bills have balance > 0`);
 
-    // Map to our response format - include customer info for display
-    const bills = unpaidBills.map((bill) => ({
+    // Map to our response format - include customer info for display (derived from the first line ref)
+    const bills = unpaidBills.map((bill) => {
+      const refs = getBillCustomerRefs(bill);
+      const firstRef = refs[0];
+      return {
       qbBillId: bill.Id,
       docNumber: bill.DocNumber || "",
       txnDate: bill.TxnDate || "",
@@ -301,9 +339,10 @@ Deno.serve(async (req) => {
       totalAmt: bill.TotalAmt || 0,
       balance: bill.Balance || 0,
       memo: bill.PrivateNote || null,
-      customerId: bill.CustomerRef?.value || null,
-      customerName: bill.CustomerRef?.name || null,
-    }));
+        customerId: firstRef?.value || null,
+        customerName: firstRef?.name || null,
+      };
+    });
 
     return new Response(
       JSON.stringify({ 
@@ -315,6 +354,7 @@ Deno.serve(async (req) => {
         projectCustomerId: qbCustomerId,
         projectCustomerName: qbCustomerName,
         hasProjectMapping: !!qbCustomerId,
+        customerFilterWarning,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
