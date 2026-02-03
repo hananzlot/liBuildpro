@@ -27,7 +27,8 @@ import {
   TrendingUp,
   DollarSign,
   Mail,
-  ChevronRight
+  ChevronRight,
+  Merge,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { FinancialSearchResultsSheet } from "@/components/production/FinancialSearchResultsSheet";
 import { PendingDepositsSheet } from "@/components/production/PendingDepositsSheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { MergeProjectsDialog } from "@/components/production/MergeProjectsDialog";
 
 
 interface Project {
@@ -269,6 +271,7 @@ export default function Production() {
   const [statusChangeNewStatus, setStatusChangeNewStatus] = useState<string>("");
   const [pendingDepositsSheetOpen, setPendingDepositsSheetOpen] = useState(false);
   const [showAlternatingColors, setShowAlternatingColors] = useState(true);
+  const [mergeProjectsDialogOpen, setMergeProjectsDialogOpen] = useState(false);
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects", companyId],
     queryFn: async () => {
@@ -1657,6 +1660,12 @@ export default function Production() {
                     onOpenWarningSheet={handleOpenWarningSheet}
                     onOpenPendingDeposits={() => setPendingDepositsSheetOpen(true)}
                   />
+                  {isAdmin && (
+                    <Button variant="outline" size="sm" onClick={() => setMergeProjectsDialogOpen(true)}>
+                      <Merge className="h-4 w-4 mr-2" />
+                      Merge
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
                     <Upload className="h-4 w-4 mr-2" />
                     Import
@@ -2423,6 +2432,13 @@ export default function Production() {
         <ProjectImportDialog
           open={importDialogOpen}
           onOpenChange={setImportDialogOpen}
+        />
+
+        {/* Merge Projects Dialog */}
+        <MergeProjectsDialog
+          open={mergeProjectsDialogOpen}
+          onOpenChange={setMergeProjectsDialogOpen}
+          projects={projects}
         />
 
         {/* Delete Project Confirmation Dialog */}
