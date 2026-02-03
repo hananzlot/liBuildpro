@@ -393,7 +393,7 @@ export function GlobalAdminSearch() {
   
   const handleSelectEstimate = (est: Estimate) => {
     const tabTitle = est.status && est.status !== 'draft' 
-      ? `Edit Proposal - Proposal #${est.estimate_number}` 
+      ? `Edit Proposal - ${est.estimate_number}` 
       : `Estimate #${est.estimate_number}`;
     openTab(`/estimate/${est.id}`, tabTitle);
     setIsOpen(false);
