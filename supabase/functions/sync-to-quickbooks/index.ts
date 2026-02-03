@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords, checkOnly, checkVendorName, qbBillId, forceCreateBill, overrideBillAmount, overrideBillRef, overrideBillMemo } = await req.json();
+    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords, checkOnly, checkVendorName, qbBillId, forceCreateBill } = await req.json();
 
     if (!companyId) {
       return new Response(
@@ -882,39 +882,22 @@ Deno.serve(async (req) => {
             }
           }
 
-          // When forceCreateBill is used with overrideBillAmount, use the payment amount instead of the full bill amount
-          const billAmountToUse = (shouldForceCreateThisBill && typeof overrideBillAmount === "number") 
-            ? overrideBillAmount 
-            : (bill.bill_amount || 0);
-          
-          const billRefToUse = (shouldForceCreateThisBill && overrideBillRef) 
-            ? overrideBillRef 
-            : (bill.bill_ref || "N/A");
-          
-          const billMemoToUse = (shouldForceCreateThisBill && overrideBillMemo) 
-            ? overrideBillMemo 
-            : (bill.memo || null);
-
-          if (shouldForceCreateThisBill && typeof overrideBillAmount === "number") {
-            console.log(`Using override amount for new QB bill: ${overrideBillAmount} (original bill amount: ${bill.bill_amount})`);
-          }
-
           const qbBill: any = {
             VendorRef: { value: vendorResult.id },
             TxnDate: bill.created_at?.split("T")[0],
             Line: [
               {
-                Amount: billAmountToUse,
+                Amount: bill.bill_amount || 0,
                 DetailType: "AccountBasedExpenseLineDetail",
                 AccountBasedExpenseLineDetail: {
                   AccountRef: expenseAccountRef,
                   // Add CustomerRef for job costing - links expense to the project/customer
                   ...(customerRef && { CustomerRef: customerRef }),
                 },
-                Description: `${bill.category || "Bill"} - ${bill.projects?.project_name || "Project"} - Ref: ${billRefToUse}`,
+                Description: `${bill.category || "Bill"} - ${bill.projects?.project_name || "Project"} - Ref: ${bill.bill_ref || "N/A"}`,
               },
             ],
-            PrivateNote: billMemoToUse,
+            PrivateNote: bill.memo || null,
           };
 
           let syncRes: Response;
