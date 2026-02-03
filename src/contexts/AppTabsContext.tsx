@@ -16,6 +16,7 @@ interface AppTabsContextType {
   closeAllTabs: () => void;
   switchToTab: (tabId: string) => void;
   handleNavigation: (e: React.MouseEvent, path: string, title: string, icon?: string) => void;
+  reorderTabs: (draggedTabId: string, targetTabId: string) => void;
 }
 
 const AppTabsContext = createContext<AppTabsContextType | undefined>(undefined);
@@ -156,6 +157,19 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     setActiveTabId(null);
   }, []);
 
+  const reorderTabs = useCallback((draggedTabId: string, targetTabId: string) => {
+    setTabs(prev => {
+      const newTabs = [...prev];
+      const draggedIndex = newTabs.findIndex(t => t.id === draggedTabId);
+      const targetIndex = newTabs.findIndex(t => t.id === targetTabId);
+      if (draggedIndex === -1 || targetIndex === -1) return prev;
+      
+      const [draggedTab] = newTabs.splice(draggedIndex, 1);
+      newTabs.splice(targetIndex, 0, draggedTab);
+      return newTabs;
+    });
+  }, []);
+
   const switchToTab = useCallback((tabId: string) => {
     const tab = tabs.find(t => t.id === tabId);
     if (tab) {
@@ -191,6 +205,7 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
         closeAllTabs,
         switchToTab,
         handleNavigation,
+        reorderTabs,
       }}
     >
       {children}
