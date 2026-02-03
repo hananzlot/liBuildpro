@@ -247,18 +247,15 @@ Deno.serve(async (req) => {
         log("info", "Found matching local payment without sync log - updating instead of creating", { existingId });
         
         // Update the local payment with QB data
-        const paymentMethod = qbBillPayment.PayType === "Check" ? "check" : 
-                              qbBillPayment.PayType === "CreditCard" ? "credit_card" : "other";
-        const bankName = qbBillPayment.PayType === "Check" 
-          ? qbBillPayment.CheckPayment?.BankAccountRef?.name 
-          : qbBillPayment.CreditCardPayment?.CCAccountRef?.name;
-        
+        // Note: We only update payment_reference (check #) from QB
+        // We do NOT overwrite bank_name because:
+        // 1. Local bank_name references the banks table (e.g., "Chase")
+        // 2. QB returns its own account name (e.g., "PLAT BUS CHECKING (8981) - 1")
+        // 3. The mapping between them is stored in quickbooks_mappings, not on the payment
         await supabase
           .from("bill_payments")
           .update({
             payment_reference: qbBillPayment.DocNumber || null,
-            payment_method: paymentMethod,
-            bank_name: bankName || undefined,
           })
           .eq("id", existingId);
         
@@ -665,15 +662,17 @@ Deno.serve(async (req) => {
 
       const billId = currentPayment?.bill_id;
 
-      // Update the bill payment
+      // Update the bill payment - only sync metadata, NOT bank_name
+      // Local bank_name is authoritative (references local banks table)
+      // QB bank account name is different and mapped via quickbooks_mappings
       const { error: updateError } = await supabase
         .from("bill_payments")
         .update({
           payment_amount: qbBillPayment.TotalAmt || 0,
           payment_date: qbBillPayment.TxnDate || undefined,
-          payment_method: paymentMethod,
           payment_reference: qbBillPayment.DocNumber || undefined,
-          bank_name: bankName || undefined,
+          // Note: Do NOT update bank_name or payment_method from QB
+          // These are locally-set values that should be preserved
         })
         .eq("id", localBillPaymentId);
 
