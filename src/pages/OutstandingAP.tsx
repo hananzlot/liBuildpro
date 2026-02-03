@@ -1154,26 +1154,20 @@ export default function OutstandingAP() {
       <AlertDialog open={qbSyncConfirmOpen} onOpenChange={setQbSyncConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Sync to QuickBooks?</AlertDialogTitle>
+            <AlertDialogTitle>Sync to QuickBooks</AlertDialogTitle>
             <AlertDialogDescription>
-              This payment will be synced to QuickBooks. Do you want to proceed with the sync, or record the payment locally only?
+              This payment will be synced to QuickBooks. Do you want to proceed?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+          <AlertDialogFooter>
             <AlertDialogCancel onClick={() => {
               setQbSyncConfirmOpen(false);
               setPendingPaymentData(null);
             }}>
               Cancel
             </AlertDialogCancel>
-            <Button
-              variant="outline"
-              onClick={handleSkipQBSync}
-            >
-              Record Locally Only
-            </Button>
             <AlertDialogAction onClick={handleConfirmWithQBSync}>
-              Sync to QuickBooks
+              Proceed
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
