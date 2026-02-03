@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export interface AppTab {
@@ -106,66 +106,81 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [activeTabId]);
 
+  // Keep a ref to the current location to avoid stale closures
+  const locationRef = useRef(location);
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
+
   // Restore location when browser tab regains focus
   // Key insight: If user navigated within the same base route (e.g., changed sub-tabs),
   // we should UPDATE the stored path to match current location, not navigate away.
+  // Use a ref to debounce and prevent multiple handlers from competing
+  const isProcessingVisibility = useRef(false);
+  
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const savedActiveId = localStorage.getItem(`${STORAGE_KEY}-active`);
-        const savedTabs = localStorage.getItem(STORAGE_KEY);
-        
-        // Use location from closure - it should be current since effect re-runs on location change
-        const currentPath = location.pathname + location.search;
-        
-        console.log('[TabRestore] Visibility changed to visible');
-        console.log('[TabRestore] savedActiveId:', savedActiveId);
-        console.log('[TabRestore] savedTabs:', savedTabs);
-        console.log('[TabRestore] currentPath from location:', currentPath);
-        
-        if (savedActiveId && savedTabs) {
-          const parsedTabs = JSON.parse(savedTabs) as AppTab[];
-          const activeTab = parsedTabs.find(t => t.id === savedActiveId);
-          
-          console.log('[TabRestore] activeTab found:', activeTab);
-          
-          if (activeTab) {
-            const storedBasePath = activeTab.path.split('?')[0];
-            const currentBasePath = location.pathname;
-            
-            console.log('[TabRestore] storedBasePath:', storedBasePath);
-            console.log('[TabRestore] currentBasePath:', currentBasePath);
-            console.log('[TabRestore] paths equal:', storedBasePath === currentBasePath);
-            
-            // If we're on the same base route, the user navigated within the tab
-            // Update stored path to current path instead of navigating back
-            if (storedBasePath === currentBasePath && activeTab.path !== currentPath) {
-              console.log('[TabRestore] Same base route, updating stored path to:', currentPath);
-              // User is on the same page but different sub-tab - update storage to match
-              const updatedTabs = parsedTabs.map(t => 
-                t.id === savedActiveId ? { ...t, path: currentPath } : t
-              );
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTabs));
-              setTabs(updatedTabs);
-            } else if (storedBasePath !== currentBasePath) {
-              console.log('[TabRestore] Different route, navigating to:', activeTab.path);
-              // User is on a completely different route - restore to stored path
-              navigate(activeTab.path);
-            } else {
-              console.log('[TabRestore] Paths match exactly, no action needed');
-            }
-          } else {
-            console.log('[TabRestore] No active tab found for savedActiveId');
-          }
-        } else {
-          console.log('[TabRestore] Missing savedActiveId or savedTabs');
-        }
+      if (document.visibilityState !== 'visible') return;
+      
+      // Debounce - prevent multiple handlers from running simultaneously
+      if (isProcessingVisibility.current) {
+        console.log('[TabRestore] Skipping duplicate visibility handler');
+        return;
       }
+      isProcessingVisibility.current = true;
+      
+      // Use setTimeout to ensure we run after React has settled
+      setTimeout(() => {
+        try {
+          const savedActiveId = localStorage.getItem(`${STORAGE_KEY}-active`);
+          const savedTabs = localStorage.getItem(STORAGE_KEY);
+          
+          // Use ref to get current location (avoids stale closure issues)
+          const currentLocation = locationRef.current;
+          const currentPath = currentLocation.pathname + currentLocation.search;
+          
+          console.log('[TabRestore] Visibility changed to visible');
+          console.log('[TabRestore] savedActiveId:', savedActiveId);
+          console.log('[TabRestore] currentPath from location:', currentPath);
+          
+          if (savedActiveId && savedTabs) {
+            const parsedTabs = JSON.parse(savedTabs) as AppTab[];
+            const activeTab = parsedTabs.find(t => t.id === savedActiveId);
+            
+            console.log('[TabRestore] activeTab found:', activeTab);
+            
+            if (activeTab) {
+              const storedBasePath = activeTab.path.split('?')[0];
+              const currentBasePath = currentLocation.pathname;
+              
+              console.log('[TabRestore] storedBasePath:', storedBasePath, 'currentBasePath:', currentBasePath);
+              
+              // If we're on the same base route, the user navigated within the tab
+              // Update stored path to current path instead of navigating back
+              if (storedBasePath === currentBasePath && activeTab.path !== currentPath) {
+                console.log('[TabRestore] Same base route, updating stored path to:', currentPath);
+                const updatedTabs = parsedTabs.map(t => 
+                  t.id === savedActiveId ? { ...t, path: currentPath } : t
+                );
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTabs));
+                setTabs(updatedTabs);
+              } else if (storedBasePath !== currentBasePath) {
+                console.log('[TabRestore] Different route, navigating to:', activeTab.path);
+                navigate(activeTab.path);
+              } else {
+                console.log('[TabRestore] Paths match exactly, no action needed');
+              }
+            }
+          }
+        } finally {
+          isProcessingVisibility.current = false;
+        }
+      }, 50); // Small delay to let React settle
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [navigate, location]);
+  }, [navigate]); // Remove location from deps - we use ref instead
 
   // Update active tab when location changes
   useEffect(() => {
