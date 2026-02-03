@@ -4853,6 +4853,7 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           description: string | null
+          display_order: number | null
           due_date: string | null
           id: string
           phase_name: string
@@ -4865,6 +4866,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           description?: string | null
+          display_order?: number | null
           due_date?: string | null
           id?: string
           phase_name: string
@@ -4877,6 +4879,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           description?: string | null
+          display_order?: number | null
           due_date?: string | null
           id?: string
           phase_name?: string
