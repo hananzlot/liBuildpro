@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Check if bill payment already exists in our DB
+      // Check if bill payment already exists in our DB via sync log
       const { data: existingBillPayment } = await supabase
         .from("quickbooks_sync_log")
         .select("record_id")
@@ -219,12 +219,67 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (existingBillPayment?.record_id) {
-        log("info", "Bill payment already exists locally", { recordId: existingBillPayment.record_id });
+        log("info", "Bill payment already exists locally (via sync log)", { recordId: existingBillPayment.record_id });
         return new Response(
           JSON.stringify({ 
             success: true, 
             action: "already_exists",
             billPaymentId: existingBillPayment.record_id 
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Also check if a matching local payment already exists (even without sync log)
+      // This prevents duplicates when a payment was created locally but not yet synced
+      const { data: matchingLocalPayments } = await supabase
+        .from("bill_payments")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("bill_id", billId)
+        .eq("payment_amount", qbBillPayment.TotalAmt)
+        .eq("payment_date", qbBillPayment.TxnDate || new Date().toISOString().split("T")[0])
+        .is("payment_reference", null);
+      
+      if (matchingLocalPayments && matchingLocalPayments.length > 0) {
+        // Found a local payment that matches - update it instead of creating new
+        const existingId = matchingLocalPayments[0].id;
+        log("info", "Found matching local payment without sync log - updating instead of creating", { existingId });
+        
+        // Update the local payment with QB data
+        const paymentMethod = qbBillPayment.PayType === "Check" ? "check" : 
+                              qbBillPayment.PayType === "CreditCard" ? "credit_card" : "other";
+        const bankName = qbBillPayment.PayType === "Check" 
+          ? qbBillPayment.CheckPayment?.BankAccountRef?.name 
+          : qbBillPayment.CreditCardPayment?.CCAccountRef?.name;
+        
+        await supabase
+          .from("bill_payments")
+          .update({
+            payment_reference: qbBillPayment.DocNumber || null,
+            payment_method: paymentMethod,
+            bank_name: bankName || undefined,
+          })
+          .eq("id", existingId);
+        
+        // Create sync log to link them
+        await supabase.from("quickbooks_sync_log").insert({
+          company_id: companyId,
+          record_type: "bill_payment",
+          record_id: existingId,
+          quickbooks_id: qbBillPayment.Id,
+          qb_doc_number: qbBillPayment.DocNumber || null,
+          sync_status: "synced",
+          last_sync_at: new Date().toISOString(),
+        });
+        
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            action: "updated_existing",
+            billPaymentId: existingId,
+            billId,
+            matchMethod: "local_payment_match"
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -380,6 +435,15 @@ Deno.serve(async (req) => {
 
         let billId: string | null = null;
 
+        log("info", "Fallback matching details", {
+          linkedBillCount: linkedBills.length,
+          qbBillIds: linkedBills.map(lb => lb.TxnId),
+          qbAmount: qbBillPayment.TotalAmt,
+          qbDate: qbBillPayment.TxnDate,
+          qbDocNumber: qbBillPayment.DocNumber,
+          vendorName: qbBillPayment.VendorRef?.name,
+        });
+
         if (linkedBills.length > 0) {
           const qbBillIds = linkedBills.map(lb => lb.TxnId);
           
@@ -395,34 +459,70 @@ Deno.serve(async (req) => {
 
           if (billSyncLog?.record_id) {
             billId = billSyncLog.record_id;
+            log("info", "Found linked bill via sync log", { billId, qbBillIds });
+          } else {
+            log("warn", "No sync log found for linked QB bills", { qbBillIds });
           }
         }
 
         if (billId) {
-          // Fallback 1: Try to match by bill_id + amount + date + reference
+          log("info", "Searching for local bill payments", { billId, amount: qbBillPayment.TotalAmt, date: qbBillPayment.TxnDate });
+          
+          // Fallback 1: Try to match by bill_id + amount + date + null reference
+          // (for payments created without a check number that QB later assigned)
           let query = supabase
             .from("bill_payments")
-            .select("id")
+            .select("id, payment_date, payment_reference")
             .eq("company_id", companyId)
             .eq("bill_id", billId)
             .eq("payment_amount", qbBillPayment.TotalAmt)
-            .eq("payment_date", qbBillPayment.TxnDate)
-            .eq("payment_reference", qbBillPayment.DocNumber || null);
+            .is("payment_reference", null);
           
           if (excludedBillPaymentIds.length > 0) {
             query = query.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
           }
           
-          const { data: exactMatch } = await query.maybeSingle();
+          const { data: nullRefMatches } = await query;
+          log("info", "Null reference matches", { count: nullRefMatches?.length, matches: nullRefMatches });
           
-          if (exactMatch) {
-            localBillPaymentId = exactMatch.id;
-            log("info", "Found bill payment via exact match (fallback)", { localBillPaymentId });
+          if (nullRefMatches && nullRefMatches.length === 1) {
+            // Only one payment with null ref - safe to match
+            localBillPaymentId = nullRefMatches[0].id;
+            log("info", "Found unique bill payment with null reference", { localBillPaymentId });
+          } else if (nullRefMatches && nullRefMatches.length > 1) {
+            // Multiple matches - try to match by date
+            const dateMatch = nullRefMatches.find(p => p.payment_date === qbBillPayment.TxnDate);
+            if (dateMatch) {
+              localBillPaymentId = dateMatch.id;
+              log("info", "Found bill payment by amount + null ref + date", { localBillPaymentId });
+            }
           }
 
-          // Fallback 2: Try bill_id + amount + date
-          if (!localBillPaymentId) {
+          // Fallback 2: Try bill_id + amount + date + exact reference
+          if (!localBillPaymentId && qbBillPayment.DocNumber) {
             let query2 = supabase
+              .from("bill_payments")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("bill_id", billId)
+              .eq("payment_amount", qbBillPayment.TotalAmt)
+              .eq("payment_reference", qbBillPayment.DocNumber);
+            
+            if (excludedBillPaymentIds.length > 0) {
+              query2 = query2.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
+            }
+            
+            const { data: refMatch } = await query2.maybeSingle();
+            
+            if (refMatch) {
+              localBillPaymentId = refMatch.id;
+              log("info", "Found bill payment via exact reference match", { localBillPaymentId });
+            }
+          }
+
+          // Fallback 3: Try bill_id + amount + date (regardless of reference)
+          if (!localBillPaymentId) {
+            let query3 = supabase
               .from("bill_payments")
               .select("id")
               .eq("company_id", companyId)
@@ -431,10 +531,10 @@ Deno.serve(async (req) => {
               .eq("payment_date", qbBillPayment.TxnDate);
             
             if (excludedBillPaymentIds.length > 0) {
-              query2 = query2.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
+              query3 = query3.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
             }
             
-            const { data: amountDateMatch } = await query2.maybeSingle();
+            const { data: amountDateMatch } = await query3.maybeSingle();
             
             if (amountDateMatch) {
               localBillPaymentId = amountDateMatch.id;
@@ -442,24 +542,26 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Fallback 3: Try bill_id + amount only
+          // Fallback 4: Try bill_id + amount only (pick most recent)
           if (!localBillPaymentId) {
-            let query3 = supabase
+            let query4 = supabase
               .from("bill_payments")
               .select("id")
               .eq("company_id", companyId)
               .eq("bill_id", billId)
-              .eq("payment_amount", qbBillPayment.TotalAmt);
+              .eq("payment_amount", qbBillPayment.TotalAmt)
+              .order("created_at", { ascending: false })
+              .limit(1);
             
             if (excludedBillPaymentIds.length > 0) {
-              query3 = query3.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
+              query4 = query4.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
             }
             
-            const { data: amountMatch } = await query3.maybeSingle();
+            const { data: amountMatches } = await query4;
             
-            if (amountMatch) {
-              localBillPaymentId = amountMatch.id;
-              log("info", "Found bill payment via amount only (fallback)", { localBillPaymentId });
+            if (amountMatches && amountMatches.length > 0) {
+              localBillPaymentId = amountMatches[0].id;
+              log("info", "Found bill payment via amount only (most recent)", { localBillPaymentId });
             }
           }
         }
