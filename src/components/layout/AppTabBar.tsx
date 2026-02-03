@@ -1,20 +1,20 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { Button } from "@/components/ui/button";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function AppTabBar() {
-  const { tabs, activeTabId, switchToTab, closeTab, closeAllTabs } = useAppTabs();
+  const { tabs, activeTabId, switchToTab, closeTab, closeAllTabs, reorderTabs } = useAppTabs();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const tabsCountRef = useRef(tabs.length);
+  const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
+  const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
 
   // Auto-scroll to the end when new tabs are added
   useEffect(() => {
     if (tabs.length > tabsCountRef.current && scrollContainerRef.current) {
-      // New tab was added, scroll to show it
       scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
     }
     tabsCountRef.current = tabs.length;
@@ -23,6 +23,37 @@ export function AppTabBar() {
   if (tabs.length === 0) {
     return null;
   }
+
+  const handleDragStart = (e: React.DragEvent, tabId: string) => {
+    setDraggedTabId(tabId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", tabId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, tabId: string) => {
+    e.preventDefault();
+    if (tabId !== draggedTabId) {
+      setDragOverTabId(tabId);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverTabId(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetTabId: string) => {
+    e.preventDefault();
+    if (draggedTabId && draggedTabId !== targetTabId) {
+      reorderTabs(draggedTabId, targetTabId);
+    }
+    setDraggedTabId(null);
+    setDragOverTabId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTabId(null);
+    setDragOverTabId(null);
+  };
 
   return (
     <div className="h-9 border-b border-border/50 bg-muted/30 flex items-center px-2 shrink-0">
@@ -47,11 +78,19 @@ export function AppTabBar() {
           {tabs.map((tab) => (
             <div
               key={tab.id}
+              draggable
+              onDragStart={(e) => handleDragStart(e, tab.id)}
+              onDragOver={(e) => handleDragOver(e, tab.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, tab.id)}
+              onDragEnd={handleDragEnd}
               className={cn(
-                "group flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer transition-colors max-w-[200px]",
+                "group flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium cursor-grab transition-all max-w-[200px]",
                 activeTabId === tab.id
                   ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                  : "text-muted-foreground hover:bg-background/50 hover:text-foreground",
+                draggedTabId === tab.id && "opacity-50 cursor-grabbing",
+                dragOverTabId === tab.id && "ring-2 ring-primary ring-offset-1"
               )}
               onClick={() => switchToTab(tab.id)}
             >
