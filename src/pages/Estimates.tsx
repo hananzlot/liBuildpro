@@ -655,9 +655,17 @@ export default function Estimates() {
       <div className="flex flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Estimates, Proposals & Contracts</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {currentView === "list" && "Estimates"}
+              {currentView === "proposals" && "Proposals"}
+              {currentView === "contracts" && "Contracts"}
+              {currentView === "declined" && "Declined"}
+            </h1>
             <p className="text-muted-foreground">
-              Create estimates, send proposals, and manage contracts
+              {currentView === "list" && "Create and manage estimates"}
+              {currentView === "proposals" && "Track sent proposals and client responses"}
+              {currentView === "contracts" && "View signed contracts"}
+              {currentView === "declined" && "Review declined proposals"}
             </p>
           </div>
           <div className="flex items-center gap-2">
