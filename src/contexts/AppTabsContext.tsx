@@ -115,18 +115,32 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
         const savedActiveId = localStorage.getItem(`${STORAGE_KEY}-active`);
         const savedTabs = localStorage.getItem(STORAGE_KEY);
         
+        // Use location from closure - it should be current since effect re-runs on location change
+        const currentPath = location.pathname + location.search;
+        
+        console.log('[TabRestore] Visibility changed to visible');
+        console.log('[TabRestore] savedActiveId:', savedActiveId);
+        console.log('[TabRestore] savedTabs:', savedTabs);
+        console.log('[TabRestore] currentPath from location:', currentPath);
+        
         if (savedActiveId && savedTabs) {
           const parsedTabs = JSON.parse(savedTabs) as AppTab[];
           const activeTab = parsedTabs.find(t => t.id === savedActiveId);
           
+          console.log('[TabRestore] activeTab found:', activeTab);
+          
           if (activeTab) {
-            const currentPath = location.pathname + location.search;
             const storedBasePath = activeTab.path.split('?')[0];
             const currentBasePath = location.pathname;
+            
+            console.log('[TabRestore] storedBasePath:', storedBasePath);
+            console.log('[TabRestore] currentBasePath:', currentBasePath);
+            console.log('[TabRestore] paths equal:', storedBasePath === currentBasePath);
             
             // If we're on the same base route, the user navigated within the tab
             // Update stored path to current path instead of navigating back
             if (storedBasePath === currentBasePath && activeTab.path !== currentPath) {
+              console.log('[TabRestore] Same base route, updating stored path to:', currentPath);
               // User is on the same page but different sub-tab - update storage to match
               const updatedTabs = parsedTabs.map(t => 
                 t.id === savedActiveId ? { ...t, path: currentPath } : t
@@ -134,11 +148,17 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
               localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTabs));
               setTabs(updatedTabs);
             } else if (storedBasePath !== currentBasePath) {
+              console.log('[TabRestore] Different route, navigating to:', activeTab.path);
               // User is on a completely different route - restore to stored path
               navigate(activeTab.path);
+            } else {
+              console.log('[TabRestore] Paths match exactly, no action needed');
             }
-            // If paths match exactly, do nothing
+          } else {
+            console.log('[TabRestore] No active tab found for savedActiveId');
           }
+        } else {
+          console.log('[TabRestore] Missing savedActiveId or savedTabs');
         }
       }
     };
