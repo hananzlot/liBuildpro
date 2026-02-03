@@ -43,8 +43,13 @@ interface BillPaymentData {
   payment_amount: number | null;
   payment_date: string | null;
   payment_method: string | null;
+  bank_id: string | null;
   bank_name: string | null;
   payment_reference: string | null;
+  bank?: {
+    id: string;
+    name: string;
+  } | null;
   bill?: {
     id: string;
     bill_ref: string | null;
@@ -76,7 +81,8 @@ export function EditBillPaymentDialog({
   const { companyId } = useCompanyContext();
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [amount, setAmount] = useState<string>("");
-  const [bankName, setBankName] = useState<string>("");
+  const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
+  const [selectedBankName, setSelectedBankName] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("Check");
   const [paymentReference, setPaymentReference] = useState<string>("");
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -100,32 +106,18 @@ export function EditBillPaymentDialog({
     enabled: !!companyId,
   });
 
-  // Mutation to add new bank
-  const addBankMutation = useMutation({
-    mutationFn: async (newBankName: string) => {
-      if (!companyId) throw new Error("No company selected");
-      const { error } = await supabase
-        .from("banks")
-        .insert({ name: newBankName, company_id: companyId })
-        .select()
-        .single();
-      if (error && !error.message.includes('duplicate')) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["banks", companyId] });
-    },
-  });
 
   // Update payment mutation
   const updateMutation = useMutation({
-    mutationFn: async (data: { paymentDate: Date; amount: number; bankName: string; paymentMethod: string; paymentReference: string }) => {
+    mutationFn: async (data: { paymentDate: Date; amount: number; bankId: string | null; bankName: string; paymentMethod: string; paymentReference: string }) => {
       if (!payment) throw new Error("No payment to update");
       const { error } = await supabase
         .from("bill_payments")
         .update({
           payment_date: format(data.paymentDate, 'yyyy-MM-dd'),
           payment_amount: data.amount,
-          bank_name: data.bankName,
+          bank_id: data.bankId,
+          bank_name: data.bankName, // Keep for backward compatibility
           payment_method: data.paymentMethod,
           payment_reference: data.paymentReference,
         })
@@ -167,9 +159,24 @@ export function EditBillPaymentDialog({
     onError: (error) => toast.error(`Failed to delete: ${error.message}`),
   });
 
-  const handleAddBank = (newBankName: string) => {
-    setBankName(newBankName);
-    addBankMutation.mutate(newBankName);
+  const handleAddBank = async (newBankName: string) => {
+    const { data: newBank, error } = await supabase
+      .from("banks")
+      .insert({ name: newBankName, company_id: companyId })
+      .select()
+      .single();
+    
+    if (!error && newBank) {
+      setSelectedBankId(newBank.id);
+      setSelectedBankName(newBank.name);
+      queryClient.invalidateQueries({ queryKey: ["banks", companyId] });
+    } else if (error && !error.message.includes('duplicate')) {
+      const existing = banks.find(b => b.name?.toLowerCase() === newBankName.toLowerCase());
+      if (existing) {
+        setSelectedBankId(existing.id);
+        setSelectedBankName(existing.name);
+      }
+    }
     setBankOpen(false);
     setBankSearch("");
   };
@@ -183,7 +190,11 @@ export function EditBillPaymentDialog({
     if (open && payment) {
       setPaymentDate(payment.payment_date ? parseISO(payment.payment_date) : new Date());
       setAmount((payment.payment_amount || 0).toString());
-      setBankName(payment.bank_name || "");
+      // Use bank FK if available, fallback to legacy bank_name
+      const bankId = payment.bank_id || payment.bank?.id || null;
+      const bankName = payment.bank?.name || payment.bank_name || "";
+      setSelectedBankId(bankId);
+      setSelectedBankName(bankName);
       setPaymentMethod(payment.payment_method || "Check");
       setPaymentReference(payment.payment_reference || "");
       setBankSearch("");
@@ -196,7 +207,7 @@ export function EditBillPaymentDialog({
   const isFormValid = 
     paymentDate && 
     paymentAmount > 0 && 
-    bankName && 
+    selectedBankId && 
     paymentMethod && 
     paymentReference.trim();
 
@@ -205,7 +216,8 @@ export function EditBillPaymentDialog({
     updateMutation.mutate({
       paymentDate,
       amount: paymentAmount,
-      bankName,
+      bankId: selectedBankId,
+      bankName: selectedBankName,
       paymentMethod,
       paymentReference: paymentReference.trim(),
     });
@@ -290,14 +302,14 @@ export function EditBillPaymentDialog({
             <div className="space-y-2">
               <Label>Bank Account <span className="text-destructive">*</span></Label>
               <Popover open={bankOpen} onOpenChange={setBankOpen}>
-                <PopoverTrigger asChild>
+              <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
                     aria-expanded={bankOpen}
-                    className={cn("w-full justify-between font-normal", !bankName && "border-destructive/50")}
+                    className={cn("w-full justify-between font-normal", !selectedBankId && "border-destructive/50")}
                   >
-                    {bankName || "Select or add bank..."}
+                    {selectedBankName || "Select or add bank..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
@@ -328,13 +340,14 @@ export function EditBillPaymentDialog({
                             key={bank.id}
                             value={bank.name}
                             onSelect={() => {
-                              setBankName(bank.name);
+                              setSelectedBankId(bank.id);
+                              setSelectedBankName(bank.name);
                               setBankOpen(false);
                               setBankSearch("");
                             }}
                             className="cursor-pointer"
                           >
-                            <Check className={cn("mr-2 h-4 w-4", bankName === bank.name ? "opacity-100" : "opacity-0")} />
+                            <Check className={cn("mr-2 h-4 w-4", selectedBankId === bank.id ? "opacity-100" : "opacity-0")} />
                             {bank.name}
                           </CommandItem>
                         ))}

@@ -50,8 +50,13 @@ interface PaidBillRecord {
   payment_amount: number | null;
   payment_date: string | null;
   payment_method: string | null;
+  bank_id: string | null;
   bank_name: string | null;
   payment_reference: string | null;
+  bank?: {
+    id: string;
+    name: string;
+  } | null;
   bill: {
     id: string;
     bill_ref: string | null;
@@ -119,7 +124,7 @@ export default function OutstandingAP() {
   const [qbCustomerMappingDialogOpen, setQbCustomerMappingDialogOpen] = useState(false);
   const [pendingPaymentData, setPendingPaymentData] = useState<{ 
     billId: string; 
-    data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; 
+    data: { paymentDate: Date; amount: number; bankId: string | null; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; 
     vendorName: string; 
     billRef: string | null;
     projectId: string;
@@ -134,7 +139,7 @@ export default function OutstandingAP() {
     selectedSalespeople: [],
   });
 
-  // Fetch paid bills for the Paid tab
+  // Fetch paid bills for the Paid tab - join with banks to get current name
   const { data: paidBills = [], isLoading: loadingPaidBills } = useQuery<PaidBillRecord[]>({
     queryKey: ["paid-bills", companyId, paidDateRange.from, paidDateRange.to],
     queryFn: async () => {
@@ -145,8 +150,10 @@ export default function OutstandingAP() {
           payment_amount,
           payment_date,
           payment_method,
+          bank_id,
           bank_name,
           payment_reference,
+          bank:banks(id, name),
           bill:project_bills(
             id,
             bill_ref,
@@ -165,6 +172,7 @@ export default function OutstandingAP() {
       return (data || []).map(row => ({
         ...row,
         bill: Array.isArray(row.bill) ? row.bill[0] : row.bill,
+        bank: Array.isArray(row.bank) ? row.bank[0] : row.bank,
       })) as PaidBillRecord[];
     },
     enabled: !!companyId && activeTab === 'paid',
@@ -252,7 +260,8 @@ export default function OutstandingAP() {
           cmp = (a.payment_reference || '').localeCompare(b.payment_reference || '');
           break;
         case 'bank':
-          cmp = (a.bank_name || '').localeCompare(b.bank_name || '');
+          // Use joined bank name if available, fallback to legacy bank_name field
+          cmp = (a.bank?.name || a.bank_name || '').localeCompare(b.bank?.name || b.bank_name || '');
           break;
       }
       return paidSortDir === 'asc' ? cmp : -cmp;
@@ -439,25 +448,27 @@ export default function OutstandingAP() {
   const markAsPaidMutation = useMutation({
     mutationFn: async ({ billId, data, syncToQB, selectedQbBillId, forceCreateBill }: { 
       billId: string; 
-      data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; 
+      data: { paymentDate: Date; amount: number; bankId: string | null; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; 
       syncToQB: boolean;
       selectedQbBillId?: string;
       forceCreateBill?: boolean;
     }) => {
-      // Insert the bill payment
+      // Insert the bill payment with bank_id for proper FK relationship
       const { data: paymentRecord, error } = await supabase
         .from("bill_payments")
         .insert({
           bill_id: billId,
           payment_date: format(data.paymentDate, 'yyyy-MM-dd'),
           payment_amount: data.amount,
-          bank_name: data.bankName,
+          bank_id: data.bankId,
+          bank_name: data.bankName, // Keep for backward compatibility
           payment_method: data.paymentMethod,
           payment_reference: data.paymentReference,
           company_id: companyId,
         })
         .select()
         .single();
+      if (error) throw error;
       if (error) throw error;
       
       // Recalculate bill rollup fields (amount_paid, balance)
@@ -574,7 +585,7 @@ export default function OutstandingAP() {
   });
 
   // Handler when user clicks "Record Payment" in the MarkAsPaidDialog
-  const handleMarkAsPaidSave = useCallback(async (billId: string, data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }) => {
+  const handleMarkAsPaidSave = useCallback(async (billId: string, data: { paymentDate: Date; amount: number; bankId: string | null; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }) => {
     if (isQBConnected && markingAsPaidPayable) {
       // Find the payable to get project/vendor info
       const payable = markingAsPaidPayable;
@@ -1483,7 +1494,7 @@ export default function OutstandingAP() {
                             </TableCell>
                             <TableCell>{payment.payment_method || '-'}</TableCell>
                             <TableCell>{payment.payment_reference || '-'}</TableCell>
-                            <TableCell>{payment.bank_name || '-'}</TableCell>
+                            <TableCell>{payment.bank?.name || payment.bank_name || '-'}</TableCell>
                           </TableRow>
                         ))}
                         {filteredAndSortedPaidBills.length === 0 && (

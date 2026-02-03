@@ -35,6 +35,7 @@ interface MarkAsPaidDialogProps {
   onSave: (billId: string, data: {
     paymentDate: Date;
     amount: number;
+    bankId: string | null;
     bankName: string | null;
     paymentMethod: string | null;
     paymentReference: string | null;
@@ -51,7 +52,8 @@ export function MarkAsPaidDialog({
   const { companyId } = useCompanyContext();
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [amount, setAmount] = useState<string>("");
-  const [bankName, setBankName] = useState<string>("");
+  const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
+  const [selectedBankName, setSelectedBankName] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("Check");
   const [paymentReference, setPaymentReference] = useState<string>("");
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -74,25 +76,27 @@ export function MarkAsPaidDialog({
     enabled: !!companyId,
   });
 
-  // Mutation to add new bank
-  const addBankMutation = useMutation({
-    mutationFn: async (newBankName: string) => {
-      if (!companyId) throw new Error("No company selected");
-      const { error } = await supabase
-        .from("banks")
-        .insert({ name: newBankName, company_id: companyId })
-        .select()
-        .single();
-      if (error && !error.message.includes('duplicate')) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["banks", companyId] });
-    },
-  });
 
-  const handleAddBank = (newBankName: string) => {
-    setBankName(newBankName);
-    addBankMutation.mutate(newBankName);
+  const handleAddBank = async (newBankName: string) => {
+    // First add the bank, then select it
+    const { data: newBank, error } = await supabase
+      .from("banks")
+      .insert({ name: newBankName, company_id: companyId })
+      .select()
+      .single();
+    
+    if (!error && newBank) {
+      setSelectedBankId(newBank.id);
+      setSelectedBankName(newBank.name);
+      queryClient.invalidateQueries({ queryKey: ["banks", companyId] });
+    } else if (error && !error.message.includes('duplicate')) {
+      // If duplicate, try to find the existing bank
+      const existing = banks.find(b => b.name?.toLowerCase() === newBankName.toLowerCase());
+      if (existing) {
+        setSelectedBankId(existing.id);
+        setSelectedBankName(existing.name);
+      }
+    }
     setBankOpen(false);
     setBankSearch("");
   };
@@ -106,7 +110,8 @@ export function MarkAsPaidDialog({
     if (payable) {
       setPaymentDate(new Date());
       setAmount((payable.scheduled_payment_amount || payable.amount_due).toString());
-      setBankName("");
+      setSelectedBankId(null);
+      setSelectedBankName("");
       setPaymentMethod("Check");
       setPaymentReference("");
       setBankSearch("");
@@ -123,15 +128,16 @@ export function MarkAsPaidDialog({
     paymentDate && 
     paymentAmount > 0 && 
     !exceedsBalance &&
-    bankName && 
+    selectedBankId && 
     paymentMethod;
 
   const handleSave = () => {
-    if (paymentAmount > 0 && !exceedsBalance && bankName && paymentMethod) {
+    if (paymentAmount > 0 && !exceedsBalance && selectedBankId && paymentMethod) {
       onSave(payable.id, {
         paymentDate,
         amount: paymentAmount,
-        bankName,
+        bankId: selectedBankId,
+        bankName: selectedBankName,
         paymentMethod,
         paymentReference: paymentReference.trim() || null,
       });
@@ -234,9 +240,9 @@ export function MarkAsPaidDialog({
                   variant="outline"
                   role="combobox"
                   aria-expanded={bankOpen}
-                  className={cn("w-full justify-between font-normal", !bankName && "border-destructive/50")}
+                  className={cn("w-full justify-between font-normal", !selectedBankId && "border-destructive/50")}
                 >
-                  {bankName || "Select or add bank..."}
+                  {selectedBankName || "Select or add bank..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -267,13 +273,14 @@ export function MarkAsPaidDialog({
                           key={bank.id}
                           value={bank.name}
                           onSelect={() => {
-                            setBankName(bank.name);
+                            setSelectedBankId(bank.id);
+                            setSelectedBankName(bank.name);
                             setBankOpen(false);
                             setBankSearch("");
                           }}
                           className="cursor-pointer"
                         >
-                          <Check className={cn("mr-2 h-4 w-4", bankName === bank.name ? "opacity-100" : "opacity-0")} />
+                          <Check className={cn("mr-2 h-4 w-4", selectedBankId === bank.id ? "opacity-100" : "opacity-0")} />
                           {bank.name}
                         </CommandItem>
                       ))}
