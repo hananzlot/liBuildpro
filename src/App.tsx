@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { MemoryRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { PortalChatProvider } from "@/contexts/PortalChatContext";
 import { SubscriptionGuard } from "@/components/subscription/SubscriptionGuard";
@@ -28,30 +28,6 @@ const queryClient = new QueryClient({
 });
 
 const persister = createIDBPersister();
-
-// MemoryRouter doesn't reflect navigation in the URL, so if the browser reloads
-// (common when a tab is backgrounded/suspended), we must restore the last active
-// in-app tab ourselves.
-const INNER_TABS_STORAGE_KEY = "app-inner-tabs";
-
-function getInitialEntries(): string[] {
-  if (typeof window === "undefined") return ["/"];
-  try {
-    const savedTabs = window.localStorage.getItem(INNER_TABS_STORAGE_KEY);
-    const savedActiveId = window.localStorage.getItem(`${INNER_TABS_STORAGE_KEY}-active`);
-    const tabs = savedTabs ? (JSON.parse(savedTabs) as Array<{ id: string; path: string }>) : [];
-
-    const activeTab =
-      (savedActiveId ? tabs.find((t) => t.id === savedActiveId) : null) ||
-      (tabs.length ? tabs[tabs.length - 1] : null);
-
-    return [activeTab?.path || "/"];
-  } catch {
-    return ["/"];
-  }
-}
-
-const INITIAL_ENTRIES = getInitialEntries();
 
 const App = () => (
   <PersistQueryClientProvider
@@ -80,11 +56,11 @@ const App = () => (
             <GlobalHooks />
             <Toaster />
             <Sonner />
-            <MemoryRouter initialEntries={INITIAL_ENTRIES}>
+            <BrowserRouter>
               <AppTabsProvider>
                 <AppRoutes />
               </AppTabsProvider>
-            </MemoryRouter>
+            </BrowserRouter>
           </TooltipProvider>
         </SubscriptionGuard>
       </PortalChatProvider>
