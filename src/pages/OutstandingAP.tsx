@@ -636,6 +636,7 @@ export default function OutstandingAP() {
                             </div>
                           </TableHead>
                           <TableHead>Ref</TableHead>
+                          <TableHead className="text-right">Bill Amount</TableHead>
                           <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount_due')}>
                             <div className="flex items-center justify-end gap-1">
                               Amount Due
@@ -678,6 +679,9 @@ export default function OutstandingAP() {
                             </TableCell>
                             <TableCell className="font-medium">{payable.vendor || '-'}</TableCell>
                             <TableCell>{payable.bill_ref || '-'}</TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrencyWithDecimals(payable.total_bill)}
+                            </TableCell>
                             <TableCell className="text-right font-medium text-destructive">
                               {formatCurrencyWithDecimals(payable.amount_due)}
                             </TableCell>
@@ -767,7 +771,7 @@ export default function OutstandingAP() {
                         ))}
                         {filteredAndSorted.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                               No outstanding bills
                             </TableCell>
                           </TableRow>
@@ -858,6 +862,7 @@ export default function OutstandingAP() {
                             </div>
                           </TableHead>
                           <TableHead>Ref</TableHead>
+                          <TableHead className="text-right">Bill Amount</TableHead>
                           <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount_due')}>
                             <div className="flex items-center justify-end gap-1">
                               Amount Due
@@ -888,6 +893,9 @@ export default function OutstandingAP() {
                             </TableCell>
                             <TableCell className="font-medium">{payable.vendor || '-'}</TableCell>
                             <TableCell>{payable.bill_ref || '-'}</TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrencyWithDecimals(payable.total_bill)}
+                            </TableCell>
                             <TableCell className="text-right font-medium text-destructive">
                               {formatCurrencyWithDecimals(payable.amount_due)}
                             </TableCell>
@@ -950,7 +958,7 @@ export default function OutstandingAP() {
                         ))}
                         {filteredAndSorted.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                               No scheduled payments
                             </TableCell>
                           </TableRow>
