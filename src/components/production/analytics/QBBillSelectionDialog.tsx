@@ -51,6 +51,7 @@ interface QBBillSelectionDialogProps {
   projectId?: string | null;
   onSelect: (qbBillId: string, qbDocNumber: string) => void;
   onCreateNew: () => void;
+  onSkipSync?: () => void;
   onCancel: () => void;
 }
 
@@ -63,11 +64,12 @@ export function QBBillSelectionDialog({
   projectId,
   onSelect,
   onCreateNew,
+  onSkipSync,
   onCancel,
 }: QBBillSelectionDialogProps) {
   const { companyId } = useCompanyContext();
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
-  const [submittingAction, setSubmittingAction] = useState<"select" | "create" | null>(null);
+  const [submittingAction, setSubmittingAction] = useState<"select" | "create" | "skip" | null>(null);
   const [showCreateConfirm, setShowCreateConfirm] = useState(false);
 
   // Fetch unpaid QB bills for this vendor (optionally filtered by project customer)
@@ -168,7 +170,15 @@ export function QBBillSelectionDialog({
     onOpenChange(false);
   };
 
+  const handleSkipSync = () => {
+    if (onSkipSync) {
+      setSubmittingAction("skip");
+      onSkipSync();
+    }
+  };
+
   const billCount = data?.bills?.length || 0;
+  const vendorNotFound = !isLoading && data && !data.vendorFound;
 
   return (
     <>
@@ -233,10 +243,29 @@ export function QBBillSelectionDialog({
             )}
 
             {/* Vendor not found */}
-            {!isLoading && data && !data.vendorFound && (
-              <div className="flex items-center gap-2 p-4 rounded-lg bg-amber-500/10 text-amber-700">
-                <AlertCircle className="h-5 w-5" />
-                <span>Vendor "{vendorName}" not found in QuickBooks. Please check the vendor mapping.</span>
+            {vendorNotFound && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 p-4 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                  <AlertCircle className="h-5 w-5 shrink-0" />
+                  <span>Vendor "{vendorName}" not found in QuickBooks. Please check the vendor mapping or skip the sync.</span>
+                </div>
+                {onSkipSync && (
+                  <div className="p-4 rounded-lg bg-muted border border-border">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      You can record this payment locally without syncing to QuickBooks. 
+                      You'll need to manually enter the payment in QuickBooks later.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      onClick={handleSkipSync}
+                      disabled={isSubmitting}
+                      className="w-full"
+                    >
+                      {submittingAction === "skip" && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      Skip QuickBooks Sync — Record Payment in App Only
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
