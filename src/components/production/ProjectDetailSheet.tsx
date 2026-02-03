@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { logAudit } from "@/hooks/useAuditLog";
 import {
   Sheet,
@@ -92,6 +93,8 @@ interface ProjectDetailSheetProps {
   autoOpenBillDialog?: boolean;
   onBillDialogOpened?: () => void;
   initialTab?: string;
+  /** Initial sub-tab within the Finance tab (agreements, phases, invoices, bills, commission) */
+  initialFinanceSectionTab?: string;
   initialFinanceSubTab?: 'bills' | 'history';
   highlightInvoiceId?: string | null;
   /** Render mode: 'sheet' (default) shows in a slide-over, 'page' renders inline content */
@@ -107,13 +110,16 @@ const statusColors: Record<string, string> = {
   "Cancelled": "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
-export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab, initialFinanceSubTab, highlightInvoiceId, mode = 'sheet' }: ProjectDetailSheetProps) {
+export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab, initialFinanceSectionTab, initialFinanceSubTab, highlightInvoiceId, mode = 'sheet' }: ProjectDetailSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isSuperAdmin, user } = useAuth();
   const { companyId } = useCompanyContext();
+  const { updateActiveTabPath } = useAppTabs();
   const { isShortLinksEnabled, createPortalShortLink } = useShortLinks();
   const [activeTab, setActiveTab] = useState(initialTab || "overview");
+  const [financeSubTab, setFinanceSubTab] = useState<string>(initialFinanceSectionTab || "agreements");
+  const [financeBillsSubTab, setFinanceBillsSubTab] = useState<'bills' | 'history' | undefined>(initialFinanceSubTab);
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
   const [editingChecklistText, setEditingChecklistText] = useState("");
@@ -132,6 +138,42 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const [leadSourceSearch, setLeadSourceSearch] = useState("");
   const [portalLinkCopied, setPortalLinkCopied] = useState(false);
   const [headerPortalLink, setHeaderPortalLink] = useState<string | null>(null);
+
+  // Helper to sync the app tab path with inner tab state (only in page mode)
+  const syncTabPath = useCallback((tab: string, finSubTab?: string, finBillsSubTab?: 'bills' | 'history') => {
+    if (mode !== 'page' || !project?.id) return;
+    
+    const params = new URLSearchParams();
+    if (tab && tab !== 'overview') {
+      params.set('tab', tab);
+    }
+    if (tab === 'finance' && finSubTab && finSubTab !== 'agreements') {
+      params.set('financeSubTab', finSubTab);
+    }
+    if (tab === 'finance' && finSubTab === 'bills' && finBillsSubTab && finBillsSubTab !== 'bills') {
+      params.set('financeTab', finBillsSubTab);
+    }
+    
+    const query = params.toString();
+    const newPath = `/project/${project.id}${query ? `?${query}` : ''}`;
+    updateActiveTabPath(newPath);
+  }, [mode, project?.id, updateActiveTabPath]);
+
+  // Handle main tab changes
+  const handleActiveTabChange = useCallback((newTab: string) => {
+    setActiveTab(newTab);
+    syncTabPath(newTab, newTab === 'finance' ? financeSubTab : undefined, newTab === 'finance' && financeSubTab === 'bills' ? financeBillsSubTab : undefined);
+  }, [financeSubTab, financeBillsSubTab, syncTabPath]);
+
+  // Handle finance section sub-tab changes
+  const handleFinanceSubTabChange = useCallback((subTab: string, billsSubTab?: 'bills' | 'history') => {
+    setFinanceSubTab(subTab);
+    if (billsSubTab !== undefined) {
+      setFinanceBillsSubTab(billsSubTab);
+    }
+    syncTabPath(activeTab, subTab, billsSubTab);
+  }, [activeTab, syncTabPath]);
+
   // Auto-switch to finance tab and signal bill dialog open when returning from subcontractor add
   useEffect(() => {
     if (open && autoOpenBillDialog && project) {
@@ -830,7 +872,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           </div>
         </SheetHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-3">
+        <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="mt-3">
           <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview" className="text-xs">
               <Building2 className="h-3 w-3 mr-1" />
@@ -1864,8 +1906,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 onUpdateProject={(updates) => updateProjectMutation.mutate(updates)}
                 onNavigateToSubcontractors={handleNavigateToSubcontractors}
                 autoOpenBillDialog={autoOpenBillDialog}
+                initialSubTab={initialFinanceSectionTab}
                 initialBillsSubTab={initialFinanceSubTab}
                 highlightInvoiceId={highlightInvoiceId}
+                onSubTabChange={handleFinanceSubTabChange}
               />
             )}
           </TabsContent>

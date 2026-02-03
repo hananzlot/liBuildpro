@@ -17,6 +17,8 @@ interface AppTabsContextType {
   switchToTab: (tabId: string) => void;
   handleNavigation: (e: React.MouseEvent, path: string, title: string, icon?: string) => void;
   reorderTabs: (draggedTabId: string, targetTabId: string) => void;
+  /** Update the path of the active tab (for syncing inner state like sub-tabs) */
+  updateActiveTabPath: (newPath: string) => void;
 }
 
 const AppTabsContext = createContext<AppTabsContextType | undefined>(undefined);
@@ -198,6 +200,14 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     // Normal click - just navigate normally (handled by Link/NavLink)
   }, [openTab]);
 
+  // Update the path of the active tab (for syncing inner state like sub-tabs)
+  const updateActiveTabPath = useCallback((newPath: string) => {
+    if (!activeTabId) return;
+    setTabs(prev => prev.map(tab => 
+      tab.id === activeTabId ? { ...tab, path: newPath } : tab
+    ));
+  }, [activeTabId]);
+
   return (
     <AppTabsContext.Provider
       value={{
@@ -209,6 +219,7 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
         switchToTab,
         handleNavigation,
         reorderTabs,
+        updateActiveTabPath,
       }}
     >
       {children}

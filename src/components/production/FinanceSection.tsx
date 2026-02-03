@@ -88,8 +88,12 @@ interface FinanceSectionProps {
   onUpdateProject: (updates: Record<string, unknown>) => void;
   onNavigateToSubcontractors?: () => void;
   autoOpenBillDialog?: boolean;
+  /** Initial sub-tab for Finance section (agreements, phases, invoices, bills, commission) */
+  initialSubTab?: string;
   initialBillsSubTab?: 'bills' | 'history';
   highlightInvoiceId?: string | null;
+  /** Callback when inner sub-tabs change (for syncing URL state) */
+  onSubTabChange?: (subTab: string, billsSubTab?: 'bills' | 'history') => void;
 }
 
 interface Invoice {
@@ -187,15 +191,31 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialBillsSubTab, highlightInvoiceId }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, onSubTabChange }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
-  const [activeSubTab, setActiveSubTab] = useState(initialBillsSubTab ? "bills" : "agreements");
+  // Initialize based on props priority: initialBillsSubTab (explicit bills focus) > initialSubTab > default
+  const [activeSubTab, setActiveSubTab] = useState(() => {
+    if (initialBillsSubTab) return "bills";
+    if (initialSubTab) return initialSubTab;
+    return "agreements";
+  });
   const [activeBillsSubTab, setActiveBillsSubTab] = useState<"bills" | "history">(initialBillsSubTab || "bills");
   const [activeInvoicesSubTab, setActiveInvoicesSubTab] = useState<"invoices" | "payments">("invoices");
   const [selectedAgreementFilter, setSelectedAgreementFilter] = useState<string | null>(null);
   const [hasAutoOpenedBill, setHasAutoOpenedBill] = useState(false);
+
+  // Notify parent when sub-tabs change
+  const handleSubTabChange = (subTab: string) => {
+    setActiveSubTab(subTab);
+    onSubTabChange?.(subTab, subTab === "bills" ? activeBillsSubTab : undefined);
+  };
+
+  const handleBillsSubTabChange = (billsSubTab: "bills" | "history") => {
+    setActiveBillsSubTab(billsSubTab);
+    onSubTabChange?.(activeSubTab, billsSubTab);
+  };
   
   // Dialog states
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
@@ -1813,7 +1833,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       </div>
 
       {/* Sub-tabs for Agreements, Phases, Invoices, Payments, Bills, Commission */}
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
+      <Tabs value={activeSubTab} onValueChange={handleSubTabChange}>
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="agreements" className="text-xs">
             Contracts
@@ -2058,7 +2078,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
               {/* Sub-tabs for Bills */}
               <div className="flex gap-2 mb-4 border-b">
                 <button
-                  onClick={() => setActiveBillsSubTab("bills")}
+                  onClick={() => handleBillsSubTabChange("bills")}
                   className={cn(
                     "px-3 py-2 text-sm font-medium transition-colors",
                     activeBillsSubTab === "bills"
@@ -2069,7 +2089,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                   Bills ({bills.length})
                 </button>
                 <button
-                  onClick={() => setActiveBillsSubTab("history")}
+                  onClick={() => handleBillsSubTabChange("history")}
                   className={cn(
                     "px-3 py-2 text-sm font-medium transition-colors",
                     activeBillsSubTab === "history"

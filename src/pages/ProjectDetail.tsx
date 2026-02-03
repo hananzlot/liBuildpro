@@ -22,6 +22,7 @@ export default function ProjectDetail() {
   // Get initial tab/subtab from search params
   const initialTab = searchParams.get("tab") || undefined;
   const initialFinanceSubTab = (searchParams.get("financeTab") as 'bills' | 'history') || undefined;
+  const initialFinanceSection = searchParams.get("financeSubTab") || undefined;
   const highlightInvoiceId = searchParams.get("highlightInvoice") || undefined;
   
   // Fetch project data
@@ -87,6 +88,7 @@ export default function ProjectDetail() {
           onClose={handleClose}
           onUpdate={() => refetch()}
           initialTab={initialTab}
+          initialFinanceSectionTab={initialFinanceSection}
           initialFinanceSubTab={initialFinanceSubTab}
           highlightInvoiceId={highlightInvoiceId}
           mode="page"
