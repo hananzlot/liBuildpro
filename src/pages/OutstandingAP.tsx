@@ -36,7 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, formatCurrencyWithDecimals } from "@/lib/utils";
 import { Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2, Info } from "lucide-react";
-import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import { SchedulePaymentDialog } from "@/components/production/analytics/SchedulePaymentDialog";
 import { MarkAsPaidDialog } from "@/components/production/analytics/MarkAsPaidDialog";
@@ -72,7 +72,11 @@ export default function OutstandingAP() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [groupByProject, setGroupByProject] = useState(false);
   const [scheduledDateFilter, setScheduledDateFilter] = useState<Date | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<'all' | 'scheduled'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'scheduled' | 'paid'>('all');
+  const [paidDateRange, setPaidDateRange] = useState<{ from: Date; to: Date }>({
+    from: startOfWeek(new Date(), { weekStartsOn: 0 }),
+    to: endOfWeek(new Date(), { weekStartsOn: 0 }),
+  });
   const [schedulingPayable, setSchedulingPayable] = useState<PayableWithCashImpact | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [markingAsPaidPayable, setMarkingAsPaidPayable] = useState<PayableWithCashImpact | null>(null);
@@ -84,6 +88,38 @@ export default function OutstandingAP() {
     dateRange: undefined,
     selectedProjects: [],
     selectedSalespeople: [],
+  });
+
+  // Fetch paid bills for the Paid tab
+  const { data: paidBills = [], isLoading: loadingPaidBills } = useQuery({
+    queryKey: ["paid-bills", companyId, paidDateRange.from, paidDateRange.to],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bill_payments")
+        .select(`
+          id,
+          payment_amount,
+          payment_date,
+          payment_method,
+          bank_name,
+          payment_reference,
+          bill:project_bills(
+            id,
+            bill_ref,
+            installer_company,
+            category,
+            project:projects(id, project_number, project_name, project_address)
+          )
+        `)
+        .eq("company_id", companyId)
+        .gte("payment_date", format(paidDateRange.from, 'yyyy-MM-dd'))
+        .lte("payment_date", format(paidDateRange.to, 'yyyy-MM-dd'))
+        .order("payment_date", { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId && activeTab === 'paid',
   });
 
   // Filter and sort logic
@@ -274,7 +310,7 @@ export default function OutstandingAP() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'scheduled')} className="w-full">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'scheduled' | 'paid')} className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="all">
               All Outstanding
@@ -284,6 +320,12 @@ export default function OutstandingAP() {
               Scheduled
               {scheduledCount > 0 && (
                 <Badge variant="secondary" className="ml-2 bg-primary/20 text-primary">{scheduledCount}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="paid">
+              Paid
+              {paidBills.length > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-emerald-500/20 text-emerald-600">{paidBills.length}</Badge>
               )}
             </TabsTrigger>
           </TabsList>
@@ -653,6 +695,152 @@ export default function OutstandingAP() {
                           <TableRow>
                             <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                               No scheduled payments
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="paid" className="mt-0">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 min-w-[200px]">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search vendors, projects..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <CalendarIcon className="h-4 w-4 mr-2" />
+                          {format(paidDateRange.from, 'MMM d')} - {format(paidDateRange.to, 'MMM d')}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="range"
+                          selected={{ from: paidDateRange.from, to: paidDateRange.to }}
+                          onSelect={(range) => {
+                            if (range?.from && range?.to) {
+                              setPaidDateRange({ from: range.from, to: range.to });
+                            } else if (range?.from) {
+                              setPaidDateRange({ from: range.from, to: range.from });
+                            }
+                          }}
+                          initialFocus
+                          numberOfMonths={2}
+                        />
+                        <div className="p-2 border-t flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => setPaidDateRange({
+                              from: startOfWeek(new Date(), { weekStartsOn: 0 }),
+                              to: endOfWeek(new Date(), { weekStartsOn: 0 }),
+                            })}
+                          >
+                            This Week
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => {
+                              const lastWeek = new Date();
+                              lastWeek.setDate(lastWeek.getDate() - 7);
+                              setPaidDateRange({
+                                from: startOfWeek(lastWeek, { weekStartsOn: 0 }),
+                                to: endOfWeek(lastWeek, { weekStartsOn: 0 }),
+                              });
+                            }}
+                          >
+                            Last Week
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600">
+                      Paid: {formatCurrencyWithDecimals(paidBills.reduce((sum, p) => sum + (p.payment_amount || 0), 0))}
+                    </Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingPaidBills ? (
+                  <Skeleton className="h-[400px]" />
+                ) : (
+                  <div className="border rounded-lg overflow-x-auto">
+                    <Table className="print-table">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Payment Date</TableHead>
+                          <TableHead>Project</TableHead>
+                          <TableHead>Vendor</TableHead>
+                          <TableHead>Ref</TableHead>
+                          <TableHead className="text-right">Amount Paid</TableHead>
+                          <TableHead>Method</TableHead>
+                          <TableHead>Bank</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paidBills
+                          .filter(p => {
+                            if (!search) return true;
+                            const lower = search.toLowerCase();
+                            const project = p.bill?.project;
+                            const vendor = p.bill?.installer_company;
+                            return (
+                              project?.project_name?.toLowerCase().includes(lower) ||
+                              project?.project_address?.toLowerCase().includes(lower) ||
+                              vendor?.toLowerCase().includes(lower) ||
+                              p.bill?.bill_ref?.toLowerCase().includes(lower) ||
+                              String(project?.project_number).includes(lower)
+                            );
+                          })
+                          .map((payment) => (
+                          <TableRow
+                            key={payment.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => payment.bill?.project?.id && handleProjectClick(payment.bill.project.id)}
+                          >
+                            <TableCell>
+                              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600">
+                                {payment.payment_date && format(parseISO(payment.payment_date), 'MMM d, yyyy')}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="max-w-[200px]">
+                              <div className="truncate font-medium">#{payment.bill?.project?.project_number}</div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {payment.bill?.project?.project_address || payment.bill?.project?.project_name}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium">{payment.bill?.installer_company || '-'}</TableCell>
+                            <TableCell>{payment.bill?.bill_ref || '-'}</TableCell>
+                            <TableCell className="text-right font-medium text-emerald-600">
+                              {formatCurrencyWithDecimals(payment.payment_amount || 0)}
+                            </TableCell>
+                            <TableCell>{payment.payment_method || '-'}</TableCell>
+                            <TableCell>{payment.bank_name || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                        {paidBills.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                              No payments in this period
                             </TableCell>
                           </TableRow>
                         )}
