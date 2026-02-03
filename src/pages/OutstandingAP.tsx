@@ -688,8 +688,28 @@ export default function OutstandingAP() {
   }, []);
 
   // Handler when user selects a QB bill from the selection dialog
-  const handleQbBillSelected = useCallback((qbBillId: string, qbDocNumber: string) => {
+  const handleQbBillSelected = useCallback(async (qbBillId: string, qbDocNumber: string) => {
     if (pendingPaymentData) {
+      // Save the QB bill mapping for future quick matching
+      try {
+        await supabase.from("quickbooks_sync_log").upsert(
+          {
+            company_id: companyId,
+            record_type: "bill",
+            record_id: pendingPaymentData.billId,
+            qb_id: qbBillId,
+            qb_doc_number: qbDocNumber,
+            status: "synced",
+            last_synced_at: new Date().toISOString(),
+          },
+          { onConflict: "company_id,record_type,record_id" }
+        );
+        console.log(`Saved QB bill mapping: ${pendingPaymentData.billId} -> ${qbBillId}`);
+      } catch (err) {
+        console.error("Failed to save QB bill mapping:", err);
+        // Continue anyway - this is just for future convenience
+      }
+
       markAsPaidMutation.mutate({ 
         billId: pendingPaymentData.billId, 
         data: pendingPaymentData.data, 
@@ -697,7 +717,7 @@ export default function OutstandingAP() {
         selectedQbBillId: qbBillId,
       });
     }
-  }, [pendingPaymentData, markAsPaidMutation]);
+  }, [pendingPaymentData, markAsPaidMutation, companyId]);
 
   // Handler when user wants to create a new bill in QB instead of selecting existing
   const handleQbBillCreateNew = useCallback(() => {
