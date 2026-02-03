@@ -37,6 +37,7 @@ interface QBBillSelectionDialogProps {
   localBillRef: string | null;
   localBillAmount: number;
   onSelect: (qbBillId: string, qbDocNumber: string) => void;
+  onCreateNew: () => void;
   onCancel: () => void;
 }
 
@@ -47,6 +48,7 @@ export function QBBillSelectionDialog({
   localBillRef,
   localBillAmount,
   onSelect,
+  onCreateNew,
   onCancel,
 }: QBBillSelectionDialogProps) {
   const { companyId } = useCompanyContext();
@@ -108,6 +110,11 @@ export function QBBillSelectionDialog({
       setIsSubmitting(true);
       onSelect(selectedBill.qbBillId, selectedBill.docNumber);
     }
+  };
+
+  const handleCreateNew = () => {
+    setIsSubmitting(true);
+    onCreateNew();
   };
 
   const handleCancel = () => {
@@ -246,15 +253,23 @@ export function QBBillSelectionDialog({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
             Cancel
+          </Button>
+          <Button 
+            variant="secondary"
+            onClick={handleCreateNew} 
+            disabled={isSubmitting}
+          >
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+            Create New Bill in QB
           </Button>
           <Button 
             onClick={handleSelect} 
             disabled={!selectedBillId || !data?.bills?.length || isSubmitting}
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
             {isSubmitting ? "Processing..." : "Select Bill"}
           </Button>
         </DialogFooter>
