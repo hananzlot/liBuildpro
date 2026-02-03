@@ -864,21 +864,39 @@ Deno.serve(async (req) => {
 
           // Look up customer mapping for job costing (link bill to project)
           let customerRef: { value: string; name?: string } | undefined;
+          const projectId = bill.projects?.id;
           const contactUuid = bill.projects?.contact_uuid;
           const contactGhlId = bill.projects?.contact_id;
-          
-          if (contactUuid || contactGhlId) {
-            const customerMapping = mappings?.find(m => 
+
+          // Priority 1: Check for direct project_customer mapping
+          if (projectId) {
+            const projectMapping = mappings?.find(m => 
+              m.mapping_type === "project_customer" && 
+              m.source_value === projectId
+            );
+            
+            if (projectMapping && projectMapping.qbo_id) {
+              customerRef = { 
+                value: projectMapping.qbo_id, 
+                name: projectMapping.qbo_name || undefined 
+              };
+              console.log(`Found project_customer mapping for bill job costing:`, customerRef);
+            }
+          }
+
+          // Priority 2: Fall back to contact-based customer mapping
+          if (!customerRef && (contactUuid || contactGhlId)) {
+            const contactMapping = mappings?.find(m => 
               m.mapping_type === "customer" && 
               (m.source_value === contactUuid || m.source_value === contactGhlId)
             );
             
-            if (customerMapping && customerMapping.qbo_id) {
+            if (contactMapping && contactMapping.qbo_id) {
               customerRef = { 
-                value: customerMapping.qbo_id, 
-                name: customerMapping.qbo_name || undefined 
+                value: contactMapping.qbo_id, 
+                name: contactMapping.qbo_name || undefined 
               };
-              console.log(`Found customer mapping for bill job costing:`, customerRef);
+              console.log(`Found contact customer mapping for bill job costing:`, customerRef);
             }
           }
 
