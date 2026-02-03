@@ -650,7 +650,7 @@ export default function Estimates() {
       <div className="flex flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Estimates & Contracts</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Estimates, Proposals & Contracts</h1>
             <p className="text-muted-foreground">
               Create estimates, send proposals, and manage contracts
             </p>
