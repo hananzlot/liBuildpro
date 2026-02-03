@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords, checkOnly, checkVendorName } = await req.json();
+    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords, checkOnly, checkVendorName, qbBillId } = await req.json();
 
     if (!companyId) {
       return new Response(
@@ -300,6 +300,75 @@ Deno.serve(async (req) => {
           checkOnly: true, 
           pendingEntities,
           requiresConfirmation: pendingEntities.length > 0 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Handle link_bill mode - link a local bill to an existing QB bill without re-syncing
+    if (syncType === "link_bill") {
+      if (!recordId || !qbBillId) {
+        return new Response(
+          JSON.stringify({ error: "recordId and qbBillId are required for link_bill sync type" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`Linking local bill ${recordId} to QB bill ${qbBillId}`);
+
+      // Verify the QB bill exists in QuickBooks
+      const verifyRes = await fetch(`${QB_BASE_URL}/${realm_id}/bill/${qbBillId}`, {
+        headers: qbHeaders,
+      });
+
+      if (!verifyRes.ok) {
+        const errText = await verifyRes.text();
+        console.error(`QB bill ${qbBillId} not found:`, errText);
+        return new Response(
+          JSON.stringify({ 
+            error: `QuickBooks bill ${qbBillId} not found or inaccessible`,
+            synced: 0,
+            failed: 1,
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const qbBillData = await verifyRes.json();
+      console.log(`Verified QB bill ${qbBillId} exists:`, qbBillData.Bill?.DocNumber);
+
+      // Upsert the sync log entry to link local bill to QB bill
+      const { error: upsertError } = await supabase
+        .from("quickbooks_sync_log")
+        .upsert({
+          company_id: companyId,
+          record_type: "bill",
+          record_id: recordId,
+          quickbooks_id: qbBillId,
+          sync_status: "synced",
+          synced_at: new Date().toISOString(),
+        }, { onConflict: "company_id,record_type,record_id" });
+
+      if (upsertError) {
+        console.error(`Failed to upsert sync log:`, upsertError);
+        return new Response(
+          JSON.stringify({ 
+            error: `Failed to link bill: ${upsertError.message}`,
+            synced: 0,
+            failed: 1,
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`Successfully linked local bill ${recordId} to QB bill ${qbBillId}`);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          synced: 1, 
+          failed: 0,
+          linkedQbBillId: qbBillId,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

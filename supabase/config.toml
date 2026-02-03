@@ -212,3 +212,6 @@ verify_jwt = false
 
 [functions.quickbooks-webhook]
 verify_jwt = false
+
+[functions.quickbooks-list-vendor-bills]
+verify_jwt = false
