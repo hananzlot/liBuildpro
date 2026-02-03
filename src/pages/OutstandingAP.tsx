@@ -768,7 +768,7 @@ export default function OutstandingAP() {
     setQbBillSelectionDialogOpen(true);
   }, []);
 
-  // Handler when user skips QB sync
+  // Handler when user skips QB sync (from either customer mapping or bill selection dialog)
   const handleSkipQBSync = useCallback(() => {
     if (pendingPaymentData) {
       markAsPaidMutation.mutate({ 
@@ -778,6 +778,7 @@ export default function OutstandingAP() {
       });
     }
     setQbCustomerMappingDialogOpen(false);
+    setQbBillSelectionDialogOpen(false);
   }, [pendingPaymentData, markAsPaidMutation]);
 
   // Handler when user cancels customer mapping
@@ -1755,6 +1756,7 @@ export default function OutstandingAP() {
         projectId={pendingPaymentData?.projectId || null}
         onSelect={handleQbBillSelected}
         onCreateNew={handleQbBillCreateNew}
+        onSkipSync={handleSkipQBSync}
         onCancel={handleQbBillSelectionCancel}
       />
 
