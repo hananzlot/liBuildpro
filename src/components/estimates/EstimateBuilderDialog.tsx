@@ -732,9 +732,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     refetchOnReconnect: true,
   });
 
-  // isProposalReadOnly is true when viewing a proposal (sent, viewed, accepted, declined - anything except draft)
-  // This prevents editing proposals that have been sent to customers
-  const isProposalReadOnly = !!(existingEstimate?.estimate?.status && existingEstimate.estimate.status !== 'draft');
+  // isProposalReadOnly is now always false - proposals can be edited and saved with changes
+  // Previously this prevented editing proposals that were sent to customers
+  const isProposalReadOnly = false;
 
   // Sync salesperson to linked project when estimate is in pre-proposal (draft) status
   const syncSalespersonToProject = useCallback(async (salespersonName: string) => {
