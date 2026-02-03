@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertCircle, CheckCircle2, FileText } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileText, Loader2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { formatCurrencyWithDecimals } from "@/lib/utils";
 
@@ -51,6 +51,7 @@ export function QBBillSelectionDialog({
 }: QBBillSelectionDialogProps) {
   const { companyId } = useCompanyContext();
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch unpaid QB bills for this vendor
   const { data, isLoading, error, refetch } = useQuery({
@@ -90,10 +91,11 @@ export function QBBillSelectionDialog({
     }
   }, [data?.bills, localBillRef, selectedBillId]);
 
-  // Reset selection when dialog opens
+  // Reset selection and submitting state when dialog closes
   useEffect(() => {
     if (!open) {
       setSelectedBillId(null);
+      setIsSubmitting(false);
     }
   }, [open]);
 
@@ -103,6 +105,7 @@ export function QBBillSelectionDialog({
 
   const handleSelect = () => {
     if (selectedBill) {
+      setIsSubmitting(true);
       onSelect(selectedBill.qbBillId, selectedBill.docNumber);
     }
   };
@@ -249,9 +252,10 @@ export function QBBillSelectionDialog({
           </Button>
           <Button 
             onClick={handleSelect} 
-            disabled={!selectedBillId || !data?.bills?.length}
+            disabled={!selectedBillId || !data?.bills?.length || isSubmitting}
           >
-            Select Bill
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSubmitting ? "Processing..." : "Select Bill"}
           </Button>
         </DialogFooter>
       </DialogContent>
