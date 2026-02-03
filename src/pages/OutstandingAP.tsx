@@ -185,6 +185,7 @@ export default function OutstandingAP() {
     onSuccess: () => {
       toast.success("Payment scheduled");
       queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-ap-due"] });
       setScheduleDialogOpen(false);
       setSchedulingPayable(null);
@@ -207,6 +208,7 @@ export default function OutstandingAP() {
     onSuccess: () => {
       toast.success("Schedule cleared");
       queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-ap-due"] });
       setClearScheduleConfirmOpen(false);
       setPayableToClear(null);
@@ -242,6 +244,8 @@ export default function OutstandingAP() {
     onSuccess: () => {
       toast.success("Payment recorded");
       queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-ap-due"] });
       setMarkAsPaidDialogOpen(false);
       setMarkingAsPaidPayable(null);
