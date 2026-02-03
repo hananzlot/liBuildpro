@@ -226,8 +226,8 @@ export function QuickBooksMappingConfig() {
            digitsOnly.length / str.replace(/\s/g, "").length > 0.5;
   };
 
-  // Fetch local contacts (customers) - only those with projects that have invoices
-  // Includes opportunity address for searching
+  // Fetch local contacts (customers) - those with projects that have invoices
+  // Also includes projects without contact_uuid but with customer name (legacy/imported projects)
   const { data: contactsRaw, isLoading: contactsLoading } = useQuery({
     queryKey: ["contacts-for-mapping-with-invoices", companyId, customerSearch],
     queryFn: async () => {
@@ -246,96 +246,128 @@ export function QuickBooksMappingConfig() {
       )];
       
       if (projectIdsWithInvoices.length === 0) {
-        return [];
+        return { contacts: [], orphanProjects: [] };
       }
       
-      // Get contact_uuids from projects that have invoices
-      const { data: projectContacts, error: projectError } = await supabase
+      // Get projects with invoices - both those WITH and WITHOUT contact_uuid
+      const { data: projectsWithInvoices, error: projectError } = await supabase
         .from("projects")
-        .select("contact_uuid")
+        .select("id, contact_uuid, customer_first_name, customer_last_name, project_name")
         .eq("company_id", companyId)
-        .in("id", projectIdsWithInvoices)
-        .not("contact_uuid", "is", null);
+        .in("id", projectIdsWithInvoices);
       
       if (projectError) throw projectError;
       
-      // Get unique contact IDs from projects with invoices
+      // Separate projects with contact_uuid from orphan projects (no contact_uuid)
       const projectContactIds = [...new Set(
-        (projectContacts || [])
+        (projectsWithInvoices || [])
           .map((p) => p.contact_uuid)
           .filter(Boolean) as string[]
       )];
       
-      if (projectContactIds.length === 0) {
-        return [];
-      }
+      // Orphan projects - have invoices but no contact_uuid linked
+      const orphanProjects = (projectsWithInvoices || [])
+        .filter((p) => !p.contact_uuid && (p.customer_first_name || p.customer_last_name || p.project_name))
+        .map((p) => ({
+          id: `project:${p.id}`, // Prefix to distinguish from contact IDs
+          projectId: p.id,
+          contact_name: [p.customer_first_name, p.customer_last_name].filter(Boolean).join(" ") || p.project_name,
+          first_name: p.customer_first_name,
+          last_name: p.customer_last_name,
+          email: null as string | null,
+          isOrphanProject: true,
+        }));
       
       const searchTerm = customerSearch.trim();
       
-      if (searchTerm) {
-        // First, find contact IDs that match via opportunity address
-        const { data: addressMatches } = await supabase
-          .from("opportunities")
-          .select("contact_uuid")
-          .eq("company_id", companyId)
-          .ilike("address", `%${searchTerm}%`)
-          .in("contact_uuid", projectContactIds)
-          .limit(100);
-        
-        const addressMatchIds = (addressMatches || [])
-          .map((o) => o.contact_uuid)
-          .filter(Boolean) as string[];
-        
-        // Fetch contacts with projects that match search criteria
-        let query = supabase
-          .from("contacts")
-          .select("id, contact_name, first_name, last_name, email")
-          .eq("company_id", companyId)
-          .in("id", projectContactIds)
-          .order("contact_name")
-          .limit(200);
-        
-        // Build OR filter for name/email matches
-        if (addressMatchIds.length > 0) {
-          query = query.or(
-            `contact_name.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.in.(${addressMatchIds.join(",")})`
-          );
+      let contacts: { id: string; contact_name: string | null; first_name: string | null; last_name: string | null; email: string | null }[] = [];
+      
+      if (projectContactIds.length > 0) {
+        if (searchTerm) {
+          // First, find contact IDs that match via opportunity address
+          const { data: addressMatches } = await supabase
+            .from("opportunities")
+            .select("contact_uuid")
+            .eq("company_id", companyId)
+            .ilike("address", `%${searchTerm}%`)
+            .in("contact_uuid", projectContactIds)
+            .limit(100);
+          
+          const addressMatchIds = (addressMatches || [])
+            .map((o) => o.contact_uuid)
+            .filter(Boolean) as string[];
+          
+          // Fetch contacts with projects that match search criteria
+          let query = supabase
+            .from("contacts")
+            .select("id, contact_name, first_name, last_name, email")
+            .eq("company_id", companyId)
+            .in("id", projectContactIds)
+            .order("contact_name")
+            .limit(200);
+          
+          // Build OR filter for name/email matches
+          if (addressMatchIds.length > 0) {
+            query = query.or(
+              `contact_name.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.in.(${addressMatchIds.join(",")})`
+            );
+          } else {
+            query = query.or(
+              `contact_name.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`
+            );
+          }
+          
+          const { data, error } = await query;
+          if (error) throw error;
+          contacts = data || [];
         } else {
-          query = query.or(
-            `contact_name.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`
-          );
+          // No search term - fetch contacts with projects
+          const { data, error } = await supabase
+            .from("contacts")
+            .select("id, contact_name, first_name, last_name, email")
+            .eq("company_id", companyId)
+            .in("id", projectContactIds)
+            .order("contact_name")
+            .limit(200);
+          
+          if (error) throw error;
+          contacts = data || [];
         }
-        
-        const { data, error } = await query;
-        if (error) throw error;
-        return data;
-      } else {
-        // No search term - fetch contacts with projects
-        const { data, error } = await supabase
-          .from("contacts")
-          .select("id, contact_name, first_name, last_name, email")
-          .eq("company_id", companyId)
-          .in("id", projectContactIds)
-          .order("contact_name")
-          .limit(200);
-        
-        if (error) throw error;
-        return data;
       }
+      
+      // Filter orphan projects by search term if provided
+      let filteredOrphanProjects = orphanProjects;
+      if (searchTerm) {
+        const lowerSearch = searchTerm.toLowerCase();
+        filteredOrphanProjects = orphanProjects.filter((p) =>
+          p.contact_name?.toLowerCase().includes(lowerSearch) ||
+          p.first_name?.toLowerCase().includes(lowerSearch) ||
+          p.last_name?.toLowerCase().includes(lowerSearch)
+        );
+      }
+      
+      return { contacts, orphanProjects: filteredOrphanProjects };
     },
     enabled: !!companyId,
   });
 
-  // Filter out contacts that only have phone numbers as names (not useful for matching)
+  // Combine contacts and orphan projects, filter out junk entries
   // Apply filter based on customerFilter state
   const contacts = useMemo(() => {
     if (!contactsRaw) return [];
+    
+    const { contacts: rawContacts, orphanProjects } = contactsRaw;
     const hiddenCustomerIds = hiddenRecords?.customers || [];
     const customerMappingIds = (mappings || [])
       .filter((m) => m.mapping_type === "customer" && m.source_value)
       .map((m) => m.source_value);
+    // Also check project_customer mappings for orphan projects
+    const projectCustomerMappingIds = (mappings || [])
+      .filter((m) => m.mapping_type === "project_customer" && m.source_value)
+      .map((m) => m.source_value);
     
-    return contactsRaw.filter((c) => {
+    // Filter regular contacts
+    const filteredContacts = (rawContacts || []).filter((c) => {
       const isHidden = hiddenCustomerIds.includes(c.id);
       const isMapped = customerMappingIds.includes(c.id);
       
@@ -352,7 +384,6 @@ export function QuickBooksMappingConfig() {
           break;
         case "all":
         default:
-          // Show all except hidden (unless viewing hidden)
           if (isHidden) return false;
           break;
       }
@@ -364,7 +395,39 @@ export function QuickBooksMappingConfig() {
       // Keep if contact_name doesn't look like a phone number
       if (c.contact_name && !looksLikePhoneNumber(c.contact_name)) return true;
       return false;
-    }).slice(0, 100); // Limit to 100 after filtering
+    });
+    
+    // Filter orphan projects (projects without contact_uuid)
+    const filteredOrphanProjects = (orphanProjects || []).filter((p) => {
+      const isMapped = projectCustomerMappingIds.includes(p.projectId);
+      
+      switch (customerFilter) {
+        case "matched":
+          if (!isMapped) return false;
+          break;
+        case "unmatched":
+          if (isMapped) return false;
+          break;
+        case "hidden":
+          return false; // Orphan projects can't be hidden currently
+        case "all":
+        default:
+          break;
+      }
+      
+      // Keep if has a valid name
+      if (p.first_name || p.last_name) return true;
+      if (p.contact_name && !looksLikePhoneNumber(p.contact_name)) return true;
+      return false;
+    });
+    
+    // Combine and sort alphabetically
+    const combined = [
+      ...filteredContacts.map((c) => ({ ...c, isOrphanProject: false as const, projectId: undefined as string | undefined })),
+      ...filteredOrphanProjects,
+    ].sort((a, b) => (a.contact_name || "").localeCompare(b.contact_name || ""));
+    
+    return combined.slice(0, 100); // Limit to 100 after filtering
   }, [contactsRaw, hiddenRecords?.customers, customerFilter, mappings]);
 
   // Fetch QB entities
@@ -952,8 +1015,12 @@ export function QuickBooksMappingConfig() {
                   )}
                   {filteredContacts.map((contact) => {
                     const displayName = contact.contact_name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || contact.email || "Unnamed";
-                    const existingMapping = getSourceMapping("customer", contact.id);
-                    const isHidden = hiddenRecords?.customers?.includes(contact.id);
+                    // For orphan projects, use project_customer mapping type with projectId
+                    const isOrphan = contact.isOrphanProject;
+                    const mappingType = isOrphan ? "project_customer" : "customer";
+                    const sourceId = isOrphan ? contact.projectId! : contact.id;
+                    const existingMapping = getSourceMapping(mappingType, sourceId);
+                    const isHidden = !isOrphan && hiddenRecords?.customers?.includes(contact.id);
                     
                     return (
                       <div 
@@ -967,7 +1034,14 @@ export function QuickBooksMappingConfig() {
                         }`}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{displayName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate">{displayName}</p>
+                            {isOrphan && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                Project
+                              </Badge>
+                            )}
+                          </div>
                           {contact.email && (
                             <p className="text-xs text-muted-foreground truncate">{contact.email}</p>
                           )}
@@ -976,11 +1050,11 @@ export function QuickBooksMappingConfig() {
                           value={existingMapping?.qbo_id || ""}
                           onValueChange={(value) => {
                             if (value === "_unmatch") {
-                              deleteMappingMutation.mutate({ mappingType: "customer", sourceValue: contact.id });
+                              deleteMappingMutation.mutate({ mappingType, sourceValue: sourceId });
                             } else {
                               const customer = qbCustomers?.find((c) => c.id === value);
                               if (customer) {
-                                handleSourceMapping("customer", contact.id, customer.id, customer.name);
+                                handleSourceMapping(mappingType, sourceId, customer.id, customer.name);
                               }
                             }
                           }}
@@ -1001,15 +1075,17 @@ export function QuickBooksMappingConfig() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => toggleHideCustomer(contact.id)}
-                          title={isHidden ? "Unhide from matching" : "Hide from matching"}
-                        >
-                          {isHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
-                        </Button>
+                        {!isOrphan && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() => toggleHideCustomer(contact.id)}
+                            title={isHidden ? "Unhide from matching" : "Hide from matching"}
+                          >
+                            {isHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                          </Button>
+                        )}
                       </div>
                     );
                   })}
