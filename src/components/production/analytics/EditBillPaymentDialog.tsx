@@ -178,9 +178,9 @@ export function EditBillPaymentDialog({
     bank.name && bank.name.toLowerCase().includes(bankSearch.toLowerCase())
   );
 
-  // Reset form when payment changes
+  // Reset form when payment changes or dialog opens
   useEffect(() => {
-    if (payment) {
+    if (open && payment) {
       setPaymentDate(payment.payment_date ? parseISO(payment.payment_date) : new Date());
       setAmount((payment.payment_amount || 0).toString());
       setBankName(payment.bank_name || "");
@@ -188,7 +188,7 @@ export function EditBillPaymentDialog({
       setPaymentReference(payment.payment_reference || "");
       setBankSearch("");
     }
-  }, [payment]);
+  }, [open, payment]);
 
   if (!payment) return null;
 
