@@ -64,7 +64,8 @@ import {
   ChevronsUpDown,
   ChevronDown,
   AlertCircle,
-  History
+  History,
+  GripVertical,
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
@@ -132,6 +133,7 @@ interface PaymentPhase {
   description: string | null;
   due_date: string | null;
   amount: number | null;
+  display_order: number | null;
 }
 
 interface BillPayment {
@@ -264,6 +266,10 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
+
+  // Phase drag-and-drop state
+  const [draggedPhaseId, setDraggedPhaseId] = useState<string | null>(null);
+  const [dragOverPhaseId, setDragOverPhaseId] = useState<string | null>(null);
 
   // Subscribe to Realtime changes on project_invoices for this project
   // We use separate subscriptions: one for INSERT/UPDATE with filter, and one unfiltered for DELETE
@@ -556,6 +562,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         .from("project_payment_phases")
         .select("*")
         .eq("project_id", projectId)
+        .order("display_order", { ascending: true, nullsFirst: false })
         .order("due_date", { ascending: true });
       if (error) throw error;
       return data as PaymentPhase[];
@@ -1352,6 +1359,24 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       setEditingPhase(null);
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
+  // Reorder phases mutation
+  const reorderPhasesMutation = useMutation({
+    mutationFn: async ({ phases }: { phases: { id: string; display_order: number }[] }) => {
+      // Update each phase's display_order
+      const updates = phases.map((phase) =>
+        supabase
+          .from("project_payment_phases")
+          .update({ display_order: phase.display_order })
+          .eq("id", phase.id)
+      );
+      await Promise.all(updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["project-payment-phases", projectId] });
+    },
+    onError: (error) => toast.error(`Failed to reorder: ${error.message}`),
   });
 
   // Track payments associated with invoice being deleted
@@ -2462,6 +2487,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                               <Table>
                                 <TableHeader>
                                   <TableRow>
+                                    <TableHead className="text-xs w-8"></TableHead>
                                     <TableHead className="text-xs">Phase</TableHead>
                                     <TableHead className="text-xs">Due Date</TableHead>
                                     <TableHead className="text-xs text-right">Amount</TableHead>
@@ -2470,15 +2496,66 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                  {agreementPhases.map((phase) => {
+                                  {agreementPhases.map((phase, phaseIndex) => {
                                     const invoiceStatus = getPhaseInvoiceStatus(phase.id);
                                     const paymentStatus = getPhasePaymentStatus(phase.id);
                                     const phaseAmount = phase.amount || 0;
                                     const isFullyInvoiced = invoiceStatus.totalInvoiced >= phaseAmount;
                                     const isFullyPaid = paymentStatus.totalReceived >= phaseAmount;
+                                    const isDragging = draggedPhaseId === phase.id;
+                                    const isDragOver = dragOverPhaseId === phase.id;
                                     
                                     return (
-                                      <TableRow key={phase.id}>
+                                      <TableRow 
+                                        key={phase.id}
+                                        draggable
+                                        onDragStart={(e) => {
+                                          setDraggedPhaseId(phase.id);
+                                          e.dataTransfer.effectAllowed = "move";
+                                          e.dataTransfer.setData("text/plain", phase.id);
+                                        }}
+                                        onDragOver={(e) => {
+                                          e.preventDefault();
+                                          if (phase.id !== draggedPhaseId) {
+                                            setDragOverPhaseId(phase.id);
+                                          }
+                                        }}
+                                        onDragLeave={() => setDragOverPhaseId(null)}
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          if (draggedPhaseId && draggedPhaseId !== phase.id) {
+                                            // Reorder phases within this agreement
+                                            const draggedIndex = agreementPhases.findIndex(p => p.id === draggedPhaseId);
+                                            const targetIndex = phaseIndex;
+                                            if (draggedIndex !== -1 && draggedIndex !== targetIndex) {
+                                              const newOrder = [...agreementPhases];
+                                              const [draggedItem] = newOrder.splice(draggedIndex, 1);
+                                              newOrder.splice(targetIndex, 0, draggedItem);
+                                              
+                                              // Update display_order for all phases in this agreement
+                                              const updates = newOrder.map((p, idx) => ({
+                                                id: p.id,
+                                                display_order: idx + 1,
+                                              }));
+                                              reorderPhasesMutation.mutate({ phases: updates });
+                                            }
+                                          }
+                                          setDraggedPhaseId(null);
+                                          setDragOverPhaseId(null);
+                                        }}
+                                        onDragEnd={() => {
+                                          setDraggedPhaseId(null);
+                                          setDragOverPhaseId(null);
+                                        }}
+                                        className={cn(
+                                          "transition-all",
+                                          isDragging && "opacity-50",
+                                          isDragOver && "ring-2 ring-primary ring-inset bg-primary/5"
+                                        )}
+                                      >
+                                        <TableCell className="text-xs w-8 cursor-grab active:cursor-grabbing">
+                                          <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                        </TableCell>
                                         <TableCell className="text-xs">
                                           <div>
                                             <span className="font-medium">{phase.phase_name}</span>
