@@ -35,7 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, formatCurrencyWithDecimals } from "@/lib/utils";
-import { Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2, Info, ChevronUp, ChevronDown } from "lucide-react";
+import { Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2, Info, ChevronUp, ChevronDown, RotateCcw, AlertTriangle } from "lucide-react";
 import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import { SchedulePaymentDialog } from "@/components/production/analytics/SchedulePaymentDialog";
@@ -43,6 +43,25 @@ import { MarkAsPaidDialog } from "@/components/production/analytics/MarkAsPaidDi
 import { EditBillPaymentDialog } from "@/components/production/analytics/EditBillPaymentDialog";
 import { QBBillSelectionDialog } from "@/components/production/analytics/QBBillSelectionDialog";
 import { QBCustomerMappingDialog } from "@/components/production/analytics/QBCustomerMappingDialog";
+
+// Type for voided bill records
+interface VoidedBillRecord {
+  id: string;
+  bill_ref: string | null;
+  bill_amount: number | null;
+  amount_paid: number | null;
+  balance: number | null;
+  installer_company: string | null;
+  category: string | null;
+  memo: string | null;
+  updated_at: string | null;
+  project: {
+    id: string;
+    project_number: number | null;
+    project_name: string | null;
+    project_address: string | null;
+  } | null;
+}
 
 // Type for paid bill records from the query
 interface PaidBillRecord {
@@ -105,7 +124,8 @@ export default function OutstandingAP() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [groupByProject, setGroupByProject] = useState(false);
   const [scheduledDateFilter, setScheduledDateFilter] = useState<Date | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<'all' | 'scheduled' | 'paid'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'scheduled' | 'paid' | 'voided'>('all');
+  const [restoringBillId, setRestoringBillId] = useState<string | null>(null);
   const [paidDateRange, setPaidDateRange] = useState<{ from: Date; to: Date }>({
     from: startOfWeek(new Date(), { weekStartsOn: 0 }),
     to: endOfWeek(new Date(), { weekStartsOn: 0 }),
@@ -178,6 +198,37 @@ export default function OutstandingAP() {
     enabled: !!companyId && activeTab === 'paid',
   });
 
+  // Fetch voided bills for the Voided tab (admin only)
+  const { data: voidedBills = [], isLoading: loadingVoidedBills } = useQuery<VoidedBillRecord[]>({
+    queryKey: ["voided-bills", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_bills")
+        .select(`
+          id,
+          bill_ref,
+          bill_amount,
+          amount_paid,
+          balance,
+          installer_company,
+          category,
+          memo,
+          updated_at,
+          project:projects(id, project_number, project_name, project_address)
+        `)
+        .eq("company_id", companyId)
+        .eq("is_voided", true)
+        .order("updated_at", { ascending: false });
+      
+      if (error) throw error;
+      return (data || []).map(row => ({
+        ...row,
+        project: Array.isArray(row.project) ? row.project[0] : row.project,
+      })) as VoidedBillRecord[];
+    },
+    enabled: !!companyId && activeTab === 'voided' && isAdmin,
+  });
+
   // Check if QuickBooks is connected for this company
   const { data: qbConnection } = useQuery({
     queryKey: ["qb-connection-status", companyId],
@@ -197,6 +248,43 @@ export default function OutstandingAP() {
   });
 
   const isQBConnected = !!qbConnection?.is_active;
+
+  // Restore voided bill mutation
+  const restoreBillMutation = useMutation({
+    mutationFn: async (billId: string) => {
+      // Get the bill to calculate proper balance
+      const { data: bill, error: fetchError } = await supabase
+        .from("project_bills")
+        .select("bill_amount, amount_paid")
+        .eq("id", billId)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      const balance = (bill.bill_amount || 0) - (bill.amount_paid || 0);
+      
+      const { error } = await supabase
+        .from("project_bills")
+        .update({
+          is_voided: false,
+          balance: balance,
+        })
+        .eq("id", billId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Bill restored successfully");
+      queryClient.invalidateQueries({ queryKey: ["voided-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-ap-due"] });
+      setRestoringBillId(null);
+    },
+    onError: (error) => {
+      toast.error(`Failed to restore bill: ${error.message}`);
+      setRestoringBillId(null);
+    },
+  });
 
   // Handle clicking on a paid bill record to edit it
   const handlePaidBillClick = (payment: PaidBillRecord) => {
@@ -772,7 +860,7 @@ export default function OutstandingAP() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'scheduled' | 'paid')} className="w-full">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'scheduled' | 'paid' | 'voided')} className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="all">
               All Outstanding
@@ -790,6 +878,15 @@ export default function OutstandingAP() {
                 <Badge variant="secondary" className="ml-2 bg-emerald-500/20 text-emerald-600">{paidBills.length}</Badge>
               )}
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="voided">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Voided
+                {voidedBills.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 bg-amber-500/20 text-amber-600">{voidedBills.length}</Badge>
+                )}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="all" className="mt-0">
@@ -1511,6 +1608,109 @@ export default function OutstandingAP() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Voided Bills Tab - Admin Only */}
+          {isAdmin && (
+            <TabsContent value="voided" className="mt-0">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-500" />
+                      <div>
+                        <h3 className="font-semibold">Voided Bills</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Bills that were marked as deleted (voided) from QuickBooks sync. You can restore them if they were incorrectly voided.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingVoidedBills ? (
+                    <Skeleton className="h-[200px]" />
+                  ) : (
+                    <div className="border rounded-lg overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Project</TableHead>
+                            <TableHead>Vendor</TableHead>
+                            <TableHead>Ref</TableHead>
+                            <TableHead className="text-right">Bill Amount</TableHead>
+                            <TableHead className="text-right">Amount Paid</TableHead>
+                            <TableHead className="text-right">Balance</TableHead>
+                            <TableHead>Voided At</TableHead>
+                            <TableHead className="w-[100px]">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {voidedBills.map((bill) => (
+                            <TableRow key={bill.id}>
+                              <TableCell className="max-w-[200px]">
+                                <div className="truncate font-medium">
+                                  {bill.project?.project_number ? `#${bill.project.project_number}` : '-'}
+                                </div>
+                                <div className="truncate text-xs text-muted-foreground">
+                                  {bill.project?.project_address || bill.project?.project_name || '-'}
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-medium">{bill.installer_company || '-'}</TableCell>
+                              <TableCell>{bill.bill_ref || '-'}</TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrencyWithDecimals(bill.bill_amount || 0)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrencyWithDecimals(bill.amount_paid || 0)}
+                              </TableCell>
+                              <TableCell className="text-right font-medium text-muted-foreground">
+                                {formatCurrencyWithDecimals((bill.bill_amount || 0) - (bill.amount_paid || 0))}
+                              </TableCell>
+                              <TableCell>
+                                {bill.updated_at && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(parseISO(bill.updated_at), 'MMM d, yyyy')}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setRestoringBillId(bill.id);
+                                        restoreBillMutation.mutate(bill.id);
+                                      }}
+                                      disabled={restoringBillId === bill.id}
+                                    >
+                                      <RotateCcw className={cn(
+                                        "h-4 w-4",
+                                        restoringBillId === bill.id && "animate-spin"
+                                      )} />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Restore Bill</TooltipContent>
+                                </Tooltip>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {voidedBills.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                                No voided bills
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
