@@ -60,9 +60,12 @@ const DialogContent = React.forwardRef<
       )}
       // Keep dialogs open when the browser tab loses focus.
       onFocusOutside={(e) => {
+        // In page mode, always prevent default FIRST to stop Radix from closing
+        if (disablePortal) {
+          e.preventDefault();
+          return;
+        }
         onFocusOutside?.(e);
-        // In page mode, allow focus to move freely (e.g., to tab bar)
-        if (disablePortal) return;
         // Only prevent focus-outside dismissal when the browser actually loses focus
         // (switching tabs/windows). Allow normal in-app focus changes/clicks.
         const originalEvent = "detail" in e && e.detail?.originalEvent;
@@ -71,8 +74,11 @@ const DialogContent = React.forwardRef<
         }
       }}
       onInteractOutside={(e) => {
-        // In page mode, allow all interactions outside the content (e.g., clicking tab bar)
-        if (disablePortal) return;
+        // In page mode, always prevent default FIRST to stop Radix from closing
+        if (disablePortal) {
+          e.preventDefault();
+          return;
+        }
         onInteractOutside?.(e);
         // Prevent dismissal when switching tabs/windows, but allow normal outside clicks
         const originalEvent = 'detail' in e && e.detail?.originalEvent;
