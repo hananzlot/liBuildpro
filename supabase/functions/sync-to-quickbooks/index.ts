@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords, checkOnly, checkVendorName, qbBillId } = await req.json();
+    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords, checkOnly, checkVendorName, qbBillId, forceCreateBill } = await req.json();
 
     if (!companyId) {
       return new Response(
@@ -812,7 +812,17 @@ Deno.serve(async (req) => {
           // If the existingQbId starts with "backfill-", it's a placeholder from data migration
           // and not a real QuickBooks ID - treat as new bill
           const rawExistingQbId = existingSync?.quickbooks_id || null;
-          const existingQbId = rawExistingQbId?.startsWith("backfill-") ? null : rawExistingQbId;
+          const shouldForceCreateThisBill = Boolean(forceCreateBill && recordId && bill.id === recordId);
+
+          const existingQbId = shouldForceCreateThisBill
+            ? null
+            : (rawExistingQbId?.startsWith("backfill-") ? null : rawExistingQbId);
+
+          if (shouldForceCreateThisBill) {
+            console.log(
+              `forceCreateBill=true for ${recordId}. Ignoring existing QB bill mapping (${rawExistingQbId || "none"}) and creating a new Bill in QuickBooks.`
+            );
+          }
           
           if (rawExistingQbId?.startsWith("backfill-")) {
             console.log(`Bill ${bill.id} has backfill placeholder ID (${rawExistingQbId}), will create new in QB`);

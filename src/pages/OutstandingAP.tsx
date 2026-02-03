@@ -389,11 +389,12 @@ export default function OutstandingAP() {
 
   // Mark as paid mutation with QuickBooks sync
   const markAsPaidMutation = useMutation({
-    mutationFn: async ({ billId, data, syncToQB, selectedQbBillId }: { 
+    mutationFn: async ({ billId, data, syncToQB, selectedQbBillId, forceCreateBill }: { 
       billId: string; 
       data: { paymentDate: Date; amount: number; bankName: string | null; paymentMethod: string | null; paymentReference: string | null }; 
       syncToQB: boolean;
       selectedQbBillId?: string;
+      forceCreateBill?: boolean;
     }) => {
       // Insert the bill payment
       const { data: paymentRecord, error } = await supabase
@@ -441,12 +442,18 @@ export default function OutstandingAP() {
                 companyId,
                 syncType: "bill",
                 recordId: billId,
+                forceCreateBill: !!forceCreateBill,
               },
             });
             
             if (billSyncError) {
               console.error("Failed to create bill in QuickBooks:", billSyncError);
               throw new Error("Failed to create bill in QuickBooks");
+            }
+
+            if (billSyncResult?.failed > 0) {
+              console.error("Bill sync returned failure:", billSyncResult);
+              throw new Error(billSyncResult?.errors?.[0] || "Failed to create bill in QuickBooks");
             }
           }
           
@@ -527,6 +534,7 @@ export default function OutstandingAP() {
         data: pendingPaymentData.data, 
         syncToQB: true,
         // No selectedQbBillId - will create new bill
+        forceCreateBill: true,
       });
     }
   }, [pendingPaymentData, markAsPaidMutation]);
