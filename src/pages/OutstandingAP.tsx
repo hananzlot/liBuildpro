@@ -502,6 +502,19 @@ export default function OutstandingAP() {
     }
   }, [pendingPaymentData, markAsPaidMutation]);
 
+  // Handler when user wants to create a new bill in QB instead of selecting existing
+  const handleQbBillCreateNew = useCallback(() => {
+    if (pendingPaymentData) {
+      // Sync without a selected QB bill - this will create a new bill in QB
+      markAsPaidMutation.mutate({ 
+        billId: pendingPaymentData.billId, 
+        data: pendingPaymentData.data, 
+        syncToQB: true,
+        // No selectedQbBillId - will create new bill
+      });
+    }
+  }, [pendingPaymentData, markAsPaidMutation]);
+
   // Handler when user cancels the QB bill selection
   const handleQbBillSelectionCancel = useCallback(() => {
     // Don't record the payment at all - just cancel
@@ -1167,6 +1180,7 @@ export default function OutstandingAP() {
         localBillRef={pendingPaymentData?.billRef || null}
         localBillAmount={pendingPaymentData?.data.amount || 0}
         onSelect={handleQbBillSelected}
+        onCreateNew={handleQbBillCreateNew}
         onCancel={handleQbBillSelectionCancel}
       />
 
