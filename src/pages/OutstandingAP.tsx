@@ -422,17 +422,33 @@ export default function OutstandingAP() {
 
       // Sync to QuickBooks if enabled
       let qbSynced = false;
-      if (syncToQB && companyId && paymentRecord && selectedQbBillId) {
+      if (syncToQB && companyId && paymentRecord) {
         try {
-          // Link the local bill to the selected QB bill (without creating a new one)
-          await supabase.functions.invoke("sync-to-quickbooks", {
-            body: {
-              companyId,
-              syncType: "link_bill",
-              recordId: billId,
-              qbBillId: selectedQbBillId,
-            },
-          });
+          if (selectedQbBillId) {
+            // User selected an existing QB bill - link to it
+            await supabase.functions.invoke("sync-to-quickbooks", {
+              body: {
+                companyId,
+                syncType: "link_bill",
+                recordId: billId,
+                qbBillId: selectedQbBillId,
+              },
+            });
+          } else {
+            // User chose to create a new bill in QB - sync the bill first
+            const { data: billSyncResult, error: billSyncError } = await supabase.functions.invoke("sync-to-quickbooks", {
+              body: {
+                companyId,
+                syncType: "bill",
+                recordId: billId,
+              },
+            });
+            
+            if (billSyncError) {
+              console.error("Failed to create bill in QuickBooks:", billSyncError);
+              throw new Error("Failed to create bill in QuickBooks");
+            }
+          }
           
           // Then sync the bill payment
           const { data: qbResult, error: qbError } = await supabase.functions.invoke("sync-to-quickbooks", {
