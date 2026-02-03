@@ -463,6 +463,69 @@ Deno.serve(async (req) => {
             }
           }
         }
+        
+        // Fallback 4: No linked bill found - try matching by vendor name + amount + date
+        // This handles the case where the bill was created directly in QB or the bill sync log is missing
+        if (!localBillPaymentId && !billId) {
+          const vendorName = qbBillPayment.VendorRef?.name;
+          log("info", "Attempting vendor-based fallback matching", { vendorName, amount: qbBillPayment.TotalAmt, date: qbBillPayment.TxnDate });
+          
+          if (vendorName) {
+            // Find bills from this vendor
+            const { data: vendorBills } = await supabase
+              .from("project_bills")
+              .select("id")
+              .eq("company_id", companyId)
+              .ilike("installer_company", `%${vendorName}%`);
+            
+            if (vendorBills && vendorBills.length > 0) {
+              const vendorBillIds = vendorBills.map(b => b.id);
+              
+              // Try amount + date + null reference (payments created without check #)
+              let vendorQuery = supabase
+                .from("bill_payments")
+                .select("id")
+                .eq("company_id", companyId)
+                .in("bill_id", vendorBillIds)
+                .eq("payment_amount", qbBillPayment.TotalAmt)
+                .eq("payment_date", qbBillPayment.TxnDate)
+                .is("payment_reference", null);
+              
+              if (excludedBillPaymentIds.length > 0) {
+                vendorQuery = vendorQuery.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
+              }
+              
+              const { data: vendorMatch } = await vendorQuery.maybeSingle();
+              
+              if (vendorMatch) {
+                localBillPaymentId = vendorMatch.id;
+                log("info", "Found bill payment via vendor + amount + date + null ref", { localBillPaymentId, vendorName });
+              }
+              
+              // If no match with null ref, try just amount + date
+              if (!localBillPaymentId) {
+                let vendorQuery2 = supabase
+                  .from("bill_payments")
+                  .select("id")
+                  .eq("company_id", companyId)
+                  .in("bill_id", vendorBillIds)
+                  .eq("payment_amount", qbBillPayment.TotalAmt)
+                  .eq("payment_date", qbBillPayment.TxnDate);
+                
+                if (excludedBillPaymentIds.length > 0) {
+                  vendorQuery2 = vendorQuery2.not("id", "in", `(${excludedBillPaymentIds.join(",")})`);
+                }
+                
+                const { data: vendorMatch2 } = await vendorQuery2.maybeSingle();
+                
+                if (vendorMatch2) {
+                  localBillPaymentId = vendorMatch2.id;
+                  log("info", "Found bill payment via vendor + amount + date", { localBillPaymentId, vendorName });
+                }
+              }
+            }
+          }
+        }
       }
 
       if (!localBillPaymentId) {
