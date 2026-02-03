@@ -9,6 +9,7 @@ import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -71,6 +72,7 @@ export default function OutstandingAP() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [groupByProject, setGroupByProject] = useState(false);
   const [scheduledDateFilter, setScheduledDateFilter] = useState<Date | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState<'all' | 'scheduled'>('all');
   const [schedulingPayable, setSchedulingPayable] = useState<PayableWithCashImpact | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [markingAsPaidPayable, setMarkingAsPaidPayable] = useState<PayableWithCashImpact | null>(null);
@@ -88,6 +90,11 @@ export default function OutstandingAP() {
   const filteredAndSorted = useMemo(() => {
     let result = [...payablesWithCashImpact];
     
+    // Tab filter - scheduled tab shows only scheduled items
+    if (activeTab === 'scheduled') {
+      result = result.filter(p => p.scheduled_payment_date);
+    }
+    
     // Text filter
     if (search) {
       const lower = search.toLowerCase();
@@ -99,8 +106,8 @@ export default function OutstandingAP() {
       );
     }
 
-    // Date filter
-    if (scheduledDateFilter) {
+    // Date filter (only for scheduled tab)
+    if (activeTab === 'scheduled' && scheduledDateFilter) {
       const filterStart = startOfDay(getPastSaturday());
       const filterEnd = endOfDay(scheduledDateFilter);
       result = result.filter(p => {
@@ -139,10 +146,15 @@ export default function OutstandingAP() {
     });
 
     return result;
-  }, [payablesWithCashImpact, search, sortField, sortDir, scheduledDateFilter]);
+  }, [payablesWithCashImpact, search, sortField, sortDir, scheduledDateFilter, activeTab]);
 
   const total = filteredAndSorted.reduce((sum, p) => sum + p.amount_due, 0);
   const scheduledTotal = filteredAndSorted.reduce((sum, p) => sum + (p.scheduled_payment_amount || 0), 0);
+  
+  // Calculate scheduled count for tab badge
+  const scheduledCount = useMemo(() => 
+    payablesWithCashImpact.filter(p => p.scheduled_payment_date).length,
+  [payablesWithCashImpact]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -258,232 +270,396 @@ export default function OutstandingAP() {
           </div>
         </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1 min-w-[200px]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search vendors, projects..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className={cn(scheduledDateFilter && "bg-primary/10")}>
-                      <CalendarIcon className="h-4 w-4 mr-2" />
-                      {scheduledDateFilter ? format(scheduledDateFilter, 'MMM d') : "Filter by date"}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'scheduled')} className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="all">
+              All Outstanding
+              <Badge variant="secondary" className="ml-2">{payablesWithCashImpact.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="scheduled">
+              Scheduled
+              {scheduledCount > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-primary/20 text-primary">{scheduledCount}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="mt-0">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 min-w-[200px]">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search vendors, projects..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Button
+                      variant={groupByProject ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setGroupByProject(!groupByProject)}
+                    >
+                      {groupByProject ? <Layers className="h-4 w-4 mr-2" /> : <List className="h-4 w-4 mr-2" />}
+                      {groupByProject ? "Grouped" : "Flat"}
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={scheduledDateFilter}
-                      onSelect={setScheduledDateFilter}
-                      initialFocus
-                    />
-                    {scheduledDateFilter && (
-                      <div className="p-2 border-t">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => setScheduledDateFilter(undefined)}
-                        >
-                          <X className="h-4 w-4 mr-2" />
-                          Clear filter
-                        </Button>
-                      </div>
-                    )}
-                  </PopoverContent>
-                </Popover>
-                <Button
-                  variant={groupByProject ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setGroupByProject(!groupByProject)}
-                >
-                  {groupByProject ? <Layers className="h-4 w-4 mr-2" /> : <List className="h-4 w-4 mr-2" />}
-                  {groupByProject ? "Grouped" : "Flat"}
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-red-500/10 text-red-600">
-                  Total Due: {formatCurrencyWithDecimals(total)}
-                </Badge>
-                {scheduledTotal > 0 && (
-                  <Badge variant="outline" className="bg-blue-500/10 text-blue-600">
-                    Scheduled: {formatCurrencyWithDecimals(scheduledTotal)}
+                  </div>
+                  <Badge variant="outline" className="bg-destructive/10 text-destructive">
+                    Total Due: {formatCurrencyWithDecimals(total)}
                   </Badge>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-[400px]" />
-            ) : (
-              <div className="border rounded-lg overflow-x-auto">
-                <Table className="print-table">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="cursor-pointer" onClick={() => handleSort('project_number')}>
-                        <div className="flex items-center gap-1">
-                          Project
-                          <ArrowUpDown className="h-3 w-3" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="cursor-pointer" onClick={() => handleSort('vendor')}>
-                        <div className="flex items-center gap-1">
-                          Vendor
-                          <ArrowUpDown className="h-3 w-3" />
-                        </div>
-                      </TableHead>
-                      <TableHead>Ref</TableHead>
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount_due')}>
-                        <div className="flex items-center justify-end gap-1">
-                          Amount Due
-                          <ArrowUpDown className="h-3 w-3" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort('project_current_cash')}>
-                        <div className="flex items-center justify-end gap-1">
-                          Project Cash
-                          <ArrowUpDown className="h-3 w-3" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort('cash_after_payment')}>
-                        <div className="flex items-center justify-end gap-1">
-                          After Payment
-                          <ArrowUpDown className="h-3 w-3" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="cursor-pointer" onClick={() => handleSort('scheduled_payment_date')}>
-                        <div className="flex items-center gap-1">
-                          Scheduled
-                          <ArrowUpDown className="h-3 w-3" />
-                        </div>
-                      </TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAndSorted.map((payable) => (
-                      <TableRow
-                        key={payable.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => handleProjectClick(payable.project_id)}
-                      >
-                        <TableCell className="max-w-[200px]">
-                          <div className="truncate font-medium">#{payable.project_number}</div>
-                          <div className="truncate text-xs text-muted-foreground">
-                            {payable.project_address || payable.project_name}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">{payable.vendor || '-'}</TableCell>
-                        <TableCell>{payable.bill_ref || '-'}</TableCell>
-                        <TableCell className="text-right font-medium text-red-600">
-                          {formatCurrencyWithDecimals(payable.amount_due)}
-                        </TableCell>
-                        <TableCell className={cn(
-                          "text-right",
-                          payable.project_current_cash >= 0 ? "text-emerald-600" : "text-red-600"
-                        )}>
-                          {formatCurrencyWithDecimals(payable.project_current_cash)}
-                        </TableCell>
-                        <TableCell className={cn(
-                          "text-right",
-                          payable.cash_if_this_paid >= 0 ? "text-emerald-600" : "text-red-600"
-                        )}>
-                          {formatCurrencyWithDecimals(payable.cash_if_this_paid)}
-                        </TableCell>
-                        <TableCell>
-                          {payable.scheduled_payment_date ? (
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-[400px]" />
+                ) : (
+                  <div className="border rounded-lg overflow-x-auto">
+                    <Table className="print-table">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="cursor-pointer" onClick={() => handleSort('project_number')}>
                             <div className="flex items-center gap-1">
-                              <Badge variant="outline" className="bg-blue-500/10 text-blue-600">
-                                {format(parseISO(payable.scheduled_payment_date), 'MMM d')}
-                              </Badge>
-                              {payable.scheduled_payment_amount && payable.scheduled_payment_amount !== payable.amount_due && (
-                                <span className="text-xs text-muted-foreground">
-                                  ({formatCurrencyWithDecimals(payable.scheduled_payment_amount)})
-                                </span>
-                              )}
+                              Project
+                              <ArrowUpDown className="h-3 w-3" />
                             </div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center gap-1">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => {
-                                    setSchedulingPayable(payable);
-                                    setScheduleDialogOpen(true);
-                                  }}
-                                >
-                                  <CalendarIcon className="h-3.5 w-3.5" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Schedule Payment</TooltipContent>
-                            </Tooltip>
-                            {payable.scheduled_payment_date && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive"
-                                    onClick={() => {
-                                      setPayableToClear(payable);
-                                      setClearScheduleConfirmOpen(true);
-                                    }}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Clear Schedule</TooltipContent>
-                              </Tooltip>
-                            )}
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-emerald-600"
-                                  onClick={() => {
-                                    setMarkingAsPaidPayable(payable);
-                                    setMarkAsPaidDialogOpen(true);
-                                  }}
-                                >
-                                  <Circle className="h-3.5 w-3.5 fill-current" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Mark as Paid</TooltipContent>
-                            </Tooltip>
+                          </TableHead>
+                          <TableHead className="cursor-pointer" onClick={() => handleSort('vendor')}>
+                            <div className="flex items-center gap-1">
+                              Vendor
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead>Ref</TableHead>
+                          <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount_due')}>
+                            <div className="flex items-center justify-end gap-1">
+                              Amount Due
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-right cursor-pointer" onClick={() => handleSort('project_current_cash')}>
+                            <div className="flex items-center justify-end gap-1">
+                              Project Cash
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-right cursor-pointer" onClick={() => handleSort('cash_after_payment')}>
+                            <div className="flex items-center justify-end gap-1">
+                              After Payment
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer" onClick={() => handleSort('scheduled_payment_date')}>
+                            <div className="flex items-center gap-1">
+                              Scheduled
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="w-[100px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredAndSorted.map((payable) => (
+                          <TableRow
+                            key={payable.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleProjectClick(payable.project_id)}
+                          >
+                            <TableCell className="max-w-[200px]">
+                              <div className="truncate font-medium">#{payable.project_number}</div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {payable.project_address || payable.project_name}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium">{payable.vendor || '-'}</TableCell>
+                            <TableCell>{payable.bill_ref || '-'}</TableCell>
+                            <TableCell className="text-right font-medium text-destructive">
+                              {formatCurrencyWithDecimals(payable.amount_due)}
+                            </TableCell>
+                            <TableCell className={cn(
+                              "text-right",
+                              payable.project_current_cash >= 0 ? "text-emerald-600" : "text-destructive"
+                            )}>
+                              {formatCurrencyWithDecimals(payable.project_current_cash)}
+                            </TableCell>
+                            <TableCell className={cn(
+                              "text-right",
+                              payable.cash_if_this_paid >= 0 ? "text-emerald-600" : "text-destructive"
+                            )}>
+                              {formatCurrencyWithDecimals(payable.cash_if_this_paid)}
+                            </TableCell>
+                            <TableCell>
+                              {payable.scheduled_payment_date ? (
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="outline" className="bg-primary/10 text-primary">
+                                    {format(parseISO(payable.scheduled_payment_date), 'MMM d')}
+                                  </Badge>
+                                  {payable.scheduled_payment_amount && payable.scheduled_payment_amount !== payable.amount_due && (
+                                    <span className="text-xs text-muted-foreground">
+                                      ({formatCurrencyWithDecimals(payable.scheduled_payment_amount)})
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-1">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => {
+                                        setSchedulingPayable(payable);
+                                        setScheduleDialogOpen(true);
+                                      }}
+                                    >
+                                      <CalendarIcon className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Schedule Payment</TooltipContent>
+                                </Tooltip>
+                                {payable.scheduled_payment_date && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-destructive"
+                                        onClick={() => {
+                                          setPayableToClear(payable);
+                                          setClearScheduleConfirmOpen(true);
+                                        }}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Clear Schedule</TooltipContent>
+                                  </Tooltip>
+                                )}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-emerald-600"
+                                      onClick={() => {
+                                        setMarkingAsPaidPayable(payable);
+                                        setMarkAsPaidDialogOpen(true);
+                                      }}
+                                    >
+                                      <Circle className="h-3.5 w-3.5 fill-current" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Mark as Paid</TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredAndSorted.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                              No outstanding bills
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="scheduled" className="mt-0">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 min-w-[200px]">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search vendors, projects..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className={cn(scheduledDateFilter && "bg-primary/10")}>
+                          <CalendarIcon className="h-4 w-4 mr-2" />
+                          {scheduledDateFilter ? format(scheduledDateFilter, 'MMM d') : "Filter by date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={scheduledDateFilter}
+                          onSelect={setScheduledDateFilter}
+                          initialFocus
+                        />
+                        {scheduledDateFilter && (
+                          <div className="p-2 border-t">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => setScheduledDateFilter(undefined)}
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Clear filter
+                            </Button>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {filteredAndSorted.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          No outstanding bills
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-primary/10 text-primary">
+                      Scheduled: {formatCurrencyWithDecimals(scheduledTotal)}
+                    </Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-[400px]" />
+                ) : (
+                  <div className="border rounded-lg overflow-x-auto">
+                    <Table className="print-table">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="cursor-pointer" onClick={() => handleSort('scheduled_payment_date')}>
+                            <div className="flex items-center gap-1">
+                              Scheduled Date
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer" onClick={() => handleSort('project_number')}>
+                            <div className="flex items-center gap-1">
+                              Project
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer" onClick={() => handleSort('vendor')}>
+                            <div className="flex items-center gap-1">
+                              Vendor
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead>Ref</TableHead>
+                          <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount_due')}>
+                            <div className="flex items-center justify-end gap-1">
+                              Amount Due
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead className="text-right">Scheduled Amount</TableHead>
+                          <TableHead className="w-[100px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredAndSorted.map((payable) => (
+                          <TableRow
+                            key={payable.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleProjectClick(payable.project_id)}
+                          >
+                            <TableCell>
+                              <Badge variant="outline" className="bg-primary/10 text-primary">
+                                {payable.scheduled_payment_date && format(parseISO(payable.scheduled_payment_date), 'MMM d, yyyy')}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="max-w-[200px]">
+                              <div className="truncate font-medium">#{payable.project_number}</div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {payable.project_address || payable.project_name}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium">{payable.vendor || '-'}</TableCell>
+                            <TableCell>{payable.bill_ref || '-'}</TableCell>
+                            <TableCell className="text-right font-medium text-destructive">
+                              {formatCurrencyWithDecimals(payable.amount_due)}
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-primary">
+                              {formatCurrencyWithDecimals(payable.scheduled_payment_amount || payable.amount_due)}
+                            </TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-1">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => {
+                                        setSchedulingPayable(payable);
+                                        setScheduleDialogOpen(true);
+                                      }}
+                                    >
+                                      <CalendarIcon className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Reschedule</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive"
+                                      onClick={() => {
+                                        setPayableToClear(payable);
+                                        setClearScheduleConfirmOpen(true);
+                                      }}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Clear Schedule</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-emerald-600"
+                                      onClick={() => {
+                                        setMarkingAsPaidPayable(payable);
+                                        setMarkAsPaidDialogOpen(true);
+                                      }}
+                                    >
+                                      <Circle className="h-3.5 w-3.5 fill-current" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Mark as Paid</TooltipContent>
+                                </Tooltip>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {filteredAndSorted.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                              No scheduled payments
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Schedule Payment Dialog */}
