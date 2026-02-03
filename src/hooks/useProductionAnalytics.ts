@@ -122,6 +122,7 @@ export interface CashFlowTimelinePoint {
 }
 
 export function useProductionAnalytics(filters: AnalyticsFilters) {
+  // Hook initialization
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
 
