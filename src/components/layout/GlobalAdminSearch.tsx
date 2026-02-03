@@ -392,7 +392,10 @@ export function GlobalAdminSearch() {
   const { openTab } = useAppTabs();
   
   const handleSelectEstimate = (est: Estimate) => {
-    openTab(`/estimate/${est.id}`, `Estimate #${est.estimate_number}`);
+    const tabTitle = est.status && est.status !== 'draft' 
+      ? `Edit Proposal - ${est.customer_name || est.estimate_number}` 
+      : `Estimate #${est.estimate_number}`;
+    openTab(`/estimate/${est.id}`, tabTitle);
     setIsOpen(false);
     setSearchQuery("");
   };
