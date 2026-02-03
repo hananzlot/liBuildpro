@@ -157,7 +157,8 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
   const closeAllTabs = useCallback(() => {
     setTabs([]);
     setActiveTabId(null);
-  }, []);
+    navigate('/');
+  }, [navigate]);
 
   const reorderTabs = useCallback((draggedTabId: string, targetTabId: string) => {
     setTabs(prev => {
