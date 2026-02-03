@@ -87,6 +87,7 @@ const getPastSaturday = (): Date => {
 };
 
 export default function OutstandingAP() {
+  // Component initialization
   const navigate = useNavigate();
   const { openTab } = useAppTabs();
   const queryClient = useQueryClient();
