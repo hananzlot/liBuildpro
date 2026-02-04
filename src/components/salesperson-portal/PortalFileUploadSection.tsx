@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Upload, Image, FileText, Loader2, ChevronDown, ChevronUp, Eye, File } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -59,6 +60,7 @@ export function PortalFileUploadSection({
   const [isUploading, setIsUploading] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<ProjectDocument | null>(null);
+  const [uploadNote, setUploadNote] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -197,6 +199,9 @@ export function PortalFileUploadSection({
           .getPublicUrl(fileName);
 
         const isImage = inferredType.startsWith("image/");
+        const noteText = uploadNote.trim() 
+          ? `${uploadNote.trim()} (Uploaded by ${salespersonName} via portal)`
+          : `Uploaded by ${salespersonName} via portal`;
         const { error: dbError } = await supabase
           .from("project_documents")
           .insert({
@@ -205,7 +210,7 @@ export function PortalFileUploadSection({
             file_url: publicUrl,
             file_type: inferredType,
             category: isImage ? "Salesperson Photo" : "Salesperson Upload",
-            notes: `Uploaded by ${salespersonName} via portal`,
+            notes: noteText,
             company_id: companyId,
             uploaded_by: null, // Portal uploads have no auth user - salesperson name tracked in notes
           });
@@ -221,6 +226,7 @@ export function PortalFileUploadSection({
 
       if (successCount > 0) {
         toast.success(`Uploaded ${successCount} file${successCount > 1 ? "s" : ""}`);
+        setUploadNote(""); // Clear note after successful upload
         queryClient.invalidateQueries({ queryKey: ["salesperson-portal-project-documents", selectedProjectId] });
         queryClient.invalidateQueries({ queryKey: ["project-portal"] });
         queryClient.invalidateQueries({ queryKey: ["project-photos", selectedProjectId] });
@@ -312,6 +318,17 @@ export function PortalFileUploadSection({
 
               {selectedProjectId && (
                 <>
+                  {/* Note Input */}
+                  <div>
+                    <Textarea
+                      placeholder="Add a note about these photos (optional)..."
+                      value={uploadNote}
+                      onChange={(e) => setUploadNote(e.target.value)}
+                      className="min-h-[60px] text-sm resize-none"
+                      maxLength={500}
+                    />
+                  </div>
+
                   {/* Upload Button */}
                   <div>
                     <input
