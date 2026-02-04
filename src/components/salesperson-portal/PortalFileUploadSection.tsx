@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Upload, Image, FileText, Loader2, ChevronDown, ChevronUp, Eye, File } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -60,7 +61,9 @@ export function PortalFileUploadSection({
   const [isUploading, setIsUploading] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<ProjectDocument | null>(null);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [uploadNote, setUploadNote] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -155,32 +158,53 @@ export function PortalFileUploadSection({
     staleTime: 2 * 60 * 1000,
   });
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0 || !selectedProjectId) return;
 
+    const validFiles: File[] = [];
+    for (const file of Array.from(files)) {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} exceeds 15MB limit`);
+        continue;
+      }
+
+      const fileExt = (file.name.split(".").pop() || "").toLowerCase();
+      const isLikelyImage = file.type.startsWith("image/") || /^(jpg|jpeg|png|webp|gif|heic|heif)$/.test(fileExt);
+      const inferredType = file.type || (isLikelyImage ? `image/${fileExt || "jpeg"}` : "");
+
+      if (!ALLOWED_TYPES.includes(inferredType)) {
+        toast.error(
+          `${file.name}: Unsupported file type${fileExt ? ` (.${fileExt})` : ""}. ` +
+            "Try JPEG/PNG, or set iPhone Camera > Formats > Most Compatible."
+        );
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length > 0) {
+      setPendingFiles(validFiles);
+      setNoteDialogOpen(true);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleUploadWithNote = async () => {
+    if (pendingFiles.length === 0 || !selectedProjectId) return;
+
+    setNoteDialogOpen(false);
     setIsUploading(true);
     let successCount = 0;
 
     try {
-      for (const file of Array.from(files)) {
-        if (file.size > MAX_FILE_SIZE) {
-          toast.error(`${file.name} exceeds 15MB limit`);
-          continue;
-        }
-
-        // Some mobile uploads can have an empty mime-type; fall back to extension.
+      for (const file of pendingFiles) {
         const fileExt = (file.name.split(".").pop() || "").toLowerCase();
         const isLikelyImage = file.type.startsWith("image/") || /^(jpg|jpeg|png|webp|gif|heic|heif)$/.test(fileExt);
         const inferredType = file.type || (isLikelyImage ? `image/${fileExt || "jpeg"}` : "");
-
-        if (!ALLOWED_TYPES.includes(inferredType)) {
-          toast.error(
-            `${file.name}: Unsupported file type${fileExt ? ` (.${fileExt})` : ""}. ` +
-              "Try JPEG/PNG, or set iPhone Camera > Formats > Most Compatible."
-          );
-          continue;
-        }
 
         const fileName = `salesperson-uploads/${selectedProjectId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt || "bin"}`;
 
@@ -202,6 +226,7 @@ export function PortalFileUploadSection({
         const noteText = uploadNote.trim() 
           ? `${uploadNote.trim()} (Uploaded by ${salespersonName} via portal)`
           : `Uploaded by ${salespersonName} via portal`;
+
         const { error: dbError } = await supabase
           .from("project_documents")
           .insert({
@@ -212,7 +237,7 @@ export function PortalFileUploadSection({
             category: isImage ? "Salesperson Photo" : "Salesperson Upload",
             notes: noteText,
             company_id: companyId,
-            uploaded_by: null, // Portal uploads have no auth user - salesperson name tracked in notes
+            uploaded_by: null,
           });
 
         if (dbError) {
@@ -226,7 +251,8 @@ export function PortalFileUploadSection({
 
       if (successCount > 0) {
         toast.success(`Uploaded ${successCount} file${successCount > 1 ? "s" : ""}`);
-        setUploadNote(""); // Clear note after successful upload
+        setUploadNote("");
+        setPendingFiles([]);
         queryClient.invalidateQueries({ queryKey: ["salesperson-portal-project-documents", selectedProjectId] });
         queryClient.invalidateQueries({ queryKey: ["project-portal"] });
         queryClient.invalidateQueries({ queryKey: ["project-photos", selectedProjectId] });
@@ -236,10 +262,13 @@ export function PortalFileUploadSection({
       toast.error("Failed to upload files");
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
     }
+  };
+
+  const handleCancelUpload = () => {
+    setNoteDialogOpen(false);
+    setUploadNote("");
+    setPendingFiles([]);
   };
 
   const getFileIcon = (fileType: string | null) => {
@@ -318,17 +347,6 @@ export function PortalFileUploadSection({
 
               {selectedProjectId && (
                 <>
-                  {/* Note Input */}
-                  <div>
-                    <Textarea
-                      placeholder="Add a note about these photos (optional)..."
-                      value={uploadNote}
-                      onChange={(e) => setUploadNote(e.target.value)}
-                      className="min-h-[60px] text-sm resize-none"
-                      maxLength={500}
-                    />
-                  </div>
-
                   {/* Upload Button */}
                   <div>
                     <input
@@ -424,6 +442,46 @@ export function PortalFileUploadSection({
           )}
         </CardContent>
       )}
+
+      {/* Note Dialog for Upload */}
+      <Dialog open={noteDialogOpen} onOpenChange={(open) => !open && handleCancelUpload()}>
+        <DialogContent className="sm:max-w-md">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">Add a Note</h3>
+              <p className="text-sm text-muted-foreground">
+                {pendingFiles.length} file{pendingFiles.length !== 1 ? 's' : ''} selected. Add an optional note to describe these uploads.
+              </p>
+            </div>
+            <Textarea
+              placeholder="e.g., Before photos of kitchen area..."
+              value={uploadNote}
+              onChange={(e) => setUploadNote(e.target.value)}
+              className="min-h-[80px] resize-none"
+              maxLength={500}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleCancelUpload}>
+                Cancel
+              </Button>
+              <Button onClick={handleUploadWithNote} disabled={isUploading}>
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload {pendingFiles.length} File{pendingFiles.length !== 1 ? 's' : ''}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
