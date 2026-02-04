@@ -6626,6 +6626,10 @@ export type Database = {
         Args: { target_company_id: string }
         Returns: boolean
       }
+      has_valid_salesperson_portal_token_for_company: {
+        Args: { target_company_id: string }
+        Returns: boolean
+      }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_corp_admin: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id?: string }; Returns: boolean }
