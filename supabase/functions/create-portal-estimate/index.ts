@@ -49,6 +49,8 @@ serve(async (req) => {
       opportunityUuid,
       opportunityGhlId,
       contactId,
+      contactUuid,
+      leadSource,
     } = body as Record<string, unknown>;
 
     if (typeof portalToken !== "string" || portalToken.trim().length < 10) {
@@ -141,6 +143,11 @@ serve(async (req) => {
             : null,
         opportunity_id: typeof opportunityGhlId === "string" ? opportunityGhlId : null,
         contact_id: typeof contactId === "string" ? contactId : null,
+        contact_uuid:
+          typeof contactUuid === "string" && isUuid(contactUuid)
+            ? contactUuid
+            : null,
+        lead_source: typeof leadSource === "string" ? leadSource : null,
         show_details_to_customer: false,
         show_scope_to_customer: true,
         show_line_items_to_customer: true,

@@ -285,6 +285,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Linked contact tracking
   const [linkedContactUuid, setLinkedContactUuid] = useState<string | null>(null);
   const [linkedContactId, setLinkedContactId] = useState<string | null>(null);
+  
+  // Lead source tracking (inherited from contact when creating from opportunity)
+  const [linkedLeadSource, setLinkedLeadSource] = useState<string | null>(null);
 
   // Email sync dialog state
   const [emailSyncDialogOpen, setEmailSyncDialogOpen] = useState(false);
@@ -943,6 +946,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setLinkedOpportunityGhlId(null);
       setLinkedContactUuid(null);
       setLinkedContactId(null);
+      setLinkedLeadSource(null);
       setPlansFileUrl(null);
       setPlansFileName(null);
       setEstimateCompanyId(null); // Reset for new estimates - will use contextCompanyId
@@ -972,6 +976,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       if (linkedOpportunity.contact_uuid) {
         setLinkedContactUuid(linkedOpportunity.contact_uuid);
         setLinkedContactId(linkedOpportunity.contact_id);
+      }
+      
+      // Set lead source from opportunity's contact
+      if (linkedOpportunity.lead_source) {
+        setLinkedLeadSource(linkedOpportunity.lead_source);
       }
       
       // Determine the work scope: prefer initialWorkScope, then linkedOpportunity.scope_of_work
@@ -2029,6 +2038,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         opportunity_id: linkedOpportunityGhlId || null,
         contact_uuid: linkedContactUuid || null,
         contact_id: linkedContactId || null,
+        lead_source: linkedLeadSource || null,
         ai_analysis: aiAnalysisData,
         plans_file_url: plansFileUrl || null,
       };
@@ -2293,6 +2303,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 opportunity_uuid: linkedOpportunityUuid || null,
                 contact_id: linkedContactId || null,
                 contact_uuid: linkedContactUuid || null,
+                lead_source: linkedLeadSource || null,
                 location_id: locationId,
                 company_id: companyId,
                 created_by: user?.id,
@@ -2356,6 +2367,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               opportunity_uuid: linkedOpportunityUuid || null,
               contact_id: linkedContactId || null,
               contact_uuid: linkedContactUuid || null,
+              lead_source: linkedLeadSource || null,
               location_id: locationId,
               company_id: companyId,
               created_by: user?.id,
@@ -2489,6 +2501,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         opportunity_uuid: sourceEstimate?.opportunity_uuid || null,
         contact_id: sourceEstimate?.contact_id || null,
         contact_uuid: sourceEstimate?.contact_uuid || null,
+        lead_source: sourceEstimate?.lead_source || linkedLeadSource || null,
       };
 
       // Create new estimate
