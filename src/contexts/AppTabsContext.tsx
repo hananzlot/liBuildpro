@@ -6,6 +6,8 @@ export interface AppTab {
   path: string;
   title: string;
   icon?: string;
+  /** The ID of the tab that opened this tab (for return navigation) */
+  parentTabId?: string;
 }
 
 interface AppTabsContextType {
@@ -113,12 +115,15 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
   const openTab = useCallback((path: string, title: string, icon?: string) => {
     const basePath = path.split("?")[0];
     
+    // Capture the current active tab as the parent
+    const parentId = activeTabId;
+    
     // Check if tab already exists (by base path)
     const existingTab = tabs.find(tab => tab.path.split("?")[0] === basePath);
     if (existingTab) {
-      // Update the path and navigate
+      // Update the path, parent, and navigate
       setTabs(prev => prev.map(t => 
-        t.id === existingTab.id ? { ...t, path } : t
+        t.id === existingTab.id ? { ...t, path, parentTabId: parentId || t.parentTabId } : t
       ));
       setActiveTabId(existingTab.id);
       navigate(path);
@@ -130,14 +135,16 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
       path,
       title: title || getRouteTitle(path),
       icon,
+      parentTabId: parentId || undefined,
     };
 
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
     navigate(path);
-  }, [tabs, navigate]);
+  }, [tabs, activeTabId, navigate]);
 
   const closeTab = useCallback((tabId: string) => {
+    const tabToClose = tabs.find(t => t.id === tabId);
     const tabIndex = tabs.findIndex(t => t.id === tabId);
     const newTabs = tabs.filter(t => t.id !== tabId);
     setTabs(newTabs);
@@ -145,7 +152,17 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     // If we're closing the active tab, switch to another
     if (activeTabId === tabId) {
       if (newTabs.length > 0) {
-        // Try to switch to the tab to the left, or the first remaining tab
+        // First, try to return to the parent tab if it still exists
+        if (tabToClose?.parentTabId) {
+          const parentTab = newTabs.find(t => t.id === tabToClose.parentTabId);
+          if (parentTab) {
+            setActiveTabId(parentTab.id);
+            navigate(parentTab.path);
+            return;
+          }
+        }
+        
+        // Fallback: switch to the tab to the left, or the first remaining tab
         const newActiveIndex = Math.max(0, tabIndex - 1);
         const newActiveTab = newTabs[newActiveIndex];
         setActiveTabId(newActiveTab.id);
