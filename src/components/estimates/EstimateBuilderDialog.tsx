@@ -2672,9 +2672,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
   }, []);
 
-  // Next button component for tabs
-  const TabNextButton = ({ currentTab, validation }: { currentTab: string; validation: { isValid: boolean; missing: string[] } }) => {
-    const currentIndex = tabOrder.indexOf(currentTab as typeof tabOrder[number]);
+  // Next button component for tab bar - renders inline in TabsList
+  const TabBarNextButton = useCallback(() => {
+    const currentIndex = tabOrder.indexOf(activeTab as typeof tabOrder[number]);
     if (currentIndex >= tabOrder.length - 1) return null; // No next button on last tab
     
     const nextTabName = tabOrder[currentIndex + 1];
@@ -2682,29 +2682,29 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       scope: "Scope",
       clarification: "Clarification",
       payments: "Payments",
-      terms: "Terms & Notes",
+      terms: "Terms",
     };
 
+    // Get validation for current tab
+    const validation = activeTab === 'customer' ? validateCustomerTab() 
+      : activeTab === 'scope' ? validateScopeTab()
+      : activeTab === 'clarification' ? validateClarificationTab()
+      : activeTab === 'payments' ? validatePaymentsTab()
+      : { isValid: true, missing: [] as string[] };
+
     return (
-      <div className="flex items-center justify-end gap-2 pb-2">
-        {!validation.isValid && (
-          <div className="flex items-center gap-1 text-sm text-warning">
-            <AlertCircle className="h-4 w-4" />
-            <span>Missing: {validation.missing.join(", ")}</span>
-          </div>
-        )}
-        <Button
-          type="button"
-          onClick={() => handleNextTab(currentTab, validation)}
-          variant={validation.isValid ? "default" : "outline"}
-          size="sm"
-        >
-          Next: {nextTabLabels[nextTabName]}
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      </div>
+      <Button
+        type="button"
+        onClick={() => handleNextTab(activeTab, validation)}
+        variant={validation.isValid ? "default" : "outline"}
+        size="sm"
+        className="ml-auto h-8"
+      >
+        Next: {nextTabLabels[nextTabName]}
+        <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+      </Button>
     );
-  };
+  }, [activeTab, validateCustomerTab, validateScopeTab, validateClarificationTab, validatePaymentsTab, handleNextTab]);
 
   // Page mode: render inline without Dialog wrapper
   const isPageMode = mode === 'page';
@@ -2970,13 +2970,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     Upload Photos
                   </Button>
                 )}
+                {/* Next button in tab bar */}
+                <TabBarNextButton />
               </TabsList>
 
               <ScrollArea className="flex-1 px-6 py-4">
-                <TabsContent value="customer" className="mt-0 space-y-4">
-                  {/* Next button for Customer tab */}
-                  <TabNextButton currentTab="customer" validation={validateCustomerTab()} />
-                  
+              <TabsContent value="customer" className="mt-0 space-y-4">
                   {/* Read-only notice for proposals */}
                   {isProposalReadOnly && (
                     <div className="bg-muted/50 border border-muted-foreground/20 rounded-lg p-3 flex items-center gap-2 text-sm text-muted-foreground">
@@ -3135,15 +3134,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 </TabsContent>
 
                 <TabsContent value="scope" className="mt-0 space-y-4">
-                  {/* Custom button logic for Scope tab - hide AI buttons for read-only proposals */}
+                  {/* Custom button logic for Scope tab - show AI generate hint if needed */}
                   {(() => {
-                    if (isProposalReadOnly) {
-                      // For proposals, just show Next button if there's content
-                      if (totals.total > 0) {
-                        return <TabNextButton currentTab="scope" validation={validateScopeTab()} />;
-                      }
-                      return null;
-                    }
+                    if (isProposalReadOnly) return null;
                     
                     const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim() && formData.salesperson_name?.trim();
                     const hasWorkScope = formData.work_scope_description?.trim()?.length > 0;
@@ -3186,12 +3179,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                       );
                     }
                     
-                    // Show "Next: Clarification" only when estimate value > 0
-                    if (hasEstimateValue) {
-                      return <TabNextButton currentTab="scope" validation={validateScopeTab()} />;
-                    }
-                    
-                    // Default: show nothing or a hint to enter work scope
                     return null;
                   })()}
                   
@@ -3685,7 +3672,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       );
                     }
                     
-                    return <TabNextButton currentTab="clarification" validation={validateClarificationTab()} />;
+                    return null;
                   })()}
                   
                   <Card>
@@ -3877,9 +3864,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 </TabsContent>
 
                 <TabsContent value="payments" className="mt-0 space-y-4">
-                  {/* Next button for Payments tab */}
-                  <TabNextButton currentTab="payments" validation={validatePaymentsTab()} />
-                  
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center gap-2">
