@@ -2681,8 +2681,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     const nextTabLabels: Record<string, string> = {
       scope: "Scope",
       clarification: "Clarification",
-      payments: "Payments",
-      terms: "Terms",
+      payments: "Phases",
+      terms: "T&C",
     };
 
     // Get validation for current tab
@@ -2905,7 +2905,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 </TabsTrigger>
                 <TabsTrigger value="scope" className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  Scope ({groups.reduce((sum, g) => sum + g.items.length, 0)} items)
+                  Scope
                 </TabsTrigger>
                 {groups.length > 0 && (
                   <>
@@ -2926,11 +2926,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     </TabsTrigger>
                     <TabsTrigger value="payments" className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4" />
-                      Payments
+                      Phases
                     </TabsTrigger>
                     <TabsTrigger value="terms" className="flex items-center gap-2">
                       <FileText className="h-4 w-4" />
-                      Terms & Notes
+                      T&C
                     </TabsTrigger>
                   </>
                 )}
@@ -3665,7 +3665,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             size="lg"
                             className="flex-1"
                           >
-                            Next: Payments
+                            Next: Phases
                             <ArrowRight className="ml-2 h-4 w-4" />
                           </Button>
                         </div>
