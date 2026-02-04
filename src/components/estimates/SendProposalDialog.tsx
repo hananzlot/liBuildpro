@@ -835,7 +835,10 @@ export function SendProposalDialog({
                 <span>Links generated for {signers.filter(s => s.email).length} signer(s)</span>
               </div>
               <p className="mt-1 text-xs text-green-600">
-                Each signer will receive their own unique portal link via email.
+                Each signer will receive their own unique link to sign the proposal.
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground border-t border-green-200 pt-2">
+                <strong>Note:</strong> These are signing links only. All parties can access the shared project portal (photos, documents, invoices) using the main Customer Portal link after the project is created.
               </p>
             </div>
           )}
