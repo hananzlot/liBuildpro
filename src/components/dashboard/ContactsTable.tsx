@@ -1,8 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, X, Phone, Mail, MapPin, ChevronUp, ChevronDown } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Phone, Mail, MapPin, ChevronUp, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -65,7 +63,6 @@ export function ContactsTable({
   users,
 }: ContactsTableProps) {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -94,28 +91,9 @@ export function ContactsTable({
     }
   };
 
-  const filteredAndSortedContacts = useMemo(() => {
-    let filtered = contacts;
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = contacts.filter(contact => {
-        const name = getContactName(contact).toLowerCase();
-        const email = contact.email?.toLowerCase() || "";
-        const phone = contact.phone?.replace(/\D/g, '') || "";
-        const address = getAddress(contact)?.toLowerCase() || "";
-        const queryDigits = searchQuery.replace(/\D/g, '');
-        
-        return name.includes(query) || 
-               email.includes(query) || 
-               address.includes(query) ||
-               (queryDigits.length >= 3 && phone.includes(queryDigits));
-      });
-    }
-
+  const sortedContacts = useMemo(() => {
     // Sort
-    filtered = [...filtered].sort((a, b) => {
+    return [...contacts].sort((a, b) => {
       let aVal: string | number = '';
       let bVal: string | number = '';
 
@@ -146,9 +124,7 @@ export function ContactsTable({
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-
-    return filtered;
-  }, [contacts, searchQuery, sortField, sortDirection, appointments]);
+  }, [contacts, sortField, sortDirection]);
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null;
@@ -159,30 +135,9 @@ export function ContactsTable({
 
   return (
     <div className="space-y-4">
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by name, email, phone, or address..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9 pr-9"
-        />
-        {searchQuery && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-            onClick={() => setSearchQuery("")}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
       {/* Results count */}
       <div className="text-sm text-muted-foreground">
-        {filteredAndSortedContacts.length} contacts
+        {sortedContacts.length} contacts
       </div>
 
       {/* Table */}
@@ -231,14 +186,14 @@ export function ContactsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAndSortedContacts.length === 0 ? (
+            {sortedContacts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No contacts found
                 </TableCell>
               </TableRow>
             ) : (
-              filteredAndSortedContacts.slice(0, 100).map((contact) => {
+              sortedContacts.slice(0, 100).map((contact) => {
                 const address = getAddress(contact);
                 const oppCount = getOpportunityCount(contact.ghl_id);
                 
@@ -311,9 +266,9 @@ export function ContactsTable({
             )}
           </TableBody>
         </Table>
-        {filteredAndSortedContacts.length > 100 && (
+        {sortedContacts.length > 100 && (
           <div className="p-3 text-center text-sm text-muted-foreground border-t">
-            Showing first 100 of {filteredAndSortedContacts.length} contacts
+            Showing first 100 of {sortedContacts.length} contacts
           </div>
         )}
       </div>
