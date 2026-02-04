@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Image as ImageIcon, 
   Grid3X3, 
@@ -36,6 +37,7 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadNote, setUploadNote] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -83,6 +85,10 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
           .from('project-attachments')
           .getPublicUrl(fileName);
 
+        const noteText = uploadNote.trim() 
+          ? `${uploadNote.trim()} (Customer upload)`
+          : 'Uploaded by customer via portal';
+
         const { error: dbError } = await supabase
           .from('project_documents')
           .insert({
@@ -91,7 +97,7 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
             file_url: publicUrl,
             file_type: file.type,
             category: 'Customer Upload',
-            notes: 'Uploaded by customer via portal',
+            notes: noteText,
             company_id: companyId || null,
           });
 
@@ -106,6 +112,7 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
 
       if (successCount > 0) {
         toast.success(`Uploaded ${successCount} photo${successCount > 1 ? 's' : ''}`);
+        setUploadNote(""); // Clear note after successful upload
         queryClient.invalidateQueries({ queryKey: ['project-portal'] });
       }
     } catch (err) {
@@ -171,7 +178,14 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
                 </p>
               </div>
             </div>
-            <div className="w-full sm:w-auto">
+            <div className="w-full sm:w-auto space-y-2">
+              <Textarea
+                placeholder="Add a note about these photos (optional)..."
+                value={uploadNote}
+                onChange={(e) => setUploadNote(e.target.value)}
+                className="min-h-[40px] text-sm resize-none bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                maxLength={500}
+              />
               <input
                 ref={fileInputRef}
                 type="file"

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Image as ImageIcon, 
   Grid3X3, 
@@ -63,6 +64,7 @@ export function PhotosSection({
   const [isUploading, setIsUploading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [photoToDelete, setPhotoToDelete] = useState<any | null>(null);
+  const [uploadNote, setUploadNote] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -135,6 +137,10 @@ export function PhotosSection({
           .from('project-attachments')
           .getPublicUrl(fileName);
 
+        const noteText = uploadNote.trim() 
+          ? uploadNote.trim()
+          : `Uploaded via ${photoCategory === 'Estimate Photo' ? 'estimate builder' : 'project detail'}`;
+
         const { error: dbError } = await supabase
           .from('project_documents')
           .insert({
@@ -143,7 +149,7 @@ export function PhotosSection({
             file_url: publicUrl,
             file_type: file.type,
             category: photoCategory,
-            notes: `Uploaded via ${photoCategory === 'Estimate Photo' ? 'estimate builder' : 'project detail'}`,
+            notes: noteText,
             company_id: companyId,
             estimate_id: estimateId || null, // Scope to specific estimate if provided
           });
@@ -159,6 +165,7 @@ export function PhotosSection({
 
       if (successCount > 0) {
         toast.success(`Uploaded ${successCount} photo${successCount > 1 ? 's' : ''}`);
+        setUploadNote(""); // Clear note after successful upload
         queryClient.invalidateQueries({ queryKey: ['project-photos', projectId, estimateId] });
         queryClient.invalidateQueries({ queryKey: ['project-portal'] });
         queryClient.invalidateQueries({ queryKey: ['estimate-preview'] });
@@ -301,24 +308,33 @@ export function PhotosSection({
                 onChange={handleFileSelect}
                 className="hidden"
               />
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                size="sm"
-                className="h-7 text-xs"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-3 w-3 mr-1.5" />
-                    Upload
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Textarea
+                  placeholder="Add a note (optional)..."
+                  value={uploadNote}
+                  onChange={(e) => setUploadNote(e.target.value)}
+                  className="min-h-[32px] h-8 text-xs resize-none py-1.5 flex-1 max-w-[200px]"
+                  maxLength={500}
+                />
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  size="sm"
+                  className="h-7 text-xs"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-3 w-3 mr-1.5" />
+                      Upload
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
