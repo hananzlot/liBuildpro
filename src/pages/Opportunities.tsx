@@ -1,5 +1,5 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useMemo, useState, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Database, HardDrive, Merge, Download } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
@@ -13,77 +13,27 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DateRange } from "react-day-picker";
 import { toast } from "sonner";
-import { parseISO } from "date-fns";
-
-// Helper to parse date range from URL params
-function parseDateRangeFromParams(searchParams: URLSearchParams): DateRange | undefined {
-  const from = searchParams.get("from");
-  const to = searchParams.get("to");
-  if (from) {
-    try {
-      return {
-        from: parseISO(from),
-        to: to ? parseISO(to) : undefined,
-      };
-    } catch {
-      return undefined;
-    }
-  }
-  return undefined;
-}
+import { useOpportunitiesFilters } from "@/stores/useOpportunitiesFilters";
 
 const Opportunities = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { opportunityId } = useParams<{ opportunityId?: string }>();
   const { user, isAdmin } = useAuth();
   const { isGHLEnabled } = useGHLMode();
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [preselectedOpportunities, setPreselectedOpportunities] = useState<{ oppA: any; oppB: any } | null>(null);
-  const [showAlternatingColors, setShowAlternatingColors] = useState(true);
   const [downloadCSVFn, setDownloadCSVFn] = useState<(() => void) | null>(null);
   
-  // Derive filter state directly from URL params (single source of truth)
-  const tableDateField = useMemo<"updatedDate" | "createdDate">(() => {
-    return searchParams.get("dateField") === "createdDate" ? "createdDate" : "updatedDate";
-  }, [searchParams]);
-  
-  const tableDateRange = useMemo<DateRange | undefined>(() => {
-    return parseDateRangeFromParams(searchParams);
-  }, [searchParams]);
-
-  // Handler to update URL params (which will automatically update derived state)
-  const handleDateFieldChange = useCallback((value: "updatedDate" | "createdDate") => {
-    setSearchParams((prevParams) => {
-      const params = new URLSearchParams(prevParams);
-      if (value === "createdDate") {
-        params.set("dateField", "createdDate");
-      } else {
-        params.delete("dateField");
-      }
-      return params;
-    }, { replace: true });
-  }, [setSearchParams]);
-
-  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
-    setSearchParams((prevParams) => {
-      const params = new URLSearchParams(prevParams);
-      if (range?.from) {
-        params.set("from", range.from.toISOString().split("T")[0]);
-        if (range.to) {
-          params.set("to", range.to.toISOString().split("T")[0]);
-        } else {
-          params.delete("to");
-        }
-      } else {
-        params.delete("from");
-        params.delete("to");
-      }
-      return params;
-    }, { replace: true });
-  }, [setSearchParams]);
+  // Use Zustand store for persistent filters
+  const { 
+    dateField, 
+    dateRange, 
+    showAlternatingColors,
+    setDateField, 
+    setDateRange,
+    setShowAlternatingColors 
+  } = useOpportunitiesFilters();
 
   const handleDownloadCSVCallback = useCallback((fn: () => void) => {
     setDownloadCSVFn(() => fn);
@@ -177,7 +127,7 @@ const Opportunities = () => {
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-xl font-bold text-foreground">Opportunities</h1>
             <div className="flex items-center gap-1.5">
-              <Select value={tableDateField} onValueChange={(v) => handleDateFieldChange(v as "updatedDate" | "createdDate")}>
+              <Select value={dateField} onValueChange={(v) => setDateField(v as "updatedDate" | "createdDate")}>
                 <SelectTrigger className="w-[120px] h-8 text-xs bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
@@ -187,8 +137,8 @@ const Opportunities = () => {
                 </SelectContent>
               </Select>
               <DateRangeFilter 
-                dateRange={tableDateRange} 
-                onDateRangeChange={handleDateRangeChange} 
+                dateRange={dateRange} 
+                onDateRangeChange={setDateRange} 
               />
             </div>
           </div>
@@ -239,8 +189,8 @@ const Opportunities = () => {
               showAlternatingColors={showAlternatingColors}
               onAlternatingColorsChange={setShowAlternatingColors}
               onDownloadCSV={handleDownloadCSVCallback}
-              tableDateField={tableDateField}
-              tableDateRange={tableDateRange}
+              tableDateField={dateField}
+              tableDateRange={dateRange}
             />
           )}
         </section>
