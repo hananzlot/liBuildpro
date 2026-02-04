@@ -22,9 +22,9 @@ import { useCompanyPipelineSettings } from "@/hooks/useCompanyPipelineSettings";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { OpportunitySalesDialog } from "./OpportunitySalesDialog";
 import { AppointmentEditDialog } from "./AppointmentEditDialog";
-import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
+// EstimateBuilderDialog removed - now opens as a tab via navigation
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
-import type { LinkedOpportunity } from "@/components/estimates/EstimateSourceDialog";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -348,8 +348,8 @@ export function OpportunityDetailSheet({
     created_at: string;
   }[]>([]);
 
-  // Estimate builder dialog state
-  const [estimateBuilderOpen, setEstimateBuilderOpen] = useState(false);
+  // Use tabs for estimate builder navigation
+  const { openTab } = useAppTabs();
   
   // Estimate preview dialog state
   const [previewEstimateId, setPreviewEstimateId] = useState<string | null>(null);
@@ -3477,7 +3477,22 @@ export function OpportunityDetailSheet({
                     className="h-6 px-2"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEstimateBuilderOpen(true);
+                      // Build URL params for estimate builder
+                      const params = new URLSearchParams();
+                      if (opportunity?.id) params.set('opportunityId', opportunity.id);
+                      if (opportunity?.ghl_id) params.set('opportunityGhlId', opportunity.ghl_id);
+                      if (opportunity?.name) params.set('name', opportunity.name);
+                      const contactName = contact?.contact_name || (contact?.first_name && contact?.last_name ? `${contact.first_name} ${contact.last_name}`.trim() : null);
+                      if (contactName) params.set('contactName', contactName);
+                      if (contact?.email) params.set('contactEmail', contact.email);
+                      if (contact?.phone) params.set('contactPhone', contact.phone);
+                      if (opportunity?.address) params.set('address', opportunity.address);
+                      if (opportunity?.scope_of_work) params.set('scope', opportunity.scope_of_work);
+                      if (contact?.id) params.set('contactUuid', contact.id);
+                      if (contact?.ghl_id) params.set('contactId', contact.ghl_id);
+                      
+                      const url = `/estimate/new?${params.toString()}`;
+                      openTab(url, `New Estimate - ${opportunity?.name || 'Opportunity'}`);
                     }}
                   >
                     <Plus className="h-3 w-3 mr-1" />
@@ -3780,41 +3795,7 @@ export function OpportunityDetailSheet({
         />
       )}
 
-      {/* Estimate Builder Dialog - Pre-linked to this opportunity */}
-      {opportunity && (
-        <EstimateBuilderDialog
-          open={estimateBuilderOpen}
-          onOpenChange={setEstimateBuilderOpen}
-          linkedOpportunity={{
-            id: opportunity.id || '',
-            ghl_id: opportunity.ghl_id,
-            name: opportunity.name,
-            contact_id: opportunity.contact_id,
-            contact_uuid: opportunity.contact_uuid || undefined,
-            address: opportunity.address,
-            scope_of_work: opportunity.scope_of_work,
-            monetary_value: opportunity.monetary_value,
-            contact_name: contact?.contact_name || contact?.first_name && contact?.last_name ? `${contact.first_name} ${contact.last_name}`.trim() : null,
-            contact_email: contact?.email,
-            contact_phone: contact?.phone,
-          } as LinkedOpportunity}
-          onSuccess={() => {
-            // Refresh linked estimates
-            const fetchEstimates = async () => {
-              const { data: estimatesData } = await supabase
-                .from("estimates")
-                .select("id, estimate_number, estimate_title, status, total, created_at")
-                .or(`opportunity_id.eq.${opportunity.ghl_id},opportunity_uuid.eq.${opportunity.id || 'none'}`)
-                .eq("company_id", companyId)
-                .order("created_at", { ascending: false });
-              
-              setLinkedEstimates(estimatesData || []);
-            };
-            fetchEstimates();
-            queryClient.invalidateQueries({ queryKey: ["opportunities"] });
-          }}
-        />
-      )}
+      {/* Estimate Builder removed - now opens as a tab via navigation */}
 
       {/* Estimate Preview Dialog */}
       <EstimatePreviewDialog
