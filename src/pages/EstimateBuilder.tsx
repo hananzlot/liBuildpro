@@ -27,11 +27,39 @@ export default function EstimateBuilder() {
   const isClone = id?.startsWith("clone:");
   const estimateId = isClone ? id : (isNew ? null : id);
   
+  // URL-driven source info (prevents showing the source dialog twice)
+  const createOpportunityParam = searchParams.get("createOpportunity") === "1";
+  const oppId = searchParams.get("opportunityId");
+  const oppGhlId = searchParams.get("opportunityGhlId");
+  const hasOpportunityParams = !!(oppId || oppGhlId);
+
+  const initialLinkedOpportunity: LinkedOpportunity | null = hasOpportunityParams
+    ? {
+        id: oppId || "",
+        ghl_id: oppGhlId || null,
+        name: searchParams.get("name") || "",
+        contact_name: searchParams.get("contactName") || "",
+        contact_email: searchParams.get("contactEmail") || null,
+        contact_phone: searchParams.get("contactPhone") || null,
+        address: searchParams.get("address") || null,
+        scope_of_work: searchParams.get("scope") || null,
+        salesperson_name: searchParams.get("salesperson") || null,
+        contact_uuid: searchParams.get("contactUuid") || null,
+        contact_id: searchParams.get("contactId") || null,
+      }
+    : null;
+
   // Source dialog state for new estimates
-  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
-  const [linkedOpportunity, setLinkedOpportunity] = useState<LinkedOpportunity | null>(null);
-  const [createOpportunityOnSave, setCreateOpportunityOnSave] = useState(false);
-  const [sourceDialogCompleted, setSourceDialogCompleted] = useState(false);
+  const [sourceDialogCompleted, setSourceDialogCompleted] = useState(
+    hasOpportunityParams || createOpportunityParam
+  );
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(
+    isNew && !(hasOpportunityParams || createOpportunityParam)
+  );
+  const [linkedOpportunity, setLinkedOpportunity] = useState<LinkedOpportunity | null>(
+    initialLinkedOpportunity
+  );
+  const [createOpportunityOnSave, setCreateOpportunityOnSave] = useState(createOpportunityParam);
   // Radix Dialog will call onOpenChange when open prop flips to false.
   // When the user clicks Continue we close the dialog programmatically and must NOT treat that as cancel.
   const ignoreNextDialogCloseRef = useRef(false);

@@ -86,25 +86,24 @@ export default function Estimates() {
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
 
   // Handle source dialog continue - navigate to new estimate page in a tab
-  const handleSourceDialogContinue = (opportunity: LinkedOpportunity | null, _createOpp: boolean) => {
+  const handleSourceDialogContinue = (opportunity: LinkedOpportunity | null, createOpp: boolean) => {
     setSourceDialogOpen(false);
-    // Build URL with opportunity params if provided
-    let url = '/estimate/new';
-    if (opportunity?.id || opportunity?.ghl_id) {
-      const params = new URLSearchParams();
-      if (opportunity.id) params.set('opportunityId', opportunity.id);
-      if (opportunity.ghl_id) params.set('opportunityGhlId', opportunity.ghl_id);
-      if (opportunity.name) params.set('name', opportunity.name);
-      if (opportunity.contact_name) params.set('contactName', opportunity.contact_name);
-      if (opportunity.contact_email) params.set('contactEmail', opportunity.contact_email);
-      if (opportunity.contact_phone) params.set('contactPhone', opportunity.contact_phone);
-      if (opportunity.address) params.set('address', opportunity.address);
-      if (opportunity.scope_of_work) params.set('scope', opportunity.scope_of_work);
-      if (opportunity.salesperson_name) params.set('salesperson', opportunity.salesperson_name);
-      if (opportunity.contact_uuid) params.set('contactUuid', opportunity.contact_uuid);
-      if (opportunity.contact_id) params.set('contactId', opportunity.contact_id);
-      url = `/estimate/new?${params.toString()}`;
-    }
+    // Build URL with opportunity params (or create-new-opportunity flag)
+    const params = new URLSearchParams();
+    if (createOpp) params.set('createOpportunity', '1');
+    if (opportunity?.id) params.set('opportunityId', opportunity.id);
+    if (opportunity?.ghl_id) params.set('opportunityGhlId', opportunity.ghl_id);
+    if (opportunity?.name) params.set('name', opportunity.name);
+    if (opportunity?.contact_name) params.set('contactName', opportunity.contact_name);
+    if (opportunity?.contact_email) params.set('contactEmail', opportunity.contact_email);
+    if (opportunity?.contact_phone) params.set('contactPhone', opportunity.contact_phone);
+    if (opportunity?.address) params.set('address', opportunity.address);
+    if (opportunity?.scope_of_work) params.set('scope', opportunity.scope_of_work);
+    if (opportunity?.salesperson_name) params.set('salesperson', opportunity.salesperson_name);
+    if (opportunity?.contact_uuid) params.set('contactUuid', opportunity.contact_uuid);
+    if (opportunity?.contact_id) params.set('contactId', opportunity.contact_id);
+
+    const url = params.toString() ? `/estimate/new?${params.toString()}` : '/estimate/new';
     openTab(url, 'New Estimate');
   };
 
