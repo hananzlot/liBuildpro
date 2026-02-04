@@ -240,7 +240,7 @@ export function GlobalAdminSearch() {
         const contactName =
           contact?.contact_name?.toLowerCase() ||
           `${contact?.first_name || ""} ${contact?.last_name || ""}`.toLowerCase();
-        const address = getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address).toLowerCase();
+        const address = (getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address) || "").toLowerCase();
         const phone = normalizePhone(contact?.phone);
 
         let phoneMatch = false;
@@ -324,7 +324,7 @@ export function GlobalAdminSearch() {
           `${contact.first_name || ""} ${contact.last_name || ""}`).toLowerCase();
         const email = contact.email?.toLowerCase() || "";
         const phone = normalizePhone(contact.phone);
-        const address = getAddressFromContact(contact, appointments, contact.ghl_id).toLowerCase();
+        const address = (getAddressFromContact(contact, appointments, contact.ghl_id) || "").toLowerCase();
         
         let phoneMatch = false;
         if (isPhoneSearch && queryDigits.length >= 3 && phone.length > 0) {
