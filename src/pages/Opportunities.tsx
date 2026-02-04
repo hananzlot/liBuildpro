@@ -56,30 +56,34 @@ const Opportunities = () => {
 
   // Handler to update URL params (which will automatically update derived state)
   const handleDateFieldChange = useCallback((value: "updatedDate" | "createdDate") => {
-    const params = new URLSearchParams(searchParams);
-    if (value === "createdDate") {
-      params.set("dateField", "createdDate");
-    } else {
-      params.delete("dateField");
-    }
-    setSearchParams(params, { replace: true });
-  }, [searchParams, setSearchParams]);
+    setSearchParams((prevParams) => {
+      const params = new URLSearchParams(prevParams);
+      if (value === "createdDate") {
+        params.set("dateField", "createdDate");
+      } else {
+        params.delete("dateField");
+      }
+      return params;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
-    const params = new URLSearchParams(searchParams);
-    if (range?.from) {
-      params.set("from", range.from.toISOString().split("T")[0]);
-      if (range.to) {
-        params.set("to", range.to.toISOString().split("T")[0]);
+    setSearchParams((prevParams) => {
+      const params = new URLSearchParams(prevParams);
+      if (range?.from) {
+        params.set("from", range.from.toISOString().split("T")[0]);
+        if (range.to) {
+          params.set("to", range.to.toISOString().split("T")[0]);
+        } else {
+          params.delete("to");
+        }
       } else {
+        params.delete("from");
         params.delete("to");
       }
-    } else {
-      params.delete("from");
-      params.delete("to");
-    }
-    setSearchParams(params, { replace: true });
-  }, [searchParams, setSearchParams]);
+      return params;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   const handleDownloadCSVCallback = useCallback((fn: () => void) => {
     setDownloadCSVFn(() => fn);
