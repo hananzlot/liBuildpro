@@ -5,7 +5,6 @@ import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
 import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
-import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { MergeOpportunitiesDialog } from "@/components/dashboard/MergeOpportunitiesDialog";
 import { DuplicateOpportunitiesAlert } from "@/components/dashboard/DuplicateOpportunitiesAlert";
@@ -102,17 +101,6 @@ const Opportunities = () => {
   return (
     <AppLayout 
       onAdminAction={handleAdminAction}
-      headerContent={
-        !isAdmin && !isLoading ? (
-          <OpportunitySearch 
-            opportunities={metrics?.allOpportunities || []} 
-            appointments={metrics?.allAppointments || []} 
-            contacts={metrics?.allContacts || []} 
-            users={metrics?.users || []} 
-            conversations={metrics?.conversations || []} 
-          />
-        ) : undefined
-      }
     >
       <div className="px-6 py-6 space-y-6">
         {/* Duplicate Opportunities Alert */}
