@@ -5,7 +5,7 @@ import { useAppTabs } from "@/contexts/AppTabsContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { EstimateBuilderContent } from "@/components/estimates/EstimateBuilderContent";
 import { EstimateSourceDialog, LinkedOpportunity } from "@/components/estimates/EstimateSourceDialog";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 /**
  * Full-page Estimate Builder that opens in its own tab.
@@ -32,6 +32,9 @@ export default function EstimateBuilder() {
   const [linkedOpportunity, setLinkedOpportunity] = useState<LinkedOpportunity | null>(null);
   const [createOpportunityOnSave, setCreateOpportunityOnSave] = useState(false);
   const [sourceDialogCompleted, setSourceDialogCompleted] = useState(false);
+  // Radix Dialog will call onOpenChange when open prop flips to false.
+  // When the user clicks Continue we close the dialog programmatically and must NOT treat that as cancel.
+  const ignoreNextDialogCloseRef = useRef(false);
   
   // Show source dialog for new estimates on mount
   useEffect(() => {
@@ -65,6 +68,7 @@ export default function EstimateBuilder() {
 
   // Handle source dialog completion
   const handleSourceDialogContinue = (opportunity: LinkedOpportunity | null, createOpp: boolean) => {
+    ignoreNextDialogCloseRef.current = true;
     setLinkedOpportunity(opportunity);
     setCreateOpportunityOnSave(createOpp);
     setSourceDialogOpen(false);
@@ -108,11 +112,20 @@ export default function EstimateBuilder() {
           <EstimateSourceDialog
             open={sourceDialogOpen}
             onOpenChange={(open) => {
-              // Only handle cancel if dialog is being closed without completing
-              // (i.e., user clicked outside or pressed Cancel button)
-              if (!open && !sourceDialogCompleted) {
-                handleSourceDialogCancel();
+              if (open) {
+                setSourceDialogOpen(true);
+                return;
               }
+
+              // If we're closing because the user clicked Continue, ignore this close request.
+              if (ignoreNextDialogCloseRef.current) {
+                ignoreNextDialogCloseRef.current = false;
+                setSourceDialogOpen(false);
+                return;
+              }
+
+              // Otherwise, treat as cancel (escape key / outside click / cancel button)
+              handleSourceDialogCancel();
             }}
             onContinue={handleSourceDialogContinue}
           />
