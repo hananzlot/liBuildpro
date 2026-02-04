@@ -4554,13 +4554,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
               <>
                 <Separator className="my-4" />
                 <h4 className="font-medium mb-2 text-sm">By Area</h4>
-                <div className="space-y-1 text-sm">
+                <div className="space-y-2 text-sm">
                   {groups.map((group) => (
-                    <div key={group.id} className="flex justify-between">
-                      <span className="text-muted-foreground truncate max-w-[140px]">
+                    <div key={group.id} className="flex justify-between items-start gap-2">
+                      <span className="text-muted-foreground flex-1 break-words">
                         {group.group_name}
                       </span>
-                      <span>
+                      <span className="font-medium shrink-0">
                         {formatCurrency(group.items.reduce((sum, i) => sum + i.line_total, 0))}
                       </span>
                     </div>
