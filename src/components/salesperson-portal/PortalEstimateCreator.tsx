@@ -32,6 +32,7 @@ interface Opportunity {
   ghl_id: string | null;
   name: string | null;
   contact_id: string | null;
+  contact_uuid: string | null;
   scope_of_work: string | null;
   monetary_value: number | null;
   stage_name: string | null;
@@ -46,6 +47,8 @@ interface Project {
   customer_last_name: string | null;
   opportunity_id: string | null;
   opportunity_uuid: string | null;
+  contact_uuid: string | null;
+  lead_source: string | null;
 }
 
 interface Estimate {
@@ -99,7 +102,7 @@ export function PortalEstimateCreator({
       
       const { data, error } = await supabase
         .from("opportunities")
-        .select("id, ghl_id, name, contact_id, scope_of_work, monetary_value, stage_name, status")
+        .select("id, ghl_id, name, contact_id, contact_uuid, scope_of_work, monetary_value, stage_name, status")
         .eq("company_id", companyId)
         .eq("status", "open")
         .or(orConditions.join(","))
@@ -127,7 +130,7 @@ export function PortalEstimateCreator({
       // Step 1: Get directly assigned projects
       const { data: directProjects, error: directError } = await supabase
         .from("projects")
-        .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, opportunity_id, opportunity_uuid")
+        .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, opportunity_id, opportunity_uuid, contact_uuid, lead_source")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .or(`primary_salesperson.eq.${salespersonName},secondary_salesperson.eq.${salespersonName},tertiary_salesperson.eq.${salespersonName},quaternary_salesperson.eq.${salespersonName}`)
@@ -166,7 +169,7 @@ export function PortalEstimateCreator({
 
           const { data: linkedProjects } = await supabase
             .from("projects")
-            .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, opportunity_id, opportunity_uuid, primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson")
+            .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, opportunity_id, opportunity_uuid, contact_uuid, lead_source, primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson")
             .eq("company_id", companyId)
             .is("deleted_at", null)
             .or(combinedFilter);
@@ -375,6 +378,8 @@ export function PortalEstimateCreator({
       let opportunityUuid: string | null = null;
       let opportunityGhlId: string | null = null;
       let contactId: string | null = null;
+      let contactUuid: string | null = null;
+      let leadSource: string | null = null;
 
       if (selectedType === "opportunity") {
         const opp = opportunities.find(o => o.id === selectedId);
@@ -382,19 +387,28 @@ export function PortalEstimateCreator({
           opportunityUuid = opp.id;
           opportunityGhlId = opp.ghl_id;
           contactId = opp.contact_id;
+          contactUuid = opp.contact_uuid || null;
           
-          // Fetch contact details
-          if (contactId) {
-            const { data: contact } = await supabase
+          // Fetch contact details including source
+          if (contactId || contactUuid) {
+            const contactQuery = supabase
               .from("contacts")
-              .select("contact_name, email, phone")
-              .eq("ghl_id", contactId)
-              .maybeSingle();
+              .select("id, contact_name, email, phone, source");
+            
+            if (contactUuid) {
+              contactQuery.eq("id", contactUuid);
+            } else if (contactId) {
+              contactQuery.eq("ghl_id", contactId);
+            }
+            
+            const { data: contact } = await contactQuery.maybeSingle();
             
             if (contact) {
               customerName = contact.contact_name || opp.name || "";
               customerEmail = contact.email || "";
               customerPhone = contact.phone || "";
+              leadSource = contact.source || null;
+              contactUuid = contact.id;
             }
           }
           customerName = customerName || opp.name || "Customer";
@@ -405,6 +419,8 @@ export function PortalEstimateCreator({
           customerName = [proj.customer_first_name, proj.customer_last_name].filter(Boolean).join(" ") || proj.project_name || "Customer";
           opportunityUuid = proj.opportunity_uuid;
           opportunityGhlId = proj.opportunity_id;
+          contactUuid = proj.contact_uuid || null;
+          leadSource = proj.lead_source || null;
         }
       }
 
@@ -428,6 +444,8 @@ export function PortalEstimateCreator({
           opportunityUuid,
           opportunityGhlId,
           contactId,
+          contactUuid,
+          leadSource,
         },
       });
 

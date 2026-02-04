@@ -102,6 +102,7 @@ export default function Estimates() {
     if (opportunity?.salesperson_name) params.set('salesperson', opportunity.salesperson_name);
     if (opportunity?.contact_uuid) params.set('contactUuid', opportunity.contact_uuid);
     if (opportunity?.contact_id) params.set('contactId', opportunity.contact_id);
+    if (opportunity?.lead_source) params.set('leadSource', opportunity.lead_source);
 
     const url = params.toString() ? `/estimate/new?${params.toString()}` : '/estimate/new';
     openTab(url, 'New Estimate');

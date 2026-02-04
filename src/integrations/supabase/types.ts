@@ -2520,6 +2520,7 @@ export type Database = {
           expiration_date: string | null
           id: string
           job_address: string | null
+          lead_source: string | null
           notes: string | null
           notes_to_customer: string | null
           opportunity_id: string | null
@@ -2571,6 +2572,7 @@ export type Database = {
           expiration_date?: string | null
           id?: string
           job_address?: string | null
+          lead_source?: string | null
           notes?: string | null
           notes_to_customer?: string | null
           opportunity_id?: string | null
@@ -2622,6 +2624,7 @@ export type Database = {
           expiration_date?: string | null
           id?: string
           job_address?: string | null
+          lead_source?: string | null
           notes?: string | null
           notes_to_customer?: string | null
           opportunity_id?: string | null

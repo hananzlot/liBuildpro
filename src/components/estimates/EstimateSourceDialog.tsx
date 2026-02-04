@@ -20,7 +20,7 @@ import { FileText, Plus, Search, Loader2, User, DollarSign, MapPin } from "lucid
 
 export interface LinkedOpportunity {
   id: string;
-  ghl_id: string;
+  ghl_id: string | null;
   name: string | null;
   contact_id: string | null;
   contact_uuid?: string | null;
@@ -31,6 +31,8 @@ export interface LinkedOpportunity {
   contact_email?: string | null;
   contact_phone?: string | null;
   salesperson_name?: string | null;
+  /** Lead source from the linked contact */
+  lead_source?: string | null;
 }
 
 interface EstimateSourceDialogProps {
@@ -73,13 +75,13 @@ export function EstimateSourceDialog({
       const contactUuids = [...new Set(opps?.filter(o => o.contact_uuid).map(o => o.contact_uuid) || [])];
       const contactGhlIds = [...new Set(opps?.filter(o => o.contact_id && !o.contact_uuid).map(o => o.contact_id) || [])];
       
-      let contactMapByUuid = new Map<string, { name: string | null; email: string | null; phone: string | null }>();
-      let contactMapByGhlId = new Map<string, { id: string | null; name: string | null; email: string | null; phone: string | null }>();
+      let contactMapByUuid = new Map<string, { name: string | null; email: string | null; phone: string | null; source: string | null }>();
+      let contactMapByGhlId = new Map<string, { id: string | null; name: string | null; email: string | null; phone: string | null; source: string | null }>();
       
       if (contactUuids.length > 0) {
         const { data: contacts } = await supabase
           .from("contacts")
-          .select("id, ghl_id, contact_name, email, phone")
+          .select("id, ghl_id, contact_name, email, phone, source")
           .in("id", contactUuids);
         
         contacts?.forEach(c => {
@@ -87,6 +89,7 @@ export function EstimateSourceDialog({
             name: c.contact_name,
             email: c.email,
             phone: c.phone,
+            source: c.source,
           });
         });
       }
@@ -94,7 +97,7 @@ export function EstimateSourceDialog({
       if (contactGhlIds.length > 0) {
         const { data: contacts } = await supabase
           .from("contacts")
-          .select("id, ghl_id, contact_name, email, phone")
+          .select("id, ghl_id, contact_name, email, phone, source")
           .in("ghl_id", contactGhlIds);
         
         contacts?.forEach(c => {
@@ -103,6 +106,7 @@ export function EstimateSourceDialog({
             name: c.contact_name,
             email: c.email,
             phone: c.phone,
+            source: c.source,
           });
         });
       }
@@ -120,6 +124,7 @@ export function EstimateSourceDialog({
           contact_name: contactInfo?.name || null,
           contact_email: contactInfo?.email || null,
           contact_phone: contactInfo?.phone || null,
+          lead_source: contactInfo?.source || null,
         };
       });
     },

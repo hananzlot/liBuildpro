@@ -46,6 +46,7 @@ export default function EstimateBuilder() {
         salesperson_name: searchParams.get("salesperson") || null,
         contact_uuid: searchParams.get("contactUuid") || null,
         contact_id: searchParams.get("contactId") || null,
+        lead_source: searchParams.get("leadSource") || null,
       }
     : null;
 
@@ -86,6 +87,7 @@ export default function EstimateBuilder() {
           salesperson_name: searchParams.get("salesperson") || null,
           contact_uuid: searchParams.get("contactUuid") || null,
           contact_id: searchParams.get("contactId") || null,
+          lead_source: searchParams.get("leadSource") || null,
         });
         setSourceDialogCompleted(true);
       } else {

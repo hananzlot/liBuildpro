@@ -376,11 +376,12 @@ export function ScopeSubmissionsManagement() {
         let contactName = submission.customer_name;
         let contactEmail = submission.customer_email;
         let contactPhone = submission.customer_phone;
+        let contactSource: string | null = null;
         
         if (oppData.contact_id) {
           const { data: contactData } = await supabase
             .from("contacts")
-            .select("contact_name, email, phone")
+            .select("contact_name, email, phone, source")
             .eq("ghl_id", oppData.contact_id)
             .maybeSingle();
           
@@ -388,12 +389,14 @@ export function ScopeSubmissionsManagement() {
             contactName = contactData.contact_name || contactName;
             contactEmail = contactData.email || contactEmail;
             contactPhone = contactData.phone || contactPhone;
+            contactSource = contactData.source || null;
           }
         }
         
         if (contactName) params.set('contactName', contactName);
         if (contactEmail) params.set('contactEmail', contactEmail);
         if (contactPhone) params.set('contactPhone', contactPhone);
+        if (contactSource) params.set('leadSource', contactSource);
         if (submission.job_address || oppData.address) params.set('address', submission.job_address || oppData.address || '');
       }
     } else {

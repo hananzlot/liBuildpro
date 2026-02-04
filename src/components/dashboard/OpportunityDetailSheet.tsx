@@ -2308,6 +2308,7 @@ export function OpportunityDetailSheet({
           cell_phone: customerPhone,
           project_address: projectAddress,
           scope_of_work: scopeOfWork,
+          lead_source: contact?.source || null,
           company_id: companyId,
           created_by: user?.id,
         })
@@ -3490,6 +3491,7 @@ export function OpportunityDetailSheet({
                       if (opportunity?.scope_of_work) params.set('scope', opportunity.scope_of_work);
                       if (contact?.id) params.set('contactUuid', contact.id);
                       if (contact?.ghl_id) params.set('contactId', contact.ghl_id);
+                      if (contact?.source) params.set('leadSource', contact.source);
                       
                       const url = `/estimate/new?${params.toString()}`;
                       openTab(url, `New Estimate - ${opportunity?.name || 'Opportunity'}`);
