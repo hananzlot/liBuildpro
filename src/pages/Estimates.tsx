@@ -550,8 +550,8 @@ export default function Estimates() {
                         onClick={() => openTab(
                           `/estimate/${estimate.id}`, 
                           estimate.status && estimate.status !== 'draft' 
-                            ? `Edit Proposal - ${estimate.estimate_number}` 
-                            : `Edit Estimate #${estimate.estimate_number}`
+                            ? `Prop ${estimate.customer_name} (#${estimate.estimate_number})` 
+                            : `Est ${estimate.customer_name} (#${estimate.estimate_number})`
                         )}
                         title="Edit"
                       >
