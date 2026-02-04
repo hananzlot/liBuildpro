@@ -25,6 +25,7 @@ interface Opportunity {
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
+  opportunity_number?: number | null;
 }
 
 interface Appointment {
@@ -171,7 +172,12 @@ export function OpportunitySearch({
 
   const handleSelect = (opp: Opportunity) => {
     // Open in a new tab
-    openTab(`/opportunity/${opp.ghl_id}`, opp.name || 'Opportunity');
+    const customerName = getContactName(opp.contact_id);
+    const oppNum = opp.opportunity_number;
+    const tabTitle = oppNum 
+      ? `Opp ${oppNum}${customerName && customerName !== 'Unknown' ? ` (${customerName})` : ''}`
+      : opp.name || 'Opportunity';
+    openTab(`/opportunity/${opp.ghl_id}`, tabTitle);
     setIsOpen(false);
     setSearchQuery("");
   };
