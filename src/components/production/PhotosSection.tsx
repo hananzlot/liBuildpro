@@ -513,16 +513,18 @@ export function PhotosSection({
               <div className="p-3 border-t">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">{selectedImage.file_name}</p>
+                    {selectedImage.notes && !selectedImage.notes.includes('Uploaded by') && selectedImage.notes !== 'Uploaded by customer via portal' && (
+                      <p className="font-medium text-sm">
+                        {selectedImage.notes.replace(/ \(Customer upload\)$/, '').replace(/ \(Uploaded by .+ via portal\)$/, '')}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground truncate">
+                      {selectedImage.file_name}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(selectedImage.created_at), 'MMM d, yyyy • h:mm a')}
                       {selectedImage.category && ` • ${selectedImage.category}`}
                     </p>
-                    {selectedImage.notes && !selectedImage.notes.includes('Uploaded by') && selectedImage.notes !== 'Uploaded by customer via portal' && (
-                      <p className="text-xs text-foreground mt-1.5 bg-muted px-2 py-1 rounded">
-                        {selectedImage.notes.replace(/ \(Customer upload\)$/, '').replace(/ \(Uploaded by .+ via portal\)$/, '')}
-                      </p>
-                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-muted-foreground">
