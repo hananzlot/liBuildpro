@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner";
 import { Loader2, Save, ArrowLeft, ChevronsUpDown, Check, UserPlus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EmailSyncDialog } from "@/components/shared/EmailSyncDialog";
 
 interface ProjectEditorContentProps {
   projectId?: string | null;
@@ -143,6 +144,11 @@ export function ProjectEditorContent({
     contacts.find(c => c.id === selectedContactId),
     [contacts, selectedContactId]
   );
+
+  // Email sync dialog state
+  const [emailSyncDialogOpen, setEmailSyncDialogOpen] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string>("");
+  const [originalEmail, setOriginalEmail] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     project_name: "",
@@ -289,6 +295,7 @@ export function ProjectEditorContent({
   }
 
   return (
+    <>
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
@@ -521,6 +528,18 @@ export function ProjectEditorContent({
                     type="email"
                     value={formData.customer_email}
                     onChange={(e) => updateField("customer_email", e.target.value)}
+                    onFocus={() => {
+                      if (!originalEmail && formData.customer_email) {
+                        setOriginalEmail(formData.customer_email);
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const newEmail = e.target.value.trim();
+                      if (selectedContactId && originalEmail && newEmail && newEmail !== originalEmail) {
+                        setPendingEmail(newEmail);
+                        setEmailSyncDialogOpen(true);
+                      }
+                    }}
                     placeholder="email@example.com"
                   />
                 </div>
@@ -603,5 +622,21 @@ export function ProjectEditorContent({
         </form>
       </div>
     </div>
+    
+    {/* Email Sync Dialog */}
+    <EmailSyncDialog
+      open={emailSyncDialogOpen}
+      onOpenChange={setEmailSyncDialogOpen}
+      contactUuid={selectedContactId}
+      oldEmail={originalEmail}
+      newEmail={pendingEmail}
+      onSyncConfirmed={() => {
+        setOriginalEmail(pendingEmail);
+      }}
+      onUpdateLocalOnly={() => {
+        setOriginalEmail(pendingEmail);
+      }}
+    />
+  </>
   );
 }
