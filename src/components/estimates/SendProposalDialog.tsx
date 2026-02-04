@@ -634,8 +634,8 @@ export function SendProposalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{isResend ? 'Resend Proposal' : 'Send Proposal'}</DialogTitle>
           <DialogDescription>
             {isResend 
@@ -649,7 +649,7 @@ export function SendProposalDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-1">
           {/* Single vs Multiple Signers Toggle */}
           <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
             <div className="flex items-center gap-2">
