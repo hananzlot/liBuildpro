@@ -50,7 +50,7 @@ export function PortalDocuments({ documents, agreements = [], projectId, uploadL
   // Filter to only show non-image documents
   const docs = documents.filter(doc => 
     !doc.file_type?.startsWith('image/') && 
-    !/\.(jpg|jpeg|png|gif|webp)$/i.test(doc.file_name)
+    !/\.(jpg|jpeg|png|gif|webp|heic|heif)$/i.test(doc.file_name)
   );
 
   // Convert agreements with attachments to document format
