@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import { useSidebarFinancials } from "@/hooks/useSidebarFinancials";
 import { useTodayAppointmentsCount } from "@/hooks/useTodayAppointmentsCount";
@@ -37,7 +37,9 @@ import {
   CalendarDays,
   ClipboardList,
   Contact,
-  BrainCircuit
+  BrainCircuit,
+  Pin,
+  PinOff
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -58,6 +60,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Collapsible,
   CollapsibleContent,
@@ -295,6 +298,8 @@ interface AppSidebarProps {
   onChangePassword?: () => void;
 }
 
+const SIDEBAR_PINNED_KEY = "sidebar:pinned";
+
 export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps) {
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
@@ -311,6 +316,27 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { activeCount: aiQueueCount } = useAIGenerationQueue();
   const collapsed = state === "collapsed";
 
+  // Pinned state - persisted in localStorage
+  const [isPinned, setIsPinned] = useState(() => {
+    const stored = localStorage.getItem(SIDEBAR_PINNED_KEY);
+    return stored === "true";
+  });
+
+  // Persist pinned state
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_PINNED_KEY, isPinned ? "true" : "false");
+  }, [isPinned]);
+
+  // Toggle pinned state
+  const togglePinned = () => {
+    const newPinned = !isPinned;
+    setIsPinned(newPinned);
+    // If pinning, expand the sidebar
+    if (newPinned) {
+      setOpen(true);
+    }
+  };
+
   // Handle navigation - always opens as a tab
   const handleNavClick = (e: React.MouseEvent, url: string, title: string) => {
     e.preventDefault();
@@ -322,10 +348,15 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const [aiQueueOpen, setAiQueueOpen] = useState(false);
 
   const closeSidebar = () => {
-    // Only close sidebar on mobile, not desktop
+    // On mobile, always close
     if (isMobile) {
       setTimeout(() => {
         setOpenMobile(false);
+      }, 100);
+    } else if (!isPinned) {
+      // On desktop, only collapse if not pinned
+      setTimeout(() => {
+        setOpen(false);
       }, 100);
     }
   };
@@ -623,6 +654,29 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
+        {/* Pin Toggle - only visible when expanded on desktop */}
+        {!isMobile && !collapsed && (
+          <div className="flex justify-end -mb-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={togglePinned}
+                  className="p-1 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={isPinned ? "Unpin sidebar" : "Pin sidebar open"}
+                >
+                  {isPinned ? (
+                    <Pin className="h-3.5 w-3.5" />
+                  ) : (
+                    <PinOff className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {isPinned ? "Unpin sidebar (auto-collapse)" : "Pin sidebar open"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
         <div 
           className={`flex flex-col gap-2 px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors ${isViewingOtherCompany ? 'bg-amber-500/5 border border-amber-500/30' : ''} ${noCompanyContext ? 'bg-destructive/5 border border-destructive/30' : ''}`}
           onClick={() => {
