@@ -161,6 +161,41 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    label: "Estimates & Contracts",
+    roles: ['super_admin', 'admin', 'contract_manager'],
+    requiredFeature: 'estimates',
+    items: [
+      { 
+        title: "Estimates", 
+        url: "/estimates?view=list", 
+        icon: Calculator,
+        roles: ['super_admin', 'admin', 'contract_manager'],
+        requiredFeature: 'estimates'
+      },
+      { 
+        title: "Proposals", 
+        url: "/estimates?view=proposals", 
+        icon: Send,
+        roles: ['super_admin', 'admin', 'contract_manager'],
+        requiredFeature: 'estimates'
+      },
+      { 
+        title: "Contracts", 
+        url: "/estimates?view=contracts", 
+        icon: FileSignature,
+        roles: ['super_admin', 'admin', 'contract_manager'],
+        requiredFeature: 'estimates'
+      },
+      { 
+        title: "E-Sign Misc Docs", 
+        url: "/documents", 
+        icon: FileText,
+        roles: ['super_admin', 'admin', 'contract_manager'],
+        requiredFeature: 'documents'
+      },
+    ],
+  },
+  {
     label: "Production",
     roles: ['super_admin', 'admin', 'production'],
     requiredFeature: 'production',
@@ -231,41 +266,6 @@ const navSections: NavSection[] = [
         external: true,
         roles: ['super_admin', 'admin', 'sales'],
         requiredFeature: 'sales_portal'
-      },
-    ],
-  },
-  {
-    label: "Estimates & Contracts",
-    roles: ['super_admin', 'admin', 'contract_manager'],
-    requiredFeature: 'estimates',
-    items: [
-      { 
-        title: "Estimates", 
-        url: "/estimates?view=list", 
-        icon: Calculator,
-        roles: ['super_admin', 'admin', 'contract_manager'],
-        requiredFeature: 'estimates'
-      },
-      { 
-        title: "Proposals", 
-        url: "/estimates?view=proposals", 
-        icon: Send,
-        roles: ['super_admin', 'admin', 'contract_manager'],
-        requiredFeature: 'estimates'
-      },
-      { 
-        title: "Contracts", 
-        url: "/estimates?view=contracts", 
-        icon: FileSignature,
-        roles: ['super_admin', 'admin', 'contract_manager'],
-        requiredFeature: 'estimates'
-      },
-      { 
-        title: "E-Sign Misc Docs", 
-        url: "/documents", 
-        icon: FileText,
-        roles: ['super_admin', 'admin', 'contract_manager'],
-        requiredFeature: 'documents'
       },
     ],
   },
