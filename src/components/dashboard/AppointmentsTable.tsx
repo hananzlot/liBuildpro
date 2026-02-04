@@ -20,6 +20,7 @@ import { DateRange } from "react-day-picker";
 import { getAddressFromContact, findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAppointmentsFilters } from "@/stores/useAppointmentsFilters";
 
 interface Appointment {
   id?: string;
@@ -99,21 +100,37 @@ export function AppointmentsTable({
   const { openTab } = useAppTabs();
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [repFilter, setRepFilter] = useState<string[]>([]);
-  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
-  const [oppStatusFilter, setOppStatusFilter] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-    return { from: start, to: end };
-  });
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
-  const [sortColumn, setSortColumn] = useState<SortColumn>('start');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Persistent filters from Zustand store
+  const {
+    dateRange: storedDateRange,
+    statusFilter,
+    repFilter,
+    sourceFilter,
+    oppStatusFilter,
+    sortColumn,
+    sortDirection,
+    currentPage,
+    setDateRange: setStoredDateRange,
+    setStatusFilter,
+    setRepFilter,
+    setSourceFilter,
+    setOppStatusFilter,
+    setSort,
+    setCurrentPage,
+    clearFilters,
+  } = useAppointmentsFilters();
+
+  // Convert stored ISO strings back to DateRange
+  const dateRange = useMemo<DateRange | undefined>(() => {
+    if (!storedDateRange?.from) return undefined;
+    return {
+      from: new Date(storedDateRange.from),
+      to: storedDateRange.to ? new Date(storedDateRange.to) : undefined,
+    };
+  }, [storedDateRange]);
 
   const handleOpenOpportunity = (opportunity: Opportunity) => {
     setSelectedOpportunity(opportunity);
@@ -613,7 +630,7 @@ export function AppointmentsTable({
   };
 
   const handleDateRangeChange = (range: DateRange | undefined) => {
-    setDateRange(range);
+    setStoredDateRange(range?.from, range?.to);
     setCurrentPage(1);
   };
 
@@ -626,10 +643,9 @@ export function AppointmentsTable({
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      setSort(column, sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortColumn(column);
-      setSortDirection('asc');
+      setSort(column, 'asc');
     }
     setCurrentPage(1);
   };
@@ -710,13 +726,7 @@ export function AppointmentsTable({
                 variant="ghost"
                 size="sm"
                 className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setStatusFilter([]);
-                  setRepFilter([]);
-                  setSourceFilter([]);
-                  setOppStatusFilter([]);
-                  setCurrentPage(1);
-                }}
+                onClick={() => clearFilters()}
               >
                 Clear Filters
               </Button>
@@ -1050,7 +1060,7 @@ export function AppointmentsTable({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -1059,7 +1069,7 @@ export function AppointmentsTable({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
                 >
                   Next
