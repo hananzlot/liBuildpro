@@ -371,6 +371,81 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
     }
   }, [portalData]);
 
+  // Helper function to create agreement and payment phases after signing
+  const createAgreementAndPaymentPhases = async (
+    projectId: string, 
+    estimate: ProposalEstimate, 
+    companyId: string,
+    signedDate: string
+  ) => {
+    try {
+      // Create project agreement
+      const { data: agreementData, error: agreementError } = await supabase
+        .from('project_agreements')
+        .insert({
+          project_id: projectId,
+          agreement_number: `CNT-${estimate.estimate_number}`,
+          agreement_signed_date: signedDate,
+          agreement_type: 'Contract',
+          total_price: estimate.total || 0,
+          description_of_work: estimate.work_scope_description || estimate.estimate_title,
+          company_id: companyId,
+        })
+        .select('id')
+        .single();
+
+      if (agreementError) {
+        console.error('Failed to create agreement:', agreementError);
+        return;
+      }
+
+      console.log('Created project agreement:', agreementData?.id);
+
+      // Fetch payment schedule from estimate
+      const { data: paymentSchedule } = await supabase
+        .from('estimate_payment_schedule')
+        .select('*')
+        .eq('estimate_id', estimate.id)
+        .order('sort_order');
+
+      if (paymentSchedule && paymentSchedule.length > 0) {
+        // Create payment phases from estimate payment schedule
+        const paymentPhases = paymentSchedule.map((phase, index) => ({
+          project_id: projectId,
+          agreement_id: agreementData?.id,
+          phase_name: phase.phase_name || `Phase ${index + 1}`,
+          description: phase.description || null,
+          due_date: phase.due_date || null,
+          amount: phase.amount || 0,
+          display_order: phase.sort_order || index,
+          company_id: companyId,
+        }));
+
+        const { error: phasesError } = await supabase
+          .from('project_payment_phases')
+          .insert(paymentPhases);
+
+        if (phasesError) {
+          console.error('Failed to create payment phases:', phasesError);
+        } else {
+          console.log('Created', paymentPhases.length, 'payment phases');
+        }
+      }
+
+      // Update project status to "New Job"
+      await supabase
+        .from('projects')
+        .update({
+          project_status: 'New Job',
+          agreement_signed_date: signedDate,
+        })
+        .eq('id', projectId);
+
+    } catch (err) {
+      console.error('Error creating agreement/payment phases:', err);
+    }
+  };
+
   const signMutation = useMutation({
     mutationFn: async () => {
       if (!signatureData || !agreedToTerms) {
@@ -424,17 +499,17 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             })
             .eq('id', portalData!.estimate.id);
 
-          // Update project status
+          // Create agreement, payment phases, and update project status
           if (portalData!.estimate.project_id) {
-            const projectUpdate: Record<string, unknown> = {
-              project_status: 'Contract Signed',
-              agreement_signed_date: new Date().toISOString().split('T')[0],
-            };
+            const signedDate = new Date().toISOString().split('T')[0];
             
-            await supabase
-              .from('projects')
-              .update(projectUpdate)
-              .eq('id', portalData!.estimate.project_id);
+            // Create agreement and payment phases from estimate
+            await createAgreementAndPaymentPhases(
+              portalData!.estimate.project_id,
+              portalData!.estimate,
+              portalData!.token.company_id,
+              signedDate
+            );
 
             // Generate contract PDF
             supabase.functions.invoke('generate-contract-pdf', {
@@ -481,17 +556,17 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           })
           .eq('id', portalData!.estimate.id);
 
-        // Update project status
+        // Create agreement, payment phases, and update project status
         if (portalData!.estimate.project_id) {
-          const projectUpdate: Record<string, unknown> = {
-            project_status: 'Contract Signed',
-            agreement_signed_date: new Date().toISOString().split('T')[0],
-          };
+          const signedDate = new Date().toISOString().split('T')[0];
           
-          await supabase
-            .from('projects')
-            .update(projectUpdate)
-            .eq('id', portalData!.estimate.project_id);
+          // Create agreement and payment phases from estimate
+          await createAgreementAndPaymentPhases(
+            portalData!.estimate.project_id,
+            portalData!.estimate,
+            portalData!.token.company_id,
+            signedDate
+          );
 
           // Generate contract PDF
           supabase.functions.invoke('generate-contract-pdf', {

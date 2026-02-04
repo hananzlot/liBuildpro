@@ -353,22 +353,60 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         }
       }
 
-      // AUTO-CREATE AGREEMENT AND UPDATE PROJECT
+      // AUTO-CREATE AGREEMENT, PAYMENT PHASES, AND UPDATE PROJECT
       if (projectId && selectedEstimate) {
         const signedDate = new Date().toISOString().split('T')[0];
         
         // Create project agreement with the contract details
-        await supabase.from('project_agreements').insert({
-          project_id: projectId,
-          agreement_number: `CNT-${selectedEstimate.estimate_number}`,
-          agreement_signed_date: signedDate,
-          agreement_type: 'Contract',
-          total_price: selectedEstimate.total || 0,
-          description_of_work: selectedEstimate.work_scope_description || selectedEstimate.estimate_title,
-          company_id: companyId,
-        }).then(result => {
-          if (result.error) console.error('Failed to create agreement:', result.error);
-        });
+        const { data: agreementData, error: agreementError } = await supabase
+          .from('project_agreements')
+          .insert({
+            project_id: projectId,
+            agreement_number: `CNT-${selectedEstimate.estimate_number}`,
+            agreement_signed_date: signedDate,
+            agreement_type: 'Contract',
+            total_price: selectedEstimate.total || 0,
+            description_of_work: selectedEstimate.work_scope_description || selectedEstimate.estimate_title,
+            company_id: companyId,
+          })
+          .select('id')
+          .single();
+
+        if (agreementError) {
+          console.error('Failed to create agreement:', agreementError);
+        } else {
+          console.log('Created project agreement:', agreementData?.id);
+
+          // Fetch payment schedule from estimate and create payment phases
+          const { data: paymentSchedule } = await supabase
+            .from('estimate_payment_schedule')
+            .select('*')
+            .eq('estimate_id', selectedEstimateId)
+            .order('sort_order');
+
+          if (paymentSchedule && paymentSchedule.length > 0) {
+            const paymentPhases = paymentSchedule.map((phase, index) => ({
+              project_id: projectId,
+              agreement_id: agreementData?.id,
+              phase_name: phase.phase_name || `Phase ${index + 1}`,
+              description: phase.description || null,
+              due_date: phase.due_date || null,
+              amount: phase.amount || 0,
+              display_order: phase.sort_order || index,
+              company_id: companyId,
+            }));
+
+            const { error: phasesError } = await supabase
+              .from('project_payment_phases')
+              .insert(paymentPhases);
+
+            if (phasesError) {
+              console.error('Failed to create payment phases:', phasesError);
+            } else {
+              console.log('Created', paymentPhases.length, 'payment phases');
+            }
+          }
+        }
 
         // Update project status to "New Job" and set agreement signed date
         await supabase.from('projects').update({
