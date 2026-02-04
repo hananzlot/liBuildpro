@@ -79,8 +79,8 @@ export function AppLayout({
           <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <SidebarTrigger />
-              {/* Always show GlobalAdminSearch for admin users */}
-              {isAdmin && <GlobalAdminSearch />}
+              {/* Always show GlobalAdminSearch for all authenticated users */}
+              <GlobalAdminSearch />
               {headerContent}
             </div>
             <div className="flex items-center gap-2">
