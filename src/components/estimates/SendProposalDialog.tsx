@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,6 +55,7 @@ export function SendProposalDialog({
   const [portalLink, setPortalLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [signers, setSigners] = useState<SignerData[]>([]);
+  const [didSyncPrimarySigner, setDidSyncPrimarySigner] = useState(false);
   const [visibilitySettings, setVisibilitySettings] = useState({
     show_scope_to_customer: false,
     show_line_items_to_customer: false,
@@ -113,6 +115,7 @@ export function SendProposalDialog({
   // Reset form when dialog opens with new data
   useEffect(() => {
     if (open && companyName) {
+      setDidSyncPrimarySigner(false);
       setEmail(customerEmail || '');
       setSubject(
         isResend 
@@ -210,6 +213,57 @@ export function SendProposalDialog({
       })));
     }
   }, [existingSigners, isResend]);
+
+  // IMPORTANT: For resends, the email(s) actually used come from estimate_signers.
+  // If the customer email was updated on the estimate, keep signer #1 in sync so resend goes to the new email.
+  useEffect(() => {
+    const freshEmail = estimateData?.customer_email;
+    const freshName = estimateData?.customer_name;
+
+    if (!open || !isResend) return;
+    if (!freshEmail) return;
+    if (!existingSigners || existingSigners.length === 0) return;
+    if (didSyncPrimarySigner) return;
+
+    const primary = existingSigners.find((s: any) => s.signer_order === 1);
+    if (!primary) return;
+
+    const needsEmailUpdate = primary.signer_email !== freshEmail;
+    const needsNameUpdate = !!freshName && primary.signer_name !== freshName;
+    if (!needsEmailUpdate && !needsNameUpdate) return;
+
+    setDidSyncPrimarySigner(true);
+
+    // Update local UI immediately
+    setSigners((prev) =>
+      prev.map((s) =>
+        s.order === 1
+          ? { ...s, email: freshEmail, name: freshName || s.name }
+          : s
+      )
+    );
+
+    // Update DB so actual resend recipients are correct
+    void (async () => {
+      const updatePayload: Record<string, string> = { signer_email: freshEmail };
+      if (freshName) updatePayload.signer_name = freshName;
+
+      const { error } = await supabase
+        .from('estimate_signers')
+        .update(updatePayload)
+        .eq('estimate_id', estimateId)
+        .eq('signer_order', 1);
+
+      if (error) {
+        console.error('Failed to sync primary signer email for resend:', error);
+        // Allow retry if needed
+        setDidSyncPrimarySigner(false);
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['estimate-signers', estimateId] });
+    })();
+  }, [open, isResend, estimateData?.customer_email, estimateData?.customer_name, existingSigners, didSyncPrimarySigner, estimateId, queryClient]);
 
   // Check if there's an existing portal token for this project (single signer legacy)
   const { data: existingToken } = useQuery({
@@ -648,7 +702,7 @@ export function SendProposalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden min-h-0">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{isResend ? 'Resend Proposal' : 'Send Proposal'}</DialogTitle>
           <DialogDescription>
@@ -663,7 +717,8 @@ export function SendProposalDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-2 -mr-2">
+        <ScrollArea className="flex-1 min-h-0 -mr-2 pr-2">
+          <div className="space-y-4 pr-1">
           {/* Single vs Multiple Signers Toggle */}
           <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
             <div className="flex items-center gap-2">
@@ -874,7 +929,8 @@ export function SendProposalDialog({
               </div>
             </>
           )}
-        </div>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
