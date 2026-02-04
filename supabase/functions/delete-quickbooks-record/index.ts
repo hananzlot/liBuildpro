@@ -54,6 +54,22 @@ Deno.serve(async (req) => {
     const qbId = syncLog.quickbooks_id;
     console.log(`Found QuickBooks ID: ${qbId}`);
 
+    // Handle backfill- prefixed IDs - these are placeholders that don't exist in QuickBooks
+    if (qbId.startsWith("backfill-")) {
+      console.log(`Record has backfill placeholder ID, marking as deleted locally`);
+      await supabase
+        .from("quickbooks_sync_log")
+        .update({ sync_status: "deleted", synced_at: new Date().toISOString() })
+        .eq("company_id", companyId)
+        .eq("record_type", recordType)
+        .eq("record_id", recordId);
+      
+      return new Response(
+        JSON.stringify({ success: true, message: "Backfill record marked as deleted (was never synced to QuickBooks)" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Get QuickBooks tokens
     const { data: tokenData, error: tokenError } = await supabase.rpc("get_quickbooks_tokens", {
       p_company_id: companyId,
