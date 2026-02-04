@@ -5,6 +5,8 @@ import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Loader2, Link2, Unlink, RefreshCw, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -274,11 +276,74 @@ export function QuickBooksIntegration() {
     </Card>
   );
 
+  // Fetch disable auto-sync setting
+  const { data: disableAutoSyncSetting } = useQuery({
+    queryKey: ["company-settings", companyId, "disable_new_project_qb_sync"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "disable_new_project_qb_sync")
+        .maybeSingle();
+      return data?.setting_value === "true";
+    },
+    enabled: !!companyId,
+  });
+
+  const toggleAutoSyncMutation = useMutation({
+    mutationFn: async (disabled: boolean) => {
+      const { error } = await supabase
+        .from("company_settings")
+        .upsert({
+          company_id: companyId,
+          setting_key: "disable_new_project_qb_sync",
+          setting_value: disabled ? "true" : "false",
+          setting_type: "boolean",
+          description: "Disable auto QB sync for new projects",
+        }, { onConflict: "company_id,setting_key" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-settings", companyId, "disable_new_project_qb_sync"] });
+      toast.success("Setting updated");
+    },
+    onError: () => {
+      toast.error("Failed to update setting");
+    },
+  });
+
   return (
     <div className="space-y-6">
       {connectionCard}
       {connection && (
         <>
+          {/* Auto-sync toggle card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">New Project Sync</CardTitle>
+              <CardDescription>
+                Control whether new projects automatically sync to QuickBooks
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="disable-auto-sync">Disable auto-sync for new projects</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When enabled, new projects will not automatically sync to QuickBooks
+                  </p>
+                </div>
+                <Switch
+                  id="disable-auto-sync"
+                  checked={disableAutoSyncSetting ?? false}
+                  onCheckedChange={(checked) => toggleAutoSyncMutation.mutate(checked)}
+                  disabled={toggleAutoSyncMutation.isPending}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          
           <QuickBooksCompanySelector />
           <QuickBooksMappingConfig />
           <QuickBooksFieldMappings />
