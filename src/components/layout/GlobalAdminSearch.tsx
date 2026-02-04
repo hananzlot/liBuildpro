@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, X, Briefcase, FolderKanban, FileText, CalendarCheck, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAppTabs } from "@/contexts/AppTabsContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -90,9 +91,42 @@ async function fetchAllPages<T>(
 export function GlobalAdminSearch() {
   const navigate = useNavigate();
   const { companyId } = useCompanyContext();
+  const { isAdmin, isProduction, isContractManager } = useAuth();
+  const { openTab } = useAppTabs();
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"opportunities" | "projects" | "estimates" | "contacts">("opportunities");
+  
+  // Determine which tabs are visible based on user role
+  // Admin: all tabs
+  // Dispatch (default): opportunities only
+  // Production: projects only
+  // Contract Manager: estimates only
+  const canSeeOpportunities = isAdmin || (!isProduction && !isContractManager); // Dispatch or Admin
+  const canSeeProjects = isAdmin || isProduction;
+  const canSeeEstimates = isAdmin || isContractManager;
+  const canSeeContacts = isAdmin;
+  
+  // Determine default tab based on role
+  const getDefaultTab = () => {
+    if (canSeeOpportunities) return "opportunities";
+    if (canSeeProjects) return "projects";
+    if (canSeeEstimates) return "estimates";
+    return "opportunities";
+  };
+  
+  const [activeTab, setActiveTab] = useState<"opportunities" | "projects" | "estimates" | "contacts">(getDefaultTab());
+  
+  // Update active tab if current tab becomes invisible due to role
+  useEffect(() => {
+    if (
+      (activeTab === "opportunities" && !canSeeOpportunities) ||
+      (activeTab === "projects" && !canSeeProjects) ||
+      (activeTab === "estimates" && !canSeeEstimates) ||
+      (activeTab === "contacts" && !canSeeContacts)
+    ) {
+      setActiveTab(getDefaultTab());
+    }
+  }, [activeTab, canSeeOpportunities, canSeeProjects, canSeeEstimates, canSeeContacts]);
 
   // Fetch opportunities for search
   const { data: opportunities = [] } = useQuery({
@@ -417,12 +451,12 @@ export function GlobalAdminSearch() {
   };
 
   const handleSelectProject = (proj: Project) => {
-    navigate(`/production/${proj.id}`);
+    // Open as a tab using the full-page project route
+    const tabTitle = proj.project_address || `#${proj.project_number} - ${proj.project_name}`;
+    openTab(`/project/${proj.id}`, tabTitle);
     setIsOpen(false);
     setSearchQuery("");
   };
-
-  const { openTab } = useAppTabs();
   
   const handleSelectEstimate = (est: Estimate) => {
     const tabTitle = est.status && est.status !== 'draft' 
@@ -483,183 +517,201 @@ export function GlobalAdminSearch() {
         {searchQuery.trim() ? (
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "opportunities" | "projects" | "estimates" | "contacts")}>
             <div className="border-b px-3 py-2">
-              <TabsList className="grid w-full grid-cols-4 h-8">
-                <TabsTrigger value="opportunities" className="text-xs gap-1">
-                  <Briefcase className="h-3 w-3" />
-                  Opps ({filteredOpportunities.length})
-                </TabsTrigger>
-                <TabsTrigger value="projects" className="text-xs gap-1">
-                  <FolderKanban className="h-3 w-3" />
-                  Projects ({filteredProjects.length})
-                </TabsTrigger>
-                <TabsTrigger value="estimates" className="text-xs gap-1">
-                  <FileText className="h-3 w-3" />
-                  Est ({filteredEstimates.length})
-                </TabsTrigger>
-                <TabsTrigger value="contacts" className="text-xs gap-1">
-                  <Users className="h-3 w-3" />
-                  Contacts ({filteredContacts.length})
-                </TabsTrigger>
+              <TabsList className="grid w-full h-8" style={{ 
+                gridTemplateColumns: `repeat(${[canSeeOpportunities, canSeeProjects, canSeeEstimates, canSeeContacts].filter(Boolean).length}, 1fr)` 
+              }}>
+                {canSeeOpportunities && (
+                  <TabsTrigger value="opportunities" className="text-xs gap-1">
+                    <Briefcase className="h-3 w-3" />
+                    Opps ({filteredOpportunities.length})
+                  </TabsTrigger>
+                )}
+                {canSeeProjects && (
+                  <TabsTrigger value="projects" className="text-xs gap-1">
+                    <FolderKanban className="h-3 w-3" />
+                    Projects ({filteredProjects.length})
+                  </TabsTrigger>
+                )}
+                {canSeeEstimates && (
+                  <TabsTrigger value="estimates" className="text-xs gap-1">
+                    <FileText className="h-3 w-3" />
+                    Est ({filteredEstimates.length})
+                  </TabsTrigger>
+                )}
+                {canSeeContacts && (
+                  <TabsTrigger value="contacts" className="text-xs gap-1">
+                    <Users className="h-3 w-3" />
+                    Contacts ({filteredContacts.length})
+                  </TabsTrigger>
+                )}
               </TabsList>
             </div>
 
-            <TabsContent value="opportunities" className="m-0">
-              <div className="max-h-[280px] overflow-y-auto">
-                {filteredOpportunities.length > 0 ? (
-                  <div className="p-2">
-                    {filteredOpportunities.map((opp) => (
-                      <button
-                        key={opp.ghl_id}
-                        className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                        onClick={() => handleSelectOpportunity(opp)}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium truncate text-sm">
-                                {getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address) || "No address"}
-                              </span>
-                              {hasUpcomingAppointment(opp.contact_id) && (
-                                <CalendarCheck className="h-3.5 w-3.5 text-primary shrink-0" />
-                              )}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {getContactName(opp.contact_id)}
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
-                              {formatCurrency(opp.monetary_value)}
-                            </span>
-                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getStatusColor(opp.status)}`}>
-                              {opp.status || "Unknown"}
-                            </Badge>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-6 text-center text-muted-foreground text-sm">
-                    No opportunities found
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="projects" className="m-0">
-              <div className="max-h-[280px] overflow-y-auto">
-                {filteredProjects.length > 0 ? (
-                  <div className="p-2">
-                    {filteredProjects.map((proj) => (
-                      <button
-                        key={proj.id}
-                        className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                        onClick={() => handleSelectProject(proj)}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate text-sm">
-                              #{proj.project_number} - {proj.project_address || proj.project_name}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {proj.customer_first_name} {proj.customer_last_name}
-                              {proj.primary_salesperson && ` • ${proj.primary_salesperson}`}
-                            </div>
-                          </div>
-                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${getProjectStatusColor(proj.project_status)}`}>
-                            {proj.project_status || "Unknown"}
-                          </Badge>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-6 text-center text-muted-foreground text-sm">
-                    No projects found
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="estimates" className="m-0">
-              <div className="max-h-[280px] overflow-y-auto">
-                {filteredEstimates.length > 0 ? (
-                  <div className="p-2">
-                    {filteredEstimates.map((est) => (
-                      <button
-                        key={est.id}
-                        className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                        onClick={() => handleSelectEstimate(est)}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate text-sm">
-                              {est.job_address || est.customer_name || "No address"}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {est.estimate_number && `#${est.estimate_number} • `}
-                              {est.customer_name}
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-1 shrink-0">
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
-                              {formatCurrency(est.total)}
-                            </span>
-                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getEstimateStatusColor(est.status)}`}>
-                              {est.status || "Draft"}
-                            </Badge>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-6 text-center text-muted-foreground text-sm">
-                    No estimates found
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="contacts" className="m-0">
-              <div className="max-h-[280px] overflow-y-auto">
-                {filteredContacts.length > 0 ? (
-                  <div className="p-2">
-                    {filteredContacts.map((contact) => {
-                      const address = getAddressFromContact(contact, appointments, contact.ghl_id);
-                      return (
+            {canSeeOpportunities && (
+              <TabsContent value="opportunities" className="m-0">
+                <div className="max-h-[280px] overflow-y-auto">
+                  {filteredOpportunities.length > 0 ? (
+                    <div className="p-2">
+                      {filteredOpportunities.map((opp) => (
                         <button
-                          key={contact.id}
+                          key={opp.ghl_id}
                           className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                          onClick={() => handleSelectContact(contact)}
+                          onClick={() => handleSelectOpportunity(opp)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-medium truncate text-sm">
+                                  {getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address) || "No address"}
+                                </span>
+                                {hasUpcomingAppointment(opp.contact_id) && (
+                                  <CalendarCheck className="h-3.5 w-3.5 text-primary shrink-0" />
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {getContactName(opp.contact_id)}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
+                                {formatCurrency(opp.monetary_value)}
+                              </span>
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getStatusColor(opp.status)}`}>
+                                {opp.status || "Unknown"}
+                              </Badge>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-muted-foreground text-sm">
+                      No opportunities found
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            )}
+
+            {canSeeProjects && (
+              <TabsContent value="projects" className="m-0">
+                <div className="max-h-[280px] overflow-y-auto">
+                  {filteredProjects.length > 0 ? (
+                    <div className="p-2">
+                      {filteredProjects.map((proj) => (
+                        <button
+                          key={proj.id}
+                          className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                          onClick={() => handleSelectProject(proj)}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <div className="font-medium truncate text-sm">
-                                {getContactDisplayName(contact)}
+                                #{proj.project_number} - {proj.project_address || proj.project_name}
                               </div>
                               <div className="text-xs text-muted-foreground truncate">
-                                {contact.email || contact.phone || "No contact info"}
+                                {proj.customer_first_name} {proj.customer_last_name}
+                                {proj.primary_salesperson && ` • ${proj.primary_salesperson}`}
                               </div>
-                              {address && (
-                                <div className="text-xs text-muted-foreground truncate mt-0.5">
-                                  {address}
-                                </div>
-                              )}
+                            </div>
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${getProjectStatusColor(proj.project_status)}`}>
+                              {proj.project_status || "Unknown"}
+                            </Badge>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-muted-foreground text-sm">
+                      No projects found
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            )}
+
+            {canSeeEstimates && (
+              <TabsContent value="estimates" className="m-0">
+                <div className="max-h-[280px] overflow-y-auto">
+                  {filteredEstimates.length > 0 ? (
+                    <div className="p-2">
+                      {filteredEstimates.map((est) => (
+                        <button
+                          key={est.id}
+                          className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                          onClick={() => handleSelectEstimate(est)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate text-sm">
+                                {est.job_address || est.customer_name || "No address"}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {est.estimate_number && `#${est.estimate_number} • `}
+                                {est.customer_name}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
+                                {formatCurrency(est.total)}
+                              </span>
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getEstimateStatusColor(est.status)}`}>
+                                {est.status || "Draft"}
+                              </Badge>
                             </div>
                           </div>
                         </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="p-6 text-center text-muted-foreground text-sm">
-                    No contacts found
-                  </div>
-                )}
-              </div>
-            </TabsContent>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-muted-foreground text-sm">
+                      No estimates found
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            )}
+
+            {canSeeContacts && (
+              <TabsContent value="contacts" className="m-0">
+                <div className="max-h-[280px] overflow-y-auto">
+                  {filteredContacts.length > 0 ? (
+                    <div className="p-2">
+                      {filteredContacts.map((contact) => {
+                        const address = getAddressFromContact(contact, appointments, contact.ghl_id);
+                        return (
+                          <button
+                            key={contact.id}
+                            className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                            onClick={() => handleSelectContact(contact)}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium truncate text-sm">
+                                  {getContactDisplayName(contact)}
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {contact.email || contact.phone || "No contact info"}
+                                </div>
+                                {address && (
+                                  <div className="text-xs text-muted-foreground truncate mt-0.5">
+                                    {address}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-muted-foreground text-sm">
+                      No contacts found
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            )}
           </Tabs>
         ) : (
           <div className="p-6 text-center text-muted-foreground text-sm">
