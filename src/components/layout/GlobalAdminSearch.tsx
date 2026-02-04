@@ -378,7 +378,10 @@ export function GlobalAdminSearch() {
   };
 
   const handleSelectOpportunity = (opp: Opportunity) => {
-    navigate(`/opportunities/${opp.ghl_id}`);
+    // Open as a tab using the full-page opportunity route
+    const address = getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address);
+    const tabTitle = address || getContactName(opp.contact_id) || 'Opportunity';
+    openTab(`/opportunity/${opp.ghl_id}`, tabTitle);
     setIsOpen(false);
     setSearchQuery("");
   };
