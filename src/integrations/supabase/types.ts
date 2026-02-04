@@ -5859,7 +5859,7 @@ export type Database = {
           click_count: number | null
           company_id: string
           created_at: string | null
-          created_by_id: string
+          created_by_id: string | null
           created_by_type: string
           custom_alias: string | null
           expires_at: string | null
@@ -5876,7 +5876,7 @@ export type Database = {
           click_count?: number | null
           company_id: string
           created_at?: string | null
-          created_by_id: string
+          created_by_id?: string | null
           created_by_type: string
           custom_alias?: string | null
           expires_at?: string | null
@@ -5893,7 +5893,7 @@ export type Database = {
           click_count?: number | null
           company_id?: string
           created_at?: string | null
-          created_by_id?: string
+          created_by_id?: string | null
           created_by_type?: string
           custom_alias?: string | null
           expires_at?: string | null
