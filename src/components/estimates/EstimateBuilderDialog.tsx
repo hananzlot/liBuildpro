@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import { useEstimateDraft } from "@/hooks/useEstimateDraft";
 import { useEstimateDraftDB } from "@/hooks/useEstimateDraftDB";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -2985,23 +2986,23 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   )}
                   
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Customer Information</CardTitle>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium">Customer Information</CardTitle>
                     </CardHeader>
-                    <CardContent className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="customer_name">Customer Name *</Label>
+                    <CardContent className="grid gap-3 grid-cols-2 lg:grid-cols-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="customer_name" className="text-xs">Customer Name *</Label>
                         <Input
                           id="customer_name"
                           value={formData.customer_name}
                           onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                           placeholder="John Smith"
-                          className={getFieldErrorClass(formData.customer_name)}
+                          className={cn("h-8 text-sm", getFieldErrorClass(formData.customer_name))}
                           disabled={isProposalReadOnly}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="customer_email">Email *</Label>
+                      <div className="space-y-1">
+                        <Label htmlFor="customer_email" className="text-xs">Email *</Label>
                         <Input
                           id="customer_email"
                           type="email"
@@ -3009,12 +3010,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
                           placeholder="john@example.com"
                           required
-                          className={getFieldErrorClass(formData.customer_email)}
+                          className={cn("h-8 text-sm", getFieldErrorClass(formData.customer_email))}
                           disabled={isProposalReadOnly}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="customer_phone">Phone</Label>
+                      <div className="space-y-1">
+                        <Label htmlFor="customer_phone" className="text-xs">Phone</Label>
                         <Input
                           id="customer_phone"
                           value={formatPhoneNumber(formData.customer_phone)}
@@ -3023,65 +3024,66 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                             setFormData({ ...formData, customer_phone: formatted });
                           }}
                           placeholder="(555) 123-4567"
+                          className="h-8 text-sm"
                           disabled={isProposalReadOnly}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="estimate_title">Project Title *</Label>
+                      <div className="space-y-1">
+                        <Label htmlFor="estimate_title" className="text-xs">Project Title *</Label>
                         <Input
                           id="estimate_title"
                           value={formData.estimate_title}
                           onChange={(e) => setFormData({ ...formData, estimate_title: e.target.value })}
                           placeholder="Kitchen Remodel"
-                          className={getFieldErrorClass(formData.estimate_title)}
+                          className={cn("h-8 text-sm", getFieldErrorClass(formData.estimate_title))}
                           disabled={isProposalReadOnly}
                         />
                       </div>
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="job_address">Job Site Address *</Label>
+                      <div className="space-y-1 col-span-2">
+                        <Label htmlFor="job_address" className="text-xs">Job Site Address *</Label>
                         <Input
                           id="job_address"
                           value={formData.job_address}
                           onChange={(e) => setFormData({ ...formData, job_address: e.target.value })}
                           placeholder="123 Main St, Los Angeles, CA 90001"
                           required
-                          className={getFieldErrorClass(formData.job_address)}
+                          className={cn("h-8 text-sm", getFieldErrorClass(formData.job_address))}
                           disabled={isProposalReadOnly}
                         />
-                        <p className="text-xs text-muted-foreground">Include full address with city, state, and ZIP code for accurate pricing</p>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="estimate_date">Estimate Date</Label>
+                      <div className="space-y-1">
+                        <Label htmlFor="estimate_date" className="text-xs">Estimate Date</Label>
                         <Input
                           id="estimate_date"
                           type="date"
                           value={formData.estimate_date}
                           onChange={(e) => setFormData({ ...formData, estimate_date: e.target.value })}
+                          className="h-8 text-sm"
                           disabled={isProposalReadOnly}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="expiration_date">Expiration Date</Label>
+                      <div className="space-y-1">
+                        <Label htmlFor="expiration_date" className="text-xs">Expiration Date</Label>
                         <Input
                           id="expiration_date"
                           type="date"
                           value={formData.expiration_date}
                           onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
+                          className="h-8 text-sm"
                           disabled={isProposalReadOnly}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="salesperson_name">Salesperson <span className="text-destructive">*</span></Label>
+                      <div className="space-y-1">
+                        <Label htmlFor="salesperson_name" className="text-xs">Salesperson <span className="text-destructive">*</span></Label>
                         <Select
                           value={formData.salesperson_name || ""}
                           onValueChange={(value) => {
                             setFormData({ ...formData, salesperson_name: value });
-                            // Sync to linked project if estimate is in pre-proposal (draft) status
                             syncSalespersonToProject(value);
                           }}
                           disabled={isProposalReadOnly}
                         >
-                          <SelectTrigger className={!formData.salesperson_name?.trim() ? "border-destructive" : ""}>
+                          <SelectTrigger className={cn("h-8 text-sm", !formData.salesperson_name?.trim() ? "border-destructive" : "")}>
                             <SelectValue placeholder="Select salesperson..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -3093,26 +3095,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           </SelectContent>
                         </Select>
                         {!formData.salesperson_name?.trim() && (
-                          <p className="text-xs text-destructive">Salesperson is required</p>
+                          <p className="text-xs text-destructive">Required</p>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Link to Project */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Link to Project (Optional)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <Label htmlFor="linked_project">Project</Label>
+                      <div className="space-y-1 col-span-2 lg:col-span-3">
+                        <Label htmlFor="linked_project" className="text-xs">Link to Project (Optional)</Label>
                         <Select
                           value={linkedProjectId || "none"}
                           onValueChange={(value) => setLinkedProjectId(value === "none" ? null : value)}
                           disabled={isProposalReadOnly}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="h-8 text-sm">
                             <SelectValue placeholder="Select a project to link..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -3124,9 +3117,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                             ))}
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Link this estimate to an existing project. Multiple proposals can be linked to the same project.
-                        </p>
                       </div>
                     </CardContent>
                   </Card>
