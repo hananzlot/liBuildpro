@@ -2051,6 +2051,25 @@ export default function Production() {
                                 <span className="truncate">
                                   {project.project_address || project.project_name || "-"}
                                 </span>
+                                {project.install_start_date && (
+                                  <span className="text-[9px] text-muted-foreground">
+                                    {format(parseISO(project.install_start_date), "M/d/yy")}
+                                    {project.project_status === "Completed" && project.completion_date && (
+                                      <> - {format(parseISO(project.completion_date), "M/d/yy")}</>
+                                    )}
+                                    {" "}
+                                    <span className="text-primary font-medium">
+                                      ({(() => {
+                                        const startDate = parseISO(project.install_start_date!);
+                                        const endDate = project.completion_date
+                                          ? parseISO(project.completion_date)
+                                          : new Date();
+                                        const diffDays = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                                        return `${diffDays}d`;
+                                      })()})
+                                    </span>
+                                  </span>
+                                )}
                               </div>
                             </TableCell>
                             <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
