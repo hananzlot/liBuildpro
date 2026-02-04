@@ -22,19 +22,31 @@ export default function OpportunityDetail() {
   const { data: opportunity, isLoading, refetch } = useQuery({
     queryKey: ["opportunity-detail", id, companyId],
     queryFn: async () => {
-      if (!id) return null;
+      if (!id || !companyId) return null;
       
-      // Try by UUID first, then by ghl_id
-      const { data, error } = await supabase
+      // Try by ghl_id first (most common from search), then by UUID
+      // Check if id looks like a UUID (contains dashes and is 36 chars)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      
+      let query = supabase
         .from("opportunities")
         .select("*")
-        .or(`id.eq.${id},ghl_id.eq.${id}`)
-        .maybeSingle();
+        .eq("company_id", companyId);
+      
+      if (isUUID) {
+        // If it's a UUID, try matching both id and ghl_id
+        query = query.or(`id.eq.${id},ghl_id.eq.${id}`);
+      } else {
+        // If it's not a UUID, only match ghl_id
+        query = query.eq("ghl_id", id);
+      }
+      
+      const { data, error } = await query.maybeSingle();
         
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && !!companyId,
   });
 
   // Fetch related data (contacts, users, appointments)
