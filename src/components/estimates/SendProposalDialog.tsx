@@ -778,21 +778,28 @@ export function SendProposalDialog({
 
           {/* Generate Link Button */}
           {!portalLink ? (
-            <Button
-              onClick={() => generateLinkMutation.mutate()}
-              disabled={generateLinkMutation.isPending || (multipleSigners && !signers.some(s => s.name && s.email))}
-              className="w-full"
-            >
-              {generateLinkMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Link className="h-4 w-4 mr-2" />
+            <div className="space-y-2">
+              <Button
+                onClick={() => generateLinkMutation.mutate()}
+                disabled={generateLinkMutation.isPending || (multipleSigners && !signers.some(s => s.name && s.email))}
+                className="w-full"
+              >
+                {generateLinkMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Link className="h-4 w-4 mr-2" />
+                )}
+                {multipleSigners 
+                  ? `Generate Links for ${signers.filter(s => s.name && s.email).length} Signer(s)`
+                  : (estimateData?.project_id ? 'Get Portal Link' : 'Create Portal & Generate Link')
+                }
+              </Button>
+              {multipleSigners && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Click above to generate unique links for each signer and proceed to send your proposal
+                </p>
               )}
-              {multipleSigners 
-                ? `Generate Links for ${signers.filter(s => s.name && s.email).length} Signer(s)`
-                : (estimateData?.project_id ? 'Get Portal Link' : 'Create Portal & Generate Link')
-              }
-            </Button>
+            </div>
           ) : portalLink !== 'multi-signer' ? (
             <div className="space-y-3">
               <div className="flex gap-2">
