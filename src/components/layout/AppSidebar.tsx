@@ -331,10 +331,8 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const togglePinned = () => {
     const newPinned = !isPinned;
     setIsPinned(newPinned);
-    // If pinning, expand the sidebar
-    if (newPinned) {
-      setOpen(true);
-    }
+    // If pinning, expand the sidebar; if unpinning, collapse it
+    setOpen(newPinned);
   };
 
   // Handle navigation - always opens as a tab

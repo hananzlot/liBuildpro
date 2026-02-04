@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
@@ -17,6 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { usePortalChatNotifications } from "@/hooks/usePortalChatNotifications";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 
+const SIDEBAR_PINNED_KEY = "sidebar:pinned";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -37,6 +38,23 @@ export function AppLayout({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Read pinned state from localStorage to control initial sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const pinned = localStorage.getItem(SIDEBAR_PINNED_KEY);
+    return pinned === "true";
+  });
+
+  // Listen for pinned state changes from the sidebar
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === SIDEBAR_PINNED_KEY) {
+        setSidebarOpen(e.newValue === "true");
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   // Listen for customer portal chat messages
   usePortalChatNotifications();
@@ -67,7 +85,7 @@ export function AppLayout({
   };
 
   return (
-    <SidebarProvider>
+    <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
       <div className="min-h-screen flex w-full">
         <AppSidebar 
           onAdminAction={onAdminAction} 
