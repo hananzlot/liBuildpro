@@ -418,11 +418,20 @@ export function PortalFileUploadSection({
                                   </div>
                                 </div>
                                 <div className="p-1.5 bg-background/80 backdrop-blur-sm">
-                                  {doc.notes && !doc.notes.includes('Uploaded by') && doc.notes !== 'Uploaded by customer via portal' ? (
-                                    <p className="text-[10px] truncate font-medium">{doc.notes.replace(/ \(Customer upload\)$/, '').replace(/ \(Uploaded by .+ via portal\)$/, '')}</p>
-                                  ) : (
-                                    <p className="text-[10px] truncate text-muted-foreground">{doc.file_name}</p>
-                                  )}
+                                  {(() => {
+                                    // Extract user note by removing auto-generated suffixes
+                                    const cleanedNote = doc.notes
+                                      ?.replace(/ \(Customer upload\)$/, '')
+                                      .replace(/ \(Uploaded by .+ via portal\)$/, '')
+                                      .replace(/^Uploaded by .+ via portal$/, '')
+                                      .trim();
+                                    
+                                    return cleanedNote ? (
+                                      <p className="text-[10px] truncate font-medium">{cleanedNote}</p>
+                                    ) : (
+                                      <p className="text-[10px] truncate text-muted-foreground">{doc.file_name}</p>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             );
@@ -439,6 +448,7 @@ export function PortalFileUploadSection({
                       onOpenChange={setViewerOpen}
                       fileUrl={selectedDoc.file_url}
                       fileName={selectedDoc.file_name}
+                      notes={selectedDoc.notes}
                     />
                   )}
                 </>

@@ -13,10 +13,19 @@ interface PdfViewerDialogProps {
   onOpenChange: (open: boolean) => void;
   fileUrl: string;
   fileName: string;
+  notes?: string | null;
 }
 
-export function PdfViewerDialog({ open, onOpenChange, fileUrl, fileName }: PdfViewerDialogProps) {
+export function PdfViewerDialog({ open, onOpenChange, fileUrl, fileName, notes }: PdfViewerDialogProps) {
   const [zoom, setZoom] = useState(100);
+
+  // Extract user note by removing auto-generated suffixes
+  const cleanedNote = notes
+    ?.replace(/ \(Customer upload\)$/, '')
+    .replace(/ \(Uploaded by .+ via portal\)$/, '')
+    .replace(/^Uploaded by .+ via portal$/, '')
+    .replace(/^Uploaded by customer via portal$/, '')
+    .trim();
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 25, 200));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 25, 50));
@@ -31,9 +40,16 @@ export function PdfViewerDialog({ open, onOpenChange, fileUrl, fileName }: PdfVi
       <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0" hideCloseButton>
         <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-sm font-medium truncate pr-4">
-              {fileName}
-            </DialogTitle>
+            <div className="min-w-0 flex-1 pr-4">
+              {cleanedNote && (
+                <DialogTitle className="text-sm font-medium truncate">
+                  {cleanedNote}
+                </DialogTitle>
+              )}
+              <p className={`text-xs ${cleanedNote ? 'text-muted-foreground' : 'font-medium'} truncate`}>
+                {fileName}
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 border rounded-md p-1">
                 <Button
