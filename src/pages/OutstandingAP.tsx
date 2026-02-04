@@ -448,6 +448,8 @@ export default function OutstandingAP() {
       project_current_cash: number;
       payables: PayableWithCashImpact[];
       total_due: number;
+      total_scheduled_this_week: number;
+      cash_after_scheduled: number;
     }> = {};
     
     for (const payable of filteredAndSorted) {
@@ -460,6 +462,9 @@ export default function OutstandingAP() {
           project_current_cash: payable.project_current_cash,
           payables: [],
           total_due: 0,
+          // These come from the first payable but are the same for all in the project
+          total_scheduled_this_week: payable.total_project_scheduled_this_week,
+          cash_after_scheduled: payable.cash_after_scheduled_this_week,
         };
       }
       groups[payable.project_id].payables.push(payable);
@@ -954,7 +959,17 @@ export default function OutstandingAP() {
                           </TableHead>
                           <TableHead className="text-right cursor-pointer" onClick={() => handleSort('cash_after_payment')}>
                             <div className="flex items-center justify-end gap-1">
-                              After Payment
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-1 cursor-help">
+                                    After Scheduled
+                                    <Info className="h-3 w-3 text-muted-foreground" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="max-w-[200px] text-xs">Project cash after paying all bills scheduled this week</p>
+                                </TooltipContent>
+                              </Tooltip>
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
@@ -998,7 +1013,16 @@ export default function OutstandingAP() {
                                 )}>
                                   {formatCurrencyWithDecimals(group.project_current_cash)}
                                 </TableCell>
-                                <TableCell></TableCell>
+                                <TableCell className={cn(
+                                  "text-right font-semibold",
+                                  group.total_scheduled_this_week > 0 
+                                    ? (group.cash_after_scheduled >= 0 ? "text-emerald-600" : "text-destructive")
+                                    : "text-muted-foreground"
+                                )}>
+                                  {group.total_scheduled_this_week > 0 
+                                    ? formatCurrencyWithDecimals(group.cash_after_scheduled)
+                                    : '-'}
+                                </TableCell>
                                 <TableCell></TableCell>
                                 <TableCell></TableCell>
                               </TableRow>
@@ -1021,11 +1045,8 @@ export default function OutstandingAP() {
                                     {formatCurrencyWithDecimals(payable.amount_due)}
                                   </TableCell>
                                   <TableCell></TableCell>
-                                  <TableCell className={cn(
-                                    "text-right",
-                                    payable.cash_if_this_paid >= 0 ? "text-emerald-600" : "text-destructive"
-                                  )}>
-                                    {formatCurrencyWithDecimals(payable.cash_if_this_paid)}
+                                  <TableCell className="text-right text-muted-foreground">
+                                    -
                                   </TableCell>
                                   <TableCell>
                                     {payable.scheduled_payment_date ? (
@@ -1131,9 +1152,13 @@ export default function OutstandingAP() {
                               </TableCell>
                               <TableCell className={cn(
                                 "text-right",
-                                payable.cash_if_this_paid >= 0 ? "text-emerald-600" : "text-destructive"
+                                payable.total_project_scheduled_this_week > 0
+                                  ? (payable.cash_after_scheduled_this_week >= 0 ? "text-emerald-600" : "text-destructive")
+                                  : "text-muted-foreground"
                               )}>
-                                {formatCurrencyWithDecimals(payable.cash_if_this_paid)}
+                                {payable.total_project_scheduled_this_week > 0 
+                                  ? formatCurrencyWithDecimals(payable.cash_after_scheduled_this_week)
+                                  : '-'}
                               </TableCell>
                               <TableCell>
                                 {payable.scheduled_payment_date ? (

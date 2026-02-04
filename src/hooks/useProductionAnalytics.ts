@@ -104,6 +104,9 @@ export interface PayableWithCashImpact {
   cash_if_this_paid: number;
   total_project_payables: number;
   cash_if_all_project_payables_paid: number;
+  // Scheduled payments this week
+  total_project_scheduled_this_week: number;
+  cash_after_scheduled_this_week: number;
 }
 
 export interface CashFlowTimelinePoint {
@@ -625,11 +628,30 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
   const payablesWithCashImpact: PayableWithCashImpact[] = useMemo(() => {
     const activeBills = bills.filter(b => !b.is_voided && (b.balance || 0) > 0);
     
+    // Calculate the end of current week (next Sunday) for "this week" filter
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(today.getDate() + (7 - dayOfWeek)); // Next Sunday
+    endOfWeek.setHours(23, 59, 59, 999);
+    const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
+    
+    // Pre-calculate scheduled totals per project for this week
+    const projectScheduledThisWeek = new Map<string, number>();
+    activeBills.forEach(b => {
+      if (b.project_id && b.scheduled_payment_date && b.scheduled_payment_date <= endOfWeekStr) {
+        const current = projectScheduledThisWeek.get(b.project_id) || 0;
+        projectScheduledThisWeek.set(b.project_id, current + (b.scheduled_payment_amount ?? b.balance ?? 0));
+      }
+    });
+    
     return activeBills.map(bill => {
       const project = projectsWithFinancials.find(p => p.id === bill.project_id);
       const projectBills = activeBills.filter(b => b.project_id === bill.project_id);
       const totalProjectPayables = projectBills.reduce((sum, b) => sum + (b.balance || 0), 0);
       const projectCurrentCash = project?.cashPosition || 0;
+      
+      const totalScheduledThisWeek = projectScheduledThisWeek.get(bill.project_id || '') || 0;
       
       return {
         id: bill.id,
@@ -649,6 +671,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         cash_if_this_paid: projectCurrentCash - (bill.balance || 0),
         total_project_payables: totalProjectPayables,
         cash_if_all_project_payables_paid: projectCurrentCash - totalProjectPayables,
+        total_project_scheduled_this_week: totalScheduledThisWeek,
+        cash_after_scheduled_this_week: projectCurrentCash - totalScheduledThisWeek,
       };
     }).filter(p => p.project_id);
   }, [bills, projectsWithFinancials]);
