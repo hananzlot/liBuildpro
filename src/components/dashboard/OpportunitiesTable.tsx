@@ -43,6 +43,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId } from "@/lib/utils";
 import { toast } from "sonner";
+import { useOpportunitiesFilters } from "@/stores/useOpportunitiesFilters";
 
 interface Opportunity {
   id?: string;
@@ -177,14 +178,26 @@ export function OpportunitiesTable({
   const { openTab } = useAppTabs();
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [stageFilter, setStageFilter] = useState<string[]>([]);
-  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
-  const [salesRepFilter, setSalesRepFilter] = useState<string[]>([]);
-  const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [currentPage, setCurrentPage] = useState(1);
+
+  // Persistent list filters/sort/pagination
+  const {
+    stageFilter,
+    sourceFilter,
+    statusFilter,
+    appointmentFilter,
+    salesRepFilter,
+    sortColumn,
+    sortDirection,
+    currentPage,
+    setStageFilter,
+    setSourceFilter,
+    setStatusFilter,
+    setAppointmentFilter,
+    setSalesRepFilter,
+    setSort,
+    setCurrentPage,
+    clearTableFilters,
+  } = useOpportunitiesFilters();
 
   // Quick add task dialog state
   const [quickTaskDialogOpen, setQuickTaskDialogOpen] = useState(false);
@@ -593,7 +606,7 @@ export function OpportunitiesTable({
 
   const handleAppointmentFilterChange = (value: string) => {
     setCurrentPage(1);
-    setAppointmentFilter(value);
+    setAppointmentFilter(value as "all" | "with" | "without");
   };
 
   // Helper to extract custom field value (use shared util for address with fallback)
@@ -741,10 +754,12 @@ export function OpportunitiesTable({
     setCurrentPage(1);
 
     if (sortColumn === column) {
-      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      setSort(column, sortDirection === "asc" ? "desc" : "asc");
     } else {
-      setSortColumn(column);
-      setSortDirection(column === "value" || column === "createdDate" || column === "updatedDate" ? "desc" : "asc");
+      setSort(
+        column,
+        column === "value" || column === "createdDate" || column === "updatedDate" ? "desc" : "asc",
+      );
     }
   };
 
@@ -980,14 +995,7 @@ export function OpportunitiesTable({
                 variant="ghost"
                 size="sm"
                 className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setStageFilter([]);
-                  setSourceFilter([]);
-                  setStatusFilter([]);
-                  setAppointmentFilter("all");
-                  setSalesRepFilter([]);
-                  setCurrentPage(1);
-                }}
+                onClick={() => clearTableFilters()}
               >
                 Clear Filters
               </Button>
@@ -1328,7 +1336,7 @@ export function OpportunitiesTable({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -1339,7 +1347,7 @@ export function OpportunitiesTable({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
                 >
                   <ChevronRight className="h-4 w-4" />

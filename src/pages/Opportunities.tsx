@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useOpportunitiesFilters } from "@/stores/useOpportunitiesFilters";
+import type { DateRange } from "react-day-picker";
 
 const Opportunities = () => {
   const navigate = useNavigate();
@@ -28,12 +29,20 @@ const Opportunities = () => {
   // Use Zustand store for persistent filters
   const { 
     dateField, 
-    dateRange, 
+    dateRange: storedDateRange,
     showAlternatingColors,
     setDateField, 
     setDateRange,
     setShowAlternatingColors 
   } = useOpportunitiesFilters();
+
+  const dateRange = useMemo<DateRange | undefined>(() => {
+    if (!storedDateRange?.from) return undefined;
+    return {
+      from: new Date(storedDateRange.from),
+      to: storedDateRange.to ? new Date(storedDateRange.to) : undefined,
+    };
+  }, [storedDateRange]);
 
   const handleDownloadCSVCallback = useCallback((fn: () => void) => {
     setDownloadCSVFn(() => fn);
