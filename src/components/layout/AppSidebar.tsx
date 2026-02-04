@@ -208,13 +208,6 @@ const navSections: NavSection[] = [
         requiredFeature: 'production'
       },
       { 
-        title: "Analytics", 
-        url: "/production?view=analytics", 
-        icon: BarChart3,
-        roles: ['super_admin', 'admin'],
-        requiredFeature: 'analytics'
-      },
-      { 
         title: "Outstanding AR", 
         dynamicSuffix: "ar",
         url: "/outstanding-ar", 
@@ -251,6 +244,20 @@ const navSections: NavSection[] = [
         roles: ['super_admin', 'admin', 'production'],
         requiredFeature: 'production',
         dynamicSuffix: 'pendingScopes'
+      },
+    ],
+  },
+  {
+    label: "Analytics",
+    roles: ['super_admin', 'admin'],
+    requiredFeature: 'analytics',
+    items: [
+      { 
+        title: "Analytics", 
+        url: "/analytics", 
+        icon: BarChart3,
+        roles: ['super_admin', 'admin'],
+        requiredFeature: 'analytics'
       },
     ],
   },

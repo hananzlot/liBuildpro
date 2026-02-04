@@ -3,6 +3,7 @@ import Home from "@/pages/Home";
 import Dashboard from "@/pages/Index";
 import Auth from "@/pages/Auth";
 import Production from "@/pages/Production";
+import Analytics from "@/pages/Analytics";
 import AuditLog from "@/pages/AuditLog";
 import FollowUp from "@/pages/FollowUp";
 import MagazineSales from "@/pages/MagazineSales";
@@ -241,6 +242,16 @@ export function AppRoutes() {
           element={
             <ProtectedRoute requiredRole="production" requiredFeature="production">
               <OutstandingAP />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Analytics - admin only standalone page */}
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute allowedRoles={['admin']} requiredFeature="analytics">
+              <Analytics />
             </ProtectedRoute>
           }
         />
