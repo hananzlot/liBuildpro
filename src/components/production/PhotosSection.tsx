@@ -518,6 +518,11 @@ export function PhotosSection({
                       {format(new Date(selectedImage.created_at), 'MMM d, yyyy • h:mm a')}
                       {selectedImage.category && ` • ${selectedImage.category}`}
                     </p>
+                    {selectedImage.notes && !selectedImage.notes.includes('Uploaded by') && selectedImage.notes !== 'Uploaded by customer via portal' && (
+                      <p className="text-xs text-foreground mt-1.5 bg-muted px-2 py-1 rounded">
+                        {selectedImage.notes.replace(/ \(Customer upload\)$/, '').replace(/ \(Uploaded by .+ via portal\)$/, '')}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-muted-foreground">
