@@ -17,6 +17,23 @@ import { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 import { parseISO } from "date-fns";
 
+// Helper to parse date range from URL params
+function parseDateRangeFromParams(searchParams: URLSearchParams): DateRange | undefined {
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+  if (from) {
+    try {
+      return {
+        from: parseISO(from),
+        to: to ? parseISO(to) : undefined,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 const Opportunities = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,53 +45,28 @@ const Opportunities = () => {
   const [showAlternatingColors, setShowAlternatingColors] = useState(true);
   const [downloadCSVFn, setDownloadCSVFn] = useState<(() => void) | null>(null);
   
-  // Filter state
-  const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
-  const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(undefined);
+  // Derive filter state directly from URL params (single source of truth)
+  const tableDateField = useMemo<"updatedDate" | "createdDate">(() => {
+    return searchParams.get("dateField") === "createdDate" ? "createdDate" : "updatedDate";
+  }, [searchParams]);
   
-  // Track if we're currently syncing to prevent loops
-  const [isSyncingFromUrl, setIsSyncingFromUrl] = useState(false);
-
-  // Sync FROM URL params to state (runs on mount and when URL changes)
-  useEffect(() => {
-    const dateFieldParam = searchParams.get("dateField");
-    const fromParam = searchParams.get("from");
-    const toParam = searchParams.get("to");
-    
-    setIsSyncingFromUrl(true);
-    
-    // Update date field from URL
-    const newDateField = dateFieldParam === "createdDate" ? "createdDate" : "updatedDate";
-    setTableDateField(newDateField);
-    
-    // Update date range from URL
-    if (fromParam) {
-      setTableDateRange({
-        from: parseISO(fromParam),
-        to: toParam ? parseISO(toParam) : undefined,
-      });
-    } else {
-      setTableDateRange(undefined);
-    }
-    
-    // Reset sync flag after state updates
-    setTimeout(() => setIsSyncingFromUrl(false), 0);
+  const tableDateRange = useMemo<DateRange | undefined>(() => {
+    return parseDateRangeFromParams(searchParams);
   }, [searchParams]);
 
-  // Sync TO URL params when state changes (skip if syncing from URL)
-  const updateUrlParams = useCallback((field: "updatedDate" | "createdDate", range: DateRange | undefined) => {
-    if (isSyncingFromUrl) return;
-    
+  // Handler to update URL params (which will automatically update derived state)
+  const handleDateFieldChange = useCallback((value: "updatedDate" | "createdDate") => {
     const params = new URLSearchParams(searchParams);
-    
-    // Date field
-    if (field === "createdDate") {
+    if (value === "createdDate") {
       params.set("dateField", "createdDate");
     } else {
       params.delete("dateField");
     }
-    
-    // Date range
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
+    const params = new URLSearchParams(searchParams);
     if (range?.from) {
       params.set("from", range.from.toISOString().split("T")[0]);
       if (range.to) {
@@ -86,25 +78,8 @@ const Opportunities = () => {
       params.delete("from");
       params.delete("to");
     }
-    
-    // Only update if params actually changed
-    const newParamsString = params.toString();
-    const currentParamsString = searchParams.toString();
-    if (newParamsString !== currentParamsString) {
-      setSearchParams(params, { replace: true });
-    }
-  }, [searchParams, setSearchParams, isSyncingFromUrl]);
-
-  // Wrapper handlers that update both state and URL
-  const handleDateFieldChange = useCallback((value: "updatedDate" | "createdDate") => {
-    setTableDateField(value);
-    updateUrlParams(value, tableDateRange);
-  }, [tableDateRange, updateUrlParams]);
-
-  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
-    setTableDateRange(range);
-    updateUrlParams(tableDateField, range);
-  }, [tableDateField, updateUrlParams]);
+    setSearchParams(params, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleDownloadCSVCallback = useCallback((fn: () => void) => {
     setDownloadCSVFn(() => fn);
