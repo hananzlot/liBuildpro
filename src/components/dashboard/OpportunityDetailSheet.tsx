@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt, AlertTriangle, FolderOpen, Trophy, Eye } from "lucide-react";
+import { EmailSyncDialog } from "@/components/shared/EmailSyncDialog";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
@@ -289,6 +290,8 @@ export function OpportunityDetailSheet({
   const [editedEmail, setEditedEmail] = useState("");
   const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [savedEmail, setSavedEmail] = useState<string | null>(null);
+  const [emailSyncDialogOpen, setEmailSyncDialogOpen] = useState(false);
+  const [pendingEmailChange, setPendingEmailChange] = useState<{ oldEmail: string | null; newEmail: string } | null>(null);
 
   // Contact name editing
   const [isEditingName, setIsEditingName] = useState(false);
@@ -1950,13 +1953,34 @@ export function OpportunityDetailSheet({
 
   const handleSaveEmail = async () => {
     if (!opportunity?.contact_id && !opportunity?.contact_uuid) return;
+    
+    const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
+    const currentEmail = savedEmail ?? contact?.email ?? null;
+    const newEmail = editedEmail.trim();
+    
+    // If email hasn't changed, just close editing
+    if (newEmail === (currentEmail ?? "")) {
+      setIsEditingEmail(false);
+      return;
+    }
+    
+    // Show sync dialog to let user choose whether to sync across all records
+    setPendingEmailChange({ oldEmail: currentEmail, newEmail });
+    setEmailSyncDialogOpen(true);
+  };
+
+  // Called when user chooses "Update Here Only" in EmailSyncDialog
+  const handleEmailUpdateLocalOnly = async () => {
+    if (!opportunity?.contact_id && !opportunity?.contact_uuid) return;
+    if (!pendingEmailChange) return;
+    
     setIsSavingEmail(true);
     try {
       const { data, error } = await supabase.functions.invoke("update-contact-email", {
         body: {
           contactId: opportunity.contact_id,
           contactUuid: opportunity.contact_uuid,
-          email: editedEmail.trim(),
+          email: pendingEmailChange.newEmail,
           editedBy: user?.id || null,
           opportunityGhlId: opportunity.ghl_id,
           companyId,
@@ -1968,7 +1992,8 @@ export function OpportunityDetailSheet({
 
       toast.success("Email updated");
       setIsEditingEmail(false);
-      setSavedEmail(editedEmail.trim() || null);
+      setSavedEmail(pendingEmailChange.newEmail || null);
+      setPendingEmailChange(null);
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       queryClient.invalidateQueries({ queryKey: ["opportunities"] });
     } catch (error) {
@@ -1977,6 +2002,18 @@ export function OpportunityDetailSheet({
     } finally {
       setIsSavingEmail(false);
     }
+  };
+
+  // Called when user confirms sync in EmailSyncDialog
+  const handleEmailSyncConfirmed = () => {
+    if (!pendingEmailChange) return;
+    setIsEditingEmail(false);
+    setSavedEmail(pendingEmailChange.newEmail || null);
+    setPendingEmailChange(null);
+    queryClient.invalidateQueries({ queryKey: ["contacts"] });
+    queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+    queryClient.invalidateQueries({ queryKey: ["projects"] });
+    queryClient.invalidateQueries({ queryKey: ["estimates"] });
   };
   const handleSaveName = async () => {
     if (!opportunity?.contact_id) return;
@@ -3828,6 +3865,17 @@ export function OpportunityDetailSheet({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Email Sync Dialog */}
+      <EmailSyncDialog
+        open={emailSyncDialogOpen}
+        onOpenChange={setEmailSyncDialogOpen}
+        contactUuid={opportunity?.contact_uuid}
+        oldEmail={pendingEmailChange?.oldEmail}
+        newEmail={pendingEmailChange?.newEmail ?? ""}
+        onSyncConfirmed={handleEmailSyncConfirmed}
+        onUpdateLocalOnly={handleEmailUpdateLocalOnly}
+      />
     </Sheet>
   );
 }
