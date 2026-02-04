@@ -116,17 +116,17 @@ const Opportunities = () => {
         )}
 
         {/* Top Actions Bar */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-foreground">Opportunities</h1>
-            <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-xl font-bold text-foreground">Opportunities</h1>
+            <div className="flex items-center gap-1.5">
               <Select value={tableDateField} onValueChange={(v) => setTableDateField(v as "updatedDate" | "createdDate")}>
-                <SelectTrigger className="w-[150px] h-9 text-xs bg-background border-border">
+                <SelectTrigger className="w-[120px] h-8 text-xs bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
                   <SelectItem value="updatedDate">Last Edited</SelectItem>
-                  <SelectItem value="createdDate">Contact Created</SelectItem>
+                  <SelectItem value="createdDate">Created</SelectItem>
                 </SelectContent>
               </Select>
               <DateRangeFilter 
@@ -135,33 +135,32 @@ const Opportunities = () => {
               />
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <Button
               variant={showAlternatingColors ? "secondary" : "ghost"}
               size="sm"
-              className="h-8 text-xs"
+              className="h-7 text-xs px-2"
               onClick={() => setShowAlternatingColors(!showAlternatingColors)}
               title={showAlternatingColors ? "Disable alternating row colors" : "Enable alternating row colors"}
             >
-              {showAlternatingColors ? "Stripes: On" : "Stripes: Off"}
+              Stripes
             </Button>
-            <Button variant="outline" size="sm" onClick={() => downloadCSVFn?.()} className="gap-1.5">
-              <Download className="h-4 w-4" />
-              CSV
+            <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => downloadCSVFn?.()}>
+              <Download className="h-3.5 w-3.5" />
             </Button>
             {isAdmin && (
-              <Button variant="outline" onClick={() => {
+              <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => {
                 setPreselectedOpportunities(null);
                 setMergeDialogOpen(true);
               }}>
-                <Merge className="h-4 w-4 mr-2" />
-                Merge Duplicates
+                <Merge className="h-3.5 w-3.5 mr-1" />
+                Merge
               </Button>
             )}
             {!isGHLEnabled && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-warning/10 text-warning-foreground text-xs font-medium rounded-full border border-warning/20">
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-warning/10 text-warning-foreground text-xs font-medium rounded-full border border-warning/20">
                 <HardDrive className="h-3 w-3" />
-                Local Mode
+                Local
               </div>
             )}
           </div>
