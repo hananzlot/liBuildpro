@@ -17,7 +17,6 @@ import { OpportunitiesSheet } from "@/components/dashboard/OpportunitiesSheet";
 import { DateRangeAppointmentsSheet } from "@/components/dashboard/DateRangeAppointmentsSheet";
 import { CallLogsSheet } from "@/components/dashboard/CallLogsSheet";
 import { ActivitySheet } from "@/components/dashboard/ActivitySheet";
-import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
 import { UserManagement } from "@/components/dashboard/UserManagement";
@@ -167,17 +166,6 @@ const Index = () => {
   return (
     <AppLayout 
       onAdminAction={handleAdminAction}
-      headerContent={
-        !isAdmin && !isLoading ? (
-          <OpportunitySearch 
-            opportunities={metrics?.allOpportunities || []} 
-            appointments={metrics?.allAppointments || []} 
-            contacts={metrics?.allContacts || []} 
-            users={metrics?.users || []} 
-            conversations={metrics?.conversations || []} 
-          />
-        ) : undefined
-      }
     >
       <div className="px-6 py-6 space-y-6">
         {/* Onboarding Banner for new admins */}
