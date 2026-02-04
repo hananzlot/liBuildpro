@@ -2103,7 +2103,7 @@ export default function Production() {
                                 </Select>
                                 {financials?.earliestSignedDate && (
                                   <span className="text-[9px] text-muted-foreground truncate">
-                                    {format(parseISO(financials.earliestSignedDate), "M/d/yy")}
+                                    Signed: {format(parseISO(financials.earliestSignedDate), "M/d/yy")}
                                   </span>
                                 )}
                               </div>
