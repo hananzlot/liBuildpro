@@ -940,27 +940,17 @@ export function OpportunitiesTable({
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardHeader className="flex flex-col gap-3">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-styled pb-1 pl-1">
-            <Select value={appointmentFilter} onValueChange={handleAppointmentFilterChange}>
-              <SelectTrigger className="w-[160px] h-8 text-xs bg-background border-border">
-                <SelectValue placeholder="Filter by appointment" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-border">
-                <SelectItem value="all">All Opportunities</SelectItem>
-                <SelectItem value="with">With Appointments</SelectItem>
-                <SelectItem value="without">Without Appointments</SelectItem>
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter
+              options={statusOptions}
+              selected={statusFilter}
+              onChange={handleStatusFilterChange}
+              placeholder="All Statuses"
+            />
             <MultiSelectFilter
               options={stageOptions}
               selected={stageFilter}
               onChange={handleStageFilterChange}
               placeholder="All Stages"
-            />
-            <MultiSelectFilter
-              options={sourceOptions}
-              selected={sourceFilter}
-              onChange={handleSourceFilterChange}
-              placeholder="All Sources"
             />
             <MultiSelectFilter
               options={salesRepOptions}
@@ -969,11 +959,21 @@ export function OpportunitiesTable({
               placeholder="All Sales Reps"
               icon={<User className="h-3 w-3" />}
             />
+            <Select value={appointmentFilter} onValueChange={handleAppointmentFilterChange}>
+              <SelectTrigger className="w-[160px] h-8 text-xs bg-background border-border">
+                <SelectValue placeholder="With Appointments?" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                <SelectItem value="all">With Appointments?</SelectItem>
+                <SelectItem value="with">With Appointments</SelectItem>
+                <SelectItem value="without">Without Appointments</SelectItem>
+              </SelectContent>
+            </Select>
             <MultiSelectFilter
-              options={statusOptions}
-              selected={statusFilter}
-              onChange={handleStatusFilterChange}
-              placeholder="All Statuses"
+              options={sourceOptions}
+              selected={sourceFilter}
+              onChange={handleSourceFilterChange}
+              placeholder="All Sources"
             />
             {(stageFilter.length > 0 || sourceFilter.length > 0 || statusFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0) && (
               <Button
