@@ -620,6 +620,8 @@ function ImageCard({
   onDelete: () => void;
   compact?: boolean;
 }) {
+  const hasNote = image.notes && !image.notes.includes('Uploaded by') && image.notes !== 'Uploaded by customer via portal';
+  
   return (
     <div 
       className={`group relative ${compact ? 'aspect-square' : 'aspect-[4/3]'} rounded-lg overflow-hidden cursor-pointer bg-muted ring-1 ring-border hover:ring-primary/50 transition-all`}
@@ -646,8 +648,15 @@ function ImageCard({
         <Trash2 className="h-3 w-3" />
       </Button>
       
+      {/* Note indicator */}
+      {hasNote && (
+        <div className="absolute bottom-0 left-0 right-0 px-1.5 py-1 bg-black/70 text-white text-[9px] leading-tight line-clamp-2">
+          {image.notes.replace(/ \(Customer upload\)$/, '').replace(/ \(Uploaded by .+ via portal\)$/, '')}
+        </div>
+      )}
+      
       {/* Category badge */}
-      {image.category === 'Customer Upload' && (
+      {image.category === 'Customer Upload' && !hasNote && (
         <Badge className="absolute bottom-1 left-1 text-[8px] px-1 py-0 bg-primary/80 opacity-0 group-hover:opacity-100 transition-opacity">
           Customer
         </Badge>
