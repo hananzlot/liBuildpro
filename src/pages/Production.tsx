@@ -1898,11 +1898,11 @@ export default function Production() {
                 <Button
                   variant={showAlternatingColors ? "secondary" : "ghost"}
                   size="sm"
-                  className="h-9 text-xs"
+                  className="h-8 text-xs px-2"
                   onClick={() => setShowAlternatingColors(!showAlternatingColors)}
                   title={showAlternatingColors ? "Disable alternating row colors" : "Enable alternating row colors"}
                 >
-                  {showAlternatingColors ? "Stripes: On" : "Stripes: Off"}
+                  Stripes
                 </Button>
               </div>
             </CardHeader>
@@ -1920,55 +1920,55 @@ export default function Production() {
                   <p className="text-sm">Projects will appear here when opportunities are marked as won</p>
                 </div>
               ) : (
-                <div className="max-h-[70vh] overflow-auto">
-                  <table className="w-full caption-bottom text-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full caption-bottom text-xs table-fixed">
                     <TableHeader className="[&_tr]:border-b">
                       <TableRow className="[&_th]:sticky [&_th]:top-0 [&_th]:bg-card [&_th]:z-10 bg-card hover:bg-card">
-                        <TableHead className="w-16 cursor-pointer hover:bg-muted/50" onClick={() => handleSort('project_number')}>
+                        <TableHead className="w-[5%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('project_number')}>
                           <div className="flex items-center"># <SortIcon column="project_number" /></div>
                         </TableHead>
-                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('address')}>
-                          <div className="flex items-center">Address <SortIcon column="address" /></div>
+                        <TableHead className="w-[14%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('address')}>
+                          <div className="flex items-center truncate">Address <SortIcon column="address" /></div>
                         </TableHead>
-                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
+                        <TableHead className="w-[9%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('status')}>
                           <div className="flex items-center">Status <SortIcon column="status" /></div>
                         </TableHead>
-                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('salesperson')}>
-                          <div className="flex items-center">Sales/PM <SortIcon column="salesperson" /></div>
+                        <TableHead className="w-[8%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('salesperson')}>
+                          <div className="flex items-center truncate">Sales <SortIcon column="salesperson" /></div>
                         </TableHead>
-                        <TableHead className="max-w-[100px]">
-                          <div className="flex items-center">Source</div>
+                        <TableHead className="w-[7%] text-xs">
+                          <div className="flex items-center truncate">Source</div>
                         </TableHead>
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('sold_amount')}>
-                          <div className="flex items-center justify-end">Sold Amt <SortIcon column="sold_amount" /></div>
+                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('sold_amount')}>
+                          <div className="flex items-center justify-end truncate">Sold <SortIcon column="sold_amount" /></div>
                         </TableHead>
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('est_proj_cost')}>
-                          <div className="flex items-center justify-end">Proj Cost <SortIcon column="est_proj_cost" /></div>
+                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('est_proj_cost')}>
+                          <div className="flex items-center justify-end truncate">Cost <SortIcon column="est_proj_cost" /></div>
                         </TableHead>
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('bills_received')}>
-                          <div className="flex items-center justify-end">Bills Rcvd <SortIcon column="bills_received" /></div>
+                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('bills_received')}>
+                          <div className="flex items-center justify-end truncate">Bills <SortIcon column="bills_received" /></div>
                         </TableHead>
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('bills_paid')}>
-                          <div className="flex items-center justify-end">Bills Paid <SortIcon column="bills_paid" /></div>
+                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('bills_paid')}>
+                          <div className="flex items-center justify-end truncate">Paid <SortIcon column="bills_paid" /></div>
                         </TableHead>
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('inv_collected')}>
-                          <div className="flex items-center justify-end">Inv Collected <SortIcon column="inv_collected" /></div>
+                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('inv_collected')}>
+                          <div className="flex items-center justify-end truncate">Collect <SortIcon column="inv_collected" /></div>
                         </TableHead>
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('inv_balance')}>
-                          <div className="flex items-center justify-end">Inv Balance <SortIcon column="inv_balance" /></div>
+                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('inv_balance')}>
+                          <div className="flex items-center justify-end truncate">InvBal <SortIcon column="inv_balance" /></div>
                         </TableHead>
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('proj_balance')}>
-                          <div className="flex items-center justify-end">Proj Balance <SortIcon column="proj_balance" /></div>
+                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('proj_balance')}>
+                          <div className="flex items-center justify-end truncate">ProjBal <SortIcon column="proj_balance" /></div>
                         </TableHead>
                         {isAdmin && (
-                          <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('expected_profit')}>
-                            <div className="flex items-center justify-end">Exp Profit <SortIcon column="expected_profit" /></div>
+                          <TableHead className="w-[6%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('expected_profit')}>
+                            <div className="flex items-center justify-end truncate">Profit <SortIcon column="expected_profit" /></div>
                           </TableHead>
                         )}
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50 bg-primary/10" onClick={() => handleSort('total_cash')}>
+                        <TableHead className="w-[6%] text-right cursor-pointer hover:bg-muted/50 bg-primary/10 text-xs" onClick={() => handleSort('total_cash')}>
                           <div className="flex items-center justify-end font-semibold">Cash <SortIcon column="total_cash" /></div>
                         </TableHead>
-                        <TableHead className="w-16"></TableHead>
+                        <TableHead className="w-[4%]"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1983,14 +1983,14 @@ export default function Production() {
                             )}
                             onClick={() => handleOpenProject(project)}
                           >
-                            <TableCell className="font-medium pr-1">
-                              <div className="flex flex-col">
-                                <div className="flex items-center gap-1">
-                                  {project.project_number}
+                            <TableCell className="font-medium text-xs truncate">
+                              <div className="flex flex-col min-w-0">
+                                <div className="flex items-center gap-0.5">
+                                  <span className="truncate">{project.project_number}</span>
                                 {financials?.hasMissingContract && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="h-5 px-1 text-[10px] bg-destructive/10 text-destructive border-destructive/20">
+                                      <Badge variant="outline" className="h-4 px-0.5 text-[9px] bg-destructive/10 text-destructive border-destructive/20">
                                         C
                                       </Badge>
                                     </TooltipTrigger>
@@ -2002,49 +2002,49 @@ export default function Production() {
                                 {financials?.hasMissingPhases && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="h-5 px-1 text-[10px] bg-orange-500/10 text-orange-500 border-orange-500/20">
+                                      <Badge variant="outline" className="h-4 px-0.5 text-[9px] bg-orange-500/10 text-orange-500 border-orange-500/20">
                                         P
                                       </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p>Payment phases not entered for agreement</p>
+                                      <p>Payment phases not entered</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
                                 {financials?.hasPhaseMismatch && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                      <AlertTriangle className="h-3 w-3 text-amber-500 flex-shrink-0" />
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p>Payment phases don't match contract total</p>
+                                      <p>Phases don't match contract</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
                                 {financials?.hasContractMismatch && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="h-5 px-1 text-[10px] bg-destructive/10 text-destructive border-destructive/20">
+                                      <Badge variant="outline" className="h-4 px-0.5 text-[9px] bg-destructive/10 text-destructive border-destructive/20">
                                         $
                                       </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p>Contracts total ({formatCurrency(financials.contractsTotal)}) doesn't match Est. Cost ({formatCurrency(financials.estimatedCost)})</p>
+                                      <p>Contract mismatch</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
                                 </div>
                                 {(isAdmin || isSimulating) && project.legacy_project_number && (
-                                  <span className="text-[10px] text-muted-foreground font-normal">
+                                  <span className="text-[9px] text-muted-foreground font-normal truncate">
                                     {project.legacy_project_number}
                                   </span>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="font-medium max-w-[180px] pl-1" title={project.project_address || project.project_name}>
-                              <div className="flex flex-col">
+                            <TableCell className="text-xs truncate" title={project.project_address || project.project_name}>
+                              <div className="flex flex-col min-w-0">
                                 {getCustomerName(project) && (
-                                  <span className="text-xs text-muted-foreground truncate">
+                                  <span className="text-[10px] text-muted-foreground truncate">
                                     {getCustomerName(project)}
                                   </span>
                                 )}
@@ -2053,8 +2053,8 @@ export default function Production() {
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell onClick={(e) => e.stopPropagation()}>
-                              <div className="flex flex-col gap-0.5">
+                            <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex flex-col gap-0">
                                 <Select
                                   value={project.project_status || "New Job"}
                                   onValueChange={(newStatus) => {
@@ -2068,7 +2068,7 @@ export default function Production() {
                                   <SelectTrigger className="h-auto p-0 border-0 bg-transparent hover:bg-transparent focus:ring-0 w-auto">
                                     <Badge 
                                       variant="outline" 
-                                      className={`cursor-pointer hover:opacity-80 ${statusColors[project.project_status || "New Job"] || ""}`}
+                                      className={`cursor-pointer hover:opacity-80 text-[10px] px-1 py-0 ${statusColors[project.project_status || "New Job"] || ""}`}
                                     >
                                       {project.project_status || "New Job"}
                                     </Badge>
@@ -2083,133 +2083,79 @@ export default function Production() {
                                   </SelectContent>
                                 </Select>
                                 {financials?.earliestSignedDate && (
-                                  <span className="text-[10px] text-muted-foreground">
-                                    <strong>Signed:</strong> {format(parseISO(financials.earliestSignedDate), "M/d/yy")}
-                                  </span>
-                                )}
-                                {project.install_start_date && (
-                                  <span className="text-[10px] text-muted-foreground">
-                                    <strong>Start:</strong> {format(parseISO(project.install_start_date), "M/d/yy")}
-                                    {project.project_status === "Completed" && (
-                                      <> - {project.completion_date ? format(parseISO(project.completion_date), "M/d/yy") : <span className="text-destructive">Missing</span>}</>
-                                    )}
-                                    {" "}
-                                    ({(() => {
-                                      const startDate = parseISO(project.install_start_date!);
-                                      const endDate = project.completion_date
-                                        ? parseISO(project.completion_date)
-                                        : new Date();
-                                      const diffDays = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                                      return `${diffDays}d`;
-                                    })()})
+                                  <span className="text-[9px] text-muted-foreground truncate">
+                                    {format(parseISO(financials.earliestSignedDate), "M/d/yy")}
                                   </span>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-xs">
+                            <TableCell className="text-[10px] truncate" title={`${project.primary_salesperson || ''} / ${project.project_manager || ''}`}>
                               {(() => {
                                 const salesperson = project.primary_salesperson?.trim();
                                 const pm = project.project_manager?.trim();
                                 if (!salesperson && !pm) return "-";
                                 if (!salesperson) return pm;
                                 if (!pm) return salesperson;
-                                // If same name, show once
                                 if (salesperson.toLowerCase() === pm.toLowerCase()) return salesperson;
-                                return `${salesperson} / ${pm}`;
+                                return `${salesperson}`;
                               })()}
                             </TableCell>
-                            <TableCell className="text-xs max-w-[100px] truncate" title={project.lead_source || "-"}>
+                            <TableCell className="text-[10px] truncate" title={project.lead_source || "-"}>
                               {project.lead_source || "-"}
                             </TableCell>
-                            <TableCell className="text-right text-xs font-medium">
-                              <div>
-                                {formatCurrency(financials?.contractsTotal)}
-                                {(financials?.upsellsTotal ?? 0) > 0 && (
-                                  <div className="text-[10px] text-muted-foreground font-normal">
-                                    (Upsells: {formatCurrency(financials?.upsellsTotal)})
-                                  </div>
-                                )}
-                              </div>
+                            <TableCell className="text-right text-[10px] font-medium truncate">
+                              {formatCurrency(financials?.contractsTotal)}
                             </TableCell>
-                            <TableCell className="text-right text-xs">
+                            <TableCell className="text-right text-[10px] truncate">
                               {financials?.contractsTotal > 0 ? (
-                                <div className="flex items-center justify-end gap-1">
-                                  <span className={(financials?.isCompleted || financials?.exceededExpectedCosts) ? 'text-blue-600' : ''}>
-                                    {formatCurrency(financials?.displayCost)}
-                                  </span>
-                                  {(financials?.isCompleted || financials?.exceededExpectedCosts) ? (
-                                    <>
-                                      <span className="text-[9px] text-blue-600 font-medium">act.</span>
-                                      {(() => {
-                                        const costPct = (financials.displayCost / financials.contractsTotal) * 100;
-                                        const isOver50 = costPct > 50;
-                                        return (
-                                          <span className={`text-[9px] font-medium ${isOver50 ? 'text-destructive' : 'text-emerald-600'}`}>
-                                            ({costPct.toFixed(0)}%)
-                                          </span>
-                                        );
-                                      })()}
-                                    </>
-                                  ) : (
-                                    <span className="text-[9px] text-muted-foreground">est.</span>
-                                  )}
-                                </div>
+                                <span className={(financials?.isCompleted || financials?.exceededExpectedCosts) ? 'text-primary' : ''}>
+                                  {formatCurrency(financials?.displayCost)}
+                                </span>
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right text-xs">
+                            <TableCell className="text-right text-[10px] truncate">
                               {formatCurrency(financials?.totalBillsReceived)}
                             </TableCell>
-                            <TableCell className="text-right text-xs">
+                            <TableCell className="text-right text-[10px] truncate">
                               {formatCurrency(financials?.totalBillsPaid)}
                             </TableCell>
-                            <TableCell className="text-right text-xs text-emerald-600">
+                            <TableCell className="text-right text-[10px] text-emerald-600 truncate">
                               {formatCurrency(financials?.invoicesCollected)}
                             </TableCell>
-                            <TableCell className="text-right text-xs text-amber-600">
+                            <TableCell className="text-right text-[10px] text-amber-600 truncate">
                               {formatCurrency(financials?.invoiceBalanceDue)}
                             </TableCell>
-                            <TableCell className="text-right text-xs text-amber-600">
+                            <TableCell className="text-right text-[10px] text-amber-600 truncate">
                               {formatCurrency(financials?.projectBalanceDue)}
                             </TableCell>
                             {isAdmin && (
-                              <TableCell className={`text-right text-xs font-medium ${financials?.contractsTotal > 0 ? ((financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive') : ''}`}>
+                              <TableCell className={`text-right text-[10px] font-medium truncate ${financials?.contractsTotal > 0 ? ((financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive') : ''}`}>
                                 {financials?.contractsTotal > 0 ? formatCurrency(financials?.expectedFinalProfit) : <span className="text-muted-foreground">-</span>}
                               </TableCell>
                             )}
-                            <TableCell className={`text-right text-xs font-bold ${(() => {
+                            <TableCell className={`text-right text-[10px] font-bold ${(() => {
                               const cash = financials?.totalCash || 0;
                               const billsPaid = financials?.totalBillPayments || 0;
                               const collected = financials?.invoicesCollected || 0;
-                              
-                              // Blank background if cash is zero
                               if (cash === 0) return '';
-                              
-                              // Calculate ratio: bills paid / collected
                               const ratio = collected > 0 ? billsPaid / collected : 0;
-                              
-                              // Green if ratio < 70%
                               if (ratio < 0.70) return 'bg-emerald-500/20 text-emerald-700';
-                              
-                              // Orange if ratio between 70%-85%
                               if (ratio <= 0.85) return 'bg-orange-400/20 text-orange-700';
-                              
-                              // Red if ratio > 85%
                               return 'bg-red-500/20 text-red-700';
                             })()}`}>
                               {formatCurrency(financials?.totalCash)}
                             </TableCell>
-                            <TableCell>
-                              <div className="flex gap-0.5">
-                                {/* Email button - visible to all if project has email */}
+                            <TableCell className="p-1">
+                              <div className="flex gap-0">
                                 {project.customer_email && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 text-primary hover:text-primary"
+                                        className="h-6 w-6 text-primary hover:text-primary"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           sendPortalEmailMutation.mutate(project.id);
@@ -2217,29 +2163,28 @@ export default function Production() {
                                         disabled={sendPortalEmailMutation.isPending}
                                       >
                                         {sendPortalEmailMutation.isPending ? (
-                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                          <Loader2 className="h-3 w-3 animate-spin" />
                                         ) : (
-                                          <Mail className="h-3.5 w-3.5" />
+                                          <Mail className="h-3 w-3" />
                                         )}
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p>Send portal update email to {project.customer_email}</p>
+                                      <p>Send portal email</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
-                                {/* Delete button - admin only */}
                                 {isAdmin && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    className="h-6 w-6 text-destructive hover:text-destructive"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleDeleteTestProject(project);
                                     }}
                                   >
-                                    <Trash2 className="h-3.5 w-3.5" />
+                                    <Trash2 className="h-3 w-3" />
                                   </Button>
                                 )}
                               </div>
