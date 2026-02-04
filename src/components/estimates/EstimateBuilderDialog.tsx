@@ -31,6 +31,7 @@ import { AIGenerationProgress } from "./AIGenerationProgress";
 import { MissingInfoPanel, parseMissingInfo, groupByCategory, MultiSelectDropdown, type ParsedQuestion } from "./MissingInfoPanel";
 import { AISummaryCard } from "./AISummaryCard";
 import { PhotosSection } from "@/components/production/PhotosSection";
+import { EmailSyncDialog } from "@/components/shared/EmailSyncDialog";
 
 import type { LinkedOpportunity } from "./EstimateSourceDialog";
 
@@ -284,6 +285,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Linked contact tracking
   const [linkedContactUuid, setLinkedContactUuid] = useState<string | null>(null);
   const [linkedContactId, setLinkedContactId] = useState<string | null>(null);
+
+  // Email sync dialog state
+  const [emailSyncDialogOpen, setEmailSyncDialogOpen] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string>("");
+  const [originalEmail, setOriginalEmail] = useState<string | null>(null);
 
   // Draft string values for money inputs so users can type decimals (e.g. "12.")
   const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
@@ -3008,6 +3014,20 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           type="email"
                           value={formData.customer_email}
                           onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
+                          onFocus={() => {
+                            // Capture the original email when user starts editing
+                            if (!originalEmail && formData.customer_email) {
+                              setOriginalEmail(formData.customer_email);
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const newEmail = e.target.value.trim();
+                            // If email changed and we have a linked contact, show sync dialog
+                            if (linkedContactUuid && originalEmail && newEmail && newEmail !== originalEmail) {
+                              setPendingEmail(newEmail);
+                              setEmailSyncDialogOpen(true);
+                            }
+                          }}
                           placeholder="john@example.com"
                           required
                           className={cn("h-8 text-sm", getFieldErrorClass(formData.customer_email))}
@@ -4571,6 +4591,23 @@ The more detail you provide, the more accurate the AI-generated estimate will be
         missingInfo={aiSummary.missing_info}
         onSubmit={handleMissingInfoSubmit}
         isSubmitting={isRegeneratingWithAnswers}
+      />
+      
+      {/* Email Sync Dialog */}
+      <EmailSyncDialog
+        open={emailSyncDialogOpen}
+        onOpenChange={setEmailSyncDialogOpen}
+        contactUuid={linkedContactUuid}
+        oldEmail={originalEmail}
+        newEmail={pendingEmail}
+        onSyncConfirmed={() => {
+          // Email was synced across all records, update local state
+          setOriginalEmail(pendingEmail);
+        }}
+        onUpdateLocalOnly={() => {
+          // Just update the original email tracker (local change only)
+          setOriginalEmail(pendingEmail);
+        }}
       />
     </>
   );
