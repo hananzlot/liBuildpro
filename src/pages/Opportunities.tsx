@@ -28,40 +28,57 @@ const Opportunities = () => {
   const [showAlternatingColors, setShowAlternatingColors] = useState(true);
   const [downloadCSVFn, setDownloadCSVFn] = useState<(() => void) | null>(null);
   
-  // Initialize filter state from URL params
-  const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">(() => {
-    const param = searchParams.get("dateField");
-    return param === "createdDate" ? "createdDate" : "updatedDate";
-  });
+  // Filter state
+  const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
+  const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(undefined);
   
-  const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(() => {
-    const from = searchParams.get("from");
-    const to = searchParams.get("to");
-    if (from) {
-      return {
-        from: parseISO(from),
-        to: to ? parseISO(to) : undefined,
-      };
-    }
-    return undefined;
-  });
+  // Track if we're currently syncing to prevent loops
+  const [isSyncingFromUrl, setIsSyncingFromUrl] = useState(false);
 
-  // Sync filter state to URL params
+  // Sync FROM URL params to state (runs on mount and when URL changes)
   useEffect(() => {
+    const dateFieldParam = searchParams.get("dateField");
+    const fromParam = searchParams.get("from");
+    const toParam = searchParams.get("to");
+    
+    setIsSyncingFromUrl(true);
+    
+    // Update date field from URL
+    const newDateField = dateFieldParam === "createdDate" ? "createdDate" : "updatedDate";
+    setTableDateField(newDateField);
+    
+    // Update date range from URL
+    if (fromParam) {
+      setTableDateRange({
+        from: parseISO(fromParam),
+        to: toParam ? parseISO(toParam) : undefined,
+      });
+    } else {
+      setTableDateRange(undefined);
+    }
+    
+    // Reset sync flag after state updates
+    setTimeout(() => setIsSyncingFromUrl(false), 0);
+  }, [searchParams]);
+
+  // Sync TO URL params when state changes (skip if syncing from URL)
+  const updateUrlParams = useCallback((field: "updatedDate" | "createdDate", range: DateRange | undefined) => {
+    if (isSyncingFromUrl) return;
+    
     const params = new URLSearchParams(searchParams);
     
     // Date field
-    if (tableDateField === "createdDate") {
+    if (field === "createdDate") {
       params.set("dateField", "createdDate");
     } else {
       params.delete("dateField");
     }
     
     // Date range
-    if (tableDateRange?.from) {
-      params.set("from", tableDateRange.from.toISOString().split("T")[0]);
-      if (tableDateRange.to) {
-        params.set("to", tableDateRange.to.toISOString().split("T")[0]);
+    if (range?.from) {
+      params.set("from", range.from.toISOString().split("T")[0]);
+      if (range.to) {
+        params.set("to", range.to.toISOString().split("T")[0]);
       } else {
         params.delete("to");
       }
@@ -76,7 +93,18 @@ const Opportunities = () => {
     if (newParamsString !== currentParamsString) {
       setSearchParams(params, { replace: true });
     }
-  }, [tableDateField, tableDateRange, searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, isSyncingFromUrl]);
+
+  // Wrapper handlers that update both state and URL
+  const handleDateFieldChange = useCallback((value: "updatedDate" | "createdDate") => {
+    setTableDateField(value);
+    updateUrlParams(value, tableDateRange);
+  }, [tableDateRange, updateUrlParams]);
+
+  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
+    setTableDateRange(range);
+    updateUrlParams(tableDateField, range);
+  }, [tableDateField, updateUrlParams]);
 
   const handleDownloadCSVCallback = useCallback((fn: () => void) => {
     setDownloadCSVFn(() => fn);
@@ -170,7 +198,7 @@ const Opportunities = () => {
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-xl font-bold text-foreground">Opportunities</h1>
             <div className="flex items-center gap-1.5">
-              <Select value={tableDateField} onValueChange={(v) => setTableDateField(v as "updatedDate" | "createdDate")}>
+              <Select value={tableDateField} onValueChange={(v) => handleDateFieldChange(v as "updatedDate" | "createdDate")}>
                 <SelectTrigger className="w-[120px] h-8 text-xs bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
@@ -181,7 +209,7 @@ const Opportunities = () => {
               </Select>
               <DateRangeFilter 
                 dateRange={tableDateRange} 
-                onDateRangeChange={setTableDateRange} 
+                onDateRangeChange={handleDateRangeChange} 
               />
             </div>
           </div>
