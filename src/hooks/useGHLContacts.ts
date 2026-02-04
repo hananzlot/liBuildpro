@@ -46,6 +46,7 @@ interface DBOpportunity {
   won_at: string | null;
   address: string | null;
   scope_of_work: string | null;
+  opportunity_number: number | null;
 }
 
 interface DBAppointment {

@@ -27,6 +27,7 @@ interface Opportunity {
   contact_id: string | null;
   ghl_date_added: string | null;
   address: string | null;
+  opportunity_number: number | null;
 }
 
 interface Contact {
@@ -138,7 +139,7 @@ export function GlobalAdminSearch() {
         const { data, error } = await supabase
           .from("opportunities")
           .select(
-            "ghl_id, name, status, monetary_value, pipeline_stage_id, stage_name, contact_id, ghl_date_added, address"
+            "ghl_id, name, status, monetary_value, pipeline_stage_id, stage_name, contact_id, ghl_date_added, address, opportunity_number"
           )
           .eq("company_id", companyId)
           .order("ghl_date_added", { ascending: false })
@@ -443,8 +444,11 @@ export function GlobalAdminSearch() {
 
   const handleSelectOpportunity = (opp: Opportunity) => {
     // Open as a tab using the full-page opportunity route
-    const address = getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address);
-    const tabTitle = address || getContactName(opp.contact_id) || 'Opportunity';
+    const customerName = getContactName(opp.contact_id);
+    const oppNum = opp.opportunity_number;
+    const tabTitle = oppNum 
+      ? `Opp ${oppNum}${customerName && customerName !== 'Unknown' ? ` (${customerName})` : ''}`
+      : opp.name || 'Opportunity';
     openTab(`/opportunity/${opp.ghl_id}`, tabTitle);
     setIsOpen(false);
     setSearchQuery("");

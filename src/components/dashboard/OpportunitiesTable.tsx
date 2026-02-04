@@ -61,6 +61,7 @@ interface Opportunity {
   contact_uuid?: string | null;
   assigned_to: string | null;
   scope_of_work?: string | null;
+  opportunity_number?: number | null;
 }
 
 interface Appointment {
@@ -746,7 +747,12 @@ export function OpportunitiesTable({
   const handleRowClick = (opportunity: Opportunity) => {
     // Open in a new tab using the full-page route
     const id = opportunity.id || opportunity.ghl_id;
-    const title = opportunity.name || 'Opportunity';
+    const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
+    const customerName = contact?.contact_name || contact?.first_name || '';
+    const oppNum = opportunity.opportunity_number;
+    const title = oppNum 
+      ? `Opp ${oppNum}${customerName ? ` (${customerName})` : ''}`
+      : opportunity.name || 'Opportunity';
     openTab(`/opportunity/${id}`, title);
   };
 

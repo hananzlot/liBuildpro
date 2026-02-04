@@ -3498,6 +3498,7 @@ export type Database = {
           location_id: string
           monetary_value: number | null
           name: string | null
+          opportunity_number: number | null
           pipeline_id: string | null
           pipeline_name: string | null
           pipeline_stage_id: string | null
@@ -3528,6 +3529,7 @@ export type Database = {
           location_id: string
           monetary_value?: number | null
           name?: string | null
+          opportunity_number?: number | null
           pipeline_id?: string | null
           pipeline_name?: string | null
           pipeline_stage_id?: string | null
@@ -3558,6 +3560,7 @@ export type Database = {
           location_id?: string
           monetary_value?: number | null
           name?: string | null
+          opportunity_number?: number | null
           pipeline_id?: string | null
           pipeline_name?: string | null
           pipeline_stage_id?: string | null
