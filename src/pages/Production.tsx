@@ -81,6 +81,7 @@ import { FinancialSearchResultsSheet } from "@/components/production/FinancialSe
 import { PendingDepositsSheet } from "@/components/production/PendingDepositsSheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { MergeProjectsDialog } from "@/components/production/MergeProjectsDialog";
+import { useProductionFilters } from "@/stores/useProductionFilters";
 
 
 interface Project {
@@ -236,16 +237,27 @@ export default function Production() {
     }
   }, [isAdmin, activeView, currentTab, setSearchParams]);
   
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"]);
+  // Persistent filters from Zustand store
+  const {
+    searchQuery,
+    selectedStatuses,
+    sortColumn,
+    sortDirection,
+    showAlternatingColors,
+    showArchived,
+    setSearchQuery,
+    setSelectedStatuses,
+    setSort,
+    setShowAlternatingColors,
+    setShowArchived,
+  } = useProductionFilters();
+  
   // selectedProject and detailSheetOpen are now derived from URL
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [deleteTestProjectOpen, setDeleteTestProjectOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [projectHasRecords, setProjectHasRecords] = useState<boolean | null>(null);
   const [checkingRecords, setCheckingRecords] = useState(false);
-  const [sortColumn, setSortColumn] = useState<SortColumn>('project_number');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [warningSheetOpen, setWarningSheetOpen] = useState(false);
   const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | 'overdueChecklists' | null>(null);
   const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
@@ -256,7 +268,6 @@ export default function Production() {
   const [returnToAfterProjectClose, setReturnToAfterProjectClose] = useState<'payables' | 'outstandingAR' | null>(null);
   const [reopenPayablesSheet, setReopenPayablesSheet] = useState(false);
   const [reopenARSheet, setReopenARSheet] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
   const [profitSheetOpen, setProfitSheetOpen] = useState(false);
   const [profitSheetType, setProfitSheetType] = useState<'expected' | 'realized' | null>(null);
   const [kpiDateRange, setKpiDateRange] = useState<DateRange | undefined>(undefined);
@@ -270,7 +281,6 @@ export default function Production() {
   const [statusChangeProject, setStatusChangeProject] = useState<Project | null>(null);
   const [statusChangeNewStatus, setStatusChangeNewStatus] = useState<string>("");
   const [pendingDepositsSheetOpen, setPendingDepositsSheetOpen] = useState(false);
-  const [showAlternatingColors, setShowAlternatingColors] = useState(true);
   const [mergeProjectsDialogOpen, setMergeProjectsDialogOpen] = useState(false);
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects", companyId],
@@ -598,10 +608,9 @@ export default function Production() {
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      setSort(column, sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortColumn(column);
-      setSortDirection('asc');
+      setSort(column, 'asc');
     }
   };
 
