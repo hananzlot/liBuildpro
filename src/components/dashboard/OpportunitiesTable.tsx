@@ -995,11 +995,11 @@ export function OpportunitiesTable({
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto scrollbar-styled pb-2">
-          <Table className="min-w-[900px]">
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[14%]"
                   onClick={() => handleSort("name")}
                 >
                   <div className="flex items-center">
@@ -1008,26 +1008,26 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[12%]"
                   onClick={() => handleSort("stage")}
                 >
-                  <div className="flex items-center">
-                    Pipeline/Stage
+                  <div className="flex items-center truncate">
+                    Stage
                     <SortIcon column="stage" />
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[9%]"
                   onClick={() => handleSort("source")}
                 >
-                  <div className="flex items-center">
+                  <div className="flex items-center truncate">
                     Source
                     <SortIcon column="source" />
                   </div>
                 </TableHead>
 
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[7%]"
                   onClick={() => handleSort("value")}
                 >
                   <div className="flex items-center">
@@ -1036,7 +1036,7 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[7%]"
                   onClick={() => handleSort("status")}
                 >
                   <div className="flex items-center">
@@ -1045,46 +1045,46 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[8%]"
                   onClick={() => handleSort("createdDate")}
                 >
-                  <div className="flex items-center">
-                    Contact Created
+                  <div className="flex items-center truncate">
+                    Created
                     <SortIcon column="createdDate" />
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[8%]"
                   onClick={() => handleSort("updatedDate")}
                 >
-                  <div className="flex items-center">
-                    Last Edited
+                  <div className="flex items-center truncate">
+                    Edited
                     <SortIcon column="updatedDate" />
                   </div>
                 </TableHead>
 
-                <TableHead className="text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    Last Appointment
+                <TableHead className="text-muted-foreground w-[9%]">
+                  <div className="flex items-center gap-1 truncate">
+                    <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate">Appt</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <StickyNote className="h-3.5 w-3.5" />
-                    Latest Note
+                <TableHead className="text-muted-foreground w-[10%]">
+                  <div className="flex items-center gap-1 truncate">
+                    <StickyNote className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate">Note</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <ListChecks className="h-3.5 w-3.5" />
-                    Latest Task
+                <TableHead className="text-muted-foreground w-[9%]">
+                  <div className="flex items-center gap-1 truncate">
+                    <ListChecks className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate">Task</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <User className="h-3.5 w-3.5" />
-                    Sales Rep
+                <TableHead className="text-muted-foreground w-[7%]">
+                  <div className="flex items-center gap-1 truncate">
+                    <User className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate">Rep</span>
                   </div>
                 </TableHead>
               </TableRow>
@@ -1141,34 +1141,33 @@ export function OpportunitiesTable({
                       )}
                       onClick={() => handleRowClick(opp)}
                     >
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
+                      <TableCell className="font-medium truncate">
+                        <div className="flex items-center gap-1.5 min-w-0">
                           {overdueTask && (
                             <span title="Has overdue task">
-                              <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+                              <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
                             </span>
                           )}
                           {opp.contact_id && contactsWithAppointments.has(opp.contact_id) ? (
                             <button
                               type="button"
                               title="View appointment"
-                              className="p-0.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                              className="p-0.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors flex-shrink-0"
                               onClick={(e) => handleCalendarIconClick(e, opp, contact)}
                             >
-                              <CalendarCheck className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                              <CalendarCheck className="h-3.5 w-3.5 text-emerald-500" />
                             </button>
                           ) : (
                             <button
                               type="button"
                               title="Create appointment"
-                              className="p-0.5 rounded hover:bg-muted transition-colors"
+                              className="p-0.5 rounded hover:bg-muted transition-colors flex-shrink-0"
                               onClick={(e) => handleCalendarIconClick(e, opp, contact)}
                             >
-                              <CalendarX className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
+                              <CalendarX className="h-3.5 w-3.5 text-muted-foreground/50" />
                             </button>
                           )}
                           {(() => {
-                            // Get scope with fallback: opportunity -> contact custom field -> attributions
                             const scopeFromOpportunity = opp.scope_of_work;
                             const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
                             const scopeFromAttributions = (() => {
@@ -1182,7 +1181,7 @@ export function OpportunitiesTable({
                             return scopeOfWork ? (
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="cursor-help underline decoration-dotted underline-offset-2">{displayName}</span>
+                                  <span className="cursor-help underline decoration-dotted underline-offset-2 truncate">{displayName}</span>
                                 </TooltipTrigger>
                                 <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
                                   <p className="font-semibold mb-1">Scope of Work:</p>
@@ -1190,14 +1189,13 @@ export function OpportunitiesTable({
                                 </TooltipContent>
                               </Tooltip>
                             ) : (
-                              <span>{displayName}</span>
+                              <span className="truncate" title={displayName}>{displayName}</span>
                             );
                           })()}
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="text-muted-foreground text-xs truncate">
                         {(() => {
-                          // Same fallback logic for stage column
                           const scopeFromOpportunity = opp.scope_of_work;
                           const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
                           const scopeFromAttributions = (() => {
@@ -1207,14 +1205,12 @@ export function OpportunitiesTable({
                             return campaign || null;
                           })();
                           const scopeOfWork = scopeFromOpportunity || scopeFromCustomField || scopeFromAttributions;
-                          const stageText = opp.pipeline_name && opp.stage_name
-                            ? `${opp.pipeline_name} / ${opp.stage_name}`
-                            : opp.stage_name || opp.pipeline_name || "-";
+                          const stageText = opp.stage_name || "-";
                           
                           return scopeOfWork ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="cursor-help underline decoration-dotted underline-offset-2">
+                                <span className="cursor-help underline decoration-dotted underline-offset-2 truncate block">
                                   {stageText}
                                 </span>
                               </TooltipTrigger>
@@ -1224,32 +1220,32 @@ export function OpportunitiesTable({
                               </TooltipContent>
                             </Tooltip>
                           ) : (
-                            stageText
+                            <span className="truncate block" title={stageText}>{stageText}</span>
                           );
                         })()}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{contact?.source || "-"}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs truncate" title={contact?.source || "-"}>{contact?.source || "-"}</TableCell>
 
-                      <TableCell className="font-mono text-emerald-500">{formatCurrency(opp.monetary_value)}</TableCell>
+                      <TableCell className="font-mono text-emerald-500 text-xs">{formatCurrency(opp.monetary_value)}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getStatusColor(opp.status)}>
-                          {opp.status || "Unknown"}
+                        <Badge variant="outline" className={cn(getStatusColor(opp.status), "text-xs px-1.5 py-0")}>
+                          {opp.status || "?"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {contactDate ? new Date(contactDate).toLocaleDateString() : "-"}
+                      <TableCell className="text-muted-foreground text-xs">
+                        {contactDate ? new Date(contactDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "-"}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString() : "-"}
+                      <TableCell className="text-muted-foreground text-xs">
+                        {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "-"}
                       </TableCell>
 
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="text-muted-foreground text-xs">
                         {latestAppt ? (
-                          <div className="flex flex-col">
-                            <span>{formatAppointmentDateTime(latestAppt.start_time)}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="truncate">{formatAppointmentDateTime(latestAppt.start_time)}</span>
                             {oppAppointments.length > 1 && (
-                              <span className="text-xs text-muted-foreground/70">
-                                +{oppAppointments.length - 1} more
+                              <span className="text-[10px] text-muted-foreground/70">
+                                +{oppAppointments.length - 1}
                               </span>
                             )}
                           </div>
@@ -1257,16 +1253,16 @@ export function OpportunitiesTable({
                           "-"
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm max-w-[180px]">
-                        <div className="flex items-center gap-1">
+                      <TableCell className="text-muted-foreground text-xs">
+                        <div className="flex items-center gap-0.5 min-w-0">
                           {latestNote ? (
                             <div className="flex flex-col flex-1 min-w-0">
-                              <span className="text-xs">
-                                {latestNote.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString() : "-"}
+                              <span className="text-[10px]">
+                                {latestNote.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "-"}
                               </span>
                               {notePreview && (
-                                <span className="text-xs text-muted-foreground/70 truncate" title={latestNote.body?.replace(/<[^>]*>/g, '') || ''}>
-                                  {notePreview}
+                                <span className="text-[10px] text-muted-foreground/70 truncate" title={latestNote.body?.replace(/<[^>]*>/g, '') || ''}>
+                                  {notePreview.slice(0, 20)}...
                                 </span>
                               )}
                             </div>
@@ -1276,29 +1272,28 @@ export function OpportunitiesTable({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10"
+                            className="h-5 w-5 p-0 flex-shrink-0 hover:bg-primary/10"
                             onClick={(e) => openQuickNoteDialog(e, opp.contact_id, displayName)}
                             title="Add note"
                           >
-                            <Plus className="h-3.5 w-3.5" />
+                            <Plus className="h-3 w-3" />
                           </Button>
                         </div>
                       </TableCell>
                       <TableCell className={cn(
-                        "text-sm",
+                        "text-xs",
                         overdueTask ? "text-destructive" : "text-muted-foreground"
                       )}>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5 min-w-0">
                           {latestTask ? (
                             <div className="flex flex-col flex-1 min-w-0">
-                              <span className={cn("text-xs", overdueTask && "font-medium")}>
+                              <span className={cn("text-[10px]", overdueTask && "font-medium")}>
                                 {latestTask.due_date 
-                                  ? new Date(latestTask.due_date).toLocaleDateString() 
-                                  : new Date(latestTask.created_at).toLocaleDateString()}
-                                {overdueTask && " (Overdue)"}
+                                  ? new Date(latestTask.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) 
+                                  : new Date(latestTask.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                               </span>
-                              <span className="text-xs text-muted-foreground/70 truncate max-w-[120px]" title={latestTask.title}>
-                                {latestTask.title.slice(0, 30)}{latestTask.title.length > 30 ? '...' : ''}
+                              <span className="text-[10px] text-muted-foreground/70 truncate" title={latestTask.title}>
+                                {latestTask.title.slice(0, 15)}...
                               </span>
                             </div>
                           ) : (
@@ -1307,15 +1302,15 @@ export function OpportunitiesTable({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10"
+                            className="h-5 w-5 p-0 flex-shrink-0 hover:bg-primary/10"
                             onClick={(e) => openQuickTaskDialog(e, opp.contact_id, displayName)}
                             title="Add task"
                           >
-                            <Plus className="h-3.5 w-3.5" />
+                            <Plus className="h-3 w-3" />
                           </Button>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{salesRepName || "-"}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs truncate" title={salesRepName || "-"}>{salesRepName || "-"}</TableCell>
                     </TableRow>
                   );
                 })
