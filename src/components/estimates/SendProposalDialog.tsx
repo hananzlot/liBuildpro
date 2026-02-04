@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -213,6 +212,15 @@ export function SendProposalDialog({
       })));
     }
   }, [existingSigners, isResend]);
+
+  // If we are in multiple-signer mode, ensure we are not showing the legacy single-signer project portal link.
+  // Otherwise the email section never appears (it requires multi-signer tokens).
+  useEffect(() => {
+    if (!multipleSigners) return;
+    if (!portalLink) return;
+    if (portalLink === 'multi-signer') return;
+    setPortalLink(null);
+  }, [multipleSigners, portalLink]);
 
   // IMPORTANT: For resends, the email(s) actually used come from estimate_signers.
   // If the customer email was updated on the estimate, keep signer #1 in sync so resend goes to the new email.
@@ -702,8 +710,8 @@ export function SendProposalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden min-h-0">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-lg h-[85vh] flex flex-col overflow-hidden min-h-0 p-0">
+        <DialogHeader className="flex-shrink-0 px-6 pt-6">
           <DialogTitle>{isResend ? 'Resend Proposal' : 'Send Proposal'}</DialogTitle>
           <DialogDescription>
             {isResend 
@@ -717,8 +725,8 @@ export function SendProposalDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 -mr-2 pr-2">
-          <div className="space-y-4 pr-1">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-6 pb-6 pt-4 scrollbar-thin [@supports(-webkit-touch-callout:none)]:[-webkit-overflow-scrolling:touch]">
+          <div className="space-y-4">
           {/* Single vs Multiple Signers Toggle */}
           <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
             <div className="flex items-center gap-2">
@@ -930,7 +938,7 @@ export function SendProposalDialog({
             </>
           )}
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
