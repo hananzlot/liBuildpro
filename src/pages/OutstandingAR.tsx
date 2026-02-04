@@ -57,10 +57,14 @@ export default function OutstandingAR() {
   const total = filtered.reduce((sum, i) => sum + (i.open_balance || 0), 0);
 
   const handleProjectClick = (projectId: string, invoiceId?: string) => {
+    const project = invoicesWithAging.find(i => i.project_id === projectId);
+    const title = project 
+      ? `Project ${project.project_number} (${project.project_name})`
+      : `Project Detail`;
     const url = invoiceId
       ? `/project/${projectId}?tab=finance&financeTab=invoices&highlightInvoice=${invoiceId}`
       : `/project/${projectId}?tab=finance&financeTab=invoices`;
-    openTab(url, `Project-${invoicesWithAging.find(i => i.project_id === projectId)?.project_number || "Detail"}`);
+    openTab(url, title);
   };
 
   return (

@@ -1358,7 +1358,10 @@ export default function Production() {
     if (params.toString()) url += `?${params.toString()}`;
     
     // Open in a new tab using the full-page route
-    const title = `Project-${project.project_number}`;
+    const customerName = [project.customer_first_name, project.customer_last_name].filter(Boolean).join(' ').trim();
+    const title = customerName 
+      ? `Project ${project.project_number} (${customerName})`
+      : `Project ${project.project_number}`;
     openTab(url, title);
   };
 

@@ -28,7 +28,7 @@ export default function Analytics() {
     const queryString = params.toString();
     if (queryString) url += `?${queryString}`;
     
-    // Open as tab
+    // Open as tab - projectId here is the full ID, we'd need project data for better title
     openTab(url, `Project ${projectId.slice(0, 8)}`);
   };
 

@@ -488,7 +488,10 @@ export default function OutstandingAP() {
 
   const handleProjectClick = (projectId: string) => {
     const project = payablesWithCashImpact.find(p => p.project_id === projectId);
-    openTab(`/project/${projectId}?tab=finance&financeTab=bills`, `Project-${project?.project_number || "Detail"}`);
+    const title = project 
+      ? `Project ${project.project_number} (${project.project_name})`
+      : `Project Detail`;
+    openTab(`/project/${projectId}?tab=finance&financeTab=bills`, title);
   };
 
   // Schedule payment mutation

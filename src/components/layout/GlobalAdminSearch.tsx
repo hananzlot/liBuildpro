@@ -452,7 +452,10 @@ export function GlobalAdminSearch() {
 
   const handleSelectProject = (proj: Project) => {
     // Open as a tab using the full-page project route
-    const tabTitle = proj.project_address || `#${proj.project_number} - ${proj.project_name}`;
+    const customerName = [proj.customer_first_name, proj.customer_last_name].filter(Boolean).join(' ').trim();
+    const tabTitle = customerName 
+      ? `Project ${proj.project_number} (${customerName})`
+      : `Project ${proj.project_number}`;
     openTab(`/project/${proj.id}`, tabTitle);
     setIsOpen(false);
     setSearchQuery("");
