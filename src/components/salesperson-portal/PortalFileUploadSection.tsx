@@ -33,6 +33,7 @@ interface ProjectDocument {
   file_type: string | null;
   category: string | null;
   created_at: string;
+  notes: string | null;
 }
 
 const ALLOWED_TYPES = [
@@ -146,7 +147,7 @@ export function PortalFileUploadSection({
 
       const { data, error } = await supabase
         .from("project_documents")
-        .select("id, file_name, file_url, file_type, category, created_at")
+        .select("id, file_name, file_url, file_type, category, created_at, notes")
         .eq("project_id", selectedProjectId)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -417,7 +418,11 @@ export function PortalFileUploadSection({
                                   </div>
                                 </div>
                                 <div className="p-1.5 bg-background/80 backdrop-blur-sm">
-                                  <p className="text-[10px] truncate text-muted-foreground">{doc.file_name}</p>
+                                  {doc.notes && !doc.notes.includes('Uploaded by') && doc.notes !== 'Uploaded by customer via portal' ? (
+                                    <p className="text-[10px] truncate font-medium">{doc.notes.replace(/ \(Customer upload\)$/, '').replace(/ \(Uploaded by .+ via portal\)$/, '')}</p>
+                                  ) : (
+                                    <p className="text-[10px] truncate text-muted-foreground">{doc.file_name}</p>
+                                  )}
                                 </div>
                               </div>
                             );
