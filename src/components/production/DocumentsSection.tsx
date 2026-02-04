@@ -170,9 +170,12 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     },
   });
 
-  // Combine all documents
+  // Combine all documents, filtering out images (they belong in Photos section)
   const allDocuments: Document[] = [
-    ...projectDocuments,
+    ...projectDocuments.filter(doc => 
+      !doc.file_type?.startsWith('image/') && 
+      !/\.(jpg|jpeg|png|gif|webp|heic|heif|jpe)$/i.test(doc.file_name)
+    ),
     ...billAttachments,
     ...agreementAttachments,
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
