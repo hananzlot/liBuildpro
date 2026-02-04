@@ -105,8 +105,10 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
       })) as Estimate[];
     },
     enabled: !!companyId && !!(salespersonId || salespersonName),
-    staleTime: 30 * 1000, // 30 seconds - refresh more often to catch new proposals
-    refetchInterval: 60 * 1000, // Auto-refresh every minute
+    staleTime: 0, // Always refetch to ensure deleted records are removed
+    gcTime: 30 * 1000, // Keep in cache for 30 seconds
+    refetchOnMount: 'always', // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
   });
 
   const handleOpenProposalPreview = (estimate: Estimate) => {
