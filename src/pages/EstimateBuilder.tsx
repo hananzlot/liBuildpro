@@ -108,7 +108,9 @@ export default function EstimateBuilder() {
           <EstimateSourceDialog
             open={sourceDialogOpen}
             onOpenChange={(open) => {
-              if (!open) {
+              // Only handle cancel if dialog is being closed without completing
+              // (i.e., user clicked outside or pressed Cancel button)
+              if (!open && !sourceDialogCompleted) {
                 handleSourceDialogCancel();
               }
             }}
