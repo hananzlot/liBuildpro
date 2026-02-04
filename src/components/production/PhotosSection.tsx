@@ -64,7 +64,9 @@ export function PhotosSection({
   const [isUploading, setIsUploading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [photoToDelete, setPhotoToDelete] = useState<any | null>(null);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [uploadNote, setUploadNote] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -101,35 +103,53 @@ export function PhotosSection({
     return true;
   });
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const validFiles: File[] = [];
+    for (const file of Array.from(files)) {
+      if (file.size > maxFileSize) {
+        toast.error(`${file.name} exceeds ${uploadLimitMb}MB limit`);
+        continue;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length > 0) {
+      setPendingFiles(validFiles);
+      setNoteDialogOpen(true);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleUploadWithNote = async () => {
+    if (pendingFiles.length === 0) return;
+
+    setNoteDialogOpen(false);
     setIsUploading(true);
     let successCount = 0;
 
     try {
-      for (const file of Array.from(files)) {
-        if (file.size > maxFileSize) {
-          toast.error(`${file.name} exceeds ${uploadLimitMb}MB limit`);
-          continue;
-        }
-
-        if (!file.type.startsWith('image/')) {
-          toast.error(`${file.name} is not an image`);
-          continue;
-        }
-
+      for (const file of pendingFiles) {
         const fileExt = file.name.split('.').pop();
         const fileName = `project-photos/${projectId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         
-        const { error: uploadError } = await supabase.storage
+        const { error: storageError } = await supabase.storage
           .from('project-attachments')
           .upload(fileName, file);
 
-        if (uploadError) {
-          console.error('Storage upload error:', uploadError);
-          toast.error(`Failed to upload ${file.name}: ${uploadError.message}`);
+        if (storageError) {
+          console.error('Storage upload error:', storageError);
+          toast.error(`Failed to upload ${file.name}: ${storageError.message}`);
           continue;
         }
 
@@ -165,7 +185,8 @@ export function PhotosSection({
 
       if (successCount > 0) {
         toast.success(`Uploaded ${successCount} photo${successCount > 1 ? 's' : ''}`);
-        setUploadNote(""); // Clear note after successful upload
+        setUploadNote("");
+        setPendingFiles([]);
         queryClient.invalidateQueries({ queryKey: ['project-photos', projectId, estimateId] });
         queryClient.invalidateQueries({ queryKey: ['project-portal'] });
         queryClient.invalidateQueries({ queryKey: ['estimate-preview'] });
@@ -175,10 +196,13 @@ export function PhotosSection({
       toast.error('Failed to upload photos');
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
+  };
+
+  const handleCancelUpload = () => {
+    setNoteDialogOpen(false);
+    setUploadNote("");
+    setPendingFiles([]);
   };
 
   const handleDeletePhoto = async () => {
@@ -308,33 +332,24 @@ export function PhotosSection({
                 onChange={handleFileSelect}
                 className="hidden"
               />
-              <div className="flex items-center gap-2">
-                <Textarea
-                  placeholder="Add a note (optional)..."
-                  value={uploadNote}
-                  onChange={(e) => setUploadNote(e.target.value)}
-                  className="min-h-[32px] h-8 text-xs resize-none py-1.5 flex-1 max-w-[200px]"
-                  maxLength={500}
-                />
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  size="sm"
-                  className="h-7 text-xs"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-3 w-3 mr-1.5" />
-                      Upload
-                    </>
-                  )}
-                </Button>
-              </div>
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                size="sm"
+                className="h-7 text-xs"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-3 w-3 mr-1.5" />
+                    Upload
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -550,6 +565,46 @@ export function PhotosSection({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Note Dialog for Upload */}
+      <Dialog open={noteDialogOpen} onOpenChange={(open) => !open && handleCancelUpload()}>
+        <DialogContent className="sm:max-w-md">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">Add a Note</h3>
+              <p className="text-sm text-muted-foreground">
+                {pendingFiles.length} photo{pendingFiles.length !== 1 ? 's' : ''} selected. Add an optional note to describe these photos.
+              </p>
+            </div>
+            <Textarea
+              placeholder="e.g., Before photos of kitchen area..."
+              value={uploadNote}
+              onChange={(e) => setUploadNote(e.target.value)}
+              className="min-h-[80px] resize-none"
+              maxLength={500}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleCancelUpload}>
+                Cancel
+              </Button>
+              <Button onClick={handleUploadWithNote} disabled={isUploading}>
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload {pendingFiles.length} Photo{pendingFiles.length !== 1 ? 's' : ''}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -37,7 +37,9 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [uploadNote, setUploadNote] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -49,25 +51,42 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
     /\.(jpg|jpeg|png|gif|webp)$/i.test(doc.file_name)
   );
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const validFiles: File[] = [];
+    for (const file of Array.from(files)) {
+      if (file.size > maxFileSize) {
+        toast.error(`${file.name} exceeds ${uploadLimitMb}MB limit`);
+        continue;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length > 0) {
+      setPendingFiles(validFiles);
+      setNoteDialogOpen(true);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleUploadWithNote = async () => {
+    if (pendingFiles.length === 0) return;
+
+    setNoteDialogOpen(false);
     setIsUploading(true);
     let successCount = 0;
 
     try {
-      for (const file of Array.from(files)) {
-        if (file.size > maxFileSize) {
-          toast.error(`${file.name} exceeds ${uploadLimitMb}MB limit`);
-          continue;
-        }
-
-        if (!file.type.startsWith('image/')) {
-          toast.error(`${file.name} is not an image`);
-          continue;
-        }
-
+      for (const file of pendingFiles) {
         const fileExt = file.name.split('.').pop();
         const fileName = `customer-uploads/${projectId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         
@@ -112,7 +131,8 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
 
       if (successCount > 0) {
         toast.success(`Uploaded ${successCount} photo${successCount > 1 ? 's' : ''}`);
-        setUploadNote(""); // Clear note after successful upload
+        setUploadNote("");
+        setPendingFiles([]);
         queryClient.invalidateQueries({ queryKey: ['project-portal'] });
       }
     } catch (err) {
@@ -120,10 +140,13 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
       toast.error('Failed to upload photos');
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
+  };
+
+  const handleCancelUpload = () => {
+    setNoteDialogOpen(false);
+    setUploadNote("");
+    setPendingFiles([]);
   };
 
   const openLightbox = (image: any, index: number) => {
@@ -178,14 +201,7 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
                 </p>
               </div>
             </div>
-            <div className="w-full sm:w-auto space-y-2">
-              <Textarea
-                placeholder="Add a note about these photos (optional)..."
-                value={uploadNote}
-                onChange={(e) => setUploadNote(e.target.value)}
-                className="min-h-[40px] text-sm resize-none bg-white/10 border-white/20 text-white placeholder:text-white/50"
-                maxLength={500}
-              />
+            <div className="w-full sm:w-auto">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -437,6 +453,46 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, company
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Note Dialog for Upload */}
+      <Dialog open={noteDialogOpen} onOpenChange={(open) => !open && handleCancelUpload()}>
+        <DialogContent className="sm:max-w-md">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">Add a Note</h3>
+              <p className="text-sm text-muted-foreground">
+                {pendingFiles.length} photo{pendingFiles.length !== 1 ? 's' : ''} selected. Add an optional note to describe these photos.
+              </p>
+            </div>
+            <Textarea
+              placeholder="e.g., Photos of the damage area..."
+              value={uploadNote}
+              onChange={(e) => setUploadNote(e.target.value)}
+              className="min-h-[80px] resize-none"
+              maxLength={500}
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleCancelUpload}>
+                Cancel
+              </Button>
+              <Button onClick={handleUploadWithNote} disabled={isUploading}>
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload {pendingFiles.length} Photo{pendingFiles.length !== 1 ? 's' : ''}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
