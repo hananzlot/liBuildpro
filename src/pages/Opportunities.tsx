@@ -1,5 +1,5 @@
-import { useMemo, useState, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useMemo, useState, useCallback, useEffect } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Database, HardDrive, Merge, Download } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
@@ -15,9 +15,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRange } from "react-day-picker";
 import { toast } from "sonner";
+import { parseISO } from "date-fns";
 
 const Opportunities = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { opportunityId } = useParams<{ opportunityId?: string }>();
   const { user, isAdmin } = useAuth();
   const { isGHLEnabled } = useGHLMode();
@@ -25,8 +27,56 @@ const Opportunities = () => {
   const [preselectedOpportunities, setPreselectedOpportunities] = useState<{ oppA: any; oppB: any } | null>(null);
   const [showAlternatingColors, setShowAlternatingColors] = useState(true);
   const [downloadCSVFn, setDownloadCSVFn] = useState<(() => void) | null>(null);
-  const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
-  const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(undefined);
+  
+  // Initialize filter state from URL params
+  const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">(() => {
+    const param = searchParams.get("dateField");
+    return param === "createdDate" ? "createdDate" : "updatedDate";
+  });
+  
+  const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(() => {
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    if (from) {
+      return {
+        from: parseISO(from),
+        to: to ? parseISO(to) : undefined,
+      };
+    }
+    return undefined;
+  });
+
+  // Sync filter state to URL params
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    
+    // Date field
+    if (tableDateField === "createdDate") {
+      params.set("dateField", "createdDate");
+    } else {
+      params.delete("dateField");
+    }
+    
+    // Date range
+    if (tableDateRange?.from) {
+      params.set("from", tableDateRange.from.toISOString().split("T")[0]);
+      if (tableDateRange.to) {
+        params.set("to", tableDateRange.to.toISOString().split("T")[0]);
+      } else {
+        params.delete("to");
+      }
+    } else {
+      params.delete("from");
+      params.delete("to");
+    }
+    
+    // Only update if params actually changed
+    const newParamsString = params.toString();
+    const currentParamsString = searchParams.toString();
+    if (newParamsString !== currentParamsString) {
+      setSearchParams(params, { replace: true });
+    }
+  }, [tableDateField, tableDateRange, searchParams, setSearchParams]);
 
   const handleDownloadCSVCallback = useCallback((fn: () => void) => {
     setDownloadCSVFn(() => fn);
