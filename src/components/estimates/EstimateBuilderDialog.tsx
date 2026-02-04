@@ -3666,13 +3666,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                   })()}
                   
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <HelpCircle className="h-4 w-4" />
                         Additional Clarification (Optional)
                       </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Answer these questions to refine your estimate. The AI will use this information to generate more accurate pricing.
+                      <p className="text-xs text-muted-foreground">
+                        Answer these questions to refine your estimate.
                       </p>
                     </CardHeader>
                     <CardContent>
@@ -3855,8 +3855,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
 
                 <TabsContent value="payments" className="mt-0 space-y-4">
                   <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center gap-2">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
                         <DollarSign className="h-4 w-4" />
                         Pricing & Payment Settings
                       </CardTitle>
@@ -4069,10 +4069,10 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                   </Card>
 
                   <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <CardTitle className="text-base">Payment Schedule</CardTitle>
-                      <Button onClick={addPaymentPhase} size="sm">
-                        <Plus className="mr-2 h-4 w-4" />
+                    <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                      <CardTitle className="text-sm font-medium">Payment Schedule</CardTitle>
+                      <Button onClick={addPaymentPhase} size="sm" variant="outline" className="h-7 text-xs">
+                        <Plus className="mr-1 h-3 w-3" />
                         Add Phase
                       </Button>
                     </CardHeader>
@@ -4299,13 +4299,12 @@ The more detail you provide, the more accurate the AI-generated estimate will be
 
                 </TabsContent>
 
-                <TabsContent value="terms" className="mt-0 space-y-4">
+                <TabsContent value="terms" className="mt-0 space-y-3">
                   {/* Save button for Terms tab */}
                   <Button 
                     onClick={() => saveMutation.mutate()} 
                     disabled={saveMutation.isPending}
-                    className="w-full"
-                    size="lg"
+                    className="w-full h-9"
                   >
                     {saveMutation.isPending ? (
                       <>
@@ -4321,15 +4320,15 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                   </Button>
                   
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Customer View Options</CardTitle>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Customer View Options</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label>Show SalesRep Scope Description</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Show the scope of work text description from the Scope tab
+                    <CardContent className="space-y-3 pt-0">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="space-y-0.5 flex-1">
+                          <Label className="text-xs">Show SalesRep Scope Description</Label>
+                          <p className="text-[10px] text-muted-foreground leading-tight">
+                            Show scope of work text from Scope tab
                           </p>
                         </div>
                         <Switch
@@ -4340,11 +4339,11 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           }}
                         />
                       </div>
-                      <div className="flex items-center justify-between pt-4 border-t">
-                        <div className="space-y-0.5">
-                          <Label>Show AI Generated Line Items</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Show the itemized scope breakdown (titles only)
+                      <div className="flex items-center justify-between gap-4 pt-2 border-t">
+                        <div className="space-y-0.5 flex-1">
+                          <Label className="text-xs">Show AI Generated Line Items</Label>
+                          <p className="text-[10px] text-muted-foreground leading-tight">
+                            Show itemized scope breakdown (titles only)
                           </p>
                         </div>
                         <Switch
@@ -4352,7 +4351,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           onCheckedChange={(checked) => {
                             setFormData({ ...formData, show_line_items_to_customer: checked });
                             autoSaveVisibilityToggle('show_line_items_to_customer', checked);
-                            // Also disable details if line items are hidden
                             if (!checked && formData.show_details_to_customer) {
                               setFormData(prev => ({ ...prev, show_line_items_to_customer: checked, show_details_to_customer: false }));
                               autoSaveVisibilityToggle('show_details_to_customer', false);
@@ -4360,11 +4358,11 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           }}
                         />
                       </div>
-                      <div className="flex items-center justify-between pt-4 border-t">
-                        <div className="space-y-0.5">
-                          <Label>Show AI Driven Line Item Details</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Show quantity, unit, and unit price for each line item
+                      <div className="flex items-center justify-between gap-4 pt-2 border-t">
+                        <div className="space-y-0.5 flex-1">
+                          <Label className="text-xs">Show AI Driven Line Item Details</Label>
+                          <p className="text-[10px] text-muted-foreground leading-tight">
+                            Show qty, unit, and unit price per item
                           </p>
                         </div>
                         <Switch
@@ -4380,43 +4378,46 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                   </Card>
 
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Internal Notes</CardTitle>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Internal Notes</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                       <Textarea
                         value={formData.notes}
                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                         placeholder="Add internal notes (not visible to customer)..."
-                        rows={4}
+                        rows={3}
+                        className="text-sm"
                       />
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Notes to Customer</CardTitle>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Notes to Customer</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                       <Textarea
                         value={formData.notes_to_customer}
                         onChange={(e) => setFormData({ ...formData, notes_to_customer: e.target.value })}
-                        placeholder="Add notes that will be shown to the customer on proposals and contracts..."
-                        rows={4}
+                        placeholder="Add notes that will be shown to the customer..."
+                        rows={3}
+                        className="text-sm"
                       />
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Terms & Conditions</CardTitle>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Terms & Conditions</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                       <Textarea
                         value={formData.terms_and_conditions}
                         onChange={(e) => setFormData({ ...formData, terms_and_conditions: e.target.value })}
                         placeholder="Enter terms and conditions..."
-                        rows={6}
+                        rows={5}
+                        className="text-sm"
                         disabled={isProposalReadOnly}
                       />
                     </CardContent>
