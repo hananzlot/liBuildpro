@@ -138,13 +138,13 @@ export function SendProposalDialog({
     }
   }, [open, customerEmail, customerName, isResend, companyName]);
 
-  // Check if estimate already has a project and get visibility settings + opportunity link
+  // Fetch fresh estimate data from database (customer_email may have been updated)
   const { data: estimateData } = useQuery({
-    queryKey: ['estimate-project-check', estimateId],
+    queryKey: ['estimate-send-dialog', estimateId, open],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('estimates')
-        .select('project_id, estimate_title, job_address, customer_phone, show_scope_to_customer, show_line_items_to_customer, show_details_to_customer, salesperson_name, salesperson_id, opportunity_uuid, opportunity_id')
+        .select('project_id, estimate_title, job_address, customer_phone, customer_email, customer_name, show_scope_to_customer, show_line_items_to_customer, show_details_to_customer, salesperson_name, salesperson_id, opportunity_uuid, opportunity_id')
         .eq('id', estimateId)
         .single();
       if (error) throw error;
@@ -166,7 +166,21 @@ export function SendProposalDialog({
       return { ...data, salesperson_name: salespersonName };
     },
     enabled: open,
+    staleTime: 0, // Always refetch when dialog opens
   });
+
+  // Sync email from fresh database data when it loads
+  useEffect(() => {
+    if (estimateData?.customer_email && open) {
+      setEmail(estimateData.customer_email);
+      // Also update the first signer's email if in multi-signer mode
+      if (signers.length > 0 && signers[0].email !== estimateData.customer_email) {
+        setSigners(prev => prev.map((s, idx) => 
+          idx === 0 ? { ...s, email: estimateData.customer_email || s.email } : s
+        ));
+      }
+    }
+  }, [estimateData?.customer_email, open]);
 
   // Check for existing signers (for resend)
   const { data: existingSigners } = useQuery({
@@ -634,7 +648,7 @@ export function SendProposalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>{isResend ? 'Resend Proposal' : 'Send Proposal'}</DialogTitle>
           <DialogDescription>
@@ -649,7 +663,7 @@ export function SendProposalDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-1">
+        <div className="flex-1 overflow-y-auto min-h-0 space-y-4 pr-2 -mr-2">
           {/* Single vs Multiple Signers Toggle */}
           <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
             <div className="flex items-center gap-2">
