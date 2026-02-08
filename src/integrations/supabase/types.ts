@@ -3765,7 +3765,7 @@ export type Database = {
           is_sms: boolean | null
           message: string
           portal_token_id: string | null
-          project_id: string
+          project_id: string | null
           sender_email: string | null
           sender_name: string
           sender_type: string
@@ -3782,7 +3782,7 @@ export type Database = {
           is_sms?: boolean | null
           message: string
           portal_token_id?: string | null
-          project_id: string
+          project_id?: string | null
           sender_email?: string | null
           sender_name: string
           sender_type: string
@@ -3799,7 +3799,7 @@ export type Database = {
           is_sms?: boolean | null
           message?: string
           portal_token_id?: string | null
-          project_id?: string
+          project_id?: string | null
           sender_email?: string | null
           sender_name?: string
           sender_type?: string
