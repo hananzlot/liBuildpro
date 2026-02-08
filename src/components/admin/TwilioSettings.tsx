@@ -43,42 +43,51 @@ export function TwilioSettings() {
   // Get webhook URL
   const webhookUrl = `https://mspujwrfhbobrxhofxzv.supabase.co/functions/v1/twilio-sms-webhook`;
 
-  // Save Twilio config
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!companyId) throw new Error('No company selected');
-      
-      const settings = [
-        { setting_key: 'twilio_account_sid', setting_value: accountSid },
-        { setting_key: 'twilio_auth_token', setting_value: authToken },
-        { setting_key: 'twilio_phone_number', setting_value: phoneNumber },
-      ];
+  // Save individual Twilio setting
+  const saveSetting = async (key: string, value: string) => {
+    if (!companyId) throw new Error('No company selected');
+    
+    const { error } = await supabase
+      .from('company_settings')
+      .upsert({
+        company_id: companyId,
+        setting_key: key,
+        setting_value: value,
+        setting_type: 'secret',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'company_id,setting_key' });
+    
+    if (error) throw error;
+  };
 
-      for (const setting of settings) {
-        const { error } = await supabase
-          .from('company_settings')
-          .upsert({
-            company_id: companyId,
-            setting_key: setting.setting_key,
-            setting_value: setting.setting_value,
-            setting_type: 'secret',
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'company_id,setting_key' });
-        
-        if (error) throw error;
-      }
-    },
+  const saveAccountSidMutation = useMutation({
+    mutationFn: () => saveSetting('twilio_account_sid', accountSid),
     onSuccess: () => {
-      toast.success('Twilio settings saved!');
-      setShowForm(false);
+      toast.success('Account SID saved!');
       setAccountSid('');
+      queryClient.invalidateQueries({ queryKey: ['twilio-config', companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const saveAuthTokenMutation = useMutation({
+    mutationFn: () => saveSetting('twilio_auth_token', authToken),
+    onSuccess: () => {
+      toast.success('Auth Token saved!');
       setAuthToken('');
+      queryClient.invalidateQueries({ queryKey: ['twilio-config', companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const savePhoneNumberMutation = useMutation({
+    mutationFn: () => saveSetting('twilio_phone_number', phoneNumber),
+    onSuccess: () => {
+      toast.success('Phone Number saved!');
       setPhoneNumber('');
       queryClient.invalidateQueries({ queryKey: ['twilio-config', companyId] });
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   // Remove Twilio config
@@ -175,7 +184,7 @@ export function TwilioSettings() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg text-sm space-y-2">
+            <div className="p-3 bg-muted rounded-lg text-sm space-y-2">
               <p className="font-medium">Setup Instructions:</p>
               <ol className="list-decimal list-inside space-y-1 text-muted-foreground text-xs">
                 <li>Sign up or log in to <a href="https://console.twilio.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Twilio Console <ExternalLink className="h-3 w-3 inline" /></a></li>
@@ -186,56 +195,72 @@ export function TwilioSettings() {
               </ol>
             </div>
 
-            <div className="space-y-3">
-              <div>
+            <div className="space-y-4">
+              <div className="space-y-2">
                 <Label htmlFor="account-sid">Account SID</Label>
-                <Input
-                  id="account-sid"
-                  value={accountSid}
-                  onChange={(e) => setAccountSid(e.target.value)}
-                  placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="account-sid"
+                    value={accountSid}
+                    onChange={(e) => setAccountSid(e.target.value)}
+                    placeholder={twilioConfig?.twilio_account_sid ? '••••••••' : 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'}
+                  />
+                  <Button 
+                    size="sm"
+                    onClick={() => saveAccountSidMutation.mutate()}
+                    disabled={!accountSid || saveAccountSidMutation.isPending}
+                  >
+                    {saveAccountSidMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                  </Button>
+                </div>
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="auth-token">Auth Token</Label>
-                <Input
-                  id="auth-token"
-                  type="password"
-                  value={authToken}
-                  onChange={(e) => setAuthToken(e.target.value)}
-                  placeholder="Your Twilio Auth Token"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="auth-token"
+                    type="password"
+                    value={authToken}
+                    onChange={(e) => setAuthToken(e.target.value)}
+                    placeholder={twilioConfig?.twilio_auth_token ? '••••••••' : 'Your Twilio Auth Token'}
+                  />
+                  <Button 
+                    size="sm"
+                    onClick={() => saveAuthTokenMutation.mutate()}
+                    disabled={!authToken || saveAuthTokenMutation.isPending}
+                  >
+                    {saveAuthTokenMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                  </Button>
+                </div>
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="phone-number">Twilio Phone Number</Label>
-                <Input
-                  id="phone-number"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+1234567890"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
+                <div className="flex gap-2">
+                  <Input
+                    id="phone-number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder={twilioConfig?.twilio_phone_number || '+1234567890'}
+                  />
+                  <Button 
+                    size="sm"
+                    onClick={() => savePhoneNumberMutation.mutate()}
+                    disabled={!phoneNumber || savePhoneNumberMutation.isPending}
+                  >
+                    {savePhoneNumberMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
                   Include country code (e.g., +1 for US)
                 </p>
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => saveMutation.mutate()}
-                disabled={!accountSid || !authToken || !phoneNumber || saveMutation.isPending}
-              >
-                {saveMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : null}
-                Save Configuration
+            {isConfigured && (
+              <Button variant="outline" size="sm" onClick={() => setShowForm(false)}>
+                Cancel
               </Button>
-              {isConfigured && (
-                <Button variant="outline" onClick={() => setShowForm(false)}>
-                  Cancel
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         )}
       </CardContent>
