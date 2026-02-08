@@ -530,6 +530,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               tokenId={tokenData.id}
               customerName={customerName || 'Customer'}
               customerEmail={project.customer_email}
+              companyId={portalData?.token?.company_id || project.company_id}
             />
           </TabsContent>
         </Tabs>
