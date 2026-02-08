@@ -34,10 +34,12 @@ import {
   Trash2, 
   Loader2, 
   Mail,
-  RefreshCw
+  RefreshCw,
+  Phone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { TwilioSettings } from './TwilioSettings';
 
 interface ChatMessage {
   id: string;
@@ -47,6 +49,8 @@ interface ChatMessage {
   sender_email: string | null;
   message: string;
   is_read: boolean;
+  is_sms?: boolean;
+  sms_phone_number?: string | null;
   created_at: string;
   project?: {
     project_number: number;
@@ -325,6 +329,9 @@ export function ChatManagement() {
         </CardContent>
       </Card>
 
+      {/* Twilio SMS Settings */}
+      <TwilioSettings />
+
       {/* Chat Management Card */}
       <Card>
         <CardHeader>
@@ -477,10 +484,16 @@ export function ChatManagement() {
                             {getProjectDisplay(chat.project)}
                           </TableCell>
                           <TableCell className="text-sm">{chat.sender_name}</TableCell>
-                          <TableCell>
+                          <TableCell className="space-x-1">
                             <Badge variant={chat.sender_type === 'customer' ? 'default' : 'secondary'} className="text-xs">
                               {chat.sender_type}
                             </Badge>
+                            {chat.is_sms && (
+                              <Badge variant="outline" className="text-xs border-green-500 text-green-600">
+                                <Phone className="h-2.5 w-2.5 mr-0.5" />
+                                SMS
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-sm max-w-[200px] truncate">
                             {chat.message}
