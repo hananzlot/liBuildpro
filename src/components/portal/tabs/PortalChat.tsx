@@ -24,6 +24,7 @@ interface PortalChatProps {
   tokenId: string;
   customerName: string;
   customerEmail?: string | null;
+  companyId?: string | null;
 }
 
 interface ChatMessage {
@@ -36,12 +37,13 @@ interface ChatMessage {
   is_read?: boolean;
 }
 
-export function PortalChat({ projectId, tokenId, customerName, customerEmail }: PortalChatProps) {
+export function PortalChat({ projectId, tokenId, customerName, customerEmail, companyId: passedCompanyId }: PortalChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
-  const { companyId } = useCompanyContext();
-
+  // Use passed companyId from portal (for anonymous users) or fall back to context (for staff)
+  const { companyId: contextCompanyId } = useCompanyContext();
+  const companyId = passedCompanyId || contextCompanyId;
   // Fetch messages
   const { data: messages, isLoading } = useQuery({
     queryKey: ['portal-chat', projectId],

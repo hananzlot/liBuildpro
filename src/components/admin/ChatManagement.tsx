@@ -110,11 +110,22 @@ export function ChatManagement() {
     enabled: !!companyId,
   });
 
-  // Fetch current chat messages (company-scoped)
+  // Fetch current chat messages (company-scoped) - include messages where project belongs to company
   const { data: currentChats = [], isLoading: currentLoading } = useQuery({
     queryKey: ['admin-current-chats', companyId],
     queryFn: async () => {
       if (!companyId) return [];
+      
+      // First get project IDs that belong to this company
+      const { data: projectIds } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('company_id', companyId)
+        .is('deleted_at', null);
+      
+      if (!projectIds || projectIds.length === 0) return [];
+      
+      const ids = projectIds.map(p => p.id);
       
       const { data, error } = await supabase
         .from('portal_chat_messages')
@@ -122,7 +133,7 @@ export function ChatManagement() {
           *,
           project:projects(project_number, project_name, customer_first_name, customer_last_name)
         `)
-        .eq('company_id', companyId)
+        .in('project_id', ids)
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -131,11 +142,22 @@ export function ChatManagement() {
     enabled: activeTab === 'current' && !!companyId,
   });
 
-  // Fetch archived chat messages (company-scoped)
+  // Fetch archived chat messages (company-scoped) - include messages where project belongs to company
   const { data: archivedChats = [], isLoading: archivedLoading } = useQuery({
     queryKey: ['admin-archived-chats', companyId],
     queryFn: async () => {
       if (!companyId) return [];
+      
+      // First get project IDs that belong to this company
+      const { data: projectIds } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('company_id', companyId)
+        .is('deleted_at', null);
+      
+      if (!projectIds || projectIds.length === 0) return [];
+      
+      const ids = projectIds.map(p => p.id);
       
       const { data, error } = await supabase
         .from('portal_chat_messages_archived')
@@ -143,7 +165,7 @@ export function ChatManagement() {
           *,
           project:projects(project_number, project_name, customer_first_name, customer_last_name)
         `)
-        .eq('company_id', companyId)
+        .in('project_id', ids)
         .order('archived_at', { ascending: false })
         .limit(500);
       if (error) throw error;
