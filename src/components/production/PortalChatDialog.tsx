@@ -14,8 +14,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, Send, MessageSquare } from 'lucide-react';
+import { Loader2, Send, MessageSquare, Phone } from 'lucide-react';
 
 interface PortalChatDialogProps {
   projectId: string | null;
@@ -28,22 +29,39 @@ export function PortalChatDialog({ projectId, open, onOpenChange }: PortalChatDi
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [reply, setReply] = useState('');
+  const [sendMode, setSendMode] = useState<'portal' | 'sms'>('portal');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch project details
+  // Fetch project details including phone
   const { data: project } = useQuery({
     queryKey: ['chat-dialog-project', projectId],
     queryFn: async () => {
       if (!projectId) return null;
       const { data, error } = await supabase
         .from('projects')
-        .select('id, project_name, project_number, customer_first_name, customer_last_name')
+        .select('id, project_name, project_number, customer_first_name, customer_last_name, cell_phone, home_phone')
         .eq('id', projectId)
         .single();
       if (error) throw error;
       return data;
     },
     enabled: !!projectId && open,
+  });
+
+  // Check if SMS is configured for this company
+  const { data: smsConfigured } = useQuery({
+    queryKey: ['sms-configured', companyId],
+    queryFn: async () => {
+      if (!companyId) return false;
+      const { data } = await supabase
+        .from('company_settings')
+        .select('setting_key')
+        .eq('company_id', companyId)
+        .eq('setting_key', 'twilio_account_sid')
+        .maybeSingle();
+      return !!data;
+    },
+    enabled: !!companyId && open,
   });
 
   // Fetch chat messages
@@ -89,7 +107,6 @@ export function PortalChatDialog({ projectId, open, onOpenChange }: PortalChatDi
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    // Use requestAnimationFrame to ensure DOM has updated after messages change
     const scrollToBottom = () => {
       if (scrollRef.current) {
         const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
@@ -99,13 +116,12 @@ export function PortalChatDialog({ projectId, open, onOpenChange }: PortalChatDi
       }
     };
     
-    // Double RAF to ensure content is fully rendered
     requestAnimationFrame(() => {
       requestAnimationFrame(scrollToBottom);
     });
   }, [messages, messages.length]);
 
-  // Send reply mutation
+  // Send portal reply mutation
   const sendReplyMutation = useMutation({
     mutationFn: async (message: string) => {
       if (!projectId) throw new Error('No project selected');
@@ -131,11 +147,48 @@ export function PortalChatDialog({ projectId, open, onOpenChange }: PortalChatDi
     },
   });
 
+  // Send SMS mutation
+  const sendSmsMutation = useMutation({
+    mutationFn: async (message: string) => {
+      if (!projectId) throw new Error('No project selected');
+      const customerPhone = project?.cell_phone || project?.home_phone;
+      if (!customerPhone) throw new Error('No phone number on file');
+
+      const { data, error } = await supabase.functions.invoke('send-sms', {
+        body: {
+          toPhone: customerPhone,
+          message: message.trim(),
+          projectId,
+          companyId,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Failed to send SMS');
+      return data;
+    },
+    onSuccess: () => {
+      setReply('');
+      toast.success('SMS sent!');
+      queryClient.invalidateQueries({ queryKey: ['chat-dialog-messages', projectId] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to send SMS: ${error.message}`);
+    },
+  });
+
   const handleSend = () => {
-    if (reply.trim()) {
+    if (!reply.trim()) return;
+    
+    if (sendMode === 'sms') {
+      sendSmsMutation.mutate(reply);
+    } else {
       sendReplyMutation.mutate(reply);
     }
   };
+
+  const isPending = sendReplyMutation.isPending || sendSmsMutation.isPending;
+  const customerPhone = project?.cell_phone || project?.home_phone;
 
   const projectName = project?.project_name || 
     `${project?.customer_first_name || ''} ${project?.customer_last_name || ''}`.trim() || 
@@ -147,10 +200,13 @@ export function PortalChatDialog({ projectId, open, onOpenChange }: PortalChatDi
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <MessageSquare className="h-4 w-4" />
-            Customer Portal Chat
+            Customer Chat
           </DialogTitle>
           <DialogDescription className="text-sm">
             {project?.project_number ? `#${project.project_number} - ` : ''}{projectName}
+            {customerPhone && (
+              <span className="ml-2 text-xs">• {customerPhone}</span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -183,6 +239,12 @@ export function PortalChatDialog({ projectId, open, onOpenChange }: PortalChatDi
                           Staff
                         </Badge>
                       )}
+                      {msg.is_sms && (
+                        <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0 border-green-500 text-green-600">
+                          <Phone className="h-2.5 w-2.5 mr-0.5" />
+                          SMS
+                        </Badge>
+                      )}
                     </span>
                     <span className="text-[11px] text-muted-foreground">
                       {new Date(msg.created_at).toLocaleString()}
@@ -195,29 +257,55 @@ export function PortalChatDialog({ projectId, open, onOpenChange }: PortalChatDi
           )}
         </ScrollArea>
 
-        <div className="flex gap-2 pt-2 border-t">
-          <Input
-            value={reply}
-            onChange={(e) => setReply(e.target.value)}
-            placeholder="Type your reply..."
-            className="text-sm"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!reply.trim() || sendReplyMutation.isPending}
-          >
-            {sendReplyMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
+        <div className="space-y-2 pt-2 border-t">
+          {smsConfigured && customerPhone && (
+            <Tabs value={sendMode} onValueChange={(v) => setSendMode(v as 'portal' | 'sms')} className="w-full">
+              <TabsList className="w-full">
+                <TabsTrigger value="portal" className="flex-1 text-xs">
+                  <MessageSquare className="h-3 w-3 mr-1" />
+                  Portal Chat
+                </TabsTrigger>
+                <TabsTrigger value="sms" className="flex-1 text-xs">
+                  <Phone className="h-3 w-3 mr-1" />
+                  SMS Text
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+          
+          <div className="flex gap-2">
+            <Input
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              placeholder={sendMode === 'sms' ? 'Type SMS message...' : 'Type your reply...'}
+              className="text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+            />
+            <Button
+              onClick={handleSend}
+              disabled={!reply.trim() || isPending}
+              variant={sendMode === 'sms' ? 'default' : 'default'}
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : sendMode === 'sms' ? (
+                <Phone className="h-4 w-4" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          
+          {sendMode === 'sms' && (
+            <p className="text-[10px] text-muted-foreground text-center">
+              Sending to: {customerPhone}
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

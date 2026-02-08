@@ -3762,6 +3762,7 @@ export type Database = {
           created_at: string
           id: string
           is_read: boolean | null
+          is_sms: boolean | null
           message: string
           portal_token_id: string | null
           project_id: string
@@ -3769,6 +3770,8 @@ export type Database = {
           sender_name: string
           sender_type: string
           sender_user_id: string | null
+          sms_phone_number: string | null
+          twilio_message_sid: string | null
           updated_at: string
         }
         Insert: {
@@ -3776,6 +3779,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean | null
+          is_sms?: boolean | null
           message: string
           portal_token_id?: string | null
           project_id: string
@@ -3783,6 +3787,8 @@ export type Database = {
           sender_name: string
           sender_type: string
           sender_user_id?: string | null
+          sms_phone_number?: string | null
+          twilio_message_sid?: string | null
           updated_at?: string
         }
         Update: {
@@ -3790,6 +3796,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean | null
+          is_sms?: boolean | null
           message?: string
           portal_token_id?: string | null
           project_id?: string
@@ -3797,6 +3804,8 @@ export type Database = {
           sender_name?: string
           sender_type?: string
           sender_user_id?: string | null
+          sms_phone_number?: string | null
+          twilio_message_sid?: string | null
           updated_at?: string
         }
         Relationships: [
