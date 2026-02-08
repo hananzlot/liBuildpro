@@ -127,7 +127,82 @@ serve(async (req) => {
       console.log('SMS message stored:', chatMessage.id);
     }
 
-    // Return empty TwiML response (no auto-reply)
+    // If no project matched, send auto-reply
+    if (!projectId && companyId) {
+      console.log('No project matched - checking for auto-reply setting');
+      
+      // Get auto-reply message from settings
+      const { data: autoReplySetting } = await supabase
+        .from('company_settings')
+        .select('setting_value')
+        .eq('company_id', companyId)
+        .eq('setting_key', 'twilio_auto_reply_message')
+        .maybeSingle();
+
+      const autoReplyMessage = autoReplySetting?.setting_value || 
+        "Thanks for your message! We couldn't find your account. Please reply with your name and project address so we can assist you.";
+
+      // Get Twilio credentials
+      const { data: twilioSettings } = await supabase
+        .from('company_settings')
+        .select('setting_key, setting_value')
+        .eq('company_id', companyId)
+        .in('setting_key', ['twilio_account_sid', 'twilio_auth_token', 'twilio_phone_number']);
+
+      const settings: Record<string, string> = {};
+      twilioSettings?.forEach(s => {
+        settings[s.setting_key] = s.setting_value || '';
+      });
+
+      const accountSid = settings['twilio_account_sid'];
+      const authToken = settings['twilio_auth_token'];
+      const twilioPhone = settings['twilio_phone_number'];
+
+      if (accountSid && authToken && twilioPhone) {
+        console.log('Sending auto-reply to:', fromPhone);
+        
+        // Send auto-reply via Twilio API
+        const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+        const credentials = btoa(`${accountSid}:${authToken}`);
+        
+        const smsResponse = await fetch(twilioUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${credentials}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            To: fromPhone,
+            From: twilioPhone,
+            Body: autoReplyMessage,
+          }),
+        });
+
+        if (smsResponse.ok) {
+          console.log('Auto-reply sent successfully');
+          
+          // Store the auto-reply in chat
+          await supabase
+            .from('portal_chat_messages')
+            .insert({
+              project_id: null,
+              sender_type: 'staff',
+              sender_name: 'Auto-Reply',
+              message: autoReplyMessage,
+              company_id: companyId,
+              is_sms: true,
+              sms_phone_number: fromPhone,
+            });
+        } else {
+          const errorText = await smsResponse.text();
+          console.error('Failed to send auto-reply:', errorText);
+        }
+      } else {
+        console.log('Missing Twilio credentials for auto-reply');
+      }
+    }
+
+    // Return empty TwiML response (no auto-reply via TwiML since we handle it manually)
     return new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', {
       headers: { ...corsHeaders, 'Content-Type': 'text/xml' },
     });

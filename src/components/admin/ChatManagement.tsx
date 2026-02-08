@@ -40,6 +40,7 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { TwilioSettings } from './TwilioSettings';
+import { UnassignedSMSInbox } from './UnassignedSMSInbox';
 
 interface ChatMessage {
   id: string;
@@ -331,6 +332,9 @@ export function ChatManagement() {
 
       {/* Twilio SMS Settings */}
       <TwilioSettings />
+
+      {/* Unassigned SMS Inbox */}
+      <UnassignedSMSInbox />
 
       {/* Chat Management Card */}
       <Card>

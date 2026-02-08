@@ -5,6 +5,7 @@ import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Phone, Loader2, Check, ExternalLink, Copy } from 'lucide-react';
@@ -16,6 +17,7 @@ export function TwilioSettings() {
   const [accountSid, setAccountSid] = useState('');
   const [authToken, setAuthToken] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [autoReplyMessage, setAutoReplyMessage] = useState('');
   const [showForm, setShowForm] = useState(false);
 
   // Fetch current Twilio config
@@ -27,7 +29,7 @@ export function TwilioSettings() {
         .from('company_settings')
         .select('setting_key, setting_value')
         .eq('company_id', companyId)
-        .in('setting_key', ['twilio_account_sid', 'twilio_phone_number']);
+        .in('setting_key', ['twilio_account_sid', 'twilio_phone_number', 'twilio_auto_reply_message']);
       
       const config: Record<string, string> = {};
       data?.forEach(s => {
@@ -85,6 +87,16 @@ export function TwilioSettings() {
     onSuccess: () => {
       toast.success('Phone Number saved!');
       setPhoneNumber('');
+      queryClient.invalidateQueries({ queryKey: ['twilio-config', companyId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const saveAutoReplyMutation = useMutation({
+    mutationFn: () => saveSetting('twilio_auto_reply_message', autoReplyMessage),
+    onSuccess: () => {
+      toast.success('Auto-reply message saved!');
+      setAutoReplyMessage('');
       queryClient.invalidateQueries({ queryKey: ['twilio-config', companyId] });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -165,6 +177,32 @@ export function TwilioSettings() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Set this as the webhook URL for incoming messages on your Twilio phone number.
+              </p>
+            </div>
+
+            {/* Auto-reply message setting */}
+            <div className="space-y-2">
+              <Label htmlFor="auto-reply">Auto-Reply for Unknown Numbers</Label>
+              <div className="flex gap-2">
+                <Textarea
+                  id="auto-reply"
+                  value={autoReplyMessage}
+                  onChange={(e) => setAutoReplyMessage(e.target.value)}
+                  placeholder={twilioConfig?.twilio_auto_reply_message || "Thanks for your message! We couldn't find your account. Please reply with your name and project address so we can assist you."}
+                  className="text-sm"
+                  rows={3}
+                />
+                <Button 
+                  size="sm"
+                  onClick={() => saveAutoReplyMutation.mutate()}
+                  disabled={!autoReplyMessage || saveAutoReplyMutation.isPending}
+                  className="self-start"
+                >
+                  {saveAutoReplyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This message is sent automatically when we receive an SMS from an unrecognized phone number.
               </p>
             </div>
 
