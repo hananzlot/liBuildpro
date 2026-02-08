@@ -44,6 +44,19 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Normalize phone number - strip all non-digits for comparison
+    const normalizePhone = (phone: string): string => {
+      const digits = phone.replace(/\D/g, '');
+      // If it's 11 digits starting with 1, strip the leading 1
+      if (digits.length === 11 && digits.startsWith('1')) {
+        return digits.slice(1);
+      }
+      return digits;
+    };
+
+    const normalizedFromPhone = normalizePhone(fromPhone);
+    console.log(`Normalized phone: ${normalizedFromPhone} (original: ${fromPhone})`);
+
     // Look up the Twilio phone number to find the company
     const { data: twilioConfig } = await supabase
       .from('company_settings')
@@ -59,40 +72,48 @@ serve(async (req) => {
     let projectId: string | null = null;
     let customerName = fromPhone; // Default to phone number
 
-    // Search for a project with matching phone
-    const { data: project } = await supabase
+    // Search for a project with matching phone (fetch all and match normalized)
+    const { data: projects } = await supabase
       .from('projects')
       .select('id, customer_first_name, customer_last_name, cell_phone, home_phone')
       .eq('company_id', companyId)
       .is('deleted_at', null)
-      .or(`cell_phone.eq.${fromPhone},home_phone.eq.${fromPhone}`)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .or('cell_phone.not.is.null,home_phone.not.is.null')
+      .order('created_at', { ascending: false });
 
-    if (project) {
-      projectId = project.id;
-      customerName = `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim() || fromPhone;
+    // Find project by normalized phone match
+    const matchedProject = projects?.find(p => {
+      const normalizedCell = p.cell_phone ? normalizePhone(p.cell_phone) : '';
+      const normalizedHome = p.home_phone ? normalizePhone(p.home_phone) : '';
+      return normalizedCell === normalizedFromPhone || normalizedHome === normalizedFromPhone;
+    });
+
+    if (matchedProject) {
+      projectId = matchedProject.id;
+      customerName = `${matchedProject.customer_first_name || ''} ${matchedProject.customer_last_name || ''}`.trim() || fromPhone;
       console.log(`Matched project: ${projectId} (${customerName})`);
     } else {
-      // Try to find by contact
-      const { data: contact } = await supabase
+      // Try to find by contact with normalized phone
+      const { data: contacts } = await supabase
         .from('contacts')
         .select('id, first_name, last_name, phone')
         .eq('company_id', companyId)
-        .eq('phone', fromPhone)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .not('phone', 'is', null)
+        .order('created_at', { ascending: false });
 
-      if (contact) {
-        customerName = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || fromPhone;
+      const matchedContact = contacts?.find(c => {
+        const normalizedContactPhone = c.phone ? normalizePhone(c.phone) : '';
+        return normalizedContactPhone === normalizedFromPhone;
+      });
+
+      if (matchedContact) {
+        customerName = `${matchedContact.first_name || ''} ${matchedContact.last_name || ''}`.trim() || fromPhone;
         
         // Find a project linked to this contact
         const { data: linkedProject } = await supabase
           .from('projects')
           .select('id')
-          .eq('contact_uuid', contact.id)
+          .eq('contact_uuid', matchedContact.id)
           .is('deleted_at', null)
           .order('created_at', { ascending: false })
           .limit(1)
