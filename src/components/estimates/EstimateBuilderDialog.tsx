@@ -4144,10 +4144,12 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   <SelectItem value="on_approval">On Approval</SelectItem>
                                 </SelectContent>
                               </Select>
-                              <Input
+                              <textarea
                                 value="Due upon contract signing"
                                 disabled
-                                className="flex-1 bg-muted"
+                                className="flex-1 min-h-[36px] rounded-md border border-input bg-muted px-3 py-2 text-sm resize-none overflow-hidden"
+                                rows={1}
+                                ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                               />
                               <div className="w-8" /> {/* Spacer for alignment with delete buttons */}
                             </div>
@@ -4183,6 +4185,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 className="w-52 min-h-[36px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none overflow-hidden"
                                 placeholder="Phase name"
                                 rows={1}
+                                ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                 onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
                               />
                               <div className="flex items-center gap-2">
@@ -4217,6 +4220,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 className="flex-1 min-w-[120px] min-h-[36px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none overflow-hidden"
                                 placeholder="Description"
                                 rows={1}
+                                ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                 onKeyDown={(e) => e.stopPropagation()}
                                 onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
                               />
