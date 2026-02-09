@@ -517,10 +517,10 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
               <CardContent className="space-y-2">
                 {paymentSchedule.map((phase) => (
                   <div key={phase.id} className="flex justify-between items-center text-sm py-1 border-b last:border-0">
-                    <div>
-                      <span className="font-medium">{phase.phase_name}</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium whitespace-normal break-words">{phase.phase_name}</span>
                       {phase.description && (
-                        <p className="text-xs text-muted-foreground">{phase.description}</p>
+                        <p className="text-xs text-muted-foreground whitespace-normal break-words">{phase.description}</p>
                       )}
                     </div>
                     <div className="text-right">
