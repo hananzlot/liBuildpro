@@ -592,6 +592,7 @@ export function PortalEstimateDetailSheet({
           open={sendDialogOpen}
           onOpenChange={setSendDialogOpen}
           estimateId={estimate.id}
+          companyId={companyId}
           customerName={estimate.customer_name || ""}
           customerEmail={editedCustomerInfo.customer_email ?? estimate.customer_email}
           customerPhone={estimate.customer_phone}

@@ -28,6 +28,7 @@ interface SendProposalDialogProps {
   jobAddress?: string | null;
   isResend?: boolean;
   onSuccess?: () => void;
+  companyId?: string | null;
 }
 
 const SIGNER_COLORS = [
@@ -44,8 +45,10 @@ export function SendProposalDialog({
   jobAddress,
   isResend = false,
   onSuccess,
+  companyId: companyIdProp,
 }: SendProposalDialogProps) {
-  const { companyId } = useCompanyContext();
+  const { companyId: contextCompanyId } = useCompanyContext();
+  const companyId = companyIdProp || contextCompanyId;
   const queryClient = useQueryClient();
   const [multipleSigners, setMultipleSigners] = useState(false);
   const [email, setEmail] = useState('');
