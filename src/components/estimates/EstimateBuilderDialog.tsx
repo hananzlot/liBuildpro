@@ -1187,21 +1187,46 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     // Replace all groups (don't append) to avoid duplicates on regeneration
     setGroups(newGroups);
 
-    // Build payment schedule: only non-deposit phases from AI (deposit is shown separately in UI)
-    const aiPhases: PaymentPhase[] = (scope.payment_schedule || [])
-      .filter((p: any) => p.phase_name?.toLowerCase() !== 'deposit')
-      .map((p: any, idx: number) => ({
-        id: generateId(),
-        phase_name: p.phase_name || (idx === 0 ? 'Site Prep' : `Phase ${idx + 1}`),
-        percent: p.percent || 0,
-        amount: 0,
-        due_type: p.due_type || "milestone",
-        due_date: null,
-        description: p.description || "",
-        sort_order: idx,
-      }));
-    
-    setPaymentSchedule(aiPhases);
+    // Build payment schedule from groups (by area phases) instead of AI suggestions
+    // Each group becomes a payment phase proportional to its cost share
+    const groupTotals = newGroups.map(g => ({
+      name: g.group_name,
+      total: g.items.reduce((sum: number, item: any) => sum + (item.line_total || 0), 0),
+    }));
+    const grandTotal = groupTotals.reduce((sum, g) => sum + g.total, 0);
+
+    let generatedPhases: PaymentPhase[] = groupTotals.map((g, idx) => ({
+      id: generateId(),
+      phase_name: g.name,
+      percent: grandTotal > 0 ? Math.round((g.total / grandTotal) * 100) : 0,
+      amount: 0,
+      due_type: "milestone",
+      due_date: null,
+      description: "",
+      sort_order: idx,
+    }));
+
+    // Ensure the final phase is at least 10% of total
+    if (generatedPhases.length > 1) {
+      const lastPhase = generatedPhases[generatedPhases.length - 1];
+      if (lastPhase.percent < 10) {
+        const deficit = 10 - lastPhase.percent;
+        lastPhase.percent = 10;
+        // Take from the largest non-final phase
+        const nonFinal = generatedPhases.slice(0, -1);
+        const largestIdx = nonFinal.reduce((maxIdx, p, idx) =>
+          p.percent > nonFinal[maxIdx].percent ? idx : maxIdx, 0);
+        generatedPhases[largestIdx].percent -= deficit;
+      }
+    }
+
+    // Normalize percentages to sum to 100%
+    const totalPercent = generatedPhases.reduce((sum, p) => sum + p.percent, 0);
+    if (totalPercent !== 100 && generatedPhases.length > 0) {
+      generatedPhases[0].percent += (100 - totalPercent);
+    }
+
+    setPaymentSchedule(generatedPhases);
 
     // Update tax rate if suggested (but NOT deposit - keep company defaults)
     if (scope.suggested_tax_rate) {
