@@ -517,10 +517,10 @@ export function ProposalContent({
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
                     {index + 1}
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{phase.phase_name}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium whitespace-normal break-words">{phase.phase_name}</p>
                     {phase.description && (
-                      <p className="text-sm text-muted-foreground">{phase.description}</p>
+                      <p className="text-sm text-muted-foreground whitespace-normal break-words">{phase.description}</p>
                     )}
                     <p className="text-sm text-muted-foreground">{phase.due_type}</p>
                   </div>
