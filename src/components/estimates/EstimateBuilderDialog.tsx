@@ -4160,7 +4160,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             .map((phase) => (
                             <div 
                               key={phase.id} 
-                              className={`flex items-center gap-3 p-3 border-2 rounded-lg transition-all duration-150 ${
+                              className={`flex flex-wrap items-center gap-3 p-3 border-2 rounded-lg transition-all duration-150 ${
                                 draggedPhaseId === phase.id 
                                   ? 'opacity-50 border-primary scale-[0.98]' 
                                   : dragOverPhaseId === phase.id && draggedPhaseId !== phase.id
@@ -4182,6 +4182,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 onChange={(e) => updatePaymentPhase(phase.id, { phase_name: e.target.value })}
                                 className="w-52"
                                 placeholder="Phase name"
+                                title={phase.phase_name}
                               />
                               <div className="flex items-center gap-2">
                                 <Input
@@ -4209,12 +4210,14 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   <SelectItem value="date">By Date</SelectItem>
                                 </SelectContent>
                               </Select>
-                              <Input
+                              <textarea
                                 value={phase.description}
                                 onChange={(e) => updatePaymentPhase(phase.id, { description: e.target.value })}
-                                className="flex-1 min-w-[120px]"
+                                className="flex-1 min-w-[120px] min-h-[36px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                 placeholder="Description"
+                                rows={1}
                                 onKeyDown={(e) => e.stopPropagation()}
+                                onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
                               />
                               <Button
                                 variant="ghost"
