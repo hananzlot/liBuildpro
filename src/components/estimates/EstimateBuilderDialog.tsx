@@ -4177,12 +4177,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
                                 <GripVertical className="h-4 w-4" />
                               </div>
-                              <Input
+                              <textarea
                                 value={phase.phase_name}
                                 onChange={(e) => updatePaymentPhase(phase.id, { phase_name: e.target.value })}
-                                className="w-52"
+                                className="w-52 min-h-[36px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none overflow-hidden"
                                 placeholder="Phase name"
-                                title={phase.phase_name}
+                                rows={1}
+                                onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }}
                               />
                               <div className="flex items-center gap-2">
                                 <Input
@@ -4213,7 +4214,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               <textarea
                                 value={phase.description}
                                 onChange={(e) => updatePaymentPhase(phase.id, { description: e.target.value })}
-                                className="flex-1 min-w-[120px] min-h-[36px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                className="flex-1 min-w-[120px] min-h-[36px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none overflow-hidden"
                                 placeholder="Description"
                                 rows={1}
                                 onKeyDown={(e) => e.stopPropagation()}
