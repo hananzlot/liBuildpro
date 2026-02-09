@@ -2098,11 +2098,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           .eq("company_id", companyId);
         if (updateError) throw updateError;
 
-        // Delete existing line items, groups, and schedule - scope by company_id
+        // Delete existing line items, groups, and schedule
         // Must delete line items first since they reference groups
-        await supabase.from("estimate_line_items").delete().eq("estimate_id", currentEstimateId).eq("company_id", companyId);
-        await supabase.from("estimate_groups").delete().eq("estimate_id", currentEstimateId).eq("company_id", companyId);
-        await supabase.from("estimate_payment_schedule").delete().eq("estimate_id", currentEstimateId).eq("company_id", companyId);
+        // Note: We scope only by estimate_id (not company_id) because some rows may have been
+        // inserted by edge functions with company_id=null. The estimate itself is already company-scoped.
+        await supabase.from("estimate_line_items").delete().eq("estimate_id", currentEstimateId);
+        await supabase.from("estimate_groups").delete().eq("estimate_id", currentEstimateId);
+        await supabase.from("estimate_payment_schedule").delete().eq("estimate_id", currentEstimateId);
       } else {
         // Create new estimate (including clone mode - creates a brand new estimate with new number)
         const { data: newEstimate, error: insertError } = await supabase
