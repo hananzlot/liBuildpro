@@ -332,6 +332,8 @@ export function SendProposalDialog({
     }
     
     queryClient.invalidateQueries({ queryKey: ['estimates'] });
+    queryClient.invalidateQueries({ queryKey: ['estimate-preview', estimateId] });
+    queryClient.invalidateQueries({ queryKey: ['portal-estimate-detail', estimateId] });
   };
 
   const generateLinkMutation = useMutation({
