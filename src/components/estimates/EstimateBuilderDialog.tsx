@@ -1195,15 +1195,28 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }));
     const grandTotal = groupTotals.reduce((sum, g) => sum + g.total, 0);
 
+    // Always insert "Materials Delivered" as one of the first phases at 15%
+    const materialsPhase: PaymentPhase = {
+      id: generateId(),
+      phase_name: "Materials Delivered",
+      percent: 15,
+      amount: 0,
+      due_type: "milestone",
+      due_date: null,
+      description: "Upon delivery of materials to job site",
+      sort_order: 0,
+    };
+
+    // Remaining 85% distributed proportionally among groups
     let generatedPhases: PaymentPhase[] = groupTotals.map((g, idx) => ({
       id: generateId(),
       phase_name: g.name,
-      percent: grandTotal > 0 ? Math.round((g.total / grandTotal) * 100) : 0,
+      percent: grandTotal > 0 ? Math.round((g.total / grandTotal) * 85) : 0,
       amount: 0,
       due_type: "milestone",
       due_date: null,
       description: "",
-      sort_order: idx,
+      sort_order: idx + 1,
     }));
 
     // Ensure the final phase is at least 10% of total
@@ -1220,11 +1233,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       }
     }
 
-    // Normalize percentages to sum to 100%
-    const totalPercent = generatedPhases.reduce((sum, p) => sum + p.percent, 0);
-    if (totalPercent !== 100 && generatedPhases.length > 0) {
-      generatedPhases[0].percent += (100 - totalPercent);
+    // Normalize group phases to sum to 85%
+    const groupPercent = generatedPhases.reduce((sum, p) => sum + p.percent, 0);
+    if (groupPercent !== 85 && generatedPhases.length > 0) {
+      generatedPhases[0].percent += (85 - groupPercent);
     }
+
+    // Combine: Materials Delivered first, then group phases
+    generatedPhases = [materialsPhase, ...generatedPhases];
 
     setPaymentSchedule(generatedPhases);
 
