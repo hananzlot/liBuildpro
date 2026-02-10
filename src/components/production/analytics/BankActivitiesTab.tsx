@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -149,7 +150,13 @@ export function BankActivitiesTab({ transactions, projects, totals, onProjectCli
         />
       </div>
 
-      {/* Charts Row */}
+      {/* Charts Row - Collapsible */}
+      <Collapsible defaultOpen={false}>
+        <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full pb-2">
+          <span>Charts</span>
+          <span className="text-xs">(click to expand)</span>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Monthly Cash Flow Chart */}
         <Card>
@@ -221,8 +228,9 @@ export function BankActivitiesTab({ transactions, projects, totals, onProjectCli
           </CardContent>
         </Card>
       </div>
+        </CollapsibleContent>
+      </Collapsible>
 
-      {/* Bank Account Summary */}
       {bankSummary.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
