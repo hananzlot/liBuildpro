@@ -2102,211 +2102,273 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
               </div>
 
               {activeBillsSubTab === "bills" ? (
-                // Bills list
+                // Bills list - grouped by company
                 <>
                   {loadingBills ? (
                     <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
                   ) : bills.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">No bills yet</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs">Bill Ref</TableHead>
-                          <TableHead className="text-xs">Company</TableHead>
-                          <TableHead className="text-xs">Category</TableHead>
-                          <TableHead className="text-xs text-right">Amount</TableHead>
-                          <TableHead className="text-xs text-right">Paid</TableHead>
-                          <TableHead className="text-xs text-right">Balance</TableHead>
-                          <TableHead className="text-xs w-10"></TableHead>
-                          <TableHead className="text-xs w-40"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {bills.map((bill) => {
-                          const offsets = billOffsets[bill.id];
-                          const offsetTarget = getOffsetTargetBill(bill.offset_bill_id);
-                          const hasBeenOffset = bill.original_bill_amount !== null && bill.original_bill_amount !== bill.bill_amount;
-                          
+                  ) : (() => {
+                    // Group bills by installer_company
+                    const grouped = bills.reduce<Record<string, Bill[]>>((acc, bill) => {
+                      const company = bill.installer_company || "Unassigned";
+                      if (!acc[company]) acc[company] = [];
+                      acc[company].push(bill);
+                      return acc;
+                    }, {});
+                    const sortedCompanies = Object.keys(grouped).sort((a, b) => a === "Unassigned" ? 1 : b === "Unassigned" ? -1 : a.localeCompare(b));
+
+                    return (
+                      <div className="space-y-2">
+                        {sortedCompanies.map((company) => {
+                          const companyBills = grouped[company];
+                          const totalAmount = companyBills.reduce((s, b) => s + (b.bill_amount || 0), 0);
+                          const totalPaid = companyBills.reduce((s, b) => s + (b.amount_paid || 0), 0);
+                          const totalBalance = companyBills.reduce((s, b) => s + (b.balance || 0), 0);
                           return (
-                          <TableRow key={bill.id} className={cn(bill.is_voided && "opacity-50 bg-muted/30", bill.offset_bill_id && "bg-primary/5")}>
-                            <TableCell className="text-xs">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-medium">{bill.bill_ref || "-"}</span>
-                                {bill.is_voided ? (
-                                  <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
-                                ) : bill.offset_bill_id ? (
-                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px]">Offset</Badge>
-                                ) : (bill.balance || 0) <= 0 ? (
-                                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Paid</Badge>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              <div>
-                                {bill.installer_company || "-"}
-                                {offsetTarget && (
-                                  <p className="text-[10px] text-blue-600">
-                                    → Offsets: {offsetTarget.installer_company}
-                                  </p>
-                                )}
-                                {offsets && offsets.offsetBills.length > 0 && (
-                                  <p className="text-[10px] text-amber-600">
-                                    Materials offset applied
-                                  </p>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs">{bill.category || "-"}</TableCell>
-                            <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
-                              {hasBeenOffset ? (
-                                <div>
-                                  <span className="line-through text-muted-foreground">{formatCurrency2(bill.original_bill_amount)}</span>
-                                  <span className="ml-1 font-medium">{formatCurrency2(bill.bill_amount)}</span>
-                                </div>
-                              ) : (
-                                formatCurrency2(bill.bill_amount)
-                              )}
-                            </TableCell>
-                            <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency2(bill.amount_paid)}</TableCell>
-                            <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
-                              {formatCurrency2(bill.balance)}
-                            </TableCell>
-                            <TableCell>
-                              {bill.attachment_url && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => {
-                                    setSelectedAttachment({ url: bill.attachment_url!, name: bill.installer_company ? `Bill - ${bill.installer_company}` : "Bill Attachment" });
-                                    setPdfViewerOpen(true);
-                                  }}
-                                >
-                                  <Paperclip className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {bill.is_voided ? (
+                            <Collapsible key={company}>
+                              <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left">
                                 <div className="flex items-center gap-2">
-                                  <p className="text-[10px] text-muted-foreground italic max-w-[100px] truncate" title={bill.void_reason || ""}>
-                                    {bill.void_reason || "Deleted in QB"}
-                                  </p>
-                                  {(isAdmin || isSuperAdmin) && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  )}
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [&[data-state=open]]:rotate-0 rotate-[-90deg]" />
+                                  <span className="text-sm font-medium">{company}</span>
+                                  <Badge variant="secondary" className="text-[10px]">{companyBills.length}</Badge>
                                 </div>
-                              ) : (
-                                <div className="flex gap-1">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-7 text-xs px-2"
-                                    onClick={() => { setHistoryBill(bill); setHistoryDialogOpen(true); }}
-                                  >
-                                    <History className="h-3 w-3 mr-1" />
-                                    History
-                                  </Button>
-                                  {(bill.balance || 0) > 0 && (
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
-                                      className="h-7 text-xs px-2"
-                                      onClick={() => { setPayingBill(bill); setQuickPayDialogOpen(true); }}
-                                    >
-                                      <CreditCard className="h-3 w-3 mr-1" />
-                                      Pay
-                                    </Button>
-                                  )}
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditBillClick(bill)}>
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-7 text-xs px-2 text-amber-600 hover:text-amber-700"
-                                    onClick={() => { setVoidingBill(bill); setVoidDialogOpen(true); }}
-                                  >
-                                    Void
-                                  </Button>
-                                  {(isAdmin || isSuperAdmin) && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  )}
+                                <div className="flex items-center gap-4 text-xs">
+                                  <span className="text-muted-foreground">Amount: <span className="font-medium text-foreground">{formatCurrency2(totalAmount)}</span></span>
+                                  <span className="text-muted-foreground">Paid: <span className="font-medium text-emerald-600">{formatCurrency2(totalPaid)}</span></span>
+                                  <span className="text-muted-foreground">Balance: <span className="font-medium text-foreground">{formatCurrency2(totalBalance)}</span></span>
                                 </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="text-xs">Bill Ref</TableHead>
+                                      <TableHead className="text-xs">Category</TableHead>
+                                      <TableHead className="text-xs text-right">Amount</TableHead>
+                                      <TableHead className="text-xs text-right">Paid</TableHead>
+                                      <TableHead className="text-xs text-right">Balance</TableHead>
+                                      <TableHead className="text-xs w-10"></TableHead>
+                                      <TableHead className="text-xs w-40"></TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {companyBills.map((bill) => {
+                                      const offsets = billOffsets[bill.id];
+                                      const offsetTarget = getOffsetTargetBill(bill.offset_bill_id);
+                                      const hasBeenOffset = bill.original_bill_amount !== null && bill.original_bill_amount !== bill.bill_amount;
+                                      
+                                      return (
+                                      <TableRow key={bill.id} className={cn(bill.is_voided && "opacity-50 bg-muted/30", bill.offset_bill_id && "bg-primary/5")}>
+                                        <TableCell className="text-xs">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="font-medium">{bill.bill_ref || "-"}</span>
+                                            {bill.is_voided ? (
+                                              <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
+                                            ) : bill.offset_bill_id ? (
+                                              <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px]">Offset</Badge>
+                                            ) : (bill.balance || 0) <= 0 ? (
+                                              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Paid</Badge>
+                                            ) : null}
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="text-xs">
+                                          <div>
+                                            {bill.category || "-"}
+                                            {offsetTarget && (
+                                              <p className="text-[10px] text-blue-600">
+                                                → Offsets: {offsetTarget.installer_company}
+                                              </p>
+                                            )}
+                                            {offsets && offsets.offsetBills.length > 0 && (
+                                              <p className="text-[10px] text-amber-600">
+                                                Materials offset applied
+                                              </p>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
+                                          {hasBeenOffset ? (
+                                            <div>
+                                              <span className="line-through text-muted-foreground">{formatCurrency2(bill.original_bill_amount)}</span>
+                                              <span className="ml-1 font-medium">{formatCurrency2(bill.bill_amount)}</span>
+                                            </div>
+                                          ) : (
+                                            formatCurrency2(bill.bill_amount)
+                                          )}
+                                        </TableCell>
+                                        <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency2(bill.amount_paid)}</TableCell>
+                                        <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
+                                          {formatCurrency2(bill.balance)}
+                                        </TableCell>
+                                        <TableCell>
+                                          {bill.attachment_url && (
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-7 w-7"
+                                              onClick={() => {
+                                                setSelectedAttachment({ url: bill.attachment_url!, name: bill.installer_company ? `Bill - ${bill.installer_company}` : "Bill Attachment" });
+                                                setPdfViewerOpen(true);
+                                              }}
+                                            >
+                                              <Paperclip className="h-3 w-3" />
+                                            </Button>
+                                          )}
+                                        </TableCell>
+                                        <TableCell>
+                                          {bill.is_voided ? (
+                                            <div className="flex items-center gap-2">
+                                              <p className="text-[10px] text-muted-foreground italic max-w-[100px] truncate" title={bill.void_reason || ""}>
+                                                {bill.void_reason || "Deleted in QB"}
+                                              </p>
+                                              {(isAdmin || isSuperAdmin) && (
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
+                                                  <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <div className="flex gap-1">
+                                              <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="h-7 text-xs px-2"
+                                                onClick={() => { setHistoryBill(bill); setHistoryDialogOpen(true); }}
+                                              >
+                                                <History className="h-3 w-3 mr-1" />
+                                                History
+                                              </Button>
+                                              {(bill.balance || 0) > 0 && (
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  className="h-7 text-xs px-2"
+                                                  onClick={() => { setPayingBill(bill); setQuickPayDialogOpen(true); }}
+                                                >
+                                                  <CreditCard className="h-3 w-3 mr-1" />
+                                                  Pay
+                                                </Button>
+                                              )}
+                                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditBillClick(bill)}>
+                                                <Pencil className="h-3 w-3" />
+                                              </Button>
+                                              <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="h-7 text-xs px-2 text-amber-600 hover:text-amber-700"
+                                                onClick={() => { setVoidingBill(bill); setVoidDialogOpen(true); }}
+                                              >
+                                                Void
+                                              </Button>
+                                              {(isAdmin || isSuperAdmin) && (
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
+                                                  <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                              )}
+                                            </div>
+                                          )}
+                                        </TableCell>
+                                      </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </CollapsibleContent>
+                            </Collapsible>
                           );
                         })}
-                      </TableBody>
-                    </Table>
-                  )}
+                      </div>
+                    );
+                  })()}
                 </>
               ) : (
-                // Payment History
+                // Payment History - grouped by company
                 <>
                   {loadingBillPayments ? (
                     <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
                   ) : allBillPayments.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">No payment history yet</p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs">Date</TableHead>
-                          <TableHead className="text-xs">Company</TableHead>
-                          <TableHead className="text-xs">Bill Ref</TableHead>
-                          <TableHead className="text-xs text-right">Amount</TableHead>
-                          <TableHead className="text-xs">Method</TableHead>
-                          <TableHead className="text-xs">Reference</TableHead>
-                          <TableHead className="text-xs">Bank</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {allBillPayments.map((payment: any) => {
-                          // Find the full bill record to pass to history dialog
-                          const fullBill = bills.find(b => b.id === payment.bill_id);
+                  ) : (() => {
+                    const grouped = allBillPayments.reduce<Record<string, any[]>>((acc, payment: any) => {
+                      const company = payment.bill?.installer_company || "Unassigned";
+                      if (!acc[company]) acc[company] = [];
+                      acc[company].push(payment);
+                      return acc;
+                    }, {});
+                    const sortedCompanies = Object.keys(grouped).sort((a, b) => a === "Unassigned" ? 1 : b === "Unassigned" ? -1 : a.localeCompare(b));
+
+                    return (
+                      <div className="space-y-2">
+                        {sortedCompanies.map((company) => {
+                          const companyPayments = grouped[company];
+                          const totalPaid = companyPayments.reduce((s: number, p: any) => s + (p.payment_amount || 0), 0);
                           return (
-                            <TableRow 
-                              key={payment.id} 
-                              className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => {
-                                if (fullBill) {
-                                  setHistoryBill(fullBill);
-                                  setHistoryDialogOpen(true);
-                                }
-                              }}
-                            >
-                              <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
-                              <TableCell className="text-xs">{payment.bill?.installer_company || "-"}</TableCell>
-                              <TableCell className="text-xs">{payment.bill?.bill_ref || "-"}</TableCell>
-                              <TableCell className="text-xs text-right text-emerald-600 font-medium">
-                                {formatCurrency2(payment.payment_amount)}
-                              </TableCell>
-                              <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
-                              <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
-                              <TableCell className="text-xs">{payment.bank?.name || payment.bank_name || "-"}</TableCell>
-                            </TableRow>
+                            <Collapsible key={company}>
+                              <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left">
+                                <div className="flex items-center gap-2">
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [&[data-state=open]]:rotate-0 rotate-[-90deg]" />
+                                  <span className="text-sm font-medium">{company}</span>
+                                  <Badge variant="secondary" className="text-[10px]">{companyPayments.length}</Badge>
+                                </div>
+                                <div className="flex items-center gap-4 text-xs">
+                                  <span className="text-muted-foreground">Total Paid: <span className="font-medium text-emerald-600">{formatCurrency2(totalPaid)}</span></span>
+                                </div>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="text-xs">Date</TableHead>
+                                      <TableHead className="text-xs">Bill Ref</TableHead>
+                                      <TableHead className="text-xs text-right">Amount</TableHead>
+                                      <TableHead className="text-xs">Method</TableHead>
+                                      <TableHead className="text-xs">Reference</TableHead>
+                                      <TableHead className="text-xs">Bank</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {companyPayments.map((payment: any) => {
+                                      const fullBill = bills.find(b => b.id === payment.bill_id);
+                                      return (
+                                        <TableRow 
+                                          key={payment.id} 
+                                          className="cursor-pointer hover:bg-muted/50"
+                                          onClick={() => {
+                                            if (fullBill) {
+                                              setHistoryBill(fullBill);
+                                              setHistoryDialogOpen(true);
+                                            }
+                                          }}
+                                        >
+                                          <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
+                                          <TableCell className="text-xs">{payment.bill?.bill_ref || "-"}</TableCell>
+                                          <TableCell className="text-xs text-right text-emerald-600 font-medium">
+                                            {formatCurrency2(payment.payment_amount)}
+                                          </TableCell>
+                                          <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
+                                          <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
+                                          <TableCell className="text-xs">{payment.bank?.name || payment.bank_name || "-"}</TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </CollapsibleContent>
+                            </Collapsible>
                           );
                         })}
-                      </TableBody>
-                    </Table>
-                  )}
-                  {allBillPayments.length > 0 && (
-                    <div className="mt-4 pt-3 border-t flex justify-end">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Total Paid: </span>
-                        <span className="font-medium text-emerald-600">
-                          {formatCurrency2(allBillPayments.reduce((sum: number, p: any) => sum + (p.payment_amount || 0), 0))}
-                        </span>
+                        <div className="mt-4 pt-3 border-t flex justify-end">
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Total Paid: </span>
+                            <span className="font-medium text-emerald-600">
+                              {formatCurrency2(allBillPayments.reduce((sum: number, p: any) => sum + (p.payment_amount || 0), 0))}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </>
               )}
             </CardContent>
