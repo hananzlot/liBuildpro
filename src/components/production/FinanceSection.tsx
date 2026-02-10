@@ -5150,8 +5150,8 @@ function BillPaymentHistoryDialog({
       if (result?.qbSynced) {
         toast.success("Payment deleted and synced to QuickBooks");
       } else if (result?.qbManualRequired) {
-        toast.success("Payment deleted");
-        toast.info(result.qbManualMessage, { duration: 6000 });
+        toast.success("Payment deleted locally");
+        toast.warning(result.qbManualMessage, { duration: Infinity });
       } else {
         toast.success("Payment deleted");
       }
@@ -5162,7 +5162,7 @@ function BillPaymentHistoryDialog({
       queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
       setDeletePaymentId(null);
     },
-    onError: (error) => toast.error(`Failed to delete: ${error.message}`),
+    onError: (error) => toast.error(`Failed to delete: ${error.message}`, { duration: Infinity }),
   });
 
   // Edit bill payment mutation
