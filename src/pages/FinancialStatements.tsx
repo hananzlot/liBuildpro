@@ -9,8 +9,11 @@ import { BalanceSheet } from "@/components/production/analytics/BalanceSheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toggle } from "@/components/ui/toggle";
 import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
-import { FileSpreadsheet, Scale, Building2, Layers, FolderKanban } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { FileSpreadsheet, Scale, Building2, Layers, FolderKanban, Download } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
 
 export default function FinancialStatements() {
   const navigate = useNavigate();
@@ -32,6 +35,9 @@ export default function FinancialStatements() {
   const [activeTab, setActiveTab] = useState(getDefaultTab());
   const [viewMode, setViewMode] = useState<"aggregate" | "per-project">("aggregate");
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  
 
   useEffect(() => {
     setActiveTab(getDefaultTab());
@@ -70,6 +76,88 @@ export default function FinancialStatements() {
     if (selectedProjectIds.length === 0) return projects;
     return projects.filter(p => selectedProjectIds.includes(p.id));
   }, [projects, selectedProjectIds]);
+
+  // --- Export helpers ---
+  const buildPnLCSV = useCallback((projs: ProjectWithFinancials[], all: ProjectWithFinancials[], mode: "aggregate" | "per-project") => {
+    const fmt = (n: number) => n.toFixed(2);
+    let csv = "";
+    if (mode === "aggregate") {
+      const rev = all.reduce((s, p) => s + p.contractsTotal, 0);
+      const cogs = all.reduce((s, p) => s + p.totalBillsReceived, 0);
+      const lead = all.reduce((s, p) => s + p.leadCostAmount, 0);
+      const comm = all.reduce((s, p) => s + p.totalCommission, 0);
+      csv = "Line Item,Amount\n";
+      csv += `Revenue (Contracts),${fmt(rev)}\nCOGS (Bills),${fmt(cogs)}\nGross Profit,${fmt(rev - cogs)}\nLead Costs,${fmt(lead)}\nCommissions,${fmt(comm)}\nOperating Expenses,${fmt(lead + comm)}\nNet Income,${fmt(rev - cogs - lead - comm)}\n`;
+    } else {
+      csv = "Project #,Project Name,Revenue,COGS,Gross Profit,Lead Costs,Commissions,Net Income\n";
+      projs.filter(p => p.contractsTotal > 0 || p.totalBillsReceived > 0).forEach(p => {
+        const gp = p.contractsTotal - p.totalBillsReceived;
+        csv += `${p.project_number},"${p.project_name}",${fmt(p.contractsTotal)},${fmt(p.totalBillsReceived)},${fmt(gp)},${fmt(p.leadCostAmount)},${fmt(p.totalCommission)},${fmt(gp - p.leadCostAmount - p.totalCommission)}\n`;
+      });
+    }
+    return csv;
+  }, []);
+
+  const buildBSCSV = useCallback((projs: ProjectWithFinancials[], all: ProjectWithFinancials[], mode: "aggregate" | "per-project") => {
+    const fmt = (n: number) => n.toFixed(2);
+    let csv = "";
+    if (mode === "aggregate") {
+      const cash = all.reduce((s, p) => s + p.invoicesCollected, 0);
+      const ar = all.reduce((s, p) => s + p.invoiceBalanceDue, 0);
+      const ap = all.reduce((s, p) => s + (p.totalBillsReceived - p.totalBillsPaid), 0);
+      csv = "Line Item,Amount\n";
+      csv += `Cash Collected,${fmt(cash)}\nAccounts Receivable,${fmt(ar)}\nTotal Assets,${fmt(cash + ar)}\nAccounts Payable,${fmt(ap)}\nTotal Liabilities,${fmt(ap)}\nEquity,${fmt(cash + ar - ap)}\n`;
+    } else {
+      csv = "Project #,Project Name,Cash Collected,AR,Total Assets,AP,Total Liabilities,Equity\n";
+      projs.filter(p => p.invoicesCollected > 0 || p.invoiceBalanceDue > 0 || p.totalBillsReceived > 0).forEach(p => {
+        const cash = p.invoicesCollected;
+        const ar = p.invoiceBalanceDue;
+        const ap = p.totalBillsReceived - p.totalBillsPaid;
+        csv += `${p.project_number},"${p.project_name}",${fmt(cash)},${fmt(ar)},${fmt(cash + ar)},${fmt(ap)},${fmt(ap)},${fmt(cash + ar - ap)}\n`;
+      });
+    }
+    return csv;
+  }, []);
+
+  const downloadCSV = useCallback((content: string, filename: string) => {
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+  }, []);
+
+  const handleExportCSV = useCallback(() => {
+    const date = new Date().toISOString().split("T")[0];
+    if (activeTab === "pnl") {
+      downloadCSV(buildPnLCSV(filteredProjects, projects, viewMode), `pnl-statement-${date}.csv`);
+    } else {
+      downloadCSV(buildBSCSV(filteredProjects, projects, viewMode), `balance-sheet-${date}.csv`);
+    }
+  }, [activeTab, viewMode, filteredProjects, projects, buildPnLCSV, buildBSCSV, downloadCSV]);
+
+  const handleExportPDF = useCallback(() => {
+    const el = printRef.current;
+    if (!el) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const title = activeTab === "pnl" ? "P&L Statement" : "Balance Sheet";
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; color: #111; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+      td, th { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 13px; }
+      .text-right { text-align: right; font-variant-numeric: tabular-nums; }
+      h1 { font-size: 20px; margin-bottom: 4px; }
+      h2 { font-size: 16px; margin: 16px 0 8px; }
+      .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 16px; }
+      @media print { body { padding: 0; } }
+    </style></head><body>`);
+    printWindow.document.write(`<h1>${title}</h1><p class="subtitle">Generated ${new Date().toLocaleDateString()} · ${viewMode === "aggregate" ? "Company View" : "Per-Project View"}</p>`);
+    printWindow.document.write(el.innerHTML);
+    printWindow.document.write("</body></html>");
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); }, 250);
+  }, [activeTab, viewMode]);
 
   if (permissionsLoading || isLoading) {
     return (
@@ -133,6 +221,24 @@ export default function FinancialStatements() {
                 className="w-[220px]"
               />
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-1" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportCSV}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -152,27 +258,29 @@ export default function FinancialStatements() {
             )}
           </TabsList>
 
-          {canViewPnL && (
-            <TabsContent value="pnl" className="mt-6">
-              <PnLStatement
-                projects={filteredProjects}
-                allProjects={projects}
-                viewMode={viewMode}
-                onProjectClick={handleProjectClick}
-              />
-            </TabsContent>
-          )}
+          <div ref={printRef}>
+            {canViewPnL && (
+              <TabsContent value="pnl" className="mt-6">
+                <PnLStatement
+                  projects={filteredProjects}
+                  allProjects={projects}
+                  viewMode={viewMode}
+                  onProjectClick={handleProjectClick}
+                />
+              </TabsContent>
+            )}
 
-          {canViewBS && (
-            <TabsContent value="balance-sheet" className="mt-6">
-              <BalanceSheet
-                projects={filteredProjects}
-                allProjects={projects}
-                viewMode={viewMode}
-                onProjectClick={handleProjectClick}
-              />
-            </TabsContent>
-          )}
+            {canViewBS && (
+              <TabsContent value="balance-sheet" className="mt-6">
+                <BalanceSheet
+                  projects={filteredProjects}
+                  allProjects={projects}
+                  viewMode={viewMode}
+                  onProjectClick={handleProjectClick}
+                />
+              </TabsContent>
+            )}
+          </div>
         </Tabs>
       </div>
     </AppLayout>
