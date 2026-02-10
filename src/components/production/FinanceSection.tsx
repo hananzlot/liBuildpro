@@ -902,8 +902,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       .in("sync_status", ["synced", "pending_refresh", "deleted_in_qb"])
       .maybeSingle();
 
-    if (existingLog?.quickbooks_id && existingLog.sync_status !== "deleted_in_qb") {
-      // Already has a QB record and it's not deleted — just resync
+    if (existingLog?.quickbooks_id && existingLog.sync_status !== "deleted_in_qb" && !existingLog.quickbooks_id.startsWith("backfill-")) {
+      // Already has a real QB record and it's not deleted — just resync
       return syncRecordToQuickBooks(recordType, recordId);
     }
     // If deleted_in_qb, fall through to duplicate check so user can link to existing QB record
