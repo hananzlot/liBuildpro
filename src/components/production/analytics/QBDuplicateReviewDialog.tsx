@@ -102,21 +102,26 @@ export function QBDuplicateReviewDialog({
         {/* Duplicate candidates */}
         <ScrollArea className="max-h-[40vh]">
           <RadioGroup value={selectedQbId || ""} onValueChange={setSelectedQbId} className="space-y-2">
-            {duplicates.map((dup) => (
+            {duplicates.map((dup) => {
+              const amountMismatch = dup.amount !== localAmount;
+              return (
               <label
                 key={dup.qbId}
                 htmlFor={`dup-${dup.qbId}`}
                 className={cn(
-                  "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
+                  "flex items-start gap-3 rounded-lg border p-3 transition-colors",
+                  amountMismatch
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer",
                   selectedQbId === dup.qbId
                     ? "border-primary bg-primary/5"
-                    : "hover:bg-muted/50"
+                    : !amountMismatch && "hover:bg-muted/50"
                 )}
               >
-                <RadioGroupItem value={dup.qbId} id={`dup-${dup.qbId}`} className="mt-1" />
+                <RadioGroupItem value={dup.qbId} id={`dup-${dup.qbId}`} className="mt-1" disabled={amountMismatch} />
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium">{formatCurrency(dup.amount)}</span>
+                    <span className={cn("font-medium", amountMismatch && "text-destructive line-through")}>{formatCurrency(dup.amount)}</span>
                     <span className="text-muted-foreground text-xs">on {dup.date}</span>
                     <Badge variant="outline" className={cn("text-[10px] font-medium", dup.reference ? "" : "text-muted-foreground")}>
                       QB Check #: {dup.reference || "None"}
@@ -124,9 +129,15 @@ export function QBDuplicateReviewDialog({
                     {dup.payType && (
                       <span className="text-[10px] text-muted-foreground">{dup.payType}</span>
                     )}
-                    <Badge className={cn("text-[10px]", confidenceColors[dup.confidence])}>
-                      {dup.confidence === "high" ? "Likely Duplicate" : dup.confidence === "medium" ? "Possible Match" : "Weak Match"}
-                    </Badge>
+                    {amountMismatch ? (
+                      <Badge variant="outline" className="text-[10px] text-destructive border-destructive/50">
+                        Amount mismatch
+                      </Badge>
+                    ) : (
+                      <Badge className={cn("text-[10px]", confidenceColors[dup.confidence])}>
+                        {dup.confidence === "high" ? "Likely Duplicate" : dup.confidence === "medium" ? "Possible Match" : "Weak Match"}
+                      </Badge>
+                    )}
                   </div>
                   {dup.vendorName && (
                     <p className="text-xs text-muted-foreground">Vendor: {dup.vendorName}</p>
@@ -141,7 +152,8 @@ export function QBDuplicateReviewDialog({
                   <p className="text-[10px] text-muted-foreground">QB ID: {dup.qbId}</p>
                 </div>
               </label>
-            ))}
+              );
+            })}
           </RadioGroup>
         </ScrollArea>
 
