@@ -310,6 +310,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
+  const [syncingBillId, setSyncingBillId] = useState<string | null>(null);
 
   // Phase drag-and-drop state
   const [draggedPhaseId, setDraggedPhaseId] = useState<string | null>(null);
@@ -2536,6 +2537,35 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                               if (syncInfo?.status === "synced") return (
                                                 <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">
                                                   <Check className="h-2.5 w-2.5 mr-0.5" />QB
+                                                </Badge>
+                                              );
+                                              if (syncInfo?.status === "deleted_in_qb") return (
+                                                <Badge 
+                                                  variant="outline" 
+                                                  className="text-[10px] text-destructive border-destructive/50 cursor-pointer hover:bg-destructive/10 transition-colors"
+                                                  title="Deleted in QB — click to resync"
+                                                  onClick={async () => {
+                                                    if (syncingBillId) return;
+                                                    setSyncingBillId(bill.id);
+                                                    try {
+                                                      const result = await syncRecordToQuickBooks("bill", bill.id);
+                                                      if (result.synced) {
+                                                        toast.success("Bill resynced to QuickBooks");
+                                                        queryClient.invalidateQueries({ queryKey: ["bill-sync-statuses"] });
+                                                      } else {
+                                                        toast.error(result.message || "Failed to resync bill");
+                                                      }
+                                                    } catch {
+                                                      toast.error("Failed to resync bill");
+                                                    } finally {
+                                                      setSyncingBillId(null);
+                                                    }
+                                                  }}
+                                                >
+                                                  {syncingBillId === bill.id ? (
+                                                    <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" />
+                                                  ) : null}
+                                                  QB Deleted
                                                 </Badge>
                                               );
                                               if (syncInfo) return (
