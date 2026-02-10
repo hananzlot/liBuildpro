@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { MetricCard } from "./MetricCard";
 import { BankTransaction, ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
-import { Building, ArrowDownToLine, ArrowUpFromLine, Wallet, Receipt, CreditCard } from "lucide-react";
+import { Building, ArrowDownToLine, ArrowUpFromLine, Wallet } from "lucide-react";
 import { cn, formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import {
   BarChart,
@@ -122,26 +122,7 @@ export function BankActivitiesTab({ transactions, projects, totals, onProjectCli
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <MetricCard
-          title="Total Bills"
-          value={formatCurrency(totals.totalCosts)}
-          subValue="Bills received"
-          icon={Receipt}
-        />
-        <MetricCard
-          title="Bills Paid"
-          value={formatCurrency(totals.totalBillsPaid)}
-          icon={CreditCard}
-          variant="success"
-        />
-        <MetricCard
-          title="Outstanding AP"
-          value={formatCurrency(totals.totalPayables)}
-          subValue="Unpaid bills"
-          icon={Wallet}
-          variant={totals.totalPayables > 0 ? 'warning' : 'default'}
-        />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Cash In (Period)"
           value={formatCurrency(incomingTotal)}
@@ -156,9 +137,15 @@ export function BankActivitiesTab({ transactions, projects, totals, onProjectCli
         />
         <MetricCard
           title="Net Cash Flow"
-          value={formatCurrency(totals.cashPosition)}
+          value={formatCurrency(incomingTotal - outgoingTotal)}
           icon={Building}
-          variant={totals.cashPosition >= 0 ? 'success' : 'danger'}
+          variant={incomingTotal - outgoingTotal >= 0 ? 'success' : 'danger'}
+        />
+        <MetricCard
+          title="Transactions"
+          value={transactions.length.toString()}
+          subValue={`${transactions.filter(t => t.type === 'in').length} in / ${transactions.filter(t => t.type === 'out').length} out`}
+          icon={Wallet}
         />
       </div>
 
