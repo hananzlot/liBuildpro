@@ -98,6 +98,7 @@ interface ProjectDetailSheetProps {
   initialFinanceSubTab?: 'bills' | 'history';
   highlightInvoiceId?: string | null;
   highlightBillId?: string | null;
+  highlightPaymentId?: string | null;
   /** Render mode: 'sheet' (default) shows in a slide-over, 'page' renders inline content */
   mode?: 'sheet' | 'page';
 }
@@ -111,7 +112,7 @@ const statusColors: Record<string, string> = {
   "Cancelled": "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
-export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab, initialFinanceSectionTab, initialFinanceSubTab, highlightInvoiceId, highlightBillId, mode = 'sheet' }: ProjectDetailSheetProps) {
+export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab, initialFinanceSectionTab, initialFinanceSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, mode = 'sheet' }: ProjectDetailSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isSuperAdmin, user } = useAuth();
@@ -1917,6 +1918,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 initialBillsSubTab={initialFinanceSubTab}
                 highlightInvoiceId={highlightInvoiceId}
                 highlightBillId={highlightBillId}
+                highlightPaymentId={highlightPaymentId}
                 onSubTabChange={handleFinanceSubTabChange}
                 projectStatus={fullProject.project_status}
                 projectName={fullProject.project_name}

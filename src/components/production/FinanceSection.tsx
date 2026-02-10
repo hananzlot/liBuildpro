@@ -94,6 +94,7 @@ interface FinanceSectionProps {
   initialBillsSubTab?: 'bills' | 'history';
   highlightInvoiceId?: string | null;
   highlightBillId?: string | null;
+  highlightPaymentId?: string | null;
   /** Callback when inner sub-tabs change (for syncing URL state) */
   onSubTabChange?: (subTab: string, billsSubTab?: 'bills' | 'history') => void;
   projectStatus?: string | null;
@@ -197,7 +198,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, onSubTabChange, projectStatus, projectName, projectAddress, customerName }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, onSubTabChange, projectStatus, projectName, projectAddress, customerName }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
@@ -540,18 +541,13 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     },
   });
 
-  // Auto-open bill payment history dialog when highlightBillId is set
+  // Auto-switch to payment history tab when highlightPaymentId or highlightBillId is set
   useEffect(() => {
-    if (highlightBillId && bills.length > 0) {
-      const bill = bills.find(b => b.id === highlightBillId);
-      if (bill) {
-        setActiveSubTab("bills");
-        setActiveBillsSubTab("history");
-        setHistoryBill(bill);
-        setHistoryDialogOpen(true);
-      }
+    if ((highlightPaymentId || highlightBillId) && bills.length > 0) {
+      setActiveSubTab("bills");
+      setActiveBillsSubTab("history");
     }
-  }, [highlightBillId, bills]);
+  }, [highlightPaymentId, highlightBillId, bills]);
 
   // Fetch bill payments for all bills in this project
   const { data: allBillPayments = [], isLoading: loadingBillPayments } = useQuery({
@@ -2466,9 +2462,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                         {sortedCompanies.map((company) => {
                           const companyPayments = grouped[company];
                           const totalPaid = companyPayments.reduce((s: number, p: any) => s + (p.payment_amount || 0), 0);
-                          const hasHighlightedBill = highlightBillId && companyPayments.some((p: any) => p.bill_id === highlightBillId);
+                          const hasHighlightedPayment = highlightPaymentId && companyPayments.some((p: any) => p.id === highlightPaymentId);
                           return (
-                            <Collapsible key={company} defaultOpen={!!hasHighlightedBill}>
+                            <Collapsible key={company} defaultOpen={!!hasHighlightedPayment}>
                               <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left">
                                 <div className="flex items-center gap-2">
                                   <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [&[data-state=open]]:rotate-0 rotate-[-90deg]" />
@@ -2501,7 +2497,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                           key={payment.id} 
                                           className={cn(
                                             "cursor-pointer hover:bg-muted/50",
-                                            highlightBillId === payment.bill_id && "bg-yellow-100 dark:bg-yellow-900/30 animate-pulse"
+                                            highlightPaymentId === payment.id && "bg-yellow-100 dark:bg-yellow-900/30 animate-pulse"
                                           )}
                                           onClick={() => {
                                             if (fullBill) {

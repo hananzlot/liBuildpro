@@ -38,7 +38,7 @@ interface BankActivitiesTabProps {
     totalPayables: number;
     totalCosts: number;
   };
-  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables' | 'outstandingAR', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string, highlightBillId?: string) => void;
+  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables' | 'outstandingAR', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string, highlightBillId?: string, highlightPaymentId?: string) => void;
 }
 
 
@@ -401,7 +401,7 @@ export function BankActivitiesTab({ transactions, projects, totals, onProjectCli
                             <TableRow
                               key={t.id}
                               className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => t.project_id && onProjectClick?.(t.project_id, 'finance', undefined, 'history', undefined, t.bill_id || undefined)}
+                              onClick={() => t.project_id && onProjectClick?.(t.project_id, 'finance', undefined, 'history', undefined, t.bill_id || undefined, t.bill_payment_id || undefined)}
                             >
                               <TableCell className="text-xs">{t.date ? new Date(t.date).toLocaleDateString() : '-'}</TableCell>
                               <TableCell className="text-xs font-medium max-w-[140px] truncate">{t.vendor_name || '-'}</TableCell>

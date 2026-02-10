@@ -27,6 +27,7 @@ export default function ProjectDetail() {
   const [initialFinanceSection] = useState(() => searchParams.get("financeSubTab") || undefined);
   const [highlightInvoiceId] = useState(() => searchParams.get("highlightInvoice") || undefined);
   const [highlightBillId] = useState(() => searchParams.get("highlightBill") || undefined);
+  const [highlightPaymentId] = useState(() => searchParams.get("highlightPayment") || undefined);
   
   // Fetch project data
   const { data: project, isLoading, refetch } = useQuery({
@@ -95,6 +96,7 @@ export default function ProjectDetail() {
           initialFinanceSubTab={initialFinanceSubTab}
           highlightInvoiceId={highlightInvoiceId}
           highlightBillId={highlightBillId}
+          highlightPaymentId={highlightPaymentId}
           mode="page"
         />
       </div>

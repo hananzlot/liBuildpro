@@ -54,7 +54,8 @@ export default function Analytics() {
     returnTo?: 'payables' | 'outstandingAR', 
     financeSubTab?: 'bills' | 'history',
     highlightInvoiceId?: string,
-    highlightBillId?: string
+    highlightBillId?: string,
+    highlightPaymentId?: string
   ) => {
     let url = `/project/${projectId}`;
     const params = new URLSearchParams();
@@ -62,6 +63,7 @@ export default function Analytics() {
     if (financeSubTab) params.set('financeTab', financeSubTab);
     if (highlightInvoiceId) params.set('highlightInvoice', highlightInvoiceId);
     if (highlightBillId) params.set('highlightBill', highlightBillId);
+    if (highlightPaymentId) params.set('highlightPayment', highlightPaymentId);
     if (returnTo) params.set('returnTo', returnTo);
     
     const queryString = params.toString();
