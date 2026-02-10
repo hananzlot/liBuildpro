@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/table";
 import { MetricCard } from "./MetricCard";
 import { ProjectWithFinancials, InvoiceWithAging, BankTransaction, PayableWithCashImpact, CashFlowTimelinePoint } from "@/hooks/useProductionAnalytics";
-import { Banknote, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Wallet, Calendar } from "lucide-react";
+import { Banknote, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Wallet, Calendar, ChevronDown } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CashFlowKPISheet, CashFlowKPIType } from "./CashFlowKPISheet";
 import { PayablesSheet } from "./PayablesSheet";
 import { PaymentScheduleSheet } from "./PaymentScheduleSheet";
@@ -362,91 +363,100 @@ export function CashFlowTab({
         ))}
       </div>
 
-      {/* Project Cash Status Table */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Project Cash Status</CardTitle>
-          <CardDescription>All projects sorted by cash health (worst first)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[60px]">#</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Salesperson</TableHead>
-                  <TableHead className="text-right">Contract</TableHead>
-                  <TableHead className="text-right">Collected</TableHead>
-                  <TableHead className="text-right">Bills Paid</TableHead>
-                  <TableHead className="text-right">Cash Position</TableHead>
-                  <TableHead className="text-right">AR Balance</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedProjects.slice(0, 100).map((project) => (
-                  <TableRow 
-                    key={project.id} 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => onProjectClick?.(project.id)}
-                  >
-                    <TableCell className="font-medium">{project.project_number}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {project.project_address || project.project_name}
-                    </TableCell>
-                    <TableCell>{project.primary_salesperson || '-'}</TableCell>
-                    <TableCell 
-                      className="text-right hover:underline hover:text-primary cursor-pointer"
-                      onClick={(e) => handleAmountClick(e, project, 'contract')}
-                    >
-                      {formatCurrency(project.contractsTotal)}
-                    </TableCell>
-                    <TableCell 
-                      className="text-right hover:underline hover:text-primary cursor-pointer"
-                      onClick={(e) => handleAmountClick(e, project, 'collected')}
-                    >
-                      {formatCurrency(project.invoicesCollected)}
-                    </TableCell>
-                    <TableCell 
-                      className="text-right hover:underline hover:text-primary cursor-pointer"
-                      onClick={(e) => handleAmountClick(e, project, 'billsPaid')}
-                    >
-                      {formatCurrency(project.totalBillsPaid)}
-                    </TableCell>
-                    <TableCell 
-                      className={cn(
-                        "text-right font-medium hover:underline cursor-pointer",
-                        project.cashPosition >= 0 ? 'text-emerald-600 hover:text-emerald-700' : 'text-red-600 hover:text-red-700'
-                      )}
-                      onClick={(e) => handleAmountClick(e, project, 'cashPosition')}
-                    >
-                      {formatCurrency(project.cashPosition)}
-                    </TableCell>
-                    <TableCell 
-                      className={cn(
-                        "text-right hover:underline cursor-pointer",
-                        project.invoiceBalanceDue > 0 ? 'text-amber-600 hover:text-amber-700' : ''
-                      )}
-                      onClick={(e) => handleAmountClick(e, project, 'arBalance')}
-                    >
-                      {formatCurrency(project.invoiceBalanceDue)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className={cn("text-xs", getCashStatusColor(project.cashStatus))}
+      {/* Project Cash Status Table - Collapsible, collapsed by default */}
+      <Collapsible defaultOpen={false}>
+        <Card>
+          <CardHeader className="pb-2">
+            <CollapsibleTrigger className="flex items-center justify-between w-full text-left">
+              <div>
+                <CardTitle className="text-base">Project Cash Status</CardTitle>
+                <CardDescription>All projects sorted by cash health (worst first)</CardDescription>
+              </div>
+              <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[60px]">#</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Salesperson</TableHead>
+                      <TableHead className="text-right">Contract</TableHead>
+                      <TableHead className="text-right">Collected</TableHead>
+                      <TableHead className="text-right">Bills Paid</TableHead>
+                      <TableHead className="text-right">Cash Position</TableHead>
+                      <TableHead className="text-right">AR Balance</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedProjects.slice(0, 100).map((project) => (
+                      <TableRow 
+                        key={project.id} 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => onProjectClick?.(project.id)}
                       >
-                        {getCashStatusLabel(project.cashStatus)}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                        <TableCell className="font-medium">{project.project_number}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {project.project_address || project.project_name}
+                        </TableCell>
+                        <TableCell>{project.primary_salesperson || '-'}</TableCell>
+                        <TableCell 
+                          className="text-right hover:underline hover:text-primary cursor-pointer"
+                          onClick={(e) => handleAmountClick(e, project, 'contract')}
+                        >
+                          {formatCurrency(project.contractsTotal)}
+                        </TableCell>
+                        <TableCell 
+                          className="text-right hover:underline hover:text-primary cursor-pointer"
+                          onClick={(e) => handleAmountClick(e, project, 'collected')}
+                        >
+                          {formatCurrency(project.invoicesCollected)}
+                        </TableCell>
+                        <TableCell 
+                          className="text-right hover:underline hover:text-primary cursor-pointer"
+                          onClick={(e) => handleAmountClick(e, project, 'billsPaid')}
+                        >
+                          {formatCurrency(project.totalBillsPaid)}
+                        </TableCell>
+                        <TableCell 
+                          className={cn(
+                            "text-right font-medium hover:underline cursor-pointer",
+                            project.cashPosition >= 0 ? 'text-emerald-600 hover:text-emerald-700' : 'text-red-600 hover:text-red-700'
+                          )}
+                          onClick={(e) => handleAmountClick(e, project, 'cashPosition')}
+                        >
+                          {formatCurrency(project.cashPosition)}
+                        </TableCell>
+                        <TableCell 
+                          className={cn(
+                            "text-right hover:underline cursor-pointer",
+                            project.invoiceBalanceDue > 0 ? 'text-amber-600 hover:text-amber-700' : ''
+                          )}
+                          onClick={(e) => handleAmountClick(e, project, 'arBalance')}
+                        >
+                          {formatCurrency(project.invoiceBalanceDue)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant="outline" 
+                            className={cn("text-xs", getCashStatusColor(project.cashStatus))}
+                          >
+                            {getCashStatusLabel(project.cashStatus)}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Sheets and Dialogs */}
       <CashFlowKPISheet
