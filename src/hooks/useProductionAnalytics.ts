@@ -482,12 +482,17 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
 
   // Bank transactions - combined payments in and out
   const bankTransactions: BankTransaction[] = useMemo(() => {
-    const filteredProjectIds = new Set(filteredProjects.map(p => p.id));
+    // For bank transactions, use all projects (not date-filtered) since we filter by transaction date instead
+    const projectFilter = filters.selectedProjects.length > 0 || filters.selectedSalespeople.length > 0
+      ? new Set(filteredProjects.map(p => p.id))
+      : null;
+    const allProjectIds = new Set(projects.map(p => p.id));
+    const allowedIds = projectFilter || allProjectIds;
     const transactions: BankTransaction[] = [];
 
     // Incoming payments
     payments
-      .filter(p => p.project_id && filteredProjectIds.has(p.project_id) && p.payment_status === "Received")
+      .filter(p => p.project_id && allowedIds.has(p.project_id) && p.payment_status === "Received")
       .forEach(p => {
         const project = projects.find(proj => proj.id === p.project_id);
         transactions.push({
@@ -506,7 +511,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     // Outgoing bill payments
     billPayments.forEach(bp => {
       const bill = bills.find(b => b.id === bp.bill_id);
-      if (!bill?.project_id || !filteredProjectIds.has(bill.project_id)) return;
+      if (!bill?.project_id || !allowedIds.has(bill.project_id)) return;
       
       const project = projects.find(p => p.id === bill.project_id);
       transactions.push({
@@ -526,7 +531,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       });
     });
 
-    // Apply date range filter to transactions
+    // Apply date range filter to transactions by transaction date
     const dateFrom = filters.dateRange?.from;
     const dateTo = filters.dateRange?.to;
     const filtered = (dateFrom && dateTo)
@@ -542,7 +547,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       if (!b.date) return -1;
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [payments, billPayments, bills, filteredProjects, projects, filters.dateRange]);
+  }, [payments, billPayments, bills, filteredProjects, projects, filters]);
 
   // Commission summary by salesperson
   const commissionSummary: SalespersonCommission[] = useMemo(() => {
