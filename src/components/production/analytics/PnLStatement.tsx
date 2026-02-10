@@ -1,13 +1,13 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Toggle } from "@/components/ui/toggle";
-import { Building2, Layers } from "lucide-react";
 import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
 import { cn } from "@/lib/utils";
 
 interface PnLStatementProps {
   projects: ProjectWithFinancials[];
+  allProjects: ProjectWithFinancials[];
+  viewMode: "aggregate" | "per-project";
   onProjectClick?: (projectId: string, initialTab?: string) => void;
 }
 
@@ -17,7 +17,6 @@ interface PnLLineItem {
   isTotal?: boolean;
   isGrandTotal?: boolean;
   indent?: boolean;
-  className?: string;
 }
 
 function formatCurrency(amount: number) {
@@ -29,14 +28,9 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-function PnLTable({ lines, title }: { lines: PnLLineItem[]; title?: string }) {
+function PnLTable({ lines }: { lines: PnLLineItem[] }) {
   return (
     <div className="border rounded-lg overflow-hidden">
-      {title && (
-        <div className="bg-muted/50 px-4 py-2 border-b">
-          <h3 className="font-semibold text-sm">{title}</h3>
-        </div>
-      )}
       <table className="w-full text-sm">
         <tbody>
           {lines.map((line, i) => (
@@ -67,30 +61,16 @@ function PnLTable({ lines, title }: { lines: PnLLineItem[]; title?: string }) {
   );
 }
 
-export function PnLStatement({ projects, onProjectClick }: PnLStatementProps) {
-  const [viewMode, setViewMode] = useState<"aggregate" | "per-project">("aggregate");
-
-  const aggregate = useMemo(() => {
-    const totalRevenue = projects.reduce((s, p) => s + p.contractsTotal, 0);
-    const totalCOGS = projects.reduce((s, p) => s + p.totalBillsReceived, 0);
-    const totalLeadCost = projects.reduce((s, p) => s + p.leadCostAmount, 0);
-    const totalCommission = projects.reduce((s, p) => s + p.totalCommission, 0);
-    const grossProfit = totalRevenue - totalCOGS;
-    const operatingExpenses = totalLeadCost + totalCommission;
-    const netIncome = grossProfit - operatingExpenses;
-
-    return { totalRevenue, totalCOGS, totalLeadCost, totalCommission, grossProfit, operatingExpenses, netIncome };
-  }, [projects]);
-
-  const buildPnLLines = (data: {
-    totalRevenue: number;
-    totalCOGS: number;
-    totalLeadCost: number;
-    totalCommission: number;
-    grossProfit: number;
-    operatingExpenses: number;
-    netIncome: number;
-  }): PnLLineItem[] => [
+function buildPnLLines(data: {
+  totalRevenue: number;
+  totalCOGS: number;
+  totalLeadCost: number;
+  totalCommission: number;
+  grossProfit: number;
+  operatingExpenses: number;
+  netIncome: number;
+}): PnLLineItem[] {
+  return [
     { label: "Revenue (Contracts Total)", amount: data.totalRevenue },
     { label: "Cost of Goods Sold (Bills Received)", amount: -data.totalCOGS, indent: true },
     { label: "Gross Profit", amount: data.grossProfit, isTotal: true },
@@ -99,6 +79,21 @@ export function PnLStatement({ projects, onProjectClick }: PnLStatementProps) {
     { label: "Total Operating Expenses", amount: -data.operatingExpenses, isTotal: true },
     { label: "Net Income", amount: data.netIncome, isGrandTotal: true },
   ];
+}
+
+function computeAggregate(projects: ProjectWithFinancials[]) {
+  const totalRevenue = projects.reduce((s, p) => s + p.contractsTotal, 0);
+  const totalCOGS = projects.reduce((s, p) => s + p.totalBillsReceived, 0);
+  const totalLeadCost = projects.reduce((s, p) => s + p.leadCostAmount, 0);
+  const totalCommission = projects.reduce((s, p) => s + p.totalCommission, 0);
+  const grossProfit = totalRevenue - totalCOGS;
+  const operatingExpenses = totalLeadCost + totalCommission;
+  const netIncome = grossProfit - operatingExpenses;
+  return { totalRevenue, totalCOGS, totalLeadCost, totalCommission, grossProfit, operatingExpenses, netIncome };
+}
+
+export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }: PnLStatementProps) {
+  const aggregate = useMemo(() => computeAggregate(allProjects), [allProjects]);
 
   const perProjectData = useMemo(() => {
     return projects
@@ -124,29 +119,7 @@ export function PnLStatement({ projects, onProjectClick }: PnLStatementProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Profit & Loss Statement</h2>
-        <div className="flex items-center gap-1 border rounded-lg p-0.5">
-          <Toggle
-            pressed={viewMode === "aggregate"}
-            onPressedChange={() => setViewMode("aggregate")}
-            size="sm"
-            className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-          >
-            <Building2 className="h-4 w-4 mr-1" />
-            Company
-          </Toggle>
-          <Toggle
-            pressed={viewMode === "per-project"}
-            onPressedChange={() => setViewMode("per-project")}
-            size="sm"
-            className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-          >
-            <Layers className="h-4 w-4 mr-1" />
-            Per Project
-          </Toggle>
-        </div>
-      </div>
+      <h2 className="text-lg font-semibold">Profit & Loss Statement</h2>
 
       {viewMode === "aggregate" ? (
         <Card>
@@ -156,7 +129,7 @@ export function PnLStatement({ projects, onProjectClick }: PnLStatementProps) {
           <CardContent>
             <PnLTable lines={buildPnLLines(aggregate)} />
             <p className="text-xs text-muted-foreground mt-3">
-              Based on {projects.length} projects. Revenue = contract totals. COGS = bills received.
+              Based on {allProjects.length} projects. Revenue = contract totals. COGS = bills received.
             </p>
           </CardContent>
         </Card>

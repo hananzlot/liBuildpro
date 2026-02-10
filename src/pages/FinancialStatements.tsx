@@ -7,14 +7,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PnLStatement } from "@/components/production/analytics/PnLStatement";
 import { BalanceSheet } from "@/components/production/analytics/BalanceSheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileSpreadsheet, Scale } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Toggle } from "@/components/ui/toggle";
+import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
+import { FileSpreadsheet, Scale, Building2, Layers, FolderKanban } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 export default function FinancialStatements() {
   const navigate = useNavigate();
   const { openTab } = useAppTabs();
   const { tab: routeTab } = useParams<{ tab?: string }>();
-  const { visibleReports, canViewReport, isLoading: permissionsLoading } = useAnalyticsPermissions();
+  const { canViewReport, isLoading: permissionsLoading } = useAnalyticsPermissions();
 
   const canViewPnL = canViewReport("pnl");
   const canViewBS = canViewReport("balance_sheet");
@@ -28,6 +30,8 @@ export default function FinancialStatements() {
   }, [routeTab, canViewPnL, canViewBS]);
 
   const [activeTab, setActiveTab] = useState(getDefaultTab());
+  const [viewMode, setViewMode] = useState<"aggregate" | "per-project">("aggregate");
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
 
   useEffect(() => {
     setActiveTab(getDefaultTab());
@@ -49,6 +53,23 @@ export default function FinancialStatements() {
     if (initialTab) url += `?tab=${initialTab}`;
     openTab(url, `Project ${projectId.slice(0, 8)}`);
   };
+
+  // Project options for the selector
+  const projectOptions = useMemo(() => {
+    return projects
+      .filter(p => p.contractsTotal > 0 || p.totalBillsReceived > 0 || p.invoicesCollected > 0)
+      .sort((a, b) => b.project_number - a.project_number)
+      .map(p => ({
+        value: p.id,
+        label: `#${p.project_number} — ${p.project_address || p.project_name}`,
+      }));
+  }, [projects]);
+
+  // Filtered projects for per-project view
+  const filteredProjects = useMemo(() => {
+    if (selectedProjectIds.length === 0) return projects;
+    return projects.filter(p => selectedProjectIds.includes(p.id));
+  }, [projects, selectedProjectIds]);
 
   if (permissionsLoading || isLoading) {
     return (
@@ -74,11 +95,45 @@ export default function FinancialStatements() {
   return (
     <AppLayout>
       <div className="flex-1 p-4 md:p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Financial Statements</h1>
-          <p className="text-muted-foreground">
-            P&L and Balance Sheet views derived from project financials
-          </p>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div className="shrink-0">
+            <h1 className="text-2xl font-bold tracking-tight">Financial Statements</h1>
+            <p className="text-muted-foreground">
+              P&L and Balance Sheet views derived from project financials
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 border rounded-lg p-0.5">
+              <Toggle
+                pressed={viewMode === "aggregate"}
+                onPressedChange={() => setViewMode("aggregate")}
+                size="sm"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >
+                <Building2 className="h-4 w-4 mr-1" />
+                Company
+              </Toggle>
+              <Toggle
+                pressed={viewMode === "per-project"}
+                onPressedChange={() => setViewMode("per-project")}
+                size="sm"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >
+                <Layers className="h-4 w-4 mr-1" />
+                Per Project
+              </Toggle>
+            </div>
+            {viewMode === "per-project" && (
+              <MultiSelectFilter
+                options={projectOptions}
+                selected={selectedProjectIds}
+                onChange={setSelectedProjectIds}
+                placeholder="All Projects"
+                icon={<FolderKanban className="h-3.5 w-3.5" />}
+                className="w-[220px]"
+              />
+            )}
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
@@ -99,13 +154,23 @@ export default function FinancialStatements() {
 
           {canViewPnL && (
             <TabsContent value="pnl" className="mt-6">
-              <PnLStatement projects={projects} onProjectClick={handleProjectClick} />
+              <PnLStatement
+                projects={filteredProjects}
+                allProjects={projects}
+                viewMode={viewMode}
+                onProjectClick={handleProjectClick}
+              />
             </TabsContent>
           )}
 
           {canViewBS && (
             <TabsContent value="balance-sheet" className="mt-6">
-              <BalanceSheet projects={projects} onProjectClick={handleProjectClick} />
+              <BalanceSheet
+                projects={filteredProjects}
+                allProjects={projects}
+                viewMode={viewMode}
+                onProjectClick={handleProjectClick}
+              />
             </TabsContent>
           )}
         </Tabs>
