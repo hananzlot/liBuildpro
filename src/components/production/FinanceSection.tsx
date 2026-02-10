@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -95,6 +95,7 @@ interface FinanceSectionProps {
   highlightInvoiceId?: string | null;
   /** Callback when inner sub-tabs change (for syncing URL state) */
   onSubTabChange?: (subTab: string, billsSubTab?: 'bills' | 'history') => void;
+  projectStatus?: string | null;
 }
 
 interface Invoice {
@@ -192,7 +193,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, onSubTabChange }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, onSubTabChange, projectStatus }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
@@ -1866,6 +1867,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
             totalInvoiced={totalInvoiced}
             leadCostPercent={leadCostPercent}
             commissionSplitPct={commissionSplitPct}
+            isCompleted={projectStatus === "Completed"}
           />
         </TabsContent>
 
@@ -6456,6 +6458,7 @@ function ProjectFinancialStatements({
   totalInvoiced,
   leadCostPercent,
   commissionSplitPct,
+  isCompleted,
 }: {
   totalRevenue: number;
   totalCOGS: number;
@@ -6464,6 +6467,7 @@ function ProjectFinancialStatements({
   totalInvoiced: number;
   leadCostPercent: number;
   commissionSplitPct: number;
+  isCompleted: boolean;
 }) {
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -6482,6 +6486,7 @@ function ProjectFinancialStatements({
       h1 { font-size: 18px; margin-bottom: 4px; }
       .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 16px; }
       .section-header { background: #f3f4f6; padding: 4px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
+      .badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: #fef3c7; color: #92400e; margin-left: 6px; }
       @media print { body { padding: 0; } }
     </style></head><body>`);
     printWindow.document.write(`<h1>Project Financial Statements</h1><p class="subtitle">Generated ${new Date().toLocaleDateString()}</p>`);
@@ -6490,11 +6495,12 @@ function ProjectFinancialStatements({
     printWindow.document.close();
     setTimeout(() => { printWindow.print(); }, 250);
   }, []);
+
   const leadCost = totalRevenue * (leadCostPercent / 100);
   const commission = totalRevenue * (commissionSplitPct / 100);
   const grossProfit = totalRevenue - totalCOGS;
-  const opex = leadCost + commission;
-  const netIncome = grossProfit - opex;
+  const netIncomeBeforeCommission = grossProfit - leadCost;
+  const netIncomeAfterCommission = netIncomeBeforeCommission - commission;
 
   const ar = totalInvoiced - totalCollected;
   const ap = totalCOGS - totalBillsPaid;
@@ -6504,7 +6510,7 @@ function ProjectFinancialStatements({
 
   const fmt = (n: number) => formatCurrency(n);
 
-  const lineRow = (label: string, amount: number, opts?: { indent?: boolean; bold?: boolean; grandTotal?: boolean }) => (
+  const lineRow = (label: string | ReactNode, amount: number, opts?: { indent?: boolean; bold?: boolean; grandTotal?: boolean }) => (
     <tr className={cn(
       "border-b last:border-0",
       opts?.bold && "bg-muted/30 font-semibold",
@@ -6537,9 +6543,15 @@ function ProjectFinancialStatements({
                   {lineRow("Cost of Goods Sold (Bills)", -totalCOGS, { indent: true })}
                   {lineRow("Gross Profit", grossProfit, { bold: true })}
                   {lineRow("Lead Costs", -leadCost, { indent: true })}
-                  {lineRow("Commissions", -commission, { indent: true })}
-                  {lineRow("Operating Expenses", -opex, { bold: true })}
-                  {lineRow("Net Income", netIncome, { grandTotal: true })}
+                  {lineRow("Net Income Before Commission", netIncomeBeforeCommission, { bold: true })}
+                  {lineRow(
+                    <span className="flex items-center gap-1.5">
+                      Commissions
+                      {!isCompleted && <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/20">Estimated</Badge>}
+                    </span>,
+                    -commission, { indent: true }
+                  )}
+                  {lineRow("Net Income After Commission", netIncomeAfterCommission, { grandTotal: true })}
                 </tbody>
               </table>
             </div>

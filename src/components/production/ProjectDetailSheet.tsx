@@ -1910,6 +1910,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 initialBillsSubTab={initialFinanceSubTab}
                 highlightInvoiceId={highlightInvoiceId}
                 onSubTabChange={handleFinanceSubTabChange}
+                projectStatus={fullProject.project_status}
               />
             )}
           </TabsContent>
