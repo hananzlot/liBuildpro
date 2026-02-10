@@ -6526,6 +6526,44 @@ export type Database = {
           },
         ]
       }
+      user_analytics_permissions: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_visible: boolean
+          report_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_visible?: boolean
+          report_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_visible?: boolean
+          report_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_analytics_permissions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string | null

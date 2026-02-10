@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle, Trash2, Building2 } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle, Trash2, Building2, BarChart3, ChevronRight } from "lucide-react";
 import type { AppRole } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { ANALYTICS_REPORTS, useManageAnalyticsPermissions, type AnalyticsReportKey } from "@/hooks/useAnalyticsPermissions";
 
 interface UserManagementProps {
   open: boolean;
@@ -59,6 +61,56 @@ const ROLE_CONFIG: { role: AppRole; label: string; color: string }[] = [
 ];
 
 const PROFILES_QUERY_KEY = ["user-management", "profiles"] as const;
+
+// Sub-component for per-user analytics report toggles
+function UserAnalyticsToggles({ userId, isDisabled }: { userId: string; isDisabled: boolean }) {
+  const { isReportVisible, toggleReport, setAllReports, isToggling, isLoading } = useManageAnalyticsPermissions(userId);
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (isLoading) return null;
+
+  const visibleCount = ANALYTICS_REPORTS.filter(r => isReportVisible(r.key)).length;
+  const allVisible = visibleCount === ANALYTICS_REPORTS.length;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="ml-13">
+      <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-1">
+        <BarChart3 className="h-3.5 w-3.5" />
+        <span>Analytics Reports ({visibleCount}/{ANALYTICS_REPORTS.length})</span>
+        <ChevronRight className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-1">
+        <div className="space-y-1.5">
+          {/* All toggle */}
+          <div className="flex items-center gap-2 pb-1 border-b border-border">
+            <Switch
+              checked={allVisible}
+              disabled={isDisabled || isToggling}
+              onCheckedChange={(checked) => setAllReports(checked)}
+            />
+            <span className="text-xs font-medium text-muted-foreground">
+              {allVisible ? "All Reports" : "Grant All"}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-1.5">
+            {ANALYTICS_REPORTS.map((report) => (
+              <div key={report.key} className="flex items-center gap-2">
+                <Switch
+                  checked={isReportVisible(report.key)}
+                  disabled={isDisabled || isToggling}
+                  onCheckedChange={(checked) => toggleReport(report.key, checked)}
+                />
+                <span className={`text-xs ${isDisabled ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                  {report.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 const ROLES_QUERY_KEY = ["user-management", "roles"] as const;
 const COMPANIES_QUERY_KEY = ["user-management", "companies"] as const;
 
@@ -713,6 +765,12 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                         );
                       })}
                     </div>
+
+                    {/* Analytics report toggles */}
+                    <UserAnalyticsToggles 
+                      userId={profile.id} 
+                      isDisabled={isUserSuperAdmin && !isSuperAdmin}
+                    />
                   </div>
                 );
               })}

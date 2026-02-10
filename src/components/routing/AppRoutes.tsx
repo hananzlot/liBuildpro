@@ -226,31 +226,39 @@ export function AppRoutes() {
           }
           />
         
-        {/* Outstanding AR - standalone page for tabs */}
+        {/* Outstanding AR - accessible by production role or analytics permission */}
         <Route
           path="/outstanding-ar"
           element={
-            <ProtectedRoute requiredRole="production" requiredFeature="production">
+            <ProtectedRoute>
               <OutstandingAR />
             </ProtectedRoute>
           }
         />
         
-        {/* Outstanding AP - standalone page for tabs */}
+        {/* Outstanding AP - accessible by production role or analytics permission */}
         <Route
           path="/outstanding-ap"
           element={
-            <ProtectedRoute requiredRole="production" requiredFeature="production">
+            <ProtectedRoute>
               <OutstandingAP />
             </ProtectedRoute>
           }
         />
         
-        {/* Analytics - admin only standalone page */}
+        {/* Analytics - with per-tab routes */}
         <Route
           path="/analytics"
           element={
-            <ProtectedRoute allowedRoles={['admin']} requiredFeature="analytics">
+            <ProtectedRoute requiredFeature="analytics">
+              <Analytics />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics/:tab"
+          element={
+            <ProtectedRoute requiredFeature="analytics">
               <Analytics />
             </ProtectedRoute>
           }
