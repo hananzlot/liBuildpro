@@ -8,8 +8,8 @@ import {
   LayoutDashboard, 
   FolderKanban, 
   Calculator, 
-  BookOpen,
   Building2,
+  Settings,
   ArrowRight
 } from "lucide-react";
 
@@ -67,6 +67,14 @@ const Home = () => {
       path: "/estimates",
       visible: (isAdmin || isContractManager || isSuperAdmin) && canUseFeature('estimates'),
       color: "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+    },
+    {
+      title: "Admin Settings",
+      description: "Manage integrations, users, and company settings",
+      icon: Settings,
+      path: "/admin",
+      visible: isAdmin && !isSuperAdmin,
+      color: "bg-amber-500/10 text-amber-600 dark:text-amber-400"
     },
     {
       title: "Super Admin Portal",
