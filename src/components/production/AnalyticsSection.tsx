@@ -39,7 +39,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
   
   // Check if user can view profitability tab (admin only, not production-only users)
   // Also check visibleReports if provided
-  const canViewProfitability = (isAdmin || !isProduction) && (!visibleReports || visibleReports.includes('profitability'));
+  const canViewProfitability = !visibleReports || visibleReports.includes('profitability');
   const canViewCashflow = !visibleReports || visibleReports.includes('cashflow');
   const canViewReceivables = !visibleReports || visibleReports.includes('receivables');
   const canViewBank = !visibleReports || visibleReports.includes('bank');
