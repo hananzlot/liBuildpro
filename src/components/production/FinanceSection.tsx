@@ -895,15 +895,15 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     // First check if already synced (has existing sync log) — skip duplicate check
     const { data: existingLog } = await supabase
       .from("quickbooks_sync_log")
-      .select("quickbooks_id")
+      .select("quickbooks_id, sync_status")
       .eq("company_id", companyId)
       .eq("record_type", recordType)
       .eq("record_id", recordId)
-      .eq("sync_status", "synced")
+      .in("sync_status", ["synced", "pending_refresh", "deleted_in_qb"])
       .maybeSingle();
 
     if (existingLog?.quickbooks_id) {
-      // Already synced, just update
+      // Already has a QB record (even if deleted/pending), just resync
       return syncRecordToQuickBooks(recordType, recordId);
     }
 
