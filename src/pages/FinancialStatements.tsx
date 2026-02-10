@@ -9,9 +9,10 @@ import { BalanceSheet } from "@/components/production/analytics/BalanceSheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toggle } from "@/components/ui/toggle";
 import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { FileSpreadsheet, Scale, Building2, Layers, FolderKanban, Download, ListFilter } from "lucide-react";
+import { FileSpreadsheet, Scale, Building2, Layers, FolderKanban, Download } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
 
@@ -35,8 +36,8 @@ export default function FinancialStatements() {
   const [activeTab, setActiveTab] = useState(getDefaultTab());
   const [viewMode, setViewMode] = useState<"aggregate" | "per-project">("aggregate");
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [statusOptionsInitialized, setStatusOptionsInitialized] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["New", "In Progress", "Completed"]);
+  const statusOptionsInitialized = useRef(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   
@@ -73,11 +74,18 @@ export default function FinancialStatements() {
 
   // Auto-select all statuses on first load
   useEffect(() => {
-    if (!statusOptionsInitialized && statusOptions.length > 0) {
-      setSelectedStatuses(statusOptions.map(o => o.value));
-      setStatusOptionsInitialized(true);
+    if (!statusOptionsInitialized.current && statusOptions.length > 0) {
+      // Only override defaults if the default statuses don't exist in data
+      const defaults = ["New", "In Progress", "Completed"];
+      const validDefaults = defaults.filter(d => statusOptions.some(o => o.value === d));
+      if (validDefaults.length > 0) {
+        setSelectedStatuses(validDefaults);
+      } else {
+        setSelectedStatuses(statusOptions.map(o => o.value));
+      }
+      statusOptionsInitialized.current = true;
     }
-  }, [statusOptions, statusOptionsInitialized]);
+  }, [statusOptions]);
 
   // Project options for the selector
   const projectOptions = useMemo(() => {
@@ -247,14 +255,27 @@ export default function FinancialStatements() {
                 Per Project
               </Toggle>
             </div>
-            <MultiSelectFilter
-              options={statusOptions}
-              selected={selectedStatuses}
-              onChange={setSelectedStatuses}
-              placeholder="All Statuses"
-              icon={<ListFilter className="h-3.5 w-3.5" />}
-              className="w-[180px]"
-            />
+            <div className="flex flex-wrap items-center gap-1.5">
+              {statusOptions.map(opt => {
+                const isActive = selectedStatuses.includes(opt.value);
+                return (
+                  <Badge
+                    key={opt.value}
+                    variant={isActive ? "default" : "outline"}
+                    className="cursor-pointer select-none transition-colors"
+                    onClick={() => {
+                      setSelectedStatuses(prev =>
+                        prev.includes(opt.value)
+                          ? prev.filter(s => s !== opt.value)
+                          : [...prev, opt.value]
+                      );
+                    }}
+                  >
+                    {opt.label}
+                  </Badge>
+                );
+              })}
+            </div>
             {viewMode === "per-project" && (
               <MultiSelectFilter
                 options={projectOptions}
