@@ -546,7 +546,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       const bill = bills.find(b => b.id === highlightBillId);
       if (bill) {
         setActiveSubTab("bills");
-        setActiveBillsSubTab("bills");
+        setActiveBillsSubTab("history");
         setHistoryBill(bill);
         setHistoryDialogOpen(true);
       }
