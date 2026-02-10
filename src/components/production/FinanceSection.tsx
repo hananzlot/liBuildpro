@@ -1769,7 +1769,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-6xl mx-auto">
       {/* Profitability by Agreement - Collapsible */}
       {agreements.length > 0 && (
         <Collapsible defaultOpen={false}>
