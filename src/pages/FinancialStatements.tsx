@@ -307,7 +307,7 @@ export default function FinancialStatements() {
               <TabsContent value="pnl" className="mt-6">
                 <PnLStatement
                   projects={filteredProjects}
-                  allProjects={viewMode === "per-project" ? filteredProjects : projects}
+                  allProjects={filteredProjects}
                   viewMode={viewMode}
                   onProjectClick={handleProjectClick}
                 />
@@ -318,7 +318,7 @@ export default function FinancialStatements() {
               <TabsContent value="balance-sheet" className="mt-6">
                 <BalanceSheet
                   projects={filteredProjects}
-                  allProjects={viewMode === "per-project" ? filteredProjects : projects}
+                  allProjects={filteredProjects}
                   viewMode={viewMode}
                   onProjectClick={handleProjectClick}
                 />
