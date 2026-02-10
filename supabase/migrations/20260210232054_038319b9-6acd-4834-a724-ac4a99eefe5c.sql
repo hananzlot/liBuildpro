@@ -1,0 +1,1 @@
+UPDATE project_bills SET is_voided = false, voided_at = NULL, voided_by = NULL, void_reason = NULL WHERE id = 'bff21baf-28e7-429e-8e12-756ee1584cb4';
