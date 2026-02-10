@@ -3217,6 +3217,10 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         isAdmin={isAdmin}
         isSuperAdmin={isSuperAdmin}
         isQBConnected={isQBConnectedMain}
+        onSyncPayment={async (paymentId) => {
+          const result = await syncRecordToQuickBooks("bill_payment", paymentId);
+          return { synced: result.synced };
+        }}
       />
 
       {/* QB Duplicate Review Dialog */}
@@ -5304,6 +5308,7 @@ function BillPaymentHistoryDialog({
   isAdmin,
   isSuperAdmin,
   isQBConnected = false,
+  onSyncPayment,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -5313,10 +5318,12 @@ function BillPaymentHistoryDialog({
   isAdmin: boolean;
   isSuperAdmin: boolean;
   isQBConnected?: boolean;
+  onSyncPayment?: (paymentId: string) => Promise<{ synced: boolean }>;
 }) {
   const queryClient = useQueryClient();
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
   const [editingPayment, setEditingPayment] = useState<BillPayment | null>(null);
+  const [syncingPaymentId, setSyncingPaymentId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     payment_date: "",
     payment_amount: 0,
@@ -5938,8 +5945,33 @@ function BillPaymentHistoryDialog({
                                   );
                                 }
                                 return (
-                                  <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                                    Not synced
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-[10px] text-muted-foreground cursor-pointer hover:bg-muted/80 hover:text-foreground transition-colors"
+                                    onClick={async () => {
+                                      if (!onSyncPayment || syncingPaymentId) return;
+                                      setSyncingPaymentId(payment.id);
+                                      try {
+                                        const result = await onSyncPayment(payment.id);
+                                        if (result.synced) {
+                                          toast.success("Payment synced to QuickBooks");
+                                          queryClient.invalidateQueries({ queryKey: ["bill-payment-history-sync-statuses"] });
+                                          queryClient.invalidateQueries({ queryKey: ["bill-payment-sync-statuses"] });
+                                        } else {
+                                          toast.error("Failed to sync payment to QuickBooks");
+                                        }
+                                      } catch {
+                                        toast.error("Failed to sync payment");
+                                      } finally {
+                                        setSyncingPaymentId(null);
+                                      }
+                                    }}
+                                    title="Click to sync to QuickBooks"
+                                  >
+                                    {syncingPaymentId === payment.id ? (
+                                      <Loader2 className="h-2.5 w-2.5 mr-0.5 animate-spin" />
+                                    ) : null}
+                                    Unsynced
                                   </Badge>
                                 );
                               })()}
