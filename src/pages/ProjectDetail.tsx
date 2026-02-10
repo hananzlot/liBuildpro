@@ -24,6 +24,7 @@ export default function ProjectDetail() {
   const initialFinanceSubTab = (searchParams.get("financeTab") as 'bills' | 'history') || undefined;
   const initialFinanceSection = searchParams.get("financeSubTab") || undefined;
   const highlightInvoiceId = searchParams.get("highlightInvoice") || undefined;
+  const highlightBillId = searchParams.get("highlightBill") || undefined;
   
   // Fetch project data
   const { data: project, isLoading, refetch } = useQuery({
@@ -91,6 +92,7 @@ export default function ProjectDetail() {
           initialFinanceSectionTab={initialFinanceSection}
           initialFinanceSubTab={initialFinanceSubTab}
           highlightInvoiceId={highlightInvoiceId}
+          highlightBillId={highlightBillId}
           mode="page"
         />
       </div>

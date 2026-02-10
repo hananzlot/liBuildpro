@@ -93,6 +93,7 @@ interface FinanceSectionProps {
   initialSubTab?: string;
   initialBillsSubTab?: 'bills' | 'history';
   highlightInvoiceId?: string | null;
+  highlightBillId?: string | null;
   /** Callback when inner sub-tabs change (for syncing URL state) */
   onSubTabChange?: (subTab: string, billsSubTab?: 'bills' | 'history') => void;
   projectStatus?: string | null;
@@ -196,7 +197,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, onSubTabChange, projectStatus, projectName, projectAddress, customerName }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, onSubTabChange, projectStatus, projectName, projectAddress, customerName }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
@@ -278,7 +279,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       setActiveInvoicesSubTab("invoices");
     }
   }, [highlightInvoiceId]);
-  
+
+
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [prePopulatedInvoice, setPrePopulatedInvoice] = useState<Partial<Invoice> | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
@@ -537,6 +539,19 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       return data as Bill[];
     },
   });
+
+  // Auto-open bill payment history dialog when highlightBillId is set
+  useEffect(() => {
+    if (highlightBillId && bills.length > 0) {
+      const bill = bills.find(b => b.id === highlightBillId);
+      if (bill) {
+        setActiveSubTab("bills");
+        setActiveBillsSubTab("bills");
+        setHistoryBill(bill);
+        setHistoryDialogOpen(true);
+      }
+    }
+  }, [highlightBillId, bills]);
 
   // Fetch bill payments for all bills in this project
   const { data: allBillPayments = [], isLoading: loadingBillPayments } = useQuery({
