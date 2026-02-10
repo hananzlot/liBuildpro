@@ -85,17 +85,21 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
   // Sync tab changes to URL when on the /analytics route
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
-    if (tab === "bank" && !dateRange) {
+    if (tab === "bank") {
+      // Default bank to last 7 days
       const to = new Date();
       const from = new Date();
       from.setDate(from.getDate() - 7);
       setDateRange({ from, to });
+    } else {
+      // Other tabs default to all dates (no filter)
+      setDateRange(undefined);
     }
     // Only update URL if we're on an analytics route
     if (window.location.pathname.startsWith('/analytics')) {
       navigate(`/analytics/${tab}`, { replace: true });
     }
-  }, [navigate, dateRange]);
+  }, [navigate]);
 
   // Update active tab when initialTab prop changes (e.g., from URL navigation)
   useEffect(() => {
