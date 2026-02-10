@@ -567,6 +567,49 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     },
   });
 
+  // Check QB connection at FinanceSection level
+  const { data: mainQbConnection } = useQuery({
+    queryKey: ["qb-connection-status", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("quickbooks_connections")
+        .select("id, is_active")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+    staleTime: 60000,
+  });
+  const isQBConnectedMain = !!mainQbConnection?.is_active;
+
+  // Fetch QB sync status for bill payments (only when QB is connected)
+  const { data: billPaymentSyncStatuses = {} } = useQuery({
+    queryKey: ["bill-payment-sync-statuses", projectId, companyId],
+    queryFn: async () => {
+      if (!companyId) return {};
+      const billIds = allBillPayments.map((p: any) => p.id);
+      if (billIds.length === 0) return {};
+      const { data, error } = await supabase
+        .from("quickbooks_sync_log")
+        .select("record_id, sync_status, quickbooks_id")
+        .eq("company_id", companyId)
+        .eq("record_type", "bill_payment")
+        .in("record_id", billIds);
+      if (error) throw error;
+      const map: Record<string, { status: string; qbId: string | null }> = {};
+      for (const row of data || []) {
+        map[row.record_id] = { status: row.sync_status, qbId: row.quickbooks_id };
+      }
+      return map;
+    },
+    enabled: isQBConnectedMain && allBillPayments.length > 0,
+    staleTime: 30000,
+  });
+
   const { data: agreements = [], isLoading: loadingAgreements } = useQuery({
     queryKey: ["project-agreements", projectId],
     queryFn: async () => {
@@ -2350,11 +2393,13 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                       <TableHead className="text-xs">Method</TableHead>
                                       <TableHead className="text-xs">Reference</TableHead>
                                       <TableHead className="text-xs">Bank</TableHead>
+                                      {isQBConnectedMain && <TableHead className="text-xs">QB</TableHead>}
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
                                     {companyPayments.map((payment: any) => {
                                       const fullBill = bills.find(b => b.id === payment.bill_id);
+                                      const syncInfo = (billPaymentSyncStatuses as Record<string, { status: string; qbId: string | null }>)[payment.id];
                                       return (
                                         <TableRow 
                                           key={payment.id} 
@@ -2374,6 +2419,23 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                           <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
                                           <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
                                           <TableCell className="text-xs">{payment.bank?.name || payment.bank_name || "-"}</TableCell>
+                                          {isQBConnectedMain && (
+                                            <TableCell className="text-xs">
+                                              {syncInfo?.status === "synced" ? (
+                                                <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">
+                                                  <Check className="h-2.5 w-2.5 mr-0.5" />QB
+                                                </Badge>
+                                              ) : syncInfo ? (
+                                                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">
+                                                  {syncInfo.status}
+                                                </Badge>
+                                              ) : (
+                                                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                                                  Not synced
+                                                </Badge>
+                                              )}
+                                            </TableCell>
+                                          )}
                                         </TableRow>
                                       );
                                     })}
