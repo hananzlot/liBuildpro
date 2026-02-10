@@ -67,20 +67,35 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
     return permittedTabs[0] || "profitability";
   }, [initialTab, permittedTabs]);
   
-  // Filter states - default to cashflow if profitability is not accessible
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  // Filter states
+  const defaultTab = getDefaultTab();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    if (defaultTab === "bank") {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 7);
+      return { from, to };
+    }
+    return undefined;
+  });
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedSalespeople, setSelectedSalespeople] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState(getDefaultTab());
+  const [activeTab, setActiveTab] = useState(defaultTab);
 
   // Sync tab changes to URL when on the /analytics route
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
+    if (tab === "bank" && !dateRange) {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 7);
+      setDateRange({ from, to });
+    }
     // Only update URL if we're on an analytics route
     if (window.location.pathname.startsWith('/analytics')) {
       navigate(`/analytics/${tab}`, { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, dateRange]);
 
   // Update active tab when initialTab prop changes (e.g., from URL navigation)
   useEffect(() => {
