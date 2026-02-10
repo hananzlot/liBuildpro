@@ -1489,6 +1489,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 </div>
 
                 {/* Salesperson Info */}
+                <div className="max-w-6xl mx-auto">
                 <Card>
                   <CardHeader className="py-3 px-4">
                     <CardTitle className="text-xs font-medium">Sales Team</CardTitle>
@@ -1882,6 +1883,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     </div>
                   </CardContent>
                 </Card>
+                </div>
 
               </>
             )}
