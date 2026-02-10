@@ -401,7 +401,7 @@ export function BankActivitiesTab({ transactions, projects, totals, onProjectCli
                             <TableRow
                               key={t.id}
                               className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => t.project_id && onProjectClick?.(t.project_id, 'finance', undefined, 'bills', undefined, t.bill_id || undefined)}
+                              onClick={() => t.project_id && onProjectClick?.(t.project_id, 'finance', undefined, 'history', undefined, t.bill_id || undefined)}
                             >
                               <TableCell className="text-xs">{t.date ? new Date(t.date).toLocaleDateString() : '-'}</TableCell>
                               <TableCell className="text-xs font-medium max-w-[140px] truncate">{t.vendor_name || '-'}</TableCell>
