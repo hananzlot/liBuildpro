@@ -102,7 +102,7 @@ export function QBDuplicateReviewDialog({
         {/* Duplicate candidates */}
         <ScrollArea className="max-h-[40vh]">
           <RadioGroup value={selectedQbId || ""} onValueChange={setSelectedQbId} className="space-y-2">
-            {duplicates.filter((dup) => dup.amount === localAmount).map((dup) => (
+            {duplicates.map((dup) => (
               <label
                 key={dup.qbId}
                 htmlFor={`dup-${dup.qbId}`}
@@ -116,7 +116,10 @@ export function QBDuplicateReviewDialog({
                 <RadioGroupItem value={dup.qbId} id={`dup-${dup.qbId}`} className="mt-1" />
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium">{formatCurrency(dup.amount)}</span>
+                    <span className={cn("font-medium", dup.amount !== localAmount && "text-amber-600")}>{formatCurrency(dup.amount)}</span>
+                    {dup.amount !== localAmount && (
+                      <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">Amount differs</Badge>
+                    )}
                     <span className="text-muted-foreground text-xs">on {dup.date}</span>
                     <Badge variant="outline" className={cn("text-[10px] font-medium", dup.reference ? "" : "text-muted-foreground")}>
                       QB Check #: {dup.reference || "None"}
