@@ -794,16 +794,16 @@ Deno.serve(async (req) => {
           }
 
           // Check if this bill was already synced to QB.
-          // IMPORTANT: we must treat `pending_refresh` as an existing QB record too.
-          // The inbound webhook can mark records as `pending_refresh`, and if we only
-          // look for `synced`, we can incorrectly POST a *new* Bill (duplicate in QB).
+          // IMPORTANT: we must treat `pending_refresh` AND `deleted_in_qb` as existing QB records.
+          // For `deleted_in_qb`, the bill may still exist in QB (soft-delete or re-created);
+          // we'll attempt to fetch it and fall through to create if QB returns 404.
           const { data: existingSync } = await supabase
             .from("quickbooks_sync_log")
-            .select("quickbooks_id")
+            .select("quickbooks_id, sync_status")
             .eq("company_id", companyId)
             .eq("record_type", "bill")
             .eq("record_id", bill.id)
-            .in("sync_status", ["synced", "pending_refresh"])
+            .in("sync_status", ["synced", "pending_refresh", "deleted_in_qb"])
             .not("quickbooks_id", "is", null)
             .order("synced_at", { ascending: false })
             .limit(1)
@@ -931,56 +931,70 @@ Deno.serve(async (req) => {
             
             if (!fetchRes.ok) {
               const errText = await fetchRes.text();
-              console.error(`Failed to fetch existing bill ${existingQbId}:`, errText);
-              results.failed++;
-              results.errors.push(`Bill ${bill.bill_ref || bill.id}: Failed to fetch existing QB record`);
-              continue;
-            }
-            
-            const existingData = await fetchRes.json();
-            const syncToken = existingData.Bill.SyncToken;
-            const existingBillData = existingData.Bill;
-            
-            // Add Id and SyncToken for update
-            qbBill.Id = existingQbId;
-            qbBill.SyncToken = syncToken;
-            qbBill.sparse = true;
-            
-            // Preserve CustomerRef from existing line items to maintain job costing association
-            // QB requires CustomerRef to be included to maintain the project/customer link
-            if (existingBillData.Line && existingBillData.Line.length > 0) {
-              const existingLine = existingBillData.Line.find((l: any) => 
-                l.DetailType === "AccountBasedExpenseLineDetail" || l.DetailType === "ItemBasedExpenseLineDetail"
-              );
-              
-              if (existingLine) {
-                const customerRef = existingLine.AccountBasedExpenseLineDetail?.CustomerRef || 
-                                    existingLine.ItemBasedExpenseLineDetail?.CustomerRef;
-                
-                if (customerRef && qbBill.Line && qbBill.Line[0]) {
-                  // Add CustomerRef to our update payload to preserve it
-                  if (qbBill.Line[0].AccountBasedExpenseLineDetail) {
-                    qbBill.Line[0].AccountBasedExpenseLineDetail.CustomerRef = customerRef;
-                    console.log(`Preserving CustomerRef on bill update:`, customerRef);
-                  }
-                }
+              // If QB returns 404-like error (bill was truly deleted), fall through to create
+              const isDeletedInQb = fetchRes.status === 400 || fetchRes.status === 404 || errText.includes("Object Not Found");
+              if (isDeletedInQb) {
+                console.log(`QB bill ${existingQbId} no longer exists (deleted). Will create a new one.`);
+                // Fall through to CREATE below
+              } else {
+                console.error(`Failed to fetch existing bill ${existingQbId}:`, errText);
+                results.failed++;
+                results.errors.push(`Bill ${bill.bill_ref || bill.id}: Failed to fetch existing QB record`);
+                continue;
               }
             }
             
-            console.log(`Bill ${bill.bill_ref || bill.id} - Update payload:`, JSON.stringify(qbBill, null, 2));
-            
-            syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/bill`, {
-              method: "POST",
-              headers: qbHeaders,
-              body: JSON.stringify(qbBill),
-            });
-            
-            if (syncRes.ok) {
-              syncData = await syncRes.json();
-              console.log(`Updated bill in QB, ID: ${syncData.Bill.Id}`);
+            if (fetchRes.ok) {
+              const existingData = await fetchRes.json();
+              const syncToken = existingData.Bill.SyncToken;
+              const existingBillData = existingData.Bill;
+              
+              // Add Id and SyncToken for update
+              qbBill.Id = existingQbId;
+              qbBill.SyncToken = syncToken;
+              qbBill.sparse = true;
+              
+              // Preserve CustomerRef from existing line items to maintain job costing association
+              if (existingBillData.Line && existingBillData.Line.length > 0) {
+                const existingLine = existingBillData.Line.find((l: any) => 
+                  l.DetailType === "AccountBasedExpenseLineDetail" || l.DetailType === "ItemBasedExpenseLineDetail"
+                );
+                
+                if (existingLine) {
+                  const customerRef = existingLine.AccountBasedExpenseLineDetail?.CustomerRef || 
+                                      existingLine.ItemBasedExpenseLineDetail?.CustomerRef;
+                  
+                  if (customerRef && qbBill.Line && qbBill.Line[0]) {
+                    if (qbBill.Line[0].AccountBasedExpenseLineDetail) {
+                      qbBill.Line[0].AccountBasedExpenseLineDetail.CustomerRef = customerRef;
+                      console.log(`Preserving CustomerRef on bill update:`, customerRef);
+                    }
+                  }
+                }
+              }
+              
+              console.log(`Bill ${bill.bill_ref || bill.id} - Update payload:`, JSON.stringify(qbBill, null, 2));
+              
+              syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/bill`, {
+                method: "POST",
+                headers: qbHeaders,
+                body: JSON.stringify(qbBill),
+              });
+              
+              if (syncRes.ok) {
+                syncData = await syncRes.json();
+                console.log(`Updated bill in QB, ID: ${syncData.Bill.Id}`);
+              }
             }
-          } else {
-            // CREATE new bill
+          }
+          
+          if (!syncData) {
+            // CREATE new bill (either no existing QB ID, or the existing one was deleted)
+            // Clean up any stale Id/SyncToken from the update attempt
+            delete qbBill.Id;
+            delete qbBill.SyncToken;
+            delete qbBill.sparse;
+            
             console.log(`Bill ${bill.bill_ref || bill.id} - Creating new in QB:`, JSON.stringify(qbBill, null, 2));
             
             syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/bill`, {
