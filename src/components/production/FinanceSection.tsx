@@ -2211,12 +2211,13 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs">Invoice #</TableHead>
-                          <TableHead className="text-xs">Date</TableHead>
-                          <TableHead className="text-xs text-right">Amount</TableHead>
-                          <TableHead className="text-xs text-right">Balance</TableHead>
-                          {isQBConnectedMain && <TableHead className="text-xs">QB</TableHead>}
-                          <TableHead className="text-xs w-20"></TableHead>
+                          <TableHead className="text-xs w-[100px]">Invoice #</TableHead>
+                          <TableHead className="text-xs w-[100px]">Date</TableHead>
+                          <TableHead className="text-xs">Phase</TableHead>
+                          <TableHead className="text-xs text-right w-[110px]">Amount</TableHead>
+                          <TableHead className="text-xs text-right w-[110px]">Balance Due</TableHead>
+                          {isQBConnectedMain && <TableHead className="text-xs w-[70px]">QB</TableHead>}
+                          <TableHead className="text-xs w-[70px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -2229,6 +2230,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                           >
                             <TableCell className="text-xs">{inv.invoice_number || "-"}</TableCell>
                             <TableCell className="text-xs">{formatDate(inv.invoice_date)}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
                             <TableCell className="text-xs text-right">{formatCurrency2(inv.amount)}</TableCell>
                             <TableCell className="text-xs text-right">{formatCurrency2(inv.open_balance)}</TableCell>
                             {isQBConnectedMain && (
