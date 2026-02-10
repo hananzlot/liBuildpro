@@ -102,6 +102,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (recordType === "payment") {
+      const duplicates = await findPaymentDuplicates(
+        qbHeaders, realm_id, { amount, date, reference }
+      );
+
+      return new Response(
+        JSON.stringify({ success: true, duplicates }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: true, duplicates: [], message: `Record type '${recordType}' not yet supported` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -391,5 +402,124 @@ async function findBillDuplicates(
   });
 
   console.log(`Found ${candidates.length} potential bill duplicates`);
+  return candidates;
+}
+
+async function findPaymentDuplicates(
+  qbHeaders: Record<string, string>,
+  realmId: string,
+  criteria: { amount?: number; date?: string; reference?: string }
+): Promise<DuplicateCandidate[]> {
+  const { amount, date, reference } = criteria;
+
+  const conditions: string[] = [];
+
+  if (date) {
+    const targetDate = new Date(date);
+    const startDate = new Date(targetDate);
+    startDate.setDate(startDate.getDate() - 7);
+    const endDate = new Date(targetDate);
+    endDate.setDate(endDate.getDate() + 7);
+
+    conditions.push(`TxnDate >= '${startDate.toISOString().split("T")[0]}'`);
+    conditions.push(`TxnDate <= '${endDate.toISOString().split("T")[0]}'`);
+  }
+
+  let query = "SELECT * FROM Payment";
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(" AND ")}`;
+  }
+  query += " MAXRESULTS 100";
+
+  console.log("QB payment duplicate search query:", query);
+
+  const url = `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: qbHeaders });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("QB payment query error:", errText);
+    return [];
+  }
+
+  const data = await res.json();
+  const payments = data.QueryResponse?.Payment || [];
+  console.log(`Found ${payments.length} payments in QB within date range`);
+
+  const candidates: DuplicateCandidate[] = [];
+
+  for (const pmt of payments) {
+    const matchReasons: string[] = [];
+    let score = 0;
+
+    // Amount match (exact)
+    if (amount && Math.abs(pmt.TotalAmt - amount) < 0.01) {
+      score += 40;
+      matchReasons.push(`Amount matches: $${pmt.TotalAmt.toFixed(2)}`);
+    }
+
+    // Date proximity
+    if (date && pmt.TxnDate) {
+      const daysDiff = Math.abs(
+        (new Date(pmt.TxnDate).getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysDiff === 0) {
+        score += 30;
+        matchReasons.push("Exact date match");
+      } else if (daysDiff <= 1) {
+        score += 20;
+        matchReasons.push(`Date within 1 day (${pmt.TxnDate})`);
+      } else if (daysDiff <= 3) {
+        score += 10;
+        matchReasons.push(`Date within 3 days (${pmt.TxnDate})`);
+      } else {
+        matchReasons.push(`Date: ${pmt.TxnDate}`);
+      }
+    }
+
+    // Reference/PaymentRefNum match
+    const pmtRef = pmt.PaymentRefNum || null;
+    if (reference && pmtRef) {
+      if (pmtRef === reference) {
+        score += 30;
+        matchReasons.push(`Reference matches: ${pmtRef}`);
+      } else if (pmtRef.includes(reference) || reference.includes(pmtRef)) {
+        score += 15;
+        matchReasons.push(`Reference partial match: ${pmtRef}`);
+      }
+    }
+
+    // Customer match
+    const customerName = pmt.CustomerRef?.name || null;
+    if (customerName) {
+      matchReasons.push(`Customer: ${customerName}`);
+    }
+
+    if (score >= 30) {
+      let confidence: "high" | "medium" | "low" = "low";
+      if (score >= 70) confidence = "high";
+      else if (score >= 50) confidence = "medium";
+
+      candidates.push({
+        qbId: pmt.Id,
+        qbSyncToken: pmt.SyncToken,
+        amount: pmt.TotalAmt,
+        date: pmt.TxnDate,
+        reference: pmtRef,
+        vendorName: customerName,
+        vendorId: pmt.CustomerRef?.value || null,
+        payType: pmt.PaymentMethodRef?.name || null,
+        confidence,
+        matchReasons,
+      });
+    }
+  }
+
+  candidates.sort((a, b) => {
+    const confOrder = { high: 0, medium: 1, low: 2 };
+    return confOrder[a.confidence] - confOrder[b.confidence];
+  });
+
+  console.log(`Found ${candidates.length} potential payment duplicates`);
   return candidates;
 }
