@@ -72,7 +72,7 @@ const Home = () => {
       title: "Admin Settings",
       description: "Manage integrations, users, and company settings",
       icon: Settings,
-      path: "/admin",
+      path: "/admin/settings",
       visible: isAdmin && !isSuperAdmin,
       color: "bg-amber-500/10 text-amber-600 dark:text-amber-400"
     },
