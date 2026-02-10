@@ -663,18 +663,14 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       
       const items: NavItem[] = [];
       
-      // If there are visible analytics tabs, show them as sub-items under Analytics
-      if (visibleAnalyticsTabs.length > 0) {
+      // Add each visible analytics report as a direct nav item (no nested submenu)
+      for (const report of visibleAnalyticsTabs) {
         items.push({
-          title: "Analytics",
+          title: report.label,
+          url: report.route,
           icon: BarChart3,
           roles: ['super_admin', 'admin', 'production', 'dispatch', 'contract_manager', 'magazine', 'sales'],
           requiredFeature: 'analytics',
-          subItems: visibleAnalyticsTabs.map(r => ({
-            title: r.label,
-            url: r.route,
-            requiredFeature: 'analytics',
-          })),
         });
       }
       
