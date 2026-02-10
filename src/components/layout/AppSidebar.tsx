@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import { useSidebarFinancials } from "@/hooks/useSidebarFinancials";
 import { useTodayAppointmentsCount } from "@/hooks/useTodayAppointmentsCount";
 import { usePendingScopeSubmissionsCount } from "@/hooks/usePendingScopeSubmissionsCount";
 import { useAIGenerationQueue } from "@/hooks/useAIGenerationQueue";
+import { useAnalyticsPermissions, ANALYTICS_REPORTS } from "@/hooks/useAnalyticsPermissions";
 import { VersionBumpDialog } from "@/components/layout/VersionBumpDialog";
 import { AIQueueSheet } from "@/components/admin/AIQueueSheet";
 import { CompanySwitcher } from "@/components/layout/CompanySwitcher";
@@ -252,14 +253,14 @@ const navSections: NavSection[] = [
   },
   {
     label: "Analytics",
-    roles: ['super_admin', 'admin'],
+    roles: ['super_admin', 'admin', 'production', 'dispatch', 'contract_manager', 'magazine', 'sales'],
     requiredFeature: 'analytics',
     items: [
       { 
         title: "Analytics", 
         url: "/analytics", 
         icon: BarChart3,
-        roles: ['super_admin', 'admin'],
+        roles: ['super_admin', 'admin', 'production', 'dispatch', 'contract_manager', 'magazine', 'sales'],
         requiredFeature: 'analytics'
       },
     ],
@@ -314,6 +315,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { data: todayAppointmentsCount = 0 } = useTodayAppointmentsCount();
   const { data: pendingScopesCount = 0 } = usePendingScopeSubmissionsCount();
   const { activeCount: aiQueueCount } = useAIGenerationQueue();
+  const { visibleReports, hasAnyAnalyticsAccess } = useAnalyticsPermissions();
   const collapsed = state === "collapsed";
 
   // Pinned state - persisted in localStorage
@@ -643,8 +645,71 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     );
   };
 
+  // Build dynamic analytics section with sub-items based on user permissions
+  const dynamicSections = useMemo(() => {
+    return navSections.map(section => {
+      if (section.label !== "Analytics") return section;
+      
+      // If user has no analytics access at all, return section as-is (canViewSection will hide it)
+      if (!hasAnyAnalyticsAccess) return section;
+      
+      // Build sub-items from visible reports (only analytics tabs, not outstanding AP/AR)
+      const analyticsTabReports = ANALYTICS_REPORTS.filter(r => !r.key.startsWith('outstanding_'));
+      const visibleAnalyticsTabs = analyticsTabReports.filter(r => visibleReports.includes(r.key));
+      
+      // Also check outstanding AP/AR visibility  
+      const hasOutstandingAP = visibleReports.includes('outstanding_ap');
+      const hasOutstandingAR = visibleReports.includes('outstanding_ar');
+      
+      const items: NavItem[] = [];
+      
+      // If there are visible analytics tabs, show them as sub-items under Analytics
+      if (visibleAnalyticsTabs.length > 0) {
+        items.push({
+          title: "Analytics",
+          icon: BarChart3,
+          roles: ['super_admin', 'admin', 'production', 'dispatch', 'contract_manager', 'magazine', 'sales'],
+          requiredFeature: 'analytics',
+          subItems: visibleAnalyticsTabs.map(r => ({
+            title: r.label,
+            url: r.route,
+            requiredFeature: 'analytics',
+          })),
+        });
+      }
+      
+      // Add Outstanding AR/AP as separate nav items if user has access
+      if (hasOutstandingAR) {
+        items.push({
+          title: "Outstanding AR",
+          dynamicSuffix: "ar" as const,
+          url: "/outstanding-ar",
+          icon: FileText,
+          roles: ['super_admin', 'admin', 'production', 'dispatch', 'contract_manager', 'magazine', 'sales'],
+          requiredFeature: 'analytics',
+        });
+      }
+      if (hasOutstandingAP) {
+        items.push({
+          title: "Outstanding AP",
+          dynamicSuffix: "ap" as const,
+          url: "/outstanding-ap",
+          icon: Briefcase,
+          roles: ['super_admin', 'admin', 'production', 'dispatch', 'contract_manager', 'magazine', 'sales'],
+          requiredFeature: 'analytics',
+        });
+      }
+      
+      return { ...section, items };
+    });
+  }, [visibleReports, hasAnyAnalyticsAccess]);
+
   // Get visible sections
-  const visibleSections = navSections.filter(canViewSection);
+  const visibleSections = dynamicSections.filter(section => {
+    // For analytics section, also check if user has any analytics access
+    if (section.label === "Analytics" && !hasAnyAnalyticsAccess) return false;
+    return canViewSection(section);
+  });
 
   // For super admins, show warning if no company selected
   const noCompanyContext = isSuperAdmin && !company;

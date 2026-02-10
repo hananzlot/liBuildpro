@@ -25,9 +25,10 @@ interface AnalyticsSectionProps {
   initialTab?: string;
   openPayablesOnLoad?: boolean;
   initialKPI?: string;
+  visibleReports?: string[];
 }
 
-export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, reopenARSheet, onARSheetOpened, initialTab, openPayablesOnLoad, initialKPI }: AnalyticsSectionProps) {
+export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, reopenARSheet, onARSheetOpened, initialTab, openPayablesOnLoad, initialKPI, visibleReports }: AnalyticsSectionProps) {
   const { isAdmin, isProduction } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -37,7 +38,12 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
   const urlSection = searchParams.get('section');
   
   // Check if user can view profitability tab (admin only, not production-only users)
-  const canViewProfitability = isAdmin || !isProduction;
+  // Also check visibleReports if provided
+  const canViewProfitability = (isAdmin || !isProduction) && (!visibleReports || visibleReports.includes('profitability'));
+  const canViewCashflow = !visibleReports || visibleReports.includes('cashflow');
+  const canViewReceivables = !visibleReports || visibleReports.includes('receivables');
+  const canViewBank = !visibleReports || visibleReports.includes('bank');
+  const canViewCommission = !visibleReports || visibleReports.includes('commission');
   
   // Determine initial tab - use prop if provided, otherwise default based on role
   const getDefaultTab = useCallback(() => {
@@ -56,6 +62,15 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedSalespeople, setSelectedSalespeople] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState(getDefaultTab());
+
+  // Sync tab changes to URL when on the /analytics route
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab);
+    // Only update URL if we're on an analytics route
+    if (window.location.pathname.startsWith('/analytics')) {
+      navigate(`/analytics/${tab}`, { replace: true });
+    }
+  }, [navigate]);
 
   // Update active tab when initialTab prop changes (e.g., from URL navigation)
   useEffect(() => {
@@ -282,30 +297,38 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
       />
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className={`grid w-full ${canViewProfitability ? 'grid-cols-5' : 'grid-cols-4'}`}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className={`grid w-full`} style={{ gridTemplateColumns: `repeat(${[canViewProfitability, canViewCashflow, canViewReceivables, canViewBank, canViewCommission].filter(Boolean).length}, minmax(0, 1fr))` }}>
           {canViewProfitability && (
             <TabsTrigger value="profitability" className="flex items-center gap-1.5">
               <TrendingUp className="h-4 w-4" />
               <span className="hidden sm:inline">Profitability</span>
             </TabsTrigger>
           )}
-          <TabsTrigger value="cashflow" className="flex items-center gap-1.5">
-            <Wallet className="h-4 w-4" />
-            <span className="hidden sm:inline">Cash Flow</span>
-          </TabsTrigger>
-          <TabsTrigger value="receivables" className="flex items-center gap-1.5">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Receivables</span>
-          </TabsTrigger>
-          <TabsTrigger value="bank" className="flex items-center gap-1.5">
-            <Building className="h-4 w-4" />
-            <span className="hidden sm:inline">Bank Activity</span>
-          </TabsTrigger>
-          <TabsTrigger value="commission" className="flex items-center gap-1.5">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Commission</span>
-          </TabsTrigger>
+          {canViewCashflow && (
+            <TabsTrigger value="cashflow" className="flex items-center gap-1.5">
+              <Wallet className="h-4 w-4" />
+              <span className="hidden sm:inline">Cash Flow</span>
+            </TabsTrigger>
+          )}
+          {canViewReceivables && (
+            <TabsTrigger value="receivables" className="flex items-center gap-1.5">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Receivables</span>
+            </TabsTrigger>
+          )}
+          {canViewBank && (
+            <TabsTrigger value="bank" className="flex items-center gap-1.5">
+              <Building className="h-4 w-4" />
+              <span className="hidden sm:inline">Bank Activity</span>
+            </TabsTrigger>
+          )}
+          {canViewCommission && (
+            <TabsTrigger value="commission" className="flex items-center gap-1.5">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Commission</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {canViewProfitability && (
@@ -318,76 +341,79 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
           </TabsContent>
         )}
 
-        <TabsContent value="cashflow" className="mt-6">
-          <CashFlowTab
-            projects={projects}
-            totals={totals}
-            invoicesWithAging={invoicesWithAging}
-            bankTransactions={bankTransactions}
-            payablesWithCashImpact={payablesWithCashImpact}
-            cashFlowTimeline={cashFlowTimeline}
-            scheduledPayments={scheduledPayments}
-            onProjectClick={onProjectClick}
-            onSchedulePayment={handleSchedulePayment}
-            onClearSchedule={handleClearSchedule}
-            onMarkAsPaid={handleMarkAsPaid}
-            reopenPayablesSheet={reopenPayablesSheet}
-            openPayablesOnLoad={openPayablesOnLoad || urlSection === 'payables'}
-            onPayablesSheetOpened={onPayablesSheetOpened}
-            onPayablesSheetClose={() => {
-              // Navigate back to main production page when closing
-              navigate('/production', { replace: true });
-            }}
-            onPayablesSheetOpen={() => {
-              // Add section to URL when opening
-              const newParams = new URLSearchParams(searchParams);
-              newParams.set('section', 'payables');
-              setSearchParams(newParams, { replace: true });
-            }}
-            hidePayablesCloseButton={false}
-            openARKPIOnLoad={initialKPI === 'outstandingAR' || urlSection === 'ar'}
-            reopenARSheet={reopenARSheet}
-            onARSheetOpened={onARSheetOpened}
-            onARSheetClose={() => {
-              // Navigate back to main production page when closing
-              navigate('/production', { replace: true });
-            }}
-            onARSheetOpen={() => {
-              // Add section to URL when opening
-              const newParams = new URLSearchParams(searchParams);
-              newParams.set('section', 'ar');
-              setSearchParams(newParams, { replace: true });
-            }}
-          />
-        </TabsContent>
+        {canViewCashflow && (
+          <TabsContent value="cashflow" className="mt-6">
+            <CashFlowTab
+              projects={projects}
+              totals={totals}
+              invoicesWithAging={invoicesWithAging}
+              bankTransactions={bankTransactions}
+              payablesWithCashImpact={payablesWithCashImpact}
+              cashFlowTimeline={cashFlowTimeline}
+              scheduledPayments={scheduledPayments}
+              onProjectClick={onProjectClick}
+              onSchedulePayment={handleSchedulePayment}
+              onClearSchedule={handleClearSchedule}
+              onMarkAsPaid={handleMarkAsPaid}
+              reopenPayablesSheet={reopenPayablesSheet}
+              openPayablesOnLoad={openPayablesOnLoad || urlSection === 'payables'}
+              onPayablesSheetOpened={onPayablesSheetOpened}
+              onPayablesSheetClose={() => {
+                navigate('/production', { replace: true });
+              }}
+              onPayablesSheetOpen={() => {
+                const newParams = new URLSearchParams(searchParams);
+                newParams.set('section', 'payables');
+                setSearchParams(newParams, { replace: true });
+              }}
+              hidePayablesCloseButton={false}
+              openARKPIOnLoad={initialKPI === 'outstandingAR' || urlSection === 'ar'}
+              reopenARSheet={reopenARSheet}
+              onARSheetOpened={onARSheetOpened}
+              onARSheetClose={() => {
+                navigate('/production', { replace: true });
+              }}
+              onARSheetOpen={() => {
+                const newParams = new URLSearchParams(searchParams);
+                newParams.set('section', 'ar');
+                setSearchParams(newParams, { replace: true });
+              }}
+            />
+          </TabsContent>
+        )}
 
-        <TabsContent value="receivables" className="mt-6">
-          <AccountsReceivableTab
-            invoices={invoicesWithAging}
-            totals={totals}
-            onProjectClick={(projectId, invoiceId) => {
-              // Open project with finance tab, invoices sub-tab, and highlight the invoice
-              onProjectClick?.(projectId, 'finance', undefined, undefined, invoiceId);
-            }}
-          />
-        </TabsContent>
+        {canViewReceivables && (
+          <TabsContent value="receivables" className="mt-6">
+            <AccountsReceivableTab
+              invoices={invoicesWithAging}
+              totals={totals}
+              onProjectClick={(projectId, invoiceId) => {
+                onProjectClick?.(projectId, 'finance', undefined, undefined, invoiceId);
+              }}
+            />
+          </TabsContent>
+        )}
 
-        <TabsContent value="bank" className="mt-6">
-          <BankActivitiesTab
-            transactions={bankTransactions}
-            projects={projects}
-            totals={totals}
-            onProjectClick={onProjectClick}
-          />
-        </TabsContent>
+        {canViewBank && (
+          <TabsContent value="bank" className="mt-6">
+            <BankActivitiesTab
+              transactions={bankTransactions}
+              projects={projects}
+              totals={totals}
+              onProjectClick={onProjectClick}
+            />
+          </TabsContent>
+        )}
 
-        <TabsContent value="commission" className="mt-6">
-          <CommissionReportTab
-            commissionSummary={commissionSummary}
-            commissionPayments={commissionPayments}
-            totals={totals}
-          />
-        </TabsContent>
+        {canViewCommission && (
+          <TabsContent value="commission" className="mt-6">
+            <CommissionReportTab
+              commissionSummary={commissionSummary}
+              commissionPayments={commissionPayments}
+              totals={totals}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

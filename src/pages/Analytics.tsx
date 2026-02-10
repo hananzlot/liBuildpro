@@ -1,14 +1,32 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AnalyticsSection } from "@/components/production/AnalyticsSection";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { useAppTabs } from "@/contexts/AppTabsContext";
+import { useAnalyticsPermissions } from "@/hooks/useAnalyticsPermissions";
+import { useEffect } from "react";
 
 export default function Analytics() {
   const navigate = useNavigate();
   const { openTab } = useAppTabs();
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') || undefined;
+  const { tab: routeTab } = useParams<{ tab?: string }>();
+  
+  const { visibleReports, isLoading: permissionsLoading } = useAnalyticsPermissions();
+  
+  // Use route param as initial tab, fall back to search param, then first visible report
+  const initialTab = routeTab || searchParams.get('tab') || undefined;
   const initialKPI = searchParams.get('kpi') || undefined;
+
+  // Redirect to first visible report if on base /analytics route
+  useEffect(() => {
+    if (!routeTab && !permissionsLoading && visibleReports.length > 0) {
+      // Only redirect analytics tabs (not outstanding_ap/ar which have their own routes)
+      const analyticsTabs = visibleReports.filter(r => !r.startsWith('outstanding_'));
+      if (analyticsTabs.length > 0) {
+        navigate(`/analytics/${analyticsTabs[0]}`, { replace: true });
+      }
+    }
+  }, [routeTab, permissionsLoading, visibleReports, navigate]);
 
   const handleProjectClick = (
     projectId: string, 
@@ -17,7 +35,6 @@ export default function Analytics() {
     financeSubTab?: 'bills' | 'history',
     highlightInvoiceId?: string
   ) => {
-    // Build URL with query params for state
     let url = `/project/${projectId}`;
     const params = new URLSearchParams();
     if (initialTab) params.set('tab', initialTab);
@@ -28,7 +45,6 @@ export default function Analytics() {
     const queryString = params.toString();
     if (queryString) url += `?${queryString}`;
     
-    // Open as tab - projectId here is the full ID, we'd need project data for better title
     openTab(url, `Project ${projectId.slice(0, 8)}`);
   };
 
@@ -48,6 +64,7 @@ export default function Analytics() {
           onProjectClick={handleProjectClick}
           initialTab={initialTab}
           initialKPI={initialKPI}
+          visibleReports={visibleReports}
         />
       </div>
     </AppLayout>
