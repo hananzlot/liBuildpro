@@ -265,6 +265,7 @@ export default function Production() {
   const [projectInitialTab, setProjectInitialTab] = useState<string | undefined>(undefined);
   const [projectInitialFinanceSubTab, setProjectInitialFinanceSubTab] = useState<'bills' | 'history' | undefined>(undefined);
   const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null);
+  const [highlightedBillId, setHighlightedBillId] = useState<string | null>(null);
   const [returnToAfterProjectClose, setReturnToAfterProjectClose] = useState<'payables' | 'outstandingAR' | null>(null);
   const [reopenPayablesSheet, setReopenPayablesSheet] = useState(false);
   const [reopenARSheet, setReopenARSheet] = useState(false);
@@ -1343,11 +1344,12 @@ export default function Production() {
     return toTitleCase(fullName);
   };
 
-  const handleOpenProject = (project: Project, initialTab?: string, returnTo?: 'payables' | 'outstandingAR', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string) => {
+  const handleOpenProject = (project: Project, initialTab?: string, returnTo?: 'payables' | 'outstandingAR', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string, highlightBillId?: string) => {
     setProjectInitialTab(initialTab);
     setProjectInitialFinanceSubTab(financeSubTab);
     setReturnToAfterProjectClose(returnTo || null);
     setHighlightedInvoiceId(highlightInvoiceId || null);
+    setHighlightedBillId(highlightBillId || null);
     
     // Build the URL with optional query params
     let url = `/project/${project.id}`;
@@ -1355,6 +1357,7 @@ export default function Production() {
     if (initialTab) params.set('tab', initialTab);
     if (financeSubTab) params.set('financeTab', financeSubTab);
     if (highlightInvoiceId) params.set('highlightInvoice', highlightInvoiceId);
+    if (highlightBillId) params.set('highlightBill', highlightBillId);
     if (params.toString()) url += `?${params.toString()}`;
     
     // Open in a new tab using the full-page route
@@ -2321,10 +2324,10 @@ export default function Production() {
 
           {activeView === 'analytics' && (
             <AnalyticsSection 
-              onProjectClick={(projectId, initialTab, returnTo, financeSubTab, highlightInvoiceId) => {
+              onProjectClick={(projectId, initialTab, returnTo, financeSubTab, highlightInvoiceId, highlightBillId) => {
                 const project = projects.find(p => p.id === projectId);
                 if (project) {
-                  handleOpenProject(project, initialTab, returnTo, financeSubTab, highlightInvoiceId);
+                  handleOpenProject(project, initialTab, returnTo, financeSubTab, highlightInvoiceId, highlightBillId);
                 }
               }}
               reopenPayablesSheet={reopenPayablesSheet}
@@ -2388,6 +2391,7 @@ export default function Production() {
               setProjectInitialFinanceSubTab(undefined);
               setReturnToAfterProjectClose(null);
               setHighlightedInvoiceId(null);
+              setHighlightedBillId(null);
             }
           }}
           onUpdate={refetch}
@@ -2396,6 +2400,7 @@ export default function Production() {
           initialTab={projectInitialTab}
           initialFinanceSubTab={projectInitialFinanceSubTab}
           highlightInvoiceId={highlightedInvoiceId}
+          highlightBillId={highlightedBillId}
         />
 
         {/* New Project Dialog */}
