@@ -683,6 +683,29 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     staleTime: 30000,
   });
 
+  // Fetch QB sync status for bills
+  const { data: billSyncStatuses = {} } = useQuery({
+    queryKey: ["bill-sync-statuses", projectId, companyId],
+    queryFn: async () => {
+      if (!companyId || bills.length === 0) return {};
+      const ids = bills.map((b: any) => b.id);
+      const { data, error } = await supabase
+        .from("quickbooks_sync_log")
+        .select("record_id, sync_status, quickbooks_id")
+        .eq("company_id", companyId)
+        .eq("record_type", "bill")
+        .in("record_id", ids);
+      if (error) throw error;
+      const map: Record<string, { status: string; qbId: string | null }> = {};
+      for (const row of data || []) {
+        map[row.record_id] = { status: row.sync_status, qbId: row.quickbooks_id };
+      }
+      return map;
+    },
+    enabled: isQBConnectedMain && bills.length > 0,
+    staleTime: 30000,
+  });
+
   const { data: agreements = [], isLoading: loadingAgreements } = useQuery({
     queryKey: ["project-agreements", projectId],
     queryFn: async () => {
@@ -2452,6 +2475,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                       <TableHead className="text-xs text-right">Amount</TableHead>
                                       <TableHead className="text-xs text-right">Paid</TableHead>
                                       <TableHead className="text-xs text-right">Balance</TableHead>
+                                      {isQBConnectedMain && <TableHead className="text-xs">QB</TableHead>}
                                       <TableHead className="text-xs w-10"></TableHead>
                                       <TableHead className="text-xs w-40"></TableHead>
                                     </TableRow>
@@ -2505,6 +2529,28 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                         <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
                                           {formatCurrency2(bill.balance)}
                                         </TableCell>
+                                        {isQBConnectedMain && (
+                                          <TableCell className="text-xs">
+                                            {(() => {
+                                              const syncInfo = (billSyncStatuses as Record<string, { status: string; qbId: string | null }>)[bill.id];
+                                              if (syncInfo?.status === "synced") return (
+                                                <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">
+                                                  <Check className="h-2.5 w-2.5 mr-0.5" />QB
+                                                </Badge>
+                                              );
+                                              if (syncInfo) return (
+                                                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">
+                                                  {syncInfo.status}
+                                                </Badge>
+                                              );
+                                              return (
+                                                <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                                                  Unsynced
+                                                </Badge>
+                                              );
+                                            })()}
+                                          </TableCell>
+                                        )}
                                         <TableCell>
                                           {bill.attachment_url && (
                                             <Button
