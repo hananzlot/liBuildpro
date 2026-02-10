@@ -45,17 +45,25 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
   const canViewBank = !visibleReports || visibleReports.includes('bank');
   const canViewCommission = !visibleReports || visibleReports.includes('commission');
   
-  // Determine initial tab - use prop if provided, otherwise default based on role
+  // Build ordered list of permitted tabs
+  const permittedTabs = useMemo(() => {
+    const all = [
+      { key: "profitability", allowed: canViewProfitability },
+      { key: "cashflow", allowed: canViewCashflow },
+      { key: "receivables", allowed: canViewReceivables },
+      { key: "bank", allowed: canViewBank },
+      { key: "commission", allowed: canViewCommission },
+    ];
+    return all.filter(t => t.allowed).map(t => t.key);
+  }, [canViewProfitability, canViewCashflow, canViewReceivables, canViewBank, canViewCommission]);
+
+  // Determine initial tab - use prop if provided and permitted, otherwise first permitted tab
   const getDefaultTab = useCallback(() => {
-    if (initialTab && ['profitability', 'cashflow', 'receivables', 'bank', 'commission'].includes(initialTab)) {
-      // If profitability requested but user can't view it, fall back to cashflow
-      if (initialTab === 'profitability' && !canViewProfitability) {
-        return 'cashflow';
-      }
+    if (initialTab && permittedTabs.includes(initialTab)) {
       return initialTab;
     }
-    return canViewProfitability ? "profitability" : "cashflow";
-  }, [initialTab, canViewProfitability]);
+    return permittedTabs[0] || "profitability";
+  }, [initialTab, permittedTabs]);
   
   // Filter states - default to cashflow if profitability is not accessible
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
