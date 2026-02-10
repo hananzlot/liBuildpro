@@ -5499,6 +5499,7 @@ function BillPaymentHistoryDialog({
       toast.success("Linked to existing QuickBooks record");
       queryClient.invalidateQueries({ queryKey: ["qb-sync-status"] });
       queryClient.invalidateQueries({ queryKey: ["bill-payment-sync-statuses"] });
+      queryClient.invalidateQueries({ queryKey: ["bill-payment-history-sync-statuses"] });
       qbDupResolveRef.current?.({ synced: true });
     } catch (err) {
       console.error("Failed to link QB record:", err);
@@ -5518,6 +5519,11 @@ function BillPaymentHistoryDialog({
     setQbDupDialogOpen(false);
     setQbDupState(null);
     const result = await syncBillPaymentToQB(paymentId);
+    if (result.synced) {
+      queryClient.invalidateQueries({ queryKey: ["bill-payment-sync-statuses"] });
+      queryClient.invalidateQueries({ queryKey: ["bill-payment-history-sync-statuses"] });
+      queryClient.invalidateQueries({ queryKey: ["qb-sync-status"] });
+    }
     qbDupResolveRef.current?.(result);
     qbDupResolveRef.current = null;
   };
