@@ -886,7 +886,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
   // Helper to check for QB duplicates before syncing a bill or bill payment
   const checkQbDuplicatesAndSync = async (
-    recordType: "bill" | "bill_payment",
+    recordType: "bill" | "bill_payment" | "payment",
     recordId: string,
     checkData: { amount: number; date: string; reference: string | null; vendorName: string | null; paymentMethod?: string | null }
   ): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
@@ -1192,11 +1192,17 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         }
       }
 
-      // Sync to QuickBooks if connected (with confirmation for new customers)
+      // Sync to QuickBooks if connected — check for duplicates first
       let qbSynced = false;
       let qbNewEntities: { type: string; name: string }[] = [];
       if (savedRecordId) {
-        const qbResult = await syncWithConfirmation("payment", savedRecordId);
+        const qbResult = await checkQbDuplicatesAndSync("payment", savedRecordId, {
+          amount: payment.payment_amount || 0,
+          date: (editingPayment?.projected_received_date || payment.projected_received_date || new Date().toISOString()).slice(0, 10),
+          reference: payment.check_number || null,
+          vendorName: null,
+          paymentMethod: payment.payment_schedule || null,
+        });
         qbSynced = qbResult.synced;
         qbNewEntities = qbResult.newEntities || [];
       }

@@ -73,7 +73,7 @@ export function QBDuplicateReviewDialog({
     }
   };
 
-  const recordLabel = recordType === "bill_payment" ? "Bill Payment" : recordType;
+  const recordLabel = recordType === "bill_payment" ? "Bill Payment" : recordType === "payment" ? "Payment" : recordType;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel(); onOpenChange(o); }}>
