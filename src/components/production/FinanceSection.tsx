@@ -864,7 +864,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const checkQbDuplicatesAndSync = async (
     recordType: "bill" | "bill_payment",
     recordId: string,
-    checkData: { amount: number; date: string; reference: string | null; vendorName: string | null }
+    checkData: { amount: number; date: string; reference: string | null; vendorName: string | null; paymentMethod?: string | null }
   ): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
     if (!companyId) return { synced: false };
 
@@ -893,6 +893,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           date: checkData.date,
           reference: checkData.reference,
           vendorName: checkData.vendorName,
+          paymentMethod: checkData.paymentMethod || null,
         },
       });
 
@@ -1414,6 +1415,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           date: payment.payment_date || "",
           reference: payment.payment_reference || null,
           vendorName: billForVendor?.installer_company || null,
+          paymentMethod: payment.payment_method || null,
         });
       }
       return { qbSynced: billPaymentQbResult.synced || billQbResult.synced };
@@ -5446,7 +5448,7 @@ function BillPaymentHistoryDialog({
   };
 
   // Helper to check for QB duplicates before syncing a bill payment
-  const checkAndSyncBillPayment = async (paymentId: string, amount: number, date: string, reference: string | null): Promise<{ synced: boolean }> => {
+  const checkAndSyncBillPayment = async (paymentId: string, amount: number, date: string, reference: string | null, paymentMethod?: string | null): Promise<{ synced: boolean }> => {
     if (!companyId) return { synced: false };
 
     // Check if sync log already exists (already synced)
@@ -5474,6 +5476,7 @@ function BillPaymentHistoryDialog({
           date,
           reference,
           vendorName: bill?.installer_company || null,
+          paymentMethod: paymentMethod || null,
         },
       });
 
@@ -5682,6 +5685,7 @@ function BillPaymentHistoryDialog({
         updates.payment_amount ?? originalPayment.payment_amount ?? 0,
         updates.payment_date ?? originalPayment.payment_date ?? "",
         updates.payment_reference ?? originalPayment.payment_reference ?? null,
+        updates.payment_method ?? originalPayment.payment_method ?? null,
       );
       return { qbSynced: qbResult.synced };
     },

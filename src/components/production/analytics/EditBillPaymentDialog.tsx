@@ -154,6 +154,7 @@ export function EditBillPaymentDialog({
           date: format(data.paymentDate, "yyyy-MM-dd"),
           reference: data.paymentReference || null,
           vendorName: payment.bill?.installer_company || null,
+          paymentMethod: paymentMethod || null,
         },
       });
 

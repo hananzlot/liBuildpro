@@ -9,15 +9,16 @@ const QB_BASE_URL = "https://quickbooks.api.intuit.com/v3/company";
 
 /**
  * Find potential duplicate records in QuickBooks before syncing.
- * Supports: bill_payment (more types can be added later).
+ * Supports: bill_payment, bill
  *
  * Request body:
  *   companyId: string
- *   recordType: "bill_payment"
+ *   recordType: "bill_payment" | "bill"
  *   amount: number
  *   date: string (YYYY-MM-DD)
  *   reference?: string (check #, doc number)
  *   vendorName?: string
+ *   paymentMethod?: string (e.g. "Credit Card", "Check", "ACH")
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { companyId, recordType, amount, date, reference, vendorName } = await req.json();
+    const { companyId, recordType, amount, date, reference, vendorName, paymentMethod } = await req.json();
 
     if (!companyId || !recordType) {
       return new Response(
@@ -81,6 +82,17 @@ Deno.serve(async (req) => {
 
     if (recordType === "bill_payment") {
       const duplicates = await findBillPaymentDuplicates(
+        qbHeaders, realm_id, { amount, date, reference, vendorName, paymentMethod }
+      );
+
+      return new Response(
+        JSON.stringify({ success: true, duplicates }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (recordType === "bill") {
+      const duplicates = await findBillDuplicates(
         qbHeaders, realm_id, { amount, date, reference, vendorName }
       );
 
@@ -119,9 +131,12 @@ interface DuplicateCandidate {
 async function findBillPaymentDuplicates(
   qbHeaders: Record<string, string>,
   realmId: string,
-  criteria: { amount?: number; date?: string; reference?: string; vendorName?: string }
+  criteria: { amount?: number; date?: string; reference?: string; vendorName?: string; paymentMethod?: string }
 ): Promise<DuplicateCandidate[]> {
-  const { amount, date, reference, vendorName } = criteria;
+  const { amount, date, reference, vendorName, paymentMethod } = criteria;
+
+  // Determine expected PayType based on payment method
+  const isCreditCard = paymentMethod?.toLowerCase() === "credit card";
 
   // Build QB query - search for bill payments within a date range
   // QB BillPayment query supports TxnDate, VendorRef, TotalAmt
@@ -164,6 +179,10 @@ async function findBillPaymentDuplicates(
   const candidates: DuplicateCandidate[] = [];
 
   for (const bp of billPayments) {
+    // Filter by PayType if payment method was specified
+    if (isCreditCard && bp.PayType !== "CreditCard") continue;
+    if (!isCreditCard && paymentMethod && bp.PayType === "CreditCard") continue;
+
     const matchReasons: string[] = [];
     let score = 0;
 
@@ -245,5 +264,132 @@ async function findBillPaymentDuplicates(
   });
 
   console.log(`Found ${candidates.length} potential duplicates`);
+  return candidates;
+}
+
+async function findBillDuplicates(
+  qbHeaders: Record<string, string>,
+  realmId: string,
+  criteria: { amount?: number; date?: string; reference?: string; vendorName?: string }
+): Promise<DuplicateCandidate[]> {
+  const { amount, date, reference, vendorName } = criteria;
+
+  const conditions: string[] = [];
+
+  // Date range: ±7 days from the target date
+  if (date) {
+    const targetDate = new Date(date);
+    const startDate = new Date(targetDate);
+    startDate.setDate(startDate.getDate() - 7);
+    const endDate = new Date(targetDate);
+    endDate.setDate(endDate.getDate() + 7);
+
+    conditions.push(`TxnDate >= '${startDate.toISOString().split("T")[0]}'`);
+    conditions.push(`TxnDate <= '${endDate.toISOString().split("T")[0]}'`);
+  }
+
+  let query = "SELECT * FROM Bill";
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(" AND ")}`;
+  }
+  query += " MAXRESULTS 100";
+
+  console.log("QB bill duplicate search query:", query);
+
+  const url = `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: qbHeaders });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("QB bill query error:", errText);
+    return [];
+  }
+
+  const data = await res.json();
+  const bills = data.QueryResponse?.Bill || [];
+  console.log(`Found ${bills.length} bills in QB within date range`);
+
+  const candidates: DuplicateCandidate[] = [];
+
+  for (const bill of bills) {
+    const matchReasons: string[] = [];
+    let score = 0;
+
+    // Amount match (exact)
+    if (amount && Math.abs(bill.TotalAmt - amount) < 0.01) {
+      score += 40;
+      matchReasons.push(`Amount matches: $${bill.TotalAmt.toFixed(2)}`);
+    }
+
+    // Date proximity
+    if (date && bill.TxnDate) {
+      const daysDiff = Math.abs(
+        (new Date(bill.TxnDate).getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysDiff === 0) {
+        score += 30;
+        matchReasons.push("Exact date match");
+      } else if (daysDiff <= 1) {
+        score += 20;
+        matchReasons.push(`Date within 1 day (${bill.TxnDate})`);
+      } else if (daysDiff <= 3) {
+        score += 10;
+        matchReasons.push(`Date within 3 days (${bill.TxnDate})`);
+      } else {
+        matchReasons.push(`Date: ${bill.TxnDate}`);
+      }
+    }
+
+    // Reference/DocNumber match
+    if (reference && bill.DocNumber) {
+      if (bill.DocNumber === reference) {
+        score += 30;
+        matchReasons.push(`Reference matches: ${bill.DocNumber}`);
+      } else if (bill.DocNumber.includes(reference) || reference.includes(bill.DocNumber)) {
+        score += 15;
+        matchReasons.push(`Reference partial match: ${bill.DocNumber}`);
+      }
+    }
+
+    // Vendor match
+    const billVendorName = bill.VendorRef?.name || null;
+    if (vendorName && billVendorName) {
+      const normalizedVendor = vendorName.toLowerCase().trim();
+      const normalizedBillVendor = billVendorName.toLowerCase().trim();
+      if (normalizedVendor === normalizedBillVendor) {
+        score += 20;
+        matchReasons.push(`Vendor matches: ${billVendorName}`);
+      } else if (normalizedBillVendor.includes(normalizedVendor) || normalizedVendor.includes(normalizedBillVendor)) {
+        score += 10;
+        matchReasons.push(`Vendor partial match: ${billVendorName}`);
+      }
+    }
+
+    if (score >= 30) {
+      let confidence: "high" | "medium" | "low" = "low";
+      if (score >= 70) confidence = "high";
+      else if (score >= 50) confidence = "medium";
+
+      candidates.push({
+        qbId: bill.Id,
+        qbSyncToken: bill.SyncToken,
+        amount: bill.TotalAmt,
+        date: bill.TxnDate,
+        reference: bill.DocNumber || null,
+        vendorName: billVendorName,
+        vendorId: bill.VendorRef?.value || null,
+        payType: null,
+        confidence,
+        matchReasons,
+      });
+    }
+  }
+
+  candidates.sort((a, b) => {
+    const confOrder = { high: 0, medium: 1, low: 2 };
+    return confOrder[a.confidence] - confOrder[b.confidence];
+  });
+
+  console.log(`Found ${candidates.length} potential bill duplicates`);
   return candidates;
 }
