@@ -31,13 +31,14 @@ const PERMISSIONS_QUERY_KEY = "analytics-permissions";
 
 /**
  * Hook to check which analytics reports the current user can see.
- * Admin/super_admin see all by default; other roles see none unless explicitly granted.
+ * Admin/super_admin see all by default; other roles check role-based defaults,
+ * then per-user overrides take priority.
  */
 export function useAnalyticsPermissions() {
-  const { user, isAdmin, isSuperAdmin } = useAuth();
+  const { user, isAdmin, isSuperAdmin, userRoles } = useAuth();
   const { companyId } = useCompanyContext();
 
-  const { data: permissions = [], isLoading } = useQuery({
+  const { data: permissions = [], isLoading: permissionsLoading } = useQuery({
     queryKey: [PERMISSIONS_QUERY_KEY, user?.id, companyId],
     queryFn: async () => {
       if (!user?.id || !companyId) return [];
@@ -55,6 +56,34 @@ export function useAnalyticsPermissions() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch role-based defaults from company_settings
+  const { data: roleDefaults, isLoading: roleDefaultsLoading } = useQuery({
+    queryKey: ["analytics-role-defaults", companyId],
+    queryFn: async () => {
+      if (!companyId) return {};
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "analytics_role_defaults")
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data?.setting_value) {
+        try {
+          return JSON.parse(data.setting_value) as Record<string, AnalyticsReportKey[]>;
+        } catch {
+          return {};
+        }
+      }
+      return {};
+    },
+    enabled: !!companyId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isLoading = permissionsLoading || roleDefaultsLoading;
+
   // Determine visible reports
   const visibleReports: AnalyticsReportKey[] = (() => {
     // If admin/super_admin with no overrides, show all
@@ -71,10 +100,26 @@ export function useAnalyticsPermissions() {
         .map(r => r.key);
     }
 
-    // Non-admin: only show explicitly granted reports
-    return permissions
-      .filter(p => p.is_visible)
-      .map(p => p.report_key as AnalyticsReportKey);
+    // Non-admin: if per-user overrides exist, use them
+    if (permissions.length > 0) {
+      return permissions
+        .filter(p => p.is_visible)
+        .map(p => p.report_key as AnalyticsReportKey);
+    }
+
+    // Fall back to role-based defaults
+    if (roleDefaults && userRoles.length > 0) {
+      const merged = new Set<AnalyticsReportKey>();
+      for (const role of userRoles) {
+        const defaults = roleDefaults[role];
+        if (defaults) {
+          defaults.forEach(k => merged.add(k));
+        }
+      }
+      return Array.from(merged);
+    }
+
+    return [];
   })();
 
   const canViewReport = (reportKey: AnalyticsReportKey): boolean => {
