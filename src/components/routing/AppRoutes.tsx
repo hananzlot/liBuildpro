@@ -4,6 +4,7 @@ import Dashboard from "@/pages/Index";
 import Auth from "@/pages/Auth";
 import Production from "@/pages/Production";
 import Analytics from "@/pages/Analytics";
+import FinancialStatements from "@/pages/FinancialStatements";
 import AuditLog from "@/pages/AuditLog";
 import FollowUp from "@/pages/FollowUp";
 import MagazineSales from "@/pages/MagazineSales";
@@ -242,6 +243,24 @@ export function AppRoutes() {
           element={
             <ProtectedRoute>
               <OutstandingAP />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Financial Statements - P&L and Balance Sheet */}
+        <Route
+          path="/analytics/pnl"
+          element={
+            <ProtectedRoute requiredFeature="analytics">
+              <FinancialStatements />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics/balance-sheet"
+          element={
+            <ProtectedRoute requiredFeature="analytics">
+              <FinancialStatements />
             </ProtectedRoute>
           }
         />
