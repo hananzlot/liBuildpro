@@ -29,7 +29,7 @@ interface AnalyticsSectionProps {
 }
 
 export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, reopenARSheet, onARSheetOpened, initialTab, openPayablesOnLoad, initialKPI, visibleReports }: AnalyticsSectionProps) {
-  const { isAdmin, isProduction } = useAuth();
+  const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
