@@ -10,6 +10,8 @@ export const ANALYTICS_REPORTS = [
   { key: "receivables", label: "Accounts Receivable", route: "/analytics/receivables" },
   { key: "bank", label: "Bank Activity", route: "/analytics/bank" },
   { key: "commission", label: "Commission Report", route: "/analytics/commission" },
+  { key: "pnl", label: "P&L Statement", route: "/analytics/pnl" },
+  { key: "balance_sheet", label: "Balance Sheet", route: "/analytics/balance-sheet" },
   { key: "outstanding_ap", label: "Outstanding AP", route: "/outstanding-ap" },
   { key: "outstanding_ar", label: "Outstanding AR", route: "/outstanding-ar" },
 ] as const;
@@ -18,7 +20,7 @@ export type AnalyticsReportKey = typeof ANALYTICS_REPORTS[number]["key"];
 
 // Admin and super_admin see all reports by default
 const ADMIN_DEFAULT_REPORTS: AnalyticsReportKey[] = [
-  "profitability", "cashflow", "receivables", "bank", "commission", "outstanding_ap", "outstanding_ar"
+  "profitability", "cashflow", "receivables", "bank", "commission", "pnl", "balance_sheet", "outstanding_ap", "outstanding_ar"
 ];
 
 interface AnalyticsPermission {
