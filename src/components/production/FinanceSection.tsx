@@ -6573,7 +6573,13 @@ function ProjectFinancialStatements({
                   )}
                   {lineRow("Gross Income After Commission", grossIncomeAfterCommission, { bold: true })}
                   {lineRow("Lead Cost Income", leadCost, { indent: true })}
-                  {lineRow("Net Income", netIncome, { grandTotal: true })}
+                  {lineRow(
+                    <span className="flex items-center gap-1.5">
+                      Net Income
+                      {!isCompleted && <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/20">Estimated</Badge>}
+                    </span>,
+                    netIncome, { grandTotal: true }
+                  )}
                 </tbody>
               </table>
             </div>
