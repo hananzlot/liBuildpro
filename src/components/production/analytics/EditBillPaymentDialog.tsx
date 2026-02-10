@@ -37,6 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { QBDuplicateReviewDialog } from "./QBDuplicateReviewDialog";
 
 interface BillPaymentData {
   id: string;
@@ -89,6 +90,15 @@ export function EditBillPaymentDialog({
   const [bankSearch, setBankSearch] = useState("");
   const [bankOpen, setBankOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [qbDuplicateDialogOpen, setQbDuplicateDialogOpen] = useState(false);
+  const [qbDuplicateState, setQbDuplicateState] = useState<{
+    duplicates: any[];
+    localAmount: number;
+    localDate: string;
+    localReference: string | null;
+    paymentId: string;
+  } | null>(null);
+  const [qbDuplicateLinking, setQbDuplicateLinking] = useState(false);
 
   // Fetch banks
   const { data: banks = [] } = useQuery({
@@ -107,6 +117,115 @@ export function EditBillPaymentDialog({
   });
 
 
+  // Check for QB duplicates and sync after update
+  const checkAndSyncToQB = async (paymentId: string, data: { paymentDate: Date; amount: number; paymentReference: string }) => {
+    if (!companyId || !payment) return;
+
+    // Check if sync log already exists (already synced)
+    const { data: existingSync } = await supabase
+      .from("quickbooks_sync_log")
+      .select("id, quickbooks_id")
+      .eq("company_id", companyId)
+      .eq("record_type", "bill_payment")
+      .eq("record_id", paymentId)
+      .eq("sync_status", "synced")
+      .maybeSingle();
+
+    if (existingSync?.quickbooks_id) {
+      // Already synced — just re-sync the update
+      const { data: result, error } = await supabase.functions.invoke("sync-to-quickbooks", {
+        body: { companyId, syncType: "bill_payment", recordId: paymentId },
+      });
+      if (!error && result?.synced > 0) {
+        toast.success("Payment synced to QuickBooks");
+      } else if (result?.errors?.length) {
+        toast.error(`QB sync error: ${result.errors[0]}`, { duration: Infinity });
+      }
+      return;
+    }
+
+    // No existing sync — check for duplicates
+    try {
+      const { data: dupResult, error: dupError } = await supabase.functions.invoke("quickbooks-find-duplicates", {
+        body: {
+          companyId,
+          recordType: "bill_payment",
+          amount: data.amount,
+          date: format(data.paymentDate, "yyyy-MM-dd"),
+          reference: data.paymentReference || null,
+          vendorName: payment.bill?.installer_company || null,
+        },
+      });
+
+      if (dupError) {
+        console.error("Duplicate check failed:", dupError);
+        // Fall through to direct sync
+      } else if (dupResult?.duplicates?.length > 0) {
+        // Show duplicate review dialog
+        setQbDuplicateState({
+          duplicates: dupResult.duplicates,
+          localAmount: data.amount,
+          localDate: format(data.paymentDate, "yyyy-MM-dd"),
+          localReference: data.paymentReference || null,
+          paymentId,
+        });
+        setQbDuplicateDialogOpen(true);
+        return; // Don't close the main dialog yet
+      }
+    } catch (err) {
+      console.error("Duplicate check error:", err);
+    }
+
+    // No duplicates found — sync directly
+    const { data: result, error } = await supabase.functions.invoke("sync-to-quickbooks", {
+      body: { companyId, syncType: "bill_payment", recordId: paymentId },
+    });
+    if (!error && result?.synced > 0) {
+      toast.success("Payment synced to QuickBooks");
+    } else if (result?.errors?.length) {
+      toast.error(`QB sync error: ${result.errors[0]}`, { duration: Infinity });
+    }
+  };
+
+  const handleQbDuplicateLink = async (qbId: string) => {
+    if (!qbDuplicateState || !companyId) return;
+    setQbDuplicateLinking(true);
+    try {
+      await supabase.from("quickbooks_sync_log").upsert({
+        company_id: companyId,
+        record_type: "bill_payment",
+        record_id: qbDuplicateState.paymentId,
+        quickbooks_id: qbId,
+        sync_status: "synced",
+        synced_at: new Date().toISOString(),
+      }, { onConflict: "company_id,record_type,record_id" });
+      toast.success("Linked to existing QuickBooks record");
+      queryClient.invalidateQueries({ queryKey: ["qb-sync-status"] });
+      queryClient.invalidateQueries({ queryKey: ["bill-payment-sync-statuses"] });
+    } catch (err) {
+      console.error("Failed to link QB record:", err);
+      toast.error("Failed to link to QuickBooks record");
+    } finally {
+      setQbDuplicateLinking(false);
+      setQbDuplicateDialogOpen(false);
+      setQbDuplicateState(null);
+    }
+  };
+
+  const handleQbDuplicateCreateNew = async () => {
+    if (!qbDuplicateState || !companyId) return;
+    setQbDuplicateDialogOpen(false);
+    setQbDuplicateState(null);
+    const { data: result, error } = await supabase.functions.invoke("sync-to-quickbooks", {
+      body: { companyId, syncType: "bill_payment", recordId: qbDuplicateState.paymentId },
+    });
+    if (!error && result?.synced > 0) {
+      toast.success("Payment synced to QuickBooks");
+    } else if (result?.errors?.length) {
+      toast.error(`QB sync error: ${result.errors[0]}`, { duration: Infinity });
+    }
+  };
+
   // Update payment mutation
   const updateMutation = useMutation({
     mutationFn: async (data: { paymentDate: Date; amount: number; bankId: string | null; bankName: string; paymentMethod: string; paymentReference: string }) => {
@@ -117,14 +236,15 @@ export function EditBillPaymentDialog({
           payment_date: format(data.paymentDate, 'yyyy-MM-dd'),
           payment_amount: data.amount,
           bank_id: data.bankId,
-          bank_name: data.bankName, // Keep for backward compatibility
+          bank_name: data.bankName,
           payment_method: data.paymentMethod,
           payment_reference: data.paymentReference,
         })
         .eq("id", payment.id);
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Payment updated");
       queryClient.invalidateQueries({ queryKey: ["paid-bills"] });
       queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
@@ -132,6 +252,10 @@ export function EditBillPaymentDialog({
       queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
       onSuccess?.();
       onOpenChange(false);
+      // Trigger QB sync check in the background
+      if (payment) {
+        checkAndSyncToQB(payment.id, data);
+      }
     },
     onError: (error) => toast.error(`Failed to update: ${error.message}`),
   });
@@ -432,6 +556,26 @@ export function EditBillPaymentDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* QB Duplicate Review Dialog */}
+      {qbDuplicateState && (
+        <QBDuplicateReviewDialog
+          open={qbDuplicateDialogOpen}
+          onOpenChange={setQbDuplicateDialogOpen}
+          duplicates={qbDuplicateState.duplicates}
+          recordType="bill_payment"
+          localAmount={qbDuplicateState.localAmount}
+          localDate={qbDuplicateState.localDate}
+          localReference={qbDuplicateState.localReference}
+          onLink={handleQbDuplicateLink}
+          onCreateNew={handleQbDuplicateCreateNew}
+          onCancel={() => {
+            setQbDuplicateDialogOpen(false);
+            setQbDuplicateState(null);
+          }}
+          isLinking={qbDuplicateLinking}
+        />
+      )}
     </>
   );
 }
