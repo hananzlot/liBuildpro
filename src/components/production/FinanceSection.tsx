@@ -1873,13 +1873,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     setDeleteDialogOpen(true);
   };
 
-  // Check if bill has payments before allowing edit
+  // Allow editing bill metadata even if payments exist
   const handleEditBillClick = async (bill: Bill) => {
-    // If bill has any amount paid, prevent editing
-    if ((bill.amount_paid || 0) > 0) {
-      toast.error(`Cannot edit bill: ${formatCurrency(bill.amount_paid)} in payments have been recorded. Please void or remove payments first.`);
-      return;
-    }
     setEditingBill(bill);
     setBillDialogOpen(true);
   };
