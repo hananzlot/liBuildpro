@@ -300,7 +300,7 @@ export default function FinancialStatements() {
             )}
           </TabsList>
 
-          <div className="flex flex-nowrap items-center justify-center gap-1.5 mt-3 overflow-x-auto">
+          <div className="flex flex-nowrap items-center justify-center gap-1.5 mt-3 w-screen max-w-none relative left-1/2 -translate-x-1/2 px-4">
             {[...statusOptions]
               .sort((a, b) => {
                 const aSelected = selectedStatuses.includes(a.value) ? 0 : 1;
