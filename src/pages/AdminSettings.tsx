@@ -33,6 +33,7 @@ import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
 import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsEditor";
 import { ComplianceTemplatesManager } from "@/components/admin/ComplianceTemplatesManager";
 import { BankManagement } from "@/components/admin/BankManagement";
+import { RoleAnalyticsDefaults } from "@/components/admin/RoleAnalyticsDefaults";
 import { OnboardingPromptBanner } from "@/components/onboarding/OnboardingPromptBanner";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
 import { useQuickBooksCallback } from "@/hooks/useQuickBooksCallback";
@@ -107,6 +108,7 @@ const TAB_GROUPS = [
     label: "System",
     tabs: [
       { value: "users", label: "Users", icon: Users },
+      { value: "reports", label: "Reports", icon: Eye },
       { value: "cleanup", label: "Data Cleanup", icon: Wrench },
       { value: "audit", label: "Audit Log", icon: FileText },
     ],
@@ -1790,6 +1792,11 @@ export default function AdminSettings() {
           {/* Short Links Tab */}
           <TabsContent value="shortlinks" className="mt-6">
             <ShortLinksManager />
+          </TabsContent>
+
+          {/* Reports / Role Analytics Defaults Tab */}
+          <TabsContent value="reports" className="mt-6">
+            <RoleAnalyticsDefaults />
           </TabsContent>
 
           {/* Data Cleanup Tab */}
