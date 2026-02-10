@@ -11,7 +11,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { FileSpreadsheet, Scale, Building2, Layers, FolderKanban, Download } from "lucide-react";
+import { FileSpreadsheet, Scale, Building2, Layers, FolderKanban, Download, ListFilter } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
 
@@ -35,6 +35,8 @@ export default function FinancialStatements() {
   const [activeTab, setActiveTab] = useState(getDefaultTab());
   const [viewMode, setViewMode] = useState<"aggregate" | "per-project">("aggregate");
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [statusOptionsInitialized, setStatusOptionsInitialized] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   
@@ -60,6 +62,23 @@ export default function FinancialStatements() {
     openTab(url, `Project ${projectId.slice(0, 8)}`);
   };
 
+  // Unique project statuses for filter
+  const statusOptions = useMemo(() => {
+    const statuses = new Set<string>();
+    projects.forEach(p => {
+      if (p.project_status) statuses.add(p.project_status);
+    });
+    return Array.from(statuses).sort().map(s => ({ value: s, label: s }));
+  }, [projects]);
+
+  // Auto-select all statuses on first load
+  useEffect(() => {
+    if (!statusOptionsInitialized && statusOptions.length > 0) {
+      setSelectedStatuses(statusOptions.map(o => o.value));
+      setStatusOptionsInitialized(true);
+    }
+  }, [statusOptions, statusOptionsInitialized]);
+
   // Project options for the selector
   const projectOptions = useMemo(() => {
     return projects
@@ -71,11 +90,17 @@ export default function FinancialStatements() {
       }));
   }, [projects]);
 
-  // Filtered projects for per-project view
+  // Filtered projects
   const filteredProjects = useMemo(() => {
-    if (selectedProjectIds.length === 0) return projects;
-    return projects.filter(p => selectedProjectIds.includes(p.id));
-  }, [projects, selectedProjectIds]);
+    let result = projects;
+    if (selectedStatuses.length > 0 && selectedStatuses.length < statusOptions.length) {
+      result = result.filter(p => p.project_status && selectedStatuses.includes(p.project_status));
+    }
+    if (selectedProjectIds.length > 0) {
+      result = result.filter(p => selectedProjectIds.includes(p.id));
+    }
+    return result;
+  }, [projects, selectedProjectIds, selectedStatuses, statusOptions.length]);
 
   // --- Export helpers ---
   const buildPnLCSV = useCallback((projs: ProjectWithFinancials[], all: ProjectWithFinancials[], mode: "aggregate" | "per-project") => {
@@ -218,6 +243,14 @@ export default function FinancialStatements() {
                 Per Project
               </Toggle>
             </div>
+            <MultiSelectFilter
+              options={statusOptions}
+              selected={selectedStatuses}
+              onChange={setSelectedStatuses}
+              placeholder="All Statuses"
+              icon={<ListFilter className="h-3.5 w-3.5" />}
+              className="w-[180px]"
+            />
             {viewMode === "per-project" && (
               <MultiSelectFilter
                 options={projectOptions}
