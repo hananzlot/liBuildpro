@@ -2290,7 +2290,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                             <TableCell className="text-xs">{formatDate(pmt.projected_received_date)}</TableCell>
                             <TableCell className="text-xs">{pmt.check_number || "-"}</TableCell>
                             <TableCell className="text-xs">
-                              <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1 flex-wrap">
                                 {pmt.is_voided ? (
                                   <div>
                                     <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
@@ -2300,11 +2300,12 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                   </div>
                                 ) : (
                                   <>
-                                    <Badge variant="outline" className={
+                                    <Badge variant="outline" className={cn(
+                                      "px-1.5 py-0 text-[10px]",
                                       pmt.payment_status === "Received" ? "bg-emerald-500/10 text-emerald-500" :
                                       pmt.payment_status === "Pending" ? "bg-amber-500/10 text-amber-500" :
                                       "bg-muted"
-                                    }>
+                                    )}>
                                       {pmt.payment_status || "Pending"}
                                     </Badge>
                                     {pmt.payment_status === "Received" && (
