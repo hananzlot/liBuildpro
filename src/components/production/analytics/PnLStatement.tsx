@@ -61,6 +61,16 @@ function PnLTable({ lines }: { lines: PnLLineItem[] }) {
   );
 }
 
+function PctLabel({ text, pct, isAvg }: { text: string; pct?: number | null; isAvg?: boolean }) {
+  if (pct == null) return <>{text}</>;
+  const formatted = pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1);
+  return (
+    <span>
+      {text} <span className="text-muted-foreground text-xs">({isAvg ? `avg ${formatted}%` : `${formatted}%`})</span>
+    </span>
+  );
+}
+
 function buildPnLLines(data: {
   totalRevenue: number;
   totalBillsPaid: number;
@@ -71,6 +81,9 @@ function buildPnLLines(data: {
   grossIncomeAfterCommission: number;
   totalLeadCost: number;
   netIncome: number;
+  avgCommissionPct?: number | null;
+  avgLeadCostPct?: number | null;
+  isAvg?: boolean;
 }): PnLLineItem[] {
   return [
     { label: "Revenues (Contracts Invoiced)", amount: data.totalRevenue },
@@ -78,9 +91,9 @@ function buildPnLLines(data: {
     { label: "Bills Outstanding", amount: -data.billsOutstanding, indent: true },
     { label: "Cost of Sales Total", amount: -data.totalCOGS, isTotal: true },
     { label: "Gross Income", amount: data.grossIncome, isTotal: true },
-    { label: "Commissions", amount: -data.totalCommission, indent: true },
+    { label: <PctLabel text="Commissions" pct={data.avgCommissionPct} isAvg={data.isAvg} />, amount: -data.totalCommission, indent: true },
     { label: "Gross Income After Commission", amount: data.grossIncomeAfterCommission, isTotal: true },
-    { label: "Lead Cost Income", amount: data.totalLeadCost, indent: true },
+    { label: <PctLabel text="Lead Cost Income" pct={data.avgLeadCostPct} isAvg={data.isAvg} />, amount: data.totalLeadCost, indent: true },
     { label: "Net Income", amount: data.netIncome, isGrandTotal: true },
   ];
 }
@@ -95,7 +108,18 @@ function computeAggregate(projects: ProjectWithFinancials[]) {
   const grossIncomeAfterCommission = grossIncome - totalCommission;
   const totalLeadCost = projects.reduce((s, p) => s + p.leadCostAmount, 0);
   const netIncome = grossIncomeAfterCommission + totalLeadCost;
-  return { totalRevenue, totalBillsPaid, billsOutstanding, totalCOGS, grossIncome, totalCommission, grossIncomeAfterCommission, totalLeadCost, netIncome };
+
+  // Revenue-weighted average percentages
+  const revenueProjects = projects.filter(p => p.contractsTotal > 0);
+  const weightedRevenue = revenueProjects.reduce((s, p) => s + p.contractsTotal, 0);
+  const avgCommissionPct = weightedRevenue > 0
+    ? revenueProjects.reduce((s, p) => s + p.contractsTotal * (p.commission_split_pct ?? 50), 0) / weightedRevenue
+    : null;
+  const avgLeadCostPct = weightedRevenue > 0
+    ? revenueProjects.reduce((s, p) => s + p.contractsTotal * (p.lead_cost_percent ?? 18), 0) / weightedRevenue
+    : null;
+
+  return { totalRevenue, totalBillsPaid, billsOutstanding, totalCOGS, grossIncome, totalCommission, grossIncomeAfterCommission, totalLeadCost, netIncome, avgCommissionPct, avgLeadCostPct };
 }
 
 export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }: PnLStatementProps) {
@@ -122,6 +146,8 @@ export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }
             grossIncomeAfterCommission,
             totalLeadCost: p.leadCostAmount,
             netIncome,
+            avgCommissionPct: p.commission_split_pct ?? 50,
+            avgLeadCostPct: p.lead_cost_percent ?? 18,
           }),
         };
       });
@@ -137,7 +163,7 @@ export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }
             <CardTitle className="text-base">Company P&L — All Projects</CardTitle>
           </CardHeader>
           <CardContent>
-            <PnLTable lines={buildPnLLines(aggregate)} />
+            <PnLTable lines={buildPnLLines({ ...aggregate, isAvg: true })} />
             <p className="text-xs text-muted-foreground mt-3">
               Based on {allProjects.length} projects. Revenue = contract totals. COGS = bills received.
             </p>
