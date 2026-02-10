@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect, RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DateRange } from "react-day-picker";
+import { useAnalyticsFilters } from "@/stores/useAnalyticsFilters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalyticsFilters } from "./analytics/AnalyticsFilters";
@@ -67,31 +68,70 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
     return permittedTabs[0] || "profitability";
   }, [initialTab, permittedTabs]);
   
-  // Filter states
-  const defaultTab = getDefaultTab();
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    if (defaultTab === "bank") {
-      const to = new Date();
-      const from = new Date();
-      from.setDate(from.getDate() - 7);
-      return { from, to };
+  // Persistent filter state from Zustand store
+  const store = useAnalyticsFilters();
+  
+  // Derive DateRange from store (deserialize ISO strings)
+  const dateRange: DateRange | undefined = useMemo(() => {
+    if (store.dateRangeFrom && store.dateRangeTo) {
+      return { from: new Date(store.dateRangeFrom), to: new Date(store.dateRangeTo) };
     }
     return undefined;
-  });
-  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
-  const [selectedSalespeople, setSelectedSalespeople] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  }, [store.dateRangeFrom, store.dateRangeTo]);
 
-  // Sync tab changes to URL when on the /analytics route
-  const handleTabChange = useCallback((tab: string) => {
-    setActiveTab(tab);
-    if (tab === "bank") {
-      // Default bank to last 7 days
+  const setDateRange = useCallback((range: DateRange | undefined) => {
+    store.setDateRange(
+      range?.from ? range.from.toISOString() : null,
+      range?.to ? range.to.toISOString() : null
+    );
+  }, [store.setDateRange]);
+
+  const selectedProjects = store.selectedProjects;
+  const setSelectedProjects = store.setSelectedProjects;
+  const selectedSalespeople = store.selectedSalespeople;
+  const setSelectedSalespeople = store.setSelectedSalespeople;
+
+  // Active tab: prefer store value if hydrated and no explicit initialTab override
+  const resolvedActiveTab = useMemo(() => {
+    // If an explicit initialTab prop was given (e.g. from URL), use it
+    if (initialTab && permittedTabs.includes(initialTab)) return initialTab;
+    // If store has a persisted tab and it's permitted, use it
+    if (store.hasHydrated && store.activeTab && permittedTabs.includes(store.activeTab)) return store.activeTab;
+    return getDefaultTab();
+  }, [initialTab, permittedTabs, store.hasHydrated, store.activeTab, getDefaultTab]);
+
+  const [activeTab, setActiveTabLocal] = useState(resolvedActiveTab);
+  
+  // Keep local activeTab in sync with resolved value on mount/changes
+  useEffect(() => {
+    setActiveTabLocal(resolvedActiveTab);
+  }, [resolvedActiveTab]);
+
+  const setActiveTab = useCallback((tab: string) => {
+    setActiveTabLocal(tab);
+    store.setActiveTab(tab);
+  }, [store.setActiveTab]);
+
+  // Set default date range for bank tab if no persisted range exists
+  useEffect(() => {
+    if (store.hasHydrated && activeTab === "bank" && !store.dateRangeFrom) {
       const to = new Date();
       const from = new Date();
       from.setDate(from.getDate() - 7);
       setDateRange({ from, to });
-    } else {
+    }
+  }, [store.hasHydrated, activeTab, store.dateRangeFrom, setDateRange]);
+
+  // Sync tab changes to URL when on the /analytics route
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab);
+    if (tab === "bank" && !store.dateRangeFrom) {
+      // Default bank to last 7 days only if no persisted range
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 7);
+      setDateRange({ from, to });
+    } else if (tab !== "bank") {
       // Other tabs default to all dates (no filter)
       setDateRange(undefined);
     }
@@ -99,15 +139,14 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
     if (window.location.pathname.startsWith('/analytics')) {
       navigate(`/analytics/${tab}`, { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, setActiveTab, setDateRange, store.dateRangeFrom]);
 
   // Update active tab when initialTab prop changes (e.g., from URL navigation)
   useEffect(() => {
-    if (initialTab) {
-      const newTab = getDefaultTab();
-      setActiveTab(newTab);
+    if (initialTab && permittedTabs.includes(initialTab)) {
+      setActiveTab(initialTab);
     }
-  }, [initialTab, getDefaultTab]);
+  }, [initialTab, permittedTabs, setActiveTab]);
 
   // Fetch analytics data with filters
   const {
