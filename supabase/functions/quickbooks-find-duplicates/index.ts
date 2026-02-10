@@ -113,6 +113,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (recordType === "invoice") {
+      const duplicates = await findInvoiceDuplicates(
+        qbHeaders, realm_id, { amount, date, reference }
+      );
+
+      return new Response(
+        JSON.stringify({ success: true, duplicates }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: true, duplicates: [], message: `Record type '${recordType}' not yet supported` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -521,5 +532,124 @@ async function findPaymentDuplicates(
   });
 
   console.log(`Found ${candidates.length} potential payment duplicates`);
+  return candidates;
+}
+
+async function findInvoiceDuplicates(
+  qbHeaders: Record<string, string>,
+  realmId: string,
+  criteria: { amount?: number; date?: string; reference?: string }
+): Promise<DuplicateCandidate[]> {
+  const { amount, date, reference } = criteria;
+
+  const conditions: string[] = [];
+
+  if (date) {
+    const targetDate = new Date(date);
+    const startDate = new Date(targetDate);
+    startDate.setDate(startDate.getDate() - 7);
+    const endDate = new Date(targetDate);
+    endDate.setDate(endDate.getDate() + 7);
+
+    conditions.push(`TxnDate >= '${startDate.toISOString().split("T")[0]}'`);
+    conditions.push(`TxnDate <= '${endDate.toISOString().split("T")[0]}'`);
+  }
+
+  let query = "SELECT * FROM Invoice";
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(" AND ")}`;
+  }
+  query += " MAXRESULTS 100";
+
+  console.log("QB invoice duplicate search query:", query);
+
+  const url = `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: qbHeaders });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("QB invoice query error:", errText);
+    return [];
+  }
+
+  const data = await res.json();
+  const invoices = data.QueryResponse?.Invoice || [];
+  console.log(`Found ${invoices.length} invoices in QB within date range`);
+
+  const candidates: DuplicateCandidate[] = [];
+
+  for (const inv of invoices) {
+    const matchReasons: string[] = [];
+    let score = 0;
+
+    // Amount match (exact)
+    if (amount && Math.abs(inv.TotalAmt - amount) < 0.01) {
+      score += 40;
+      matchReasons.push(`Amount matches: $${inv.TotalAmt.toFixed(2)}`);
+    }
+
+    // Date proximity
+    if (date && inv.TxnDate) {
+      const daysDiff = Math.abs(
+        (new Date(inv.TxnDate).getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysDiff === 0) {
+        score += 30;
+        matchReasons.push("Exact date match");
+      } else if (daysDiff <= 1) {
+        score += 20;
+        matchReasons.push(`Date within 1 day (${inv.TxnDate})`);
+      } else if (daysDiff <= 3) {
+        score += 10;
+        matchReasons.push(`Date within 3 days (${inv.TxnDate})`);
+      } else {
+        matchReasons.push(`Date: ${inv.TxnDate}`);
+      }
+    }
+
+    // Reference/DocNumber match
+    const invRef = inv.DocNumber || null;
+    if (reference && invRef) {
+      if (invRef === reference) {
+        score += 30;
+        matchReasons.push(`Invoice # matches: ${invRef}`);
+      } else if (invRef.includes(reference) || reference.includes(invRef)) {
+        score += 15;
+        matchReasons.push(`Invoice # partial match: ${invRef}`);
+      }
+    }
+
+    // Customer info
+    const customerName = inv.CustomerRef?.name || null;
+    if (customerName) {
+      matchReasons.push(`Customer: ${customerName}`);
+    }
+
+    if (score >= 30) {
+      let confidence: "high" | "medium" | "low" = "low";
+      if (score >= 70) confidence = "high";
+      else if (score >= 50) confidence = "medium";
+
+      candidates.push({
+        qbId: inv.Id,
+        qbSyncToken: inv.SyncToken,
+        amount: inv.TotalAmt,
+        date: inv.TxnDate,
+        reference: invRef,
+        vendorName: customerName,
+        vendorId: inv.CustomerRef?.value || null,
+        payType: null,
+        confidence,
+        matchReasons,
+      });
+    }
+  }
+
+  candidates.sort((a, b) => {
+    const confOrder = { high: 0, medium: 1, low: 2 };
+    return confOrder[a.confidence] - confOrder[b.confidence];
+  });
+
+  console.log(`Found ${candidates.length} potential invoice duplicates`);
   return candidates;
 }
