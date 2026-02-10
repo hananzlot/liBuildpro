@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -66,6 +66,7 @@ import {
   AlertCircle,
   History,
   GripVertical,
+  Download,
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
@@ -6464,6 +6465,31 @@ function ProjectFinancialStatements({
   leadCostPercent: number;
   commissionSplitPct: number;
 }) {
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const handleExportPDF = useCallback(() => {
+    const el = printRef.current;
+    if (!el) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Project Financial Statements</title><style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; color: #111; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+      td { padding: 6px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+      .text-right { text-align: right; font-variant-numeric: tabular-nums; }
+      h2 { font-size: 15px; margin: 0 0 8px; }
+      h1 { font-size: 18px; margin-bottom: 4px; }
+      .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 16px; }
+      .section-header { background: #f3f4f6; padding: 4px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
+      @media print { body { padding: 0; } }
+    </style></head><body>`);
+    printWindow.document.write(`<h1>Project Financial Statements</h1><p class="subtitle">Generated ${new Date().toLocaleDateString()}</p>`);
+    printWindow.document.write(el.innerHTML);
+    printWindow.document.write("</body></html>");
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); }, 250);
+  }, []);
   const leadCost = totalRevenue * (leadCostPercent / 100);
   const commission = totalRevenue * (commissionSplitPct / 100);
   const grossProfit = totalRevenue - totalCOGS;
@@ -6490,63 +6516,71 @@ function ProjectFinancialStatements({
   );
 
   return (
-    <div className="grid md:grid-cols-2 gap-4">
-      {/* P&L */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Profit & Loss</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <tbody>
-                {lineRow("Revenue (Contracts)", totalRevenue)}
-                {lineRow("Cost of Goods Sold (Bills)", -totalCOGS, { indent: true })}
-                {lineRow("Gross Profit", grossProfit, { bold: true })}
-                {lineRow("Lead Costs", -leadCost, { indent: true })}
-                {lineRow("Commissions", -commission, { indent: true })}
-                {lineRow("Operating Expenses", -opex, { bold: true })}
-                {lineRow("Net Income", netIncome, { grandTotal: true })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={handleExportPDF}>
+          <Download className="h-4 w-4 mr-1" />
+          Export PDF
+        </Button>
+      </div>
+      <div ref={printRef} className="grid md:grid-cols-2 gap-4">
+        {/* P&L */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Profit & Loss</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  {lineRow("Revenue (Contracts)", totalRevenue)}
+                  {lineRow("Cost of Goods Sold (Bills)", -totalCOGS, { indent: true })}
+                  {lineRow("Gross Profit", grossProfit, { bold: true })}
+                  {lineRow("Lead Costs", -leadCost, { indent: true })}
+                  {lineRow("Commissions", -commission, { indent: true })}
+                  {lineRow("Operating Expenses", -opex, { bold: true })}
+                  {lineRow("Net Income", netIncome, { grandTotal: true })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Balance Sheet */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Balance Sheet</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/50 px-4 py-1.5 border-b"><span className="text-xs font-semibold">Assets</span></div>
-            <table className="w-full text-sm">
-              <tbody>
-                {lineRow("Cash (Payments Collected)", totalCollected, { indent: true })}
-                {lineRow("Accounts Receivable", Math.max(ar, 0), { indent: true })}
-                {lineRow("Total Assets", totalAssets, { bold: true })}
-              </tbody>
-            </table>
-          </div>
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/50 px-4 py-1.5 border-b"><span className="text-xs font-semibold">Liabilities</span></div>
-            <table className="w-full text-sm">
-              <tbody>
-                {lineRow("Accounts Payable (Bills Outstanding)", Math.max(ap, 0), { indent: true })}
-                {lineRow("Total Liabilities", totalLiabilities, { bold: true })}
-              </tbody>
-            </table>
-          </div>
-          <div className="border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <tbody>
-                {lineRow("Equity (Net Position)", equity, { grandTotal: true })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Balance Sheet */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Balance Sheet</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/50 px-4 py-1.5 border-b"><span className="text-xs font-semibold">Assets</span></div>
+              <table className="w-full text-sm">
+                <tbody>
+                  {lineRow("Cash (Payments Collected)", totalCollected, { indent: true })}
+                  {lineRow("Accounts Receivable", Math.max(ar, 0), { indent: true })}
+                  {lineRow("Total Assets", totalAssets, { bold: true })}
+                </tbody>
+              </table>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/50 px-4 py-1.5 border-b"><span className="text-xs font-semibold">Liabilities</span></div>
+              <table className="w-full text-sm">
+                <tbody>
+                  {lineRow("Accounts Payable (Bills Outstanding)", Math.max(ap, 0), { indent: true })}
+                  {lineRow("Total Liabilities", totalLiabilities, { bold: true })}
+                </tbody>
+              </table>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  {lineRow("Equity (Net Position)", equity, { grandTotal: true })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
