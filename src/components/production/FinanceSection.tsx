@@ -96,6 +96,9 @@ interface FinanceSectionProps {
   /** Callback when inner sub-tabs change (for syncing URL state) */
   onSubTabChange?: (subTab: string, billsSubTab?: 'bills' | 'history') => void;
   projectStatus?: string | null;
+  projectName?: string | null;
+  projectAddress?: string | null;
+  customerName?: string | null;
 }
 
 interface Invoice {
@@ -193,7 +196,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, onSubTabChange, projectStatus }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, onSubTabChange, projectStatus, projectName, projectAddress, customerName }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
@@ -1868,6 +1871,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
             leadCostPercent={leadCostPercent}
             commissionSplitPct={commissionSplitPct}
             isCompleted={projectStatus === "Completed"}
+            projectName={projectName}
+            projectAddress={projectAddress}
+            customerName={customerName}
           />
         </TabsContent>
 
@@ -6459,6 +6465,9 @@ function ProjectFinancialStatements({
   leadCostPercent,
   commissionSplitPct,
   isCompleted,
+  projectName,
+  projectAddress,
+  customerName,
 }: {
   totalRevenue: number;
   totalCOGS: number;
@@ -6468,6 +6477,9 @@ function ProjectFinancialStatements({
   leadCostPercent: number;
   commissionSplitPct: number;
   isCompleted: boolean;
+  projectName?: string | null;
+  projectAddress?: string | null;
+  customerName?: string | null;
 }) {
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -6476,6 +6488,8 @@ function ProjectFinancialStatements({
     if (!el) return;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
+    const now = new Date();
+    const asOf = now.toLocaleDateString() + " " + now.toLocaleTimeString();
     printWindow.document.write(`<!DOCTYPE html><html><head><title>Project Financial Statements</title><style>
       body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; color: #111; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
@@ -6483,13 +6497,18 @@ function ProjectFinancialStatements({
       td { padding: 6px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
       .text-right { text-align: right; font-variant-numeric: tabular-nums; }
       h2 { font-size: 15px; margin: 0 0 8px; }
-      h1 { font-size: 18px; margin-bottom: 4px; }
-      .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 16px; }
+      h1 { font-size: 18px; margin-bottom: 2px; }
+      .meta { color: #374151; font-size: 13px; margin: 0; }
+      .subtitle { color: #6b7280; font-size: 12px; margin-top: 8px; margin-bottom: 16px; }
       .section-header { background: #f3f4f6; padding: 4px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
       .badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: #fef3c7; color: #92400e; margin-left: 6px; }
       @media print { body { padding: 0; } }
     </style></head><body>`);
-    printWindow.document.write(`<h1>Project Financial Statements</h1><p class="subtitle">Generated ${new Date().toLocaleDateString()}</p>`);
+    printWindow.document.write(`<h1>Project Financial Statements</h1>`);
+    if (projectName) printWindow.document.write(`<p class="meta"><strong>Project:</strong> ${projectName}</p>`);
+    if (projectAddress) printWindow.document.write(`<p class="meta"><strong>Address:</strong> ${projectAddress}</p>`);
+    if (customerName) printWindow.document.write(`<p class="meta"><strong>Customer:</strong> ${customerName}</p>`);
+    printWindow.document.write(`<p class="subtitle">As of ${asOf}</p>`);
     printWindow.document.write(el.innerHTML);
     printWindow.document.write("</body></html>");
     printWindow.document.close();

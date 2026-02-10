@@ -1911,6 +1911,9 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 highlightInvoiceId={highlightInvoiceId}
                 onSubTabChange={handleFinanceSubTabChange}
                 projectStatus={fullProject.project_status}
+                projectName={fullProject.project_name}
+                projectAddress={fullProject.project_address}
+                customerName={`${fullProject.customer_first_name || ''} ${fullProject.customer_last_name || ''}`.trim() || null}
               />
             )}
           </TabsContent>
