@@ -178,10 +178,14 @@ export default function FinancialStatements() {
       body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; color: #111; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
       td, th { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; font-size: 13px; }
-      .text-right { text-align: right; font-variant-numeric: tabular-nums; }
+      .text-right, td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
       h1 { font-size: 20px; margin-bottom: 4px; }
       h2 { font-size: 16px; margin: 16px 0 8px; }
       .subtitle { color: #6b7280; font-size: 13px; margin-bottom: 16px; }
+      .pnl-indent { padding-left: 32px; }
+      .pnl-subtotal { background: #f0f0f0; font-weight: 600; }
+      .pnl-grand-total { background: #d9d9d9; font-weight: 700; font-size: 14px; }
+      .pnl-negative { color: #dc2626; }
       @media print { body { padding: 0; } }
     </style></head><body>`);
     printWindow.document.write(`<h1>${title}</h1><p class="subtitle">Generated ${new Date().toLocaleDateString()} · ${viewMode === "aggregate" ? "Company View" : "Per-Project View"}</p>`);

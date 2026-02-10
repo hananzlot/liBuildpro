@@ -37,18 +37,18 @@ function PnLTable({ lines }: { lines: PnLLineItem[] }) {
             <tr
               key={i}
               className={cn(
-                "border-b last:border-0",
-                line.isTotal && "bg-muted/30 font-semibold",
-                line.isGrandTotal && "bg-primary/10 font-bold text-base"
+                "border-b last:border-0 pnl-row",
+                line.isTotal && "bg-muted/30 font-semibold pnl-subtotal",
+                line.isGrandTotal && "bg-primary/10 font-bold text-base pnl-grand-total"
               )}
             >
-              <td className={cn("py-2 px-4", line.indent && "pl-8")}>
+              <td className={cn("py-2 px-4", line.indent && "pl-8 pnl-indent")}>
                 {line.label}
               </td>
               <td
                 className={cn(
                   "py-2 px-4 text-right tabular-nums",
-                  line.amount < 0 && "text-destructive"
+                  line.amount < 0 && "text-destructive pnl-negative"
                 )}
               >
                 {formatCurrency(line.amount)}

@@ -6495,13 +6495,17 @@ function ProjectFinancialStatements({
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
       td { padding: 6px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
-      .text-right { text-align: right; font-variant-numeric: tabular-nums; }
+      .text-right, td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
       h2 { font-size: 15px; margin: 0 0 8px; }
       h1 { font-size: 18px; margin-bottom: 2px; }
       .meta { color: #374151; font-size: 13px; margin: 0; }
       .subtitle { color: #6b7280; font-size: 12px; margin-top: 8px; margin-bottom: 16px; }
       .section-header { background: #f3f4f6; padding: 4px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
       .badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: #fef3c7; color: #92400e; margin-left: 6px; }
+      .pnl-indent { padding-left: 32px; }
+      .pnl-subtotal { background: #f0f0f0; font-weight: 600; }
+      .pnl-grand-total { background: #d9d9d9; font-weight: 700; font-size: 14px; }
+      .pnl-negative { color: #dc2626; }
       @media print { body { padding: 0; } }
     </style></head><body>`);
     printWindow.document.write(`<h1>Project Financial Statements</h1>`);
@@ -6532,12 +6536,12 @@ function ProjectFinancialStatements({
 
   const lineRow = (label: string | ReactNode, amount: number, opts?: { indent?: boolean; bold?: boolean; grandTotal?: boolean }) => (
     <tr className={cn(
-      "border-b last:border-0",
-      opts?.bold && "bg-muted/30 font-semibold",
-      opts?.grandTotal && "bg-primary/10 font-bold"
+      "border-b last:border-0 pnl-row",
+      opts?.bold && "bg-muted/30 font-semibold pnl-subtotal",
+      opts?.grandTotal && "bg-primary/10 font-bold pnl-grand-total"
     )}>
-      <td className={cn("py-2 px-4 text-sm", opts?.indent && "pl-8")}>{label}</td>
-      <td className={cn("py-2 px-4 text-sm text-right tabular-nums", amount < 0 && "text-destructive")}>{fmt(amount)}</td>
+      <td className={cn("py-2 px-4 text-sm", opts?.indent && "pl-8 pnl-indent")}>{label}</td>
+      <td className={cn("py-2 px-4 text-sm text-right tabular-nums", amount < 0 && "text-destructive pnl-negative")}>{fmt(amount)}</td>
     </tr>
   );
 
