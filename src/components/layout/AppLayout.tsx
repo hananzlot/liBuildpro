@@ -42,7 +42,8 @@ export function AppLayout({
   // Read pinned state from localStorage to control initial sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const pinned = localStorage.getItem(SIDEBAR_PINNED_KEY);
-    return pinned === "true";
+    // Default to open (uncollapsed) if no preference has been saved yet
+    return pinned === null ? true : pinned === "true";
   });
 
   // Listen for pinned state changes from the sidebar
