@@ -224,14 +224,14 @@ export default function FinancialStatements() {
   return (
     <AppLayout>
       <div className="flex-1 p-4 md:p-6 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-          <div className="shrink-0">
+        <div className="flex flex-col items-center gap-4">
+          <div className="text-center">
             <h1 className="text-2xl font-bold tracking-tight">Financial Statements</h1>
             <p className="text-muted-foreground">
               P&L and Balance Sheet views derived from project financials
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <div className="flex items-center gap-1 border rounded-lg p-0.5">
               <Toggle
                 pressed={viewMode === "aggregate"}
@@ -284,7 +284,7 @@ export default function FinancialStatements() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="max-w-xl w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="max-w-xl w-full mx-auto">
           <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${[canViewPnL, canViewBS].filter(Boolean).length}, minmax(0, 1fr))` }}>
             {canViewPnL && (
               <TabsTrigger value="pnl" className="flex items-center gap-1.5">
