@@ -2280,7 +2280,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                           <TableHead className="text-xs">Date</TableHead>
                           <TableHead className="text-xs">Ref #</TableHead>
                           <TableHead className="text-xs">Payment Status</TableHead>
-                          <TableHead className="text-xs text-right">Amount</TableHead>
+                          <TableHead className="text-xs text-center">Amount</TableHead>
                           {isQBConnectedMain && <TableHead className="text-xs">QB</TableHead>}
                           <TableHead className="text-xs w-24"></TableHead>
                         </TableRow>
@@ -2344,7 +2344,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className={cn("text-xs text-right", pmt.is_voided && "line-through")}>{formatCurrency2(pmt.payment_amount)}</TableCell>
+                            <TableCell className={cn("text-xs text-center", pmt.is_voided && "line-through")}>{formatCurrency2(pmt.payment_amount)}</TableCell>
                             {isQBConnectedMain && (
                               <TableCell className="text-xs">
                                 {(() => {
