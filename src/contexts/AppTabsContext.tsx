@@ -121,9 +121,9 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     // Check if tab already exists (by base path)
     const existingTab = tabs.find(tab => tab.path.split("?")[0] === basePath);
     if (existingTab) {
-      // Update the path, parent, and navigate
+      // Update the path, title, parent, and navigate
       setTabs(prev => prev.map(t => 
-        t.id === existingTab.id ? { ...t, path, parentTabId: parentId || t.parentTabId } : t
+        t.id === existingTab.id ? { ...t, path, title: title || t.title, parentTabId: parentId || t.parentTabId } : t
       ));
       setActiveTabId(existingTab.id);
       navigate(path);
