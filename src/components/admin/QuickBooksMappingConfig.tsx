@@ -468,9 +468,9 @@ export function QuickBooksMappingConfig() {
     retry: false,
   });
 
-  // Filter QB bank accounts from allAccounts
+  // Filter QB bank and credit card accounts from allAccounts
   const qbBankAccounts = useMemo(() => {
-    return (allAccounts || []).filter((a) => a.type === "Bank");
+    return (allAccounts || []).filter((a) => a.type === "Bank" || a.type === "Credit Card");
   }, [allAccounts]);
 
   const { data: items, isLoading: itemsLoading, refetch: refetchItems } = useQuery({
@@ -1264,9 +1264,9 @@ export function QuickBooksMappingConfig() {
 
           <TabsContent value="banks" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label>Map App Banks to QuickBooks Bank Accounts</Label>
+              <Label>Map App Banks to QuickBooks Bank &amp; Credit Card Accounts</Label>
               <p className="text-xs text-muted-foreground">
-                Link your local bank names to QuickBooks bank accounts for accurate payment syncing
+                Link your local bank/credit card names to QuickBooks accounts for accurate payment syncing
               </p>
             </div>
 
@@ -1302,12 +1302,12 @@ export function QuickBooksMappingConfig() {
                           }}
                         >
                           <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Select QB bank account" />
+                            <SelectValue placeholder="Select QB account" />
                           </SelectTrigger>
                           <SelectContent>
                             {qbBankAccounts.map((qbBank) => (
                               <SelectItem key={qbBank.id} value={qbBank.id}>
-                                {qbBank.name}
+                                {qbBank.name} {qbBank.type === "Credit Card" ? "(CC)" : ""}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -1326,7 +1326,7 @@ export function QuickBooksMappingConfig() {
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Badge variant="secondary">{qbBankAccounts.length}</Badge>
-              <span>QuickBooks bank accounts available</span>
+              <span>QuickBooks bank &amp; credit card accounts available</span>
             </div>
           </TabsContent>
         </Tabs>

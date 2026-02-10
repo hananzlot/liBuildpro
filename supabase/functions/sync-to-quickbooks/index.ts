@@ -1152,6 +1152,29 @@ Deno.serve(async (req) => {
           if (paymentMethod === "credit card") {
             qbBillPayment.PayType = "CreditCard";
             qbBillPayment.CreditCardPayment = {};
+
+            // Add credit card account if bank_name is set and has a mapping
+            if (billPayment.bank_name) {
+              const { data: bankRecord } = await supabase
+                .from("banks")
+                .select("id")
+                .eq("company_id", companyId)
+                .eq("name", billPayment.bank_name)
+                .single();
+
+              if (bankRecord?.id) {
+                const bankMapping = getMapping("bank", bankRecord.id);
+                if (bankMapping) {
+                  console.log(`Mapping CC account "${billPayment.bank_name}" to QB account: ${bankMapping.qbo_name}`);
+                  qbBillPayment.CreditCardPayment.CCAccountRef = {
+                    value: bankMapping.qbo_id,
+                    name: bankMapping.qbo_name,
+                  };
+                } else {
+                  console.log(`No QB mapping found for CC account "${billPayment.bank_name}"`);
+                }
+              }
+            }
           } else {
             // Check, ACH, Wire, Cash, Other all map to Check type in QB
             // Note: QB will show these as "offline" payments because they weren't processed
@@ -1161,27 +1184,27 @@ Deno.serve(async (req) => {
               // If we have a reference number, mark as already printed
               PrintStatus: billPayment.payment_reference ? "PrintComplete" : "NeedToPrint",
             };
-          }
 
-          // Add bank account if bank_name is set and has a mapping (only for Check payments)
-          if (billPayment.bank_name && qbBillPayment.PayType === "Check") {
-            const { data: bankRecord } = await supabase
-              .from("banks")
-              .select("id")
-              .eq("company_id", companyId)
-              .eq("name", billPayment.bank_name)
-              .single();
+            // Add bank account if bank_name is set and has a mapping (only for Check payments)
+            if (billPayment.bank_name) {
+              const { data: bankRecord } = await supabase
+                .from("banks")
+                .select("id")
+                .eq("company_id", companyId)
+                .eq("name", billPayment.bank_name)
+                .single();
 
-            if (bankRecord?.id) {
-              const bankMapping = getMapping("bank", bankRecord.id);
-              if (bankMapping) {
-                console.log(`Mapping bank "${billPayment.bank_name}" to QB account: ${bankMapping.qbo_name}`);
-                qbBillPayment.CheckPayment.BankAccountRef = {
-                  value: bankMapping.qbo_id,
-                  name: bankMapping.qbo_name,
-                };
-              } else {
-                console.log(`No QB bank mapping found for bank "${billPayment.bank_name}"`);
+              if (bankRecord?.id) {
+                const bankMapping = getMapping("bank", bankRecord.id);
+                if (bankMapping) {
+                  console.log(`Mapping bank "${billPayment.bank_name}" to QB account: ${bankMapping.qbo_name}`);
+                  qbBillPayment.CheckPayment.BankAccountRef = {
+                    value: bankMapping.qbo_id,
+                    name: bankMapping.qbo_name,
+                  };
+                } else {
+                  console.log(`No QB bank mapping found for bank "${billPayment.bank_name}"`);
+                }
               }
             }
           }
