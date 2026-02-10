@@ -72,6 +72,7 @@ import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
 import { VendorMappingDialog } from "./VendorMappingDialog";
 import { SalespersonVendorMappingDialog } from "./SalespersonVendorMappingDialog";
+import { QBDuplicateReviewDialog, type QBDuplicateCandidate } from "./analytics/QBDuplicateReviewDialog";
 
 interface SalespersonData {
   name: string | null;
@@ -254,6 +255,21 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const [pendingBillSave, setPendingBillSave] = useState<{
     bill: Partial<Bill>;
     pendingEntities: { type: string; name: string }[];
+  } | null>(null);
+
+  // QB duplicate detection state
+  const [qbDuplicateDialogOpen, setQbDuplicateDialogOpen] = useState(false);
+  const [qbDuplicateLinking, setQbDuplicateLinking] = useState(false);
+  const [qbDuplicateState, setQbDuplicateState] = useState<{
+    duplicates: any[];
+    recordType: string;
+    recordId: string;
+    localAmount: number;
+    localDate: string;
+    localReference: string | null;
+    onLink: (qbId: string) => void;
+    onCreateNew: () => void;
+    onCancel: () => void;
   } | null>(null);
 
   // Auto-open bill dialog when returning from subcontractor add
@@ -844,7 +860,108 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     return syncRecordToQuickBooks(recordType, recordId);
   };
 
-  // Helper to sync deletion to QuickBooks - returns true if synced successfully
+  // Helper to check for QB duplicates before syncing a bill payment
+  const checkQbDuplicatesAndSync = async (
+    recordType: "bill_payment",
+    recordId: string,
+    checkData: { amount: number; date: string; reference: string | null; vendorName: string | null }
+  ): Promise<{ synced: boolean; message?: string }> => {
+    if (!companyId) return { synced: false };
+
+    // First check if already synced (has existing sync log) — skip duplicate check
+    const { data: existingLog } = await supabase
+      .from("quickbooks_sync_log")
+      .select("quickbooks_id")
+      .eq("company_id", companyId)
+      .eq("record_type", recordType)
+      .eq("record_id", recordId)
+      .eq("sync_status", "synced")
+      .maybeSingle();
+
+    if (existingLog?.quickbooks_id) {
+      // Already synced, just update
+      return syncRecordToQuickBooks(recordType, recordId);
+    }
+
+    // Check for duplicates in QB
+    try {
+      const { data, error } = await supabase.functions.invoke("quickbooks-find-duplicates", {
+        body: {
+          companyId,
+          recordType,
+          amount: checkData.amount,
+          date: checkData.date,
+          reference: checkData.reference,
+          vendorName: checkData.vendorName,
+        },
+      });
+
+      if (error || !data?.duplicates?.length) {
+        // No duplicates found or error checking — proceed with normal sync
+        return syncRecordToQuickBooks(recordType, recordId);
+      }
+
+      // Duplicates found — show review dialog
+      return new Promise((resolve) => {
+        setQbDuplicateState({
+          duplicates: data.duplicates,
+          recordType,
+          recordId,
+          localAmount: checkData.amount,
+          localDate: checkData.date,
+          localReference: checkData.reference,
+          onLink: async (qbId: string) => {
+            setQbDuplicateLinking(true);
+            try {
+              // Create sync log linking this local record to the existing QB record
+              const { error: linkError } = await supabase.from("quickbooks_sync_log").upsert({
+                company_id: companyId,
+                record_type: recordType,
+                record_id: recordId,
+                quickbooks_id: qbId,
+                sync_status: "synced",
+                sync_error: null,
+                synced_at: new Date().toISOString(),
+              }, {
+                onConflict: "company_id,record_type,record_id",
+              });
+
+              if (linkError) throw linkError;
+
+              toast.success("Linked to existing QuickBooks record");
+              queryClient.invalidateQueries({ queryKey: ["qb-sync-status"] });
+              queryClient.invalidateQueries({ queryKey: ["bill-payment-sync-statuses"] });
+              setQbDuplicateDialogOpen(false);
+              setQbDuplicateState(null);
+              setQbDuplicateLinking(false);
+              resolve({ synced: true, message: "Linked to existing QB record" });
+            } catch (err) {
+              console.error("Failed to link QB record:", err);
+              toast.error("Failed to link to QuickBooks record");
+              setQbDuplicateLinking(false);
+              resolve({ synced: false, message: "Link failed" });
+            }
+          },
+          onCreateNew: async () => {
+            setQbDuplicateDialogOpen(false);
+            setQbDuplicateState(null);
+            const result = await syncRecordToQuickBooks(recordType, recordId);
+            resolve(result);
+          },
+          onCancel: () => {
+            setQbDuplicateDialogOpen(false);
+            setQbDuplicateState(null);
+            resolve({ synced: false, message: "Sync cancelled by user" });
+          },
+        });
+        setQbDuplicateDialogOpen(true);
+      });
+    } catch (err) {
+      console.error("Duplicate check failed, proceeding with sync:", err);
+      return syncRecordToQuickBooks(recordType, recordId);
+    }
+  };
+
   const syncDeleteToQuickBooks = async (recordType: string, recordId: string): Promise<{ synced: boolean; message?: string }> => {
     console.log(`[QB Delete] Starting delete sync for ${recordType} ${recordId}, companyId: ${companyId}`);
     if (!companyId) {
@@ -1266,12 +1383,19 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         .eq("id", billId);
       if (updateError) throw updateError;
 
-      // Sync the bill payment to QuickBooks (the bill must be synced first)
+      // Sync the bill to QuickBooks first
       const billQbResult = await syncRecordToQuickBooks("bill", billId);
       let billPaymentQbResult = { synced: false };
       if (billQbResult.synced) {
-        // Now sync the bill payment itself
-        billPaymentQbResult = await syncRecordToQuickBooks("bill_payment", newPayment.id);
+        // Get bill info for vendor name
+        const billForVendor = bills.find(b => b.id === billId);
+        // Check for duplicates before syncing the bill payment
+        billPaymentQbResult = await checkQbDuplicatesAndSync("bill_payment", newPayment.id, {
+          amount: payment.payment_amount || 0,
+          date: payment.payment_date || "",
+          reference: payment.payment_reference || null,
+          vendorName: billForVendor?.installer_company || null,
+        });
       }
       return { qbSynced: billPaymentQbResult.synced || billQbResult.synced };
     },
@@ -3093,6 +3217,23 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         isAdmin={isAdmin}
         isSuperAdmin={isSuperAdmin}
       />
+
+      {/* QB Duplicate Review Dialog */}
+      {qbDuplicateState && (
+        <QBDuplicateReviewDialog
+          open={qbDuplicateDialogOpen}
+          onOpenChange={setQbDuplicateDialogOpen}
+          duplicates={qbDuplicateState.duplicates}
+          recordType={qbDuplicateState.recordType}
+          localAmount={qbDuplicateState.localAmount}
+          localDate={qbDuplicateState.localDate}
+          localReference={qbDuplicateState.localReference}
+          onLink={qbDuplicateState.onLink}
+          onCreateNew={qbDuplicateState.onCreateNew}
+          onCancel={qbDuplicateState.onCancel}
+          isLinking={qbDuplicateLinking}
+        />
+      )}
 
       {/* Void Bill Dialog */}
       <AlertDialog open={voidDialogOpen} onOpenChange={(open) => {
