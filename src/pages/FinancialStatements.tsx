@@ -72,17 +72,14 @@ export default function FinancialStatements() {
     return Array.from(statuses).sort().map(s => ({ value: s, label: s }));
   }, [projects]);
 
-  // Auto-select all statuses on first load
+  // Auto-select matching default statuses on first load
   useEffect(() => {
     if (!statusOptionsInitialized.current && statusOptions.length > 0) {
-      // Only override defaults if the default statuses don't exist in data
-      const defaults = ["New", "In Progress", "Completed"];
-      const validDefaults = defaults.filter(d => statusOptions.some(o => o.value === d));
-      if (validDefaults.length > 0) {
-        setSelectedStatuses(validDefaults);
-      } else {
-        setSelectedStatuses(statusOptions.map(o => o.value));
-      }
+      const defaults = ["new", "in progress", "completed"];
+      const validDefaults = statusOptions
+        .filter(o => defaults.includes(o.value.toLowerCase()))
+        .map(o => o.value);
+      setSelectedStatuses(validDefaults.length > 0 ? validDefaults : statusOptions.map(o => o.value));
       statusOptionsInitialized.current = true;
     }
   }, [statusOptions]);
@@ -256,25 +253,31 @@ export default function FinancialStatements() {
               </Toggle>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              {statusOptions.map(opt => {
-                const isActive = selectedStatuses.includes(opt.value);
-                return (
-                  <Badge
-                    key={opt.value}
-                    variant={isActive ? "default" : "outline"}
-                    className="cursor-pointer select-none transition-colors"
-                    onClick={() => {
-                      setSelectedStatuses(prev =>
-                        prev.includes(opt.value)
-                          ? prev.filter(s => s !== opt.value)
-                          : [...prev, opt.value]
-                      );
-                    }}
-                  >
-                    {opt.label}
-                  </Badge>
-                );
-              })}
+              {[...statusOptions]
+                .sort((a, b) => {
+                  const aSelected = selectedStatuses.includes(a.value) ? 0 : 1;
+                  const bSelected = selectedStatuses.includes(b.value) ? 0 : 1;
+                  return aSelected - bSelected;
+                })
+                .map(opt => {
+                  const isActive = selectedStatuses.includes(opt.value);
+                  return (
+                    <Badge
+                      key={opt.value}
+                      variant={isActive ? "default" : "outline"}
+                      className="cursor-pointer select-none transition-colors"
+                      onClick={() => {
+                        setSelectedStatuses(prev =>
+                          prev.includes(opt.value)
+                            ? prev.filter(s => s !== opt.value)
+                            : [...prev, opt.value]
+                        );
+                      }}
+                    >
+                      {opt.label}
+                    </Badge>
+                  );
+                })}
             </div>
             {viewMode === "per-project" && (
               <MultiSelectFilter
