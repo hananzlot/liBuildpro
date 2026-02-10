@@ -5341,11 +5341,11 @@ function BillPaymentHistoryDialog({
       if (!billId) return [];
       const { data, error } = await supabase
         .from("bill_payments")
-        .select("*")
+        .select("*, bank:banks(name)")
         .eq("bill_id", billId)
         .order("payment_date", { ascending: false });
       if (error) throw error;
-      return data as BillPayment[];
+      return data as (BillPayment & { bank?: { name: string } | null })[];
     },
     enabled: !!billId && open,
   });
