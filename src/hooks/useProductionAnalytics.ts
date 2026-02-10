@@ -534,7 +534,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
           ? `${bill.category} - ${bill.memo}` 
           : (bill.category || bill.memo || '-'),
         amount: bp.payment_amount || 0,
-        bank_or_method: bp.payment_method,
+        bank_or_method: bp.bank_name || bp.payment_method || null,
         bank_id: (bp as any).bank_id || null,
         vendor_name: bill.installer_company || null,
         vendor_type: bill.category || null,
