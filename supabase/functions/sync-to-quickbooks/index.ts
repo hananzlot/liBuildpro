@@ -384,8 +384,12 @@ Deno.serve(async (req) => {
           .from("project_invoices")
           .select("*, projects!inner(id, project_name, project_address, project_number, contact_uuid, contact_id, auto_sync_to_quickbooks)")
           .eq("projects.company_id", companyId)
-          .eq("projects.auto_sync_to_quickbooks", true)
           .eq("exclude_from_qb", false);
+
+        // Only filter by auto_sync when not targeting a specific record (manual sync)
+        if (!recordId && !(syncSelected && selectedInvoiceIds?.length)) {
+          invoiceQuery = invoiceQuery.eq("projects.auto_sync_to_quickbooks", true);
+        }
 
         if (syncSelected && selectedInvoiceIds) {
           invoiceQuery = invoiceQuery.in("id", selectedInvoiceIds);
@@ -568,8 +572,12 @@ Deno.serve(async (req) => {
           .from("project_payments")
           .select("*, projects!inner(id, project_name, project_address, project_number, company_id, contact_uuid, contact_id, auto_sync_to_quickbooks)")
           .eq("projects.company_id", companyId)
-          .eq("projects.auto_sync_to_quickbooks", true)
           .eq("exclude_from_qb", false);
+
+        // Only filter by auto_sync when not targeting a specific record (manual sync)
+        if (!recordId && !(syncSelected && selectedPaymentIds?.length)) {
+          paymentQuery = paymentQuery.eq("projects.auto_sync_to_quickbooks", true);
+        }
 
         if (syncSelected && selectedPaymentIds) {
           paymentQuery = paymentQuery.in("id", selectedPaymentIds);
@@ -773,8 +781,12 @@ Deno.serve(async (req) => {
           .from("project_bills")
           .select("*, projects!inner(id, project_name, company_id, auto_sync_to_quickbooks, contact_uuid, contact_id)")
           .eq("projects.company_id", companyId)
-          .eq("projects.auto_sync_to_quickbooks", true)
           .eq("exclude_from_qb", false);
+
+        // Only filter by auto_sync when not targeting a specific record (manual sync)
+        if (!recordId && !(syncSelected && selectedBillIds?.length)) {
+          billQuery = billQuery.eq("projects.auto_sync_to_quickbooks", true);
+        }
 
         if (syncSelected && selectedBillIds) {
           billQuery = billQuery.in("id", selectedBillIds);
@@ -1056,8 +1068,12 @@ Deno.serve(async (req) => {
       let billPaymentQuery = supabase
         .from("bill_payments")
         .select("*, project_bills!inner(id, bill_ref, installer_company, projects!inner(project_name, company_id, auto_sync_to_quickbooks))")
-        .eq("project_bills.projects.company_id", companyId)
-        .eq("project_bills.projects.auto_sync_to_quickbooks", true);
+        .eq("project_bills.projects.company_id", companyId);
+
+      // Only filter by auto_sync when not targeting a specific record (manual sync)
+      if (!recordId) {
+        billPaymentQuery = billPaymentQuery.eq("project_bills.projects.auto_sync_to_quickbooks", true);
+      }
 
       if (recordId) {
         billPaymentQuery = billPaymentQuery.eq("id", recordId);
@@ -1354,11 +1370,11 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Commission payments are always manual (recordId required), so skip auto_sync filter
       const { data: commissionPayment, error: cpError } = await supabase
         .from("commission_payments")
         .select("*, projects!inner(id, project_name, project_number, project_address, contact_uuid, contact_id, company_id, auto_sync_to_quickbooks)")
         .eq("id", recordId)
-        .eq("projects.auto_sync_to_quickbooks", true)
         .single();
 
       if (cpError || !commissionPayment) {
