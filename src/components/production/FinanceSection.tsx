@@ -956,6 +956,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
               toast.success("Linked to existing QuickBooks record");
               queryClient.invalidateQueries({ queryKey: ["qb-sync-status"] });
               queryClient.invalidateQueries({ queryKey: ["bill-payment-sync-statuses"] });
+              queryClient.invalidateQueries({ queryKey: ["bill-sync-statuses"] });
 
               // If local has a reference that differs from QB's, push it to QB
               const localRef = checkData.reference;
@@ -1356,6 +1357,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       }
       queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["bill-sync-statuses"] });
       setBillDialogOpen(false);
       setEditingBill(null);
     },
