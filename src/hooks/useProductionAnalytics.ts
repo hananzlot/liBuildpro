@@ -69,11 +69,14 @@ export interface BankTransaction {
   date: string | null;
   type: 'in' | 'out';
   project_id: string | null;
+  project_number: number | null;
   project_name: string;
   project_address: string | null;
+  customer_name: string | null;
   description: string;
   amount: number;
   bank_or_method: string | null;
+  bank_id: string | null;
   vendor_name?: string | null;
   vendor_type?: string | null;
 }
@@ -200,7 +203,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       return fetchAllPages(async (from, to) => {
         const { data, error } = await supabase
           .from("project_payments")
-          .select("id, project_id, payment_amount, payment_status, bank_name, projected_received_date, payment_schedule")
+          .select("id, project_id, payment_amount, payment_status, bank_name, bank_id, projected_received_date, payment_schedule")
           .eq("company_id", companyId)
           .range(from, to);
         if (error) throw error;
@@ -234,7 +237,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       return fetchAllPages(async (from, to) => {
         const { data, error } = await supabase
           .from("bill_payments")
-          .select("id, bill_id, payment_amount, payment_date, payment_method")
+          .select("id, bill_id, payment_amount, payment_date, payment_method, bank_id, bank_name")
           .eq("company_id", companyId)
           .range(from, to);
         if (error) throw error;
@@ -500,11 +503,14 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
           date: p.projected_received_date,
           type: 'in',
           project_id: p.project_id,
+          project_number: project?.project_number || null,
           project_name: project?.project_name || 'Unknown',
           project_address: project?.project_address || null,
+          customer_name: [project?.customer_first_name, project?.customer_last_name].filter(Boolean).join(' ') || null,
           description: p.payment_schedule || 'Payment received',
           amount: p.payment_amount || 0,
           bank_or_method: p.bank_name,
+          bank_id: (p as any).bank_id || null,
         });
       });
 
@@ -519,13 +525,16 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         date: bp.payment_date,
         type: 'out',
         project_id: bill.project_id,
+        project_number: project?.project_number || null,
         project_name: project?.project_name || 'Unknown',
         project_address: project?.project_address || null,
+        customer_name: [project?.customer_first_name, project?.customer_last_name].filter(Boolean).join(' ') || null,
         description: bill.category && bill.memo 
           ? `${bill.category} - ${bill.memo}` 
           : (bill.category || bill.memo || '-'),
         amount: bp.payment_amount || 0,
         bank_or_method: bp.payment_method,
+        bank_id: (bp as any).bank_id || null,
         vendor_name: bill.installer_company || null,
         vendor_type: bill.category || null,
       });
