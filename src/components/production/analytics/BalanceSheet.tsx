@@ -145,18 +145,6 @@ export function BalanceSheet({ projects, allProjects, viewMode, onProjectClick }
         </Card>
       ) : (
         <div className="space-y-4">
-          {/* Company total */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Company Total</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <BSTable lines={assetLines} title="Assets" />
-              <BSTable lines={liabilityLines} title="Liabilities" />
-              <BSTable lines={equityLines} title="Equity" />
-              <BSTable lines={balanceCheck} />
-            </CardContent>
-          </Card>
 
           {/* Per-project */}
           {perProject.map(({ project, cash, ar, totalAssets, ap, totalLiabilities, equity }) => (
