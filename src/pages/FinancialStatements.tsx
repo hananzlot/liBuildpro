@@ -84,15 +84,20 @@ export default function FinancialStatements() {
     if (mode === "aggregate") {
       const rev = all.reduce((s, p) => s + p.contractsTotal, 0);
       const cogs = all.reduce((s, p) => s + p.totalBillsReceived, 0);
-      const lead = all.reduce((s, p) => s + p.leadCostAmount, 0);
+      const paid = all.reduce((s, p) => s + p.totalBillsPaid, 0);
+      const outstanding = cogs - paid;
+      const grossIncome = rev - cogs;
       const comm = all.reduce((s, p) => s + p.totalCommission, 0);
+      const giac = grossIncome - comm;
+      const lead = all.reduce((s, p) => s + p.leadCostAmount, 0);
       csv = "Line Item,Amount\n";
-      csv += `Revenue (Contracts),${fmt(rev)}\nCOGS (Bills),${fmt(cogs)}\nGross Profit,${fmt(rev - cogs)}\nLead Costs,${fmt(lead)}\nCommissions,${fmt(comm)}\nOperating Expenses,${fmt(lead + comm)}\nNet Income,${fmt(rev - cogs - lead - comm)}\n`;
+      csv += `Revenues (Contracts Invoiced),${fmt(rev)}\nBills Paid,${fmt(paid)}\nBills Outstanding,${fmt(outstanding)}\nCost of Sales Total,${fmt(cogs)}\nGross Income,${fmt(grossIncome)}\nCommissions,${fmt(comm)}\nGross Income After Commission,${fmt(giac)}\nLead Cost Income,${fmt(lead)}\nNet Income,${fmt(giac + lead)}\n`;
     } else {
-      csv = "Project #,Project Name,Revenue,COGS,Gross Profit,Lead Costs,Commissions,Net Income\n";
+      csv = "Project #,Project Name,Revenue,Bills Paid,Bills Outstanding,COGS,Gross Income,Commissions,Gross Income After Comm,Lead Cost,Net Income\n";
       projs.filter(p => p.contractsTotal > 0 || p.totalBillsReceived > 0).forEach(p => {
-        const gp = p.contractsTotal - p.totalBillsReceived;
-        csv += `${p.project_number},"${p.project_name}",${fmt(p.contractsTotal)},${fmt(p.totalBillsReceived)},${fmt(gp)},${fmt(p.leadCostAmount)},${fmt(p.totalCommission)},${fmt(gp - p.leadCostAmount - p.totalCommission)}\n`;
+        const gi = p.contractsTotal - p.totalBillsReceived;
+        const giac = gi - p.totalCommission;
+        csv += `${p.project_number},"${p.project_name}",${fmt(p.contractsTotal)},${fmt(p.totalBillsPaid)},${fmt(p.totalBillsReceived - p.totalBillsPaid)},${fmt(p.totalBillsReceived)},${fmt(gi)},${fmt(p.totalCommission)},${fmt(giac)},${fmt(p.leadCostAmount)},${fmt(giac + p.leadCostAmount)}\n`;
       });
     }
     return csv;
