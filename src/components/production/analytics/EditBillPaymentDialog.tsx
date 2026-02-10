@@ -187,7 +187,7 @@ export function EditBillPaymentDialog({
     }
   };
 
-  const handleQbDuplicateLink = async (qbId: string) => {
+  const handleQbDuplicateLink = async (qbId: string, qbReference: string | null) => {
     if (!qbDuplicateState || !companyId) return;
     setQbDuplicateLinking(true);
     try {
@@ -202,6 +202,19 @@ export function EditBillPaymentDialog({
       toast.success("Linked to existing QuickBooks record");
       queryClient.invalidateQueries({ queryKey: ["qb-sync-status"] });
       queryClient.invalidateQueries({ queryKey: ["bill-payment-sync-statuses"] });
+
+      // If the QB record has no reference but local does, push the reference to QB
+      if (!qbReference && qbDuplicateState.localReference) {
+        toast.info("Updating QuickBooks with reference #...");
+        const { data: result, error } = await supabase.functions.invoke("sync-to-quickbooks", {
+          body: { companyId, syncType: "bill_payment", recordId: qbDuplicateState.paymentId },
+        });
+        if (!error && result?.synced > 0) {
+          toast.success("Reference # updated in QuickBooks");
+        } else if (result?.errors?.length) {
+          toast.error(`QB update error: ${result.errors[0]}`, { duration: Infinity });
+        }
+      }
     } catch (err) {
       console.error("Failed to link QB record:", err);
       toast.error("Failed to link to QuickBooks record");

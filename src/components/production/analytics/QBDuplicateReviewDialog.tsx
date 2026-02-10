@@ -36,8 +36,8 @@ interface QBDuplicateReviewDialogProps {
   localAmount: number;
   localDate: string;
   localReference: string | null;
-  /** User chose to link to an existing QB record */
-  onLink: (qbId: string) => void;
+  /** User chose to link to an existing QB record. Passes qbId and whether the QB record has a reference. */
+  onLink: (qbId: string, qbReference: string | null) => void;
   /** User chose to create a new record in QB */
   onCreateNew: () => void;
   /** User cancelled */
@@ -67,7 +67,10 @@ export function QBDuplicateReviewDialog({
   const [selectedQbId, setSelectedQbId] = useState<string | null>(null);
 
   const handleLink = () => {
-    if (selectedQbId) onLink(selectedQbId);
+    if (selectedQbId) {
+      const selected = duplicates.find(d => d.qbId === selectedQbId);
+      onLink(selectedQbId, selected?.reference ?? null);
+    }
   };
 
   const recordLabel = recordType === "bill_payment" ? "Bill Payment" : recordType;
