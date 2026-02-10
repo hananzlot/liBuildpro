@@ -120,6 +120,32 @@ export function BankActivitiesTab({ transactions, projects, totals, onProjectCli
       .sort((a, b) => b.value - a.value);
   }, [transactions]);
 
+  // Group deposits by bank
+  const depositsByBank = useMemo(() => {
+    const deposits = transactions.filter(t => t.type === 'in');
+    const grouped: Record<string, { bankName: string; transactions: BankTransaction[]; total: number }> = {};
+    deposits.forEach(t => {
+      const key = t.bank_or_method || 'Unassigned';
+      if (!grouped[key]) grouped[key] = { bankName: key, transactions: [], total: 0 };
+      grouped[key].transactions.push(t);
+      grouped[key].total += t.amount;
+    });
+    return Object.values(grouped).sort((a, b) => b.total - a.total);
+  }, [transactions]);
+
+  // Group payments out by bank
+  const paymentsByBank = useMemo(() => {
+    const outs = transactions.filter(t => t.type === 'out');
+    const grouped: Record<string, { bankName: string; transactions: BankTransaction[]; total: number }> = {};
+    outs.forEach(t => {
+      const key = t.bank_or_method || 'Unassigned';
+      if (!grouped[key]) grouped[key] = { bankName: key, transactions: [], total: 0 };
+      grouped[key].transactions.push(t);
+      grouped[key].total += t.amount;
+    });
+    return Object.values(grouped).sort((a, b) => b.total - a.total);
+  }, [transactions]);
+
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
@@ -273,77 +299,127 @@ export function BankActivitiesTab({ transactions, projects, totals, onProjectCli
         </Card>
       )}
 
-      {/* Recent Transactions */}
+      {/* Deposits (Cash In) - Grouped by Bank */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Recent Transactions</CardTitle>
-          <CardDescription>All bank activity (payments in and out)</CardDescription>
+          <CardTitle className="text-base">Deposits (Cash In)</CardTitle>
+          <CardDescription>Payments received, grouped by bank account</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Bank/Method</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      No transactions in the selected period
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  transactions.slice(0, 100).map((transaction) => (
-                    <TableRow 
-                      key={transaction.id} 
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => transaction.project_id && onProjectClick?.(transaction.project_id)}
-                    >
-                      <TableCell>
-                        {transaction.date 
-                          ? new Date(transaction.date).toLocaleDateString() 
-                          : '-'
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline" 
-                          className={cn(
-                            "text-xs",
-                            transaction.type === 'in' 
-                              ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                              : 'bg-red-500/10 text-red-600 border-red-500/20'
-                          )}
-                        >
-                          {transaction.type === 'in' ? 'IN' : 'OUT'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[150px] truncate">
-                        {transaction.project_name}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {transaction.description}
-                      </TableCell>
-                      <TableCell className={cn(
-                        "text-right font-medium",
-                        transaction.type === 'in' ? 'text-emerald-600' : 'text-red-600'
-                      )}>
-                        {transaction.type === 'in' ? '+' : '-'}{formatCurrency(transaction.amount)}
-                      </TableCell>
-                      <TableCell>{transaction.bank_or_method || '-'}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          {depositsByBank.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">No deposits in the selected period</p>
+          ) : (
+            <div className="space-y-4">
+              {depositsByBank.map((group) => (
+                <Collapsible key={group.bankName} defaultOpen={true}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors">
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium text-sm">{group.bankName}</span>
+                      <Badge variant="secondary" className="text-xs">{group.transactions.length}</Badge>
+                    </div>
+                    <span className="font-semibold text-sm text-emerald-600">{formatCurrency(group.total)}</span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="overflow-x-auto mt-2">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Date</TableHead>
+                            <TableHead className="text-xs">Project #</TableHead>
+                            <TableHead className="text-xs">Project Name</TableHead>
+                            <TableHead className="text-xs">Address</TableHead>
+                            <TableHead className="text-xs">Customer</TableHead>
+                            <TableHead className="text-xs">Description</TableHead>
+                            <TableHead className="text-xs text-right">Amount</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {group.transactions.map((t) => (
+                            <TableRow
+                              key={t.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => t.project_id && onProjectClick?.(t.project_id)}
+                            >
+                              <TableCell className="text-xs">{t.date ? new Date(t.date).toLocaleDateString() : '-'}</TableCell>
+                              <TableCell className="text-xs font-medium">{t.project_number ? `#${t.project_number}` : '-'}</TableCell>
+                              <TableCell className="text-xs max-w-[150px] truncate">{t.project_name}</TableCell>
+                              <TableCell className="text-xs max-w-[150px] truncate">{t.project_address || '-'}</TableCell>
+                              <TableCell className="text-xs max-w-[120px] truncate">{t.customer_name || '-'}</TableCell>
+                              <TableCell className="text-xs max-w-[180px] truncate">{t.description}</TableCell>
+                              <TableCell className="text-xs text-right font-medium text-emerald-600">+{formatCurrency(t.amount)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Payments Out - Grouped by Bank */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Payments Out</CardTitle>
+          <CardDescription>Bill payments and expenses, grouped by bank/method</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {paymentsByBank.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">No payments out in the selected period</p>
+          ) : (
+            <div className="space-y-4">
+              {paymentsByBank.map((group) => (
+                <Collapsible key={group.bankName} defaultOpen={true}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors">
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium text-sm">{group.bankName}</span>
+                      <Badge variant="secondary" className="text-xs">{group.transactions.length}</Badge>
+                    </div>
+                    <span className="font-semibold text-sm text-red-600">{formatCurrency(group.total)}</span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="overflow-x-auto mt-2">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Date</TableHead>
+                            <TableHead className="text-xs">Vendor</TableHead>
+                            <TableHead className="text-xs">Category</TableHead>
+                            <TableHead className="text-xs">Project #</TableHead>
+                            <TableHead className="text-xs">Project Name</TableHead>
+                            <TableHead className="text-xs">Description</TableHead>
+                            <TableHead className="text-xs text-right">Amount</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {group.transactions.map((t) => (
+                            <TableRow
+                              key={t.id}
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => t.project_id && onProjectClick?.(t.project_id)}
+                            >
+                              <TableCell className="text-xs">{t.date ? new Date(t.date).toLocaleDateString() : '-'}</TableCell>
+                              <TableCell className="text-xs font-medium max-w-[140px] truncate">{t.vendor_name || '-'}</TableCell>
+                              <TableCell className="text-xs max-w-[120px] truncate">{t.vendor_type || '-'}</TableCell>
+                              <TableCell className="text-xs">{t.project_number ? `#${t.project_number}` : '-'}</TableCell>
+                              <TableCell className="text-xs max-w-[150px] truncate">{t.project_name}</TableCell>
+                              <TableCell className="text-xs max-w-[180px] truncate">{t.description}</TableCell>
+                              <TableCell className="text-xs text-right font-medium text-red-600">-{formatCurrency(t.amount)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
