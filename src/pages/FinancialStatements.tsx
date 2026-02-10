@@ -307,7 +307,7 @@ export default function FinancialStatements() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="max-w-xl w-full">
           <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${[canViewPnL, canViewBS].filter(Boolean).length}, minmax(0, 1fr))` }}>
             {canViewPnL && (
               <TabsTrigger value="pnl" className="flex items-center gap-1.5">
