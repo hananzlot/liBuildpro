@@ -3216,6 +3216,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         companyId={companyId}
         isAdmin={isAdmin}
         isSuperAdmin={isSuperAdmin}
+        isQBConnected={isQBConnectedMain}
       />
 
       {/* QB Duplicate Review Dialog */}
@@ -5302,6 +5303,7 @@ function BillPaymentHistoryDialog({
   companyId,
   isAdmin,
   isSuperAdmin,
+  isQBConnected = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -5310,6 +5312,7 @@ function BillPaymentHistoryDialog({
   companyId: string | null;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  isQBConnected?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
@@ -5338,6 +5341,29 @@ function BillPaymentHistoryDialog({
       return data as BillPayment[];
     },
     enabled: !!billId && open,
+  });
+
+  // Fetch QB sync statuses for bill payments in this dialog
+  const { data: paymentSyncStatuses = {} } = useQuery({
+    queryKey: ["bill-payment-history-sync-statuses", billId, companyId],
+    queryFn: async () => {
+      if (!companyId || payments.length === 0) return {};
+      const ids = payments.map((p: any) => p.id);
+      const { data, error } = await supabase
+        .from("quickbooks_sync_log")
+        .select("record_id, sync_status, quickbooks_id")
+        .eq("company_id", companyId)
+        .eq("record_type", "bill_payment")
+        .in("record_id", ids);
+      if (error) throw error;
+      const map: Record<string, { status: string; qbId: string | null }> = {};
+      for (const row of data || []) {
+        map[row.record_id] = { status: row.sync_status, qbId: row.quickbooks_id };
+      }
+      return map;
+    },
+    enabled: isQBConnected && payments.length > 0 && open,
+    staleTime: 30000,
   });
 
   // Fetch banks for dropdown
@@ -5874,6 +5900,7 @@ function BillPaymentHistoryDialog({
                         <TableHead className="text-xs">Method</TableHead>
                         <TableHead className="text-xs">Reference</TableHead>
                         <TableHead className="text-xs text-right">Amount</TableHead>
+                        {isQBConnected && <TableHead className="text-xs">QB</TableHead>}
                         {canEdit && <TableHead className="text-xs w-20"></TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -5893,6 +5920,31 @@ function BillPaymentHistoryDialog({
                           <TableCell className="text-xs text-right text-emerald-600 font-medium">
                             {formatCurrency2(payment.payment_amount)}
                           </TableCell>
+                          {isQBConnected && (
+                            <TableCell className="text-xs">
+                              {(() => {
+                                const syncInfo = paymentSyncStatuses[payment.id];
+                                if (syncInfo?.status === "synced") {
+                                  return (
+                                    <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">
+                                      <Check className="h-2.5 w-2.5 mr-0.5" />QB
+                                    </Badge>
+                                  );
+                                } else if (syncInfo) {
+                                  return (
+                                    <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">
+                                      {syncInfo.status}
+                                    </Badge>
+                                  );
+                                }
+                                return (
+                                  <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                                    Not synced
+                                  </Badge>
+                                );
+                              })()}
+                            </TableCell>
+                          )}
                           {canEdit && (
                             <TableCell>
                               <div className="flex gap-1">
@@ -5922,6 +5974,7 @@ function BillPaymentHistoryDialog({
                       <TableRow className="bg-muted/50 font-semibold">
                         <TableCell colSpan={4} className="text-xs">Total Paid</TableCell>
                         <TableCell className="text-xs text-right text-emerald-600">{formatCurrency2(totalPaid)}</TableCell>
+                        {isQBConnected && <TableCell />}
                         {canEdit && <TableCell />}
                       </TableRow>
                     </TableBody>
