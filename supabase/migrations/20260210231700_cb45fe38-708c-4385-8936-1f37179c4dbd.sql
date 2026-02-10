@@ -1,0 +1,2 @@
+INSERT INTO quickbooks_sync_log (company_id, record_type, record_id, quickbooks_id, sync_status, sync_error, synced_at)
+VALUES ('00000000-0000-0000-0000-000000000002', 'bill', 'bff21baf-28e7-429e-8e12-756ee1584cb4', '417', 'deleted_in_qb', 'Deleted in QuickBooks', now());
