@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 
 interface BalanceSheetProps {
   projects: ProjectWithFinancials[];
+  allProjects: ProjectWithFinancials[];
+  viewMode: "aggregate" | "per-project";
   onProjectClick?: (projectId: string, initialTab?: string) => void;
 }
 
@@ -64,32 +66,18 @@ function BSTable({ lines, title }: { lines: BSLineItem[]; title?: string }) {
   );
 }
 
-export function BalanceSheet({ projects, onProjectClick }: BalanceSheetProps) {
-  const data = useMemo(() => {
-    // Assets
-    const cashCollected = projects.reduce((s, p) => s + p.invoicesCollected, 0);
-    const accountsReceivable = projects.reduce((s, p) => s + p.invoiceBalanceDue, 0);
-    const totalAssets = cashCollected + accountsReceivable;
+function computeAggregateBS(projects: ProjectWithFinancials[]) {
+  const cashCollected = projects.reduce((s, p) => s + p.invoicesCollected, 0);
+  const accountsReceivable = projects.reduce((s, p) => s + p.invoiceBalanceDue, 0);
+  const totalAssets = cashCollected + accountsReceivable;
+  const billsOutstanding = projects.reduce((s, p) => s + (p.totalBillsReceived - p.totalBillsPaid), 0);
+  const totalLiabilities = billsOutstanding;
+  const retainedEarnings = totalAssets - totalLiabilities;
+  return { cashCollected, accountsReceivable, totalAssets, billsOutstanding, totalLiabilities, retainedEarnings };
+}
 
-    // Liabilities
-    const billsOutstanding = projects.reduce(
-      (s, p) => s + (p.totalBillsReceived - p.totalBillsPaid),
-      0
-    );
-    const totalLiabilities = billsOutstanding;
-
-    // Equity (retained earnings = assets - liabilities)
-    const retainedEarnings = totalAssets - totalLiabilities;
-
-    return {
-      cashCollected,
-      accountsReceivable,
-      totalAssets,
-      billsOutstanding,
-      totalLiabilities,
-      retainedEarnings,
-    };
-  }, [projects]);
+export function BalanceSheet({ projects, allProjects, viewMode, onProjectClick }: BalanceSheetProps) {
+  const data = useMemo(() => computeAggregateBS(allProjects), [allProjects]);
 
   const perProject = useMemo(() => {
     return projects
@@ -139,71 +127,87 @@ export function BalanceSheet({ projects, onProjectClick }: BalanceSheetProps) {
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Balance Sheet</h2>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Company Balance Sheet — All Projects</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <BSTable lines={assetLines} title="Assets" />
-          <BSTable lines={liabilityLines} title="Liabilities" />
-          <BSTable lines={equityLines} title="Equity" />
-          <BSTable lines={balanceCheck} />
-          <p className="text-xs text-muted-foreground">
-            Project-based view. Assets = collected payments + outstanding invoices. 
-            Liabilities = unpaid bills. Equity = retained earnings (assets − liabilities).
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Per-project breakdown */}
-      <h3 className="text-base font-semibold mt-6">Per-Project Breakdown</h3>
-      {perProject.map(({ project, cash, ar, totalAssets, ap, totalLiabilities, equity }) => (
-        <Card key={project.id}>
+      {viewMode === "aggregate" ? (
+        <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center justify-between">
-              <span>
-                #{project.project_number} — {project.project_name}
-              </span>
-              {onProjectClick && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onProjectClick(project.id, "finance")}
-                >
-                  View Project
-                </Button>
-              )}
-            </CardTitle>
+            <CardTitle className="text-base">Company Balance Sheet — All Projects</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <BSTable
-              lines={[
-                { label: "Cash Collected", amount: cash, indent: true },
-                { label: "Accounts Receivable", amount: ar, indent: true },
-                { label: "Total Assets", amount: totalAssets, isTotal: true },
-              ]}
-              title="Assets"
-            />
-            <BSTable
-              lines={[
-                { label: "Accounts Payable", amount: ap, indent: true },
-                { label: "Total Liabilities", amount: totalLiabilities, isTotal: true },
-              ]}
-              title="Liabilities"
-            />
-            <BSTable
-              lines={[
-                { label: "Equity (Net Position)", amount: equity, isGrandTotal: true },
-              ]}
-            />
+          <CardContent className="space-y-4">
+            <BSTable lines={assetLines} title="Assets" />
+            <BSTable lines={liabilityLines} title="Liabilities" />
+            <BSTable lines={equityLines} title="Equity" />
+            <BSTable lines={balanceCheck} />
+            <p className="text-xs text-muted-foreground">
+              Project-based view. Assets = collected payments + outstanding invoices. 
+              Liabilities = unpaid bills. Equity = retained earnings (assets − liabilities).
+            </p>
           </CardContent>
         </Card>
-      ))}
+      ) : (
+        <div className="space-y-4">
+          {/* Company total */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Company Total</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <BSTable lines={assetLines} title="Assets" />
+              <BSTable lines={liabilityLines} title="Liabilities" />
+              <BSTable lines={equityLines} title="Equity" />
+              <BSTable lines={balanceCheck} />
+            </CardContent>
+          </Card>
 
-      {perProject.length === 0 && (
-        <p className="text-center text-muted-foreground py-8">
-          No projects with financial activity found.
-        </p>
+          {/* Per-project */}
+          {perProject.map(({ project, cash, ar, totalAssets, ap, totalLiabilities, equity }) => (
+            <Card key={project.id}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span>
+                    #{project.project_number} — {project.project_name}
+                  </span>
+                  {onProjectClick && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onProjectClick(project.id, "finance")}
+                    >
+                      View Project
+                    </Button>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <BSTable
+                  lines={[
+                    { label: "Cash Collected", amount: cash, indent: true },
+                    { label: "Accounts Receivable", amount: ar, indent: true },
+                    { label: "Total Assets", amount: totalAssets, isTotal: true },
+                  ]}
+                  title="Assets"
+                />
+                <BSTable
+                  lines={[
+                    { label: "Accounts Payable", amount: ap, indent: true },
+                    { label: "Total Liabilities", amount: totalLiabilities, isTotal: true },
+                  ]}
+                  title="Liabilities"
+                />
+                <BSTable
+                  lines={[
+                    { label: "Equity (Net Position)", amount: equity, isGrandTotal: true },
+                  ]}
+                />
+              </CardContent>
+            </Card>
+          ))}
+
+          {perProject.length === 0 && (
+            <p className="text-center text-muted-foreground py-8">
+              No projects with financial activity found.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
