@@ -432,7 +432,14 @@ Deno.serve(async (req) => {
             .eq("sync_status", "synced")
             .single();
 
-          const existingQbId = existingSync?.quickbooks_id;
+          // If the existingQbId starts with "backfill-", it's a placeholder from data migration
+          // and not a real QuickBooks ID - treat as new invoice
+          const rawExistingQbId = existingSync?.quickbooks_id || null;
+          const existingQbId = rawExistingQbId?.startsWith("backfill-") ? null : rawExistingQbId;
+          
+          if (rawExistingQbId?.startsWith("backfill-")) {
+            console.log(`Invoice ${invoice.invoice_number} has backfill placeholder ID (${rawExistingQbId}), will create new in QB`);
+          }
 
           // Get configured mappings
           const itemMapping = getMapping("default_item");
@@ -599,7 +606,11 @@ Deno.serve(async (req) => {
             .eq("sync_status", "synced")
             .single();
 
-          const existingQbId = existingSync?.quickbooks_id;
+          const rawPaymentQbId = existingSync?.quickbooks_id || null;
+          const existingQbId = rawPaymentQbId?.startsWith("backfill-") ? null : rawPaymentQbId;
+          if (rawPaymentQbId?.startsWith("backfill-")) {
+            console.log(`Payment ${payment.id} has backfill placeholder ID (${rawPaymentQbId}), will create new in QB`);
+          }
 
           const qbPayment: any = {
             CustomerRef: { value: customerResult.id },
@@ -1124,7 +1135,11 @@ Deno.serve(async (req) => {
             .eq("sync_status", "synced")
             .single();
 
-          const existingQbId = existingSync?.quickbooks_id;
+          const rawBpQbId = existingSync?.quickbooks_id || null;
+          const existingQbId = rawBpQbId?.startsWith("backfill-") ? null : rawBpQbId;
+          if (rawBpQbId?.startsWith("backfill-")) {
+            console.log(`Bill Payment ${billPayment.id} has backfill placeholder ID (${rawBpQbId}), will create new in QB`);
+          }
 
           // Find the vendor for this bill
           const vendorName = billPayment.project_bills?.installer_company || "Unknown Vendor";
@@ -1431,7 +1446,11 @@ Deno.serve(async (req) => {
           .eq("sync_status", "synced")
           .single();
 
-        const existingQbId = existingSync?.quickbooks_id;
+        const rawCommQbId = existingSync?.quickbooks_id || null;
+        const existingQbId = rawCommQbId?.startsWith("backfill-") ? null : rawCommQbId;
+        if (rawCommQbId?.startsWith("backfill-")) {
+          console.log(`Commission payment ${recordId} has backfill placeholder ID (${rawCommQbId}), will create new in QB`);
+        }
 
         // Get expense account mapping for commissions
         const expenseAccountMapping = getMapping("expense_account");
