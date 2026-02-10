@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,9 +27,10 @@ interface AnalyticsSectionProps {
   openPayablesOnLoad?: boolean;
   initialKPI?: string;
   visibleReports?: string[];
+  filtersContainerRef?: RefObject<HTMLDivElement | null>;
 }
 
-export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, reopenARSheet, onARSheetOpened, initialTab, openPayablesOnLoad, initialKPI, visibleReports }: AnalyticsSectionProps) {
+export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, reopenARSheet, onARSheetOpened, initialTab, openPayablesOnLoad, initialKPI, visibleReports, filtersContainerRef }: AnalyticsSectionProps) {
   const { isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -289,20 +291,29 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
     );
   }
 
+  const usePortal = !!filtersContainerRef?.current;
+  const filtersElement = (
+    <AnalyticsFilters
+      dateRange={dateRange}
+      onDateRangeChange={setDateRange}
+      selectedProjects={selectedProjects}
+      onProjectsChange={setSelectedProjects}
+      selectedSalespeople={selectedSalespeople}
+      onSalespeopleChange={setSelectedSalespeople}
+      projectOptions={projectOptions}
+      salespeopleOptions={salespeopleOptions}
+      onExport={handleExport}
+      compact={usePortal}
+    />
+  );
+
   return (
     <div className="space-y-6">
-      {/* Filters */}
-      <AnalyticsFilters
-        dateRange={dateRange}
-        onDateRangeChange={setDateRange}
-        selectedProjects={selectedProjects}
-        onProjectsChange={setSelectedProjects}
-        selectedSalespeople={selectedSalespeople}
-        onSalespeopleChange={setSelectedSalespeople}
-        projectOptions={projectOptions}
-        salespeopleOptions={salespeopleOptions}
-        onExport={handleExport}
-      />
+      {/* Filters - portal into header if container provided, otherwise inline */}
+      {filtersContainerRef?.current
+        ? createPortal(filtersElement, filtersContainerRef.current)
+        : filtersElement
+      }
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
