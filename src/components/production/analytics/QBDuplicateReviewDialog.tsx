@@ -116,7 +116,12 @@ export function QBDuplicateReviewDialog({
                     <span className="font-medium">{formatCurrency(dup.amount)}</span>
                     <span className="text-muted-foreground text-xs">on {dup.date}</span>
                     {dup.reference && (
-                      <Badge variant="outline" className="text-[10px]">Ref: {dup.reference}</Badge>
+                      <Badge variant="outline" className="text-[10px] font-medium">
+                        QB Ref #: {dup.reference}
+                      </Badge>
+                    )}
+                    {dup.payType && (
+                      <span className="text-[10px] text-muted-foreground">{dup.payType}</span>
                     )}
                     <Badge className={cn("text-[10px]", confidenceColors[dup.confidence])}>
                       {dup.confidence === "high" ? "Likely Duplicate" : dup.confidence === "medium" ? "Possible Match" : "Weak Match"}
