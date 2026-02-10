@@ -1334,7 +1334,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       if (savedRecordId) {
         const qbResult = await checkQbDuplicatesAndSync("bill", savedRecordId, {
           amount: bill.bill_amount || 0,
-          date: bill.created_at || new Date().toISOString().slice(0, 10),
+          date: (editingBill?.created_at || bill.created_at || new Date().toISOString()).slice(0, 10),
           reference: bill.bill_ref || null,
           vendorName: bill.installer_company || null,
         });
