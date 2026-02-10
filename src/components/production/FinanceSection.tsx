@@ -6515,11 +6515,12 @@ function ProjectFinancialStatements({
     setTimeout(() => { printWindow.print(); }, 250);
   }, []);
 
+  const billsOutstanding = totalCOGS - totalBillsPaid;
+  const grossIncome = totalRevenue - totalCOGS;
+  const commission = grossIncome * (commissionSplitPct / 100);
+  const grossIncomeAfterCommission = grossIncome - commission;
   const leadCost = totalRevenue * (leadCostPercent / 100);
-  const commission = totalRevenue * (commissionSplitPct / 100);
-  const grossProfit = totalRevenue - totalCOGS;
-  const netIncomeBeforeCommission = grossProfit - leadCost;
-  const netIncomeAfterCommission = netIncomeBeforeCommission - commission;
+  const netIncome = grossIncomeAfterCommission + leadCost;
 
   const ar = totalInvoiced - totalCollected;
   const ap = totalCOGS - totalBillsPaid;
@@ -6558,11 +6559,11 @@ function ProjectFinancialStatements({
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full text-sm">
                 <tbody>
-                  {lineRow("Revenue (Contracts)", totalRevenue)}
-                  {lineRow("Cost of Goods Sold (Bills)", -totalCOGS, { indent: true })}
-                  {lineRow("Gross Profit", grossProfit, { bold: true })}
-                  {lineRow("Lead Costs", -leadCost, { indent: true })}
-                  {lineRow("Net Income Before Commission", netIncomeBeforeCommission, { bold: true })}
+                  {lineRow("Revenues (Contracts Invoiced)", totalRevenue)}
+                  {lineRow("Bills Paid", -totalBillsPaid, { indent: true })}
+                  {lineRow("Bills Outstanding", -billsOutstanding, { indent: true })}
+                  {lineRow("Cost of Sales Total", -totalCOGS, { bold: true })}
+                  {lineRow("Gross Income", grossIncome, { bold: true })}
                   {lineRow(
                     <span className="flex items-center gap-1.5">
                       Commissions
@@ -6570,7 +6571,9 @@ function ProjectFinancialStatements({
                     </span>,
                     -commission, { indent: true }
                   )}
-                  {lineRow("Net Income After Commission", netIncomeAfterCommission, { grandTotal: true })}
+                  {lineRow("Gross Income After Commission", grossIncomeAfterCommission, { bold: true })}
+                  {lineRow("Lead Cost Income", leadCost, { indent: true })}
+                  {lineRow("Net Income", netIncome, { grandTotal: true })}
                 </tbody>
               </table>
             </div>

@@ -12,7 +12,7 @@ interface PnLStatementProps {
 }
 
 interface PnLLineItem {
-  label: string;
+  label: string | React.ReactNode;
   amount: number;
   isTotal?: boolean;
   isGrandTotal?: boolean;
@@ -63,20 +63,24 @@ function PnLTable({ lines }: { lines: PnLLineItem[] }) {
 
 function buildPnLLines(data: {
   totalRevenue: number;
+  totalBillsPaid: number;
+  billsOutstanding: number;
   totalCOGS: number;
-  totalLeadCost: number;
+  grossIncome: number;
   totalCommission: number;
-  grossProfit: number;
-  operatingExpenses: number;
+  grossIncomeAfterCommission: number;
+  totalLeadCost: number;
   netIncome: number;
 }): PnLLineItem[] {
   return [
-    { label: "Revenue (Contracts Total)", amount: data.totalRevenue },
-    { label: "Cost of Goods Sold (Bills Received)", amount: -data.totalCOGS, indent: true },
-    { label: "Gross Profit", amount: data.grossProfit, isTotal: true },
-    { label: "Lead Costs", amount: -data.totalLeadCost, indent: true },
+    { label: "Revenues (Contracts Invoiced)", amount: data.totalRevenue },
+    { label: "Bills Paid", amount: -data.totalBillsPaid, indent: true },
+    { label: "Bills Outstanding", amount: -data.billsOutstanding, indent: true },
+    { label: "Cost of Sales Total", amount: -data.totalCOGS, isTotal: true },
+    { label: "Gross Income", amount: data.grossIncome, isTotal: true },
     { label: "Commissions", amount: -data.totalCommission, indent: true },
-    { label: "Total Operating Expenses", amount: -data.operatingExpenses, isTotal: true },
+    { label: "Gross Income After Commission", amount: data.grossIncomeAfterCommission, isTotal: true },
+    { label: "Lead Cost Income", amount: data.totalLeadCost, indent: true },
     { label: "Net Income", amount: data.netIncome, isGrandTotal: true },
   ];
 }
@@ -84,12 +88,14 @@ function buildPnLLines(data: {
 function computeAggregate(projects: ProjectWithFinancials[]) {
   const totalRevenue = projects.reduce((s, p) => s + p.contractsTotal, 0);
   const totalCOGS = projects.reduce((s, p) => s + p.totalBillsReceived, 0);
-  const totalLeadCost = projects.reduce((s, p) => s + p.leadCostAmount, 0);
+  const totalBillsPaid = projects.reduce((s, p) => s + p.totalBillsPaid, 0);
+  const billsOutstanding = totalCOGS - totalBillsPaid;
+  const grossIncome = totalRevenue - totalCOGS;
   const totalCommission = projects.reduce((s, p) => s + p.totalCommission, 0);
-  const grossProfit = totalRevenue - totalCOGS;
-  const operatingExpenses = totalLeadCost + totalCommission;
-  const netIncome = grossProfit - operatingExpenses;
-  return { totalRevenue, totalCOGS, totalLeadCost, totalCommission, grossProfit, operatingExpenses, netIncome };
+  const grossIncomeAfterCommission = grossIncome - totalCommission;
+  const totalLeadCost = projects.reduce((s, p) => s + p.leadCostAmount, 0);
+  const netIncome = grossIncomeAfterCommission + totalLeadCost;
+  return { totalRevenue, totalBillsPaid, billsOutstanding, totalCOGS, grossIncome, totalCommission, grossIncomeAfterCommission, totalLeadCost, netIncome };
 }
 
 export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }: PnLStatementProps) {
@@ -100,18 +106,22 @@ export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }
       .filter(p => p.contractsTotal > 0 || p.totalBillsReceived > 0)
       .sort((a, b) => b.contractsTotal - a.contractsTotal)
       .map(p => {
-        const grossProfit = p.contractsTotal - p.totalBillsReceived;
-        const operatingExpenses = p.leadCostAmount + p.totalCommission;
+        const billsOutstanding = p.totalBillsReceived - p.totalBillsPaid;
+        const grossIncome = p.contractsTotal - p.totalBillsReceived;
+        const grossIncomeAfterCommission = grossIncome - p.totalCommission;
+        const netIncome = grossIncomeAfterCommission + p.leadCostAmount;
         return {
           project: p,
           lines: buildPnLLines({
             totalRevenue: p.contractsTotal,
+            totalBillsPaid: p.totalBillsPaid,
+            billsOutstanding,
             totalCOGS: p.totalBillsReceived,
-            totalLeadCost: p.leadCostAmount,
+            grossIncome,
             totalCommission: p.totalCommission,
-            grossProfit,
-            operatingExpenses,
-            netIncome: grossProfit - operatingExpenses,
+            grossIncomeAfterCommission,
+            totalLeadCost: p.leadCostAmount,
+            netIncome,
           }),
         };
       });
