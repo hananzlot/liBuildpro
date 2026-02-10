@@ -135,15 +135,6 @@ export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }
         </Card>
       ) : (
         <div className="space-y-4">
-          {/* Company total first */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Company Total</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PnLTable lines={buildPnLLines(aggregate)} />
-            </CardContent>
-          </Card>
 
           {/* Per-project */}
           {perProjectData.map(({ project, lines }) => (

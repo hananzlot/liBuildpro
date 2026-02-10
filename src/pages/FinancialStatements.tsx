@@ -129,10 +129,12 @@ export default function FinancialStatements() {
 
   const handleExportCSV = useCallback(() => {
     const date = new Date().toISOString().split("T")[0];
+    // In per-project mode, only export filtered projects (no company totals)
+    const exportAll = viewMode === "per-project" ? filteredProjects : projects;
     if (activeTab === "pnl") {
-      downloadCSV(buildPnLCSV(filteredProjects, projects, viewMode), `pnl-statement-${date}.csv`);
+      downloadCSV(buildPnLCSV(filteredProjects, exportAll, viewMode), `pnl-statement-${date}.csv`);
     } else {
-      downloadCSV(buildBSCSV(filteredProjects, projects, viewMode), `balance-sheet-${date}.csv`);
+      downloadCSV(buildBSCSV(filteredProjects, exportAll, viewMode), `balance-sheet-${date}.csv`);
     }
   }, [activeTab, viewMode, filteredProjects, projects, buildPnLCSV, buildBSCSV, downloadCSV]);
 
@@ -263,7 +265,7 @@ export default function FinancialStatements() {
               <TabsContent value="pnl" className="mt-6">
                 <PnLStatement
                   projects={filteredProjects}
-                  allProjects={projects}
+                  allProjects={viewMode === "per-project" ? filteredProjects : projects}
                   viewMode={viewMode}
                   onProjectClick={handleProjectClick}
                 />
@@ -274,7 +276,7 @@ export default function FinancialStatements() {
               <TabsContent value="balance-sheet" className="mt-6">
                 <BalanceSheet
                   projects={filteredProjects}
-                  allProjects={projects}
+                  allProjects={viewMode === "per-project" ? filteredProjects : projects}
                   viewMode={viewMode}
                   onProjectClick={handleProjectClick}
                 />
