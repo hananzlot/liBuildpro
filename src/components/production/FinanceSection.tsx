@@ -5356,6 +5356,17 @@ function BillPaymentHistoryDialog({
     enabled: !!companyId && !!editingPayment,
   });
 
+  // QB duplicate detection state for this dialog
+  const [qbDupDialogOpen, setQbDupDialogOpen] = useState(false);
+  const [qbDupLinking, setQbDupLinking] = useState(false);
+  const [qbDupState, setQbDupState] = useState<{
+    duplicates: any[];
+    localAmount: number;
+    localDate: string;
+    localReference: string | null;
+    paymentId: string;
+  } | null>(null);
+
   // Helper to sync bill payment to QuickBooks
   const syncBillPaymentToQB = async (paymentId: string): Promise<{ synced: boolean }> => {
     if (!companyId) return { synced: false };
@@ -5371,11 +5382,118 @@ function BillPaymentHistoryDialog({
         console.error("QuickBooks sync error:", error);
         return { synced: false };
       }
+      if (data?.errors?.length) {
+        toast.error(`QB sync error: ${data.errors[0]}`, { duration: Infinity });
+        return { synced: false };
+      }
       return { synced: data?.synced > 0 };
     } catch (err) {
       console.error("Failed to sync to QuickBooks:", err);
       return { synced: false };
     }
+  };
+
+  // Helper to check for QB duplicates before syncing a bill payment
+  const checkAndSyncBillPayment = async (paymentId: string, amount: number, date: string, reference: string | null): Promise<{ synced: boolean }> => {
+    if (!companyId) return { synced: false };
+
+    // Check if sync log already exists (already synced)
+    const { data: existingSync } = await supabase
+      .from("quickbooks_sync_log")
+      .select("id, quickbooks_id")
+      .eq("company_id", companyId)
+      .eq("record_type", "bill_payment")
+      .eq("record_id", paymentId)
+      .eq("sync_status", "synced")
+      .maybeSingle();
+
+    if (existingSync?.quickbooks_id) {
+      // Already synced — just re-sync the update
+      return syncBillPaymentToQB(paymentId);
+    }
+
+    // No existing sync — check for duplicates
+    try {
+      const { data: dupResult, error: dupError } = await supabase.functions.invoke("quickbooks-find-duplicates", {
+        body: {
+          companyId,
+          recordType: "bill_payment",
+          amount,
+          date,
+          reference,
+          vendorName: bill?.installer_company || null,
+        },
+      });
+
+      if (!dupError && dupResult?.duplicates?.length > 0) {
+        // Show duplicate review dialog — return a promise that resolves after user choice
+        return new Promise((resolve) => {
+          setQbDupState({
+            duplicates: dupResult.duplicates,
+            localAmount: amount,
+            localDate: date,
+            localReference: reference,
+            paymentId,
+          });
+          // Store resolve callback to use when user makes a choice
+          qbDupResolveRef.current = resolve;
+          setQbDupDialogOpen(true);
+        });
+      }
+    } catch (err) {
+      console.error("Duplicate check error:", err);
+    }
+
+    // No duplicates found — sync directly
+    return syncBillPaymentToQB(paymentId);
+  };
+
+  // Ref to store the resolve callback for the duplicate dialog promise
+  const qbDupResolveRef = useRef<((result: { synced: boolean }) => void) | null>(null);
+
+  const handleQbDupLink = async (qbId: string) => {
+    if (!qbDupState || !companyId) return;
+    setQbDupLinking(true);
+    try {
+      await supabase.from("quickbooks_sync_log").upsert({
+        company_id: companyId,
+        record_type: "bill_payment",
+        record_id: qbDupState.paymentId,
+        quickbooks_id: qbId,
+        sync_status: "synced",
+        synced_at: new Date().toISOString(),
+      }, { onConflict: "company_id,record_type,record_id" });
+      toast.success("Linked to existing QuickBooks record");
+      queryClient.invalidateQueries({ queryKey: ["qb-sync-status"] });
+      queryClient.invalidateQueries({ queryKey: ["bill-payment-sync-statuses"] });
+      qbDupResolveRef.current?.({ synced: true });
+    } catch (err) {
+      console.error("Failed to link QB record:", err);
+      toast.error("Failed to link to QuickBooks record");
+      qbDupResolveRef.current?.({ synced: false });
+    } finally {
+      setQbDupLinking(false);
+      setQbDupDialogOpen(false);
+      setQbDupState(null);
+      qbDupResolveRef.current = null;
+    }
+  };
+
+  const handleQbDupCreateNew = async () => {
+    if (!qbDupState) return;
+    const paymentId = qbDupState.paymentId;
+    setQbDupDialogOpen(false);
+    setQbDupState(null);
+    const result = await syncBillPaymentToQB(paymentId);
+    qbDupResolveRef.current?.(result);
+    qbDupResolveRef.current = null;
+  };
+
+  const handleQbDupCancel = () => {
+    setQbDupDialogOpen(false);
+    setQbDupState(null);
+    qbDupResolveRef.current?.({ synced: false });
+    qbDupResolveRef.current = null;
   };
 
   // Delete bill payment mutation
@@ -5500,8 +5618,13 @@ function BillPaymentHistoryDialog({
           .eq("id", bill.id);
       }
 
-      // Sync to QuickBooks (will update existing record if already synced)
-      const qbResult = await syncBillPaymentToQB(paymentId);
+      // Check for duplicates before syncing to QuickBooks
+      const qbResult = await checkAndSyncBillPayment(
+        paymentId,
+        updates.payment_amount ?? originalPayment.payment_amount ?? 0,
+        updates.payment_date ?? originalPayment.payment_date ?? "",
+        updates.payment_reference ?? originalPayment.payment_reference ?? null,
+      );
       return { qbSynced: qbResult.synced };
     },
     onSuccess: (result) => {
@@ -5939,6 +6062,23 @@ function BillPaymentHistoryDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* QB Duplicate Review Dialog */}
+      {qbDupState && (
+        <QBDuplicateReviewDialog
+          open={qbDupDialogOpen}
+          onOpenChange={setQbDupDialogOpen}
+          duplicates={qbDupState.duplicates}
+          recordType="bill_payment"
+          localAmount={qbDupState.localAmount}
+          localDate={qbDupState.localDate}
+          localReference={qbDupState.localReference}
+          onLink={handleQbDupLink}
+          onCreateNew={handleQbDupCreateNew}
+          onCancel={handleQbDupCancel}
+          isLinking={qbDupLinking}
+        />
+      )}
     </>
   );
 }
