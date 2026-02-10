@@ -147,7 +147,7 @@ export function BankActivitiesTab({ transactions, projects, totals, onProjectCli
   }, [transactions]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         <MetricCard
