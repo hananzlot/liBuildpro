@@ -1,58 +1,30 @@
 
+## Add Average Commission % and Lead Cost % to P&L Labels
 
-## P&L Report Restructuring
+### What Changes
+In the P&L Statement, the "Commissions" and "Lead Cost Income" line items will display the average percentage used next to their label -- e.g., **"Commissions (avg 48.5%)"** and **"Lead Cost Income (avg 17.2%)"**.
 
-### New P&L Layout
+### How It Works
 
-The Profit & Loss statement will be restructured to follow this exact flow:
+**Aggregate view:** Compute a revenue-weighted average of each project's `commission_split_pct` and `lead_cost_percent` across all included projects. This gives a meaningful average that reflects how much each project contributes to the total.
 
-```text
-+-------------------------------------------+--------+
-| Revenues (Contracts Invoiced)              | $X     |
-|   Bills Paid                               | ($X)   |
-|   Bills Outstanding                        | ($X)   |
-| Cost of Sales Total                        | ($X)   | <- bold subtotal
-| Gross Income                               | $X     | <- bold
-|   Commissions [Estimated badge if needed]  | ($X)   |
-| Gross Income After Commission              | $X     | <- bold
-|   Lead Cost Income                         | $X     |
-| Net Income                                 | $X     | <- grand total
-+-------------------------------------------+--------+
-```
-
-### Key Changes from Current
-
-1. **Revenues** label changes to "Revenues (Contracts Invoiced)"
-2. **Cost of Sales** section replaces "Cost of Goods Sold" -- broken into "Bills Paid" and "Bills Outstanding" sub-lines with a "Cost of Sales Total" subtotal
-3. **Gross Income** = Revenues - Cost of Sales Total (renamed from "Gross Profit")
-4. **Commissions** moves up -- deducted right after Gross Income (with "Estimated" badge if project not completed)
-5. **Gross Income After Commission** = Gross Income - Commissions (new subtotal line)
-6. **Lead Cost** is shown as a positive addition (income), not a deduction
-7. **Net Income** = Gross Income After Commission + Lead Cost (final grand total)
-
-### Commission Formula Fix
-
-The commission calculation changes from:
-- Current: `totalRevenue * commissionSplitPct%` (incorrect)
-- New: `(totalRevenue - totalCOGS) * commissionSplitPct%` (commission on Gross Income)
-
-Or if the intent is commission on profit after leads too, clarify -- but based on the layout requested (commission comes before lead costs), it will be calculated on Gross Income.
+**Per-project view:** Show the exact percentage used for that specific project (e.g., "Commissions (50%)" and "Lead Cost Income (18%)").
 
 ### Technical Details
 
-**File:** `src/components/production/FinanceSection.tsx`
+**File:** `src/components/production/analytics/PnLStatement.tsx`
 
-**Calculations (lines ~6518-6522):**
-```typescript
-const billsOutstanding = totalCOGS - totalBillsPaid;
-const grossIncome = totalRevenue - totalCOGS;
-const commission = grossIncome * (commissionSplitPct / 100);
-const grossIncomeAfterCommission = grossIncome - commission;
-const leadCost = totalRevenue * (leadCostPercent / 100);
-const netIncome = grossIncomeAfterCommission + leadCost;
-```
+1. **Extend `buildPnLLines` parameters** to accept two new optional fields: `avgCommissionPct` and `avgLeadCostPct`.
 
-**Table rows (lines ~6558-6576):** Replace all P&L rows with the new structure using the existing `lineRow` helper -- 8 rows total with proper indentation, bold subtotals, and the "Estimated" badge on commissions when `!isCompleted`.
+2. **Update label rendering** for the Commissions and Lead Cost Income rows to include the percentage in a muted style:
+   - `Commissions (avg 48.5%)` for aggregate
+   - `Commissions (50%)` for per-project
 
-No changes needed to the Balance Sheet card or the PDF export (it renders the same `printRef` content).
+3. **Compute weighted averages in `computeAggregate`:**
+   - Weighted avg commission = sum(project.contractsTotal * project.commission_split_pct) / sum(project.contractsTotal) for projects with revenue > 0
+   - Same approach for lead cost percent
+   - Uses each project's `commission_split_pct` (default 50) and `lead_cost_percent` (default 18)
 
+4. **Per-project data** will pass each project's individual `commission_split_pct` and `lead_cost_percent` directly.
+
+5. The percentage will be rendered as a `<span>` with `text-muted-foreground text-xs` styling so it's visible but doesn't dominate the label.
