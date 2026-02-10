@@ -115,11 +115,9 @@ export function QBDuplicateReviewDialog({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium">{formatCurrency(dup.amount)}</span>
                     <span className="text-muted-foreground text-xs">on {dup.date}</span>
-                    {dup.reference && (
-                      <Badge variant="outline" className="text-[10px] font-medium">
-                        QB Ref #: {dup.reference}
-                      </Badge>
-                    )}
+                    <Badge variant="outline" className={cn("text-[10px] font-medium", dup.reference ? "" : "text-muted-foreground")}>
+                      QB Check #: {dup.reference || "None"}
+                    </Badge>
                     {dup.payType && (
                       <span className="text-[10px] text-muted-foreground">{dup.payType}</span>
                     )}
