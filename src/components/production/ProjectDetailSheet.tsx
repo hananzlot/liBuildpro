@@ -910,7 +910,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
             ) : (
               <>
                 {/* Project Info & Customer Info - Two Columns */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr] gap-4">
                 {/* Project Info */}
                 <Card>
                   <CardHeader className="py-3 px-4">
@@ -1448,7 +1448,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 px-4 pb-4">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">First Name</Label>
                         <DebouncedInput
@@ -1466,7 +1466,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">Cell Phone</Label>
                         <DebouncedInput
@@ -1487,10 +1487,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     </div>
                   </CardContent>
                 </Card>
-                </div>
 
                 {/* Salesperson Info */}
-                <div className="max-w-6xl mx-auto">
                 <Card>
                   <CardHeader className="py-3 px-4">
                     <CardTitle className="text-xs font-medium">Sales Team</CardTitle>
