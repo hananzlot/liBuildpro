@@ -20,6 +20,7 @@ import { PaymentScheduleSheet } from "./PaymentScheduleSheet";
 import { SchedulePaymentDialog } from "./SchedulePaymentDialog";
 import { MarkAsPaidDialog } from "./MarkAsPaidDialog";
 import { ProjectAmountDetailSheet, AmountType } from "./ProjectAmountDetailSheet";
+import { CashFlowStatusSheet } from "./CashFlowStatusSheet";
 
 interface CashFlowTabProps {
   projects: ProjectWithFinancials[];
@@ -126,6 +127,9 @@ export function CashFlowTab({
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [markingAsPaidPayable, setMarkingAsPaidPayable] = useState<PayableWithCashImpact | null>(null);
   const [markAsPaidDialogOpen, setMarkAsPaidDialogOpen] = useState(false);
+  const [statusSheetOpen, setStatusSheetOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedStatusLabel, setSelectedStatusLabel] = useState("");
   
   // Reopen payables sheet when returning from a project (payables → project → back)
   useEffect(() => {
@@ -333,32 +337,29 @@ export function CashFlowTab({
         />
       </div>
 
-      {/* Status Summary Cards */}
+      {/* Status Summary Cards - Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className={cn("border-2", getCashStatusColor('positive'))}>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{statusCounts.positive || 0}</p>
-            <p className="text-sm font-medium">Cash Positive</p>
-          </CardContent>
-        </Card>
-        <Card className={cn("border-2", getCashStatusColor('low'))}>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{statusCounts.low || 0}</p>
-            <p className="text-sm font-medium">Low Collection</p>
-          </CardContent>
-        </Card>
-        <Card className={cn("border-2", getCashStatusColor('negative'))}>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{statusCounts.negative || 0}</p>
-            <p className="text-sm font-medium">Cash Negative</p>
-          </CardContent>
-        </Card>
-        <Card className={cn("border-2", getCashStatusColor('overdue'))}>
-          <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold">{statusCounts.overdue || 0}</p>
-            <p className="text-sm font-medium">Overdue AR</p>
-          </CardContent>
-        </Card>
+        {([
+          { key: 'positive', label: 'Cash Positive' },
+          { key: 'low', label: 'Low Collection' },
+          { key: 'negative', label: 'Cash Negative' },
+          { key: 'overdue', label: 'Overdue AR' },
+        ] as const).map(({ key, label }) => (
+          <Card
+            key={key}
+            className={cn("border-2 cursor-pointer hover:shadow-md transition-shadow", getCashStatusColor(key))}
+            onClick={() => {
+              setSelectedStatus(key);
+              setSelectedStatusLabel(label);
+              setStatusSheetOpen(true);
+            }}
+          >
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold">{statusCounts[key] || 0}</p>
+              <p className="text-sm font-medium">{label}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Project Cash Status Table */}
@@ -513,6 +514,16 @@ export function CashFlowTab({
         projectNumber={selectedAmountProject?.project_number || 0}
         projectName={selectedAmountProject?.project_address || selectedAmountProject?.project_name || ''}
         amountType={selectedAmountType}
+      />
+
+      <CashFlowStatusSheet
+        open={statusSheetOpen}
+        onOpenChange={setStatusSheetOpen}
+        status={selectedStatus}
+        statusLabel={selectedStatusLabel}
+        projects={projects}
+        bankTransactions={bankTransactions}
+        onProjectClick={(projectId) => onProjectClick?.(projectId)}
       />
     </div>
   );
