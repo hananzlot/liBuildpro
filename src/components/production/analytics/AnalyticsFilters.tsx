@@ -14,6 +14,7 @@ interface AnalyticsFiltersProps {
   projectOptions: { value: string; label: string }[];
   salespeopleOptions: { value: string; label: string }[];
   onExport?: () => void;
+  compact?: boolean;
 }
 
 export function AnalyticsFilters({
@@ -26,9 +27,10 @@ export function AnalyticsFilters({
   projectOptions,
   salespeopleOptions,
   onExport,
+  compact,
 }: AnalyticsFiltersProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 p-4 bg-card border rounded-lg">
+    <div className={compact ? "flex flex-wrap items-center gap-2" : "flex flex-wrap items-center gap-3 p-4 bg-card border rounded-lg"}>
       <DateRangeFilter
         dateRange={dateRange}
         onDateRangeChange={onDateRangeChange}

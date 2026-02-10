@@ -3,13 +3,14 @@ import { AnalyticsSection } from "@/components/production/AnalyticsSection";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { useAnalyticsPermissions } from "@/hooks/useAnalyticsPermissions";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export default function Analytics() {
   const navigate = useNavigate();
   const { openTab } = useAppTabs();
   const [searchParams] = useSearchParams();
   const { tab: routeTab } = useParams<{ tab?: string }>();
+  const filtersRef = useRef<HTMLDivElement>(null);
   
   const { visibleReports, isLoading: permissionsLoading } = useAnalyticsPermissions();
   
@@ -51,13 +52,14 @@ export default function Analytics() {
   return (
     <AppLayout>
       <div className="flex-1 p-4 md:p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div className="shrink-0">
             <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
             <p className="text-muted-foreground">
               Financial analytics, profitability, and cash flow insights
             </p>
           </div>
+          <div ref={filtersRef} className="flex-1 flex justify-end" />
         </div>
         
         <AnalyticsSection 
@@ -65,6 +67,7 @@ export default function Analytics() {
           initialTab={initialTab}
           initialKPI={initialKPI}
           visibleReports={visibleReports}
+          filtersContainerRef={filtersRef}
         />
       </div>
     </AppLayout>
