@@ -252,33 +252,7 @@ export default function FinancialStatements() {
                 Per Project
               </Toggle>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {[...statusOptions]
-                .sort((a, b) => {
-                  const aSelected = selectedStatuses.includes(a.value) ? 0 : 1;
-                  const bSelected = selectedStatuses.includes(b.value) ? 0 : 1;
-                  return aSelected - bSelected;
-                })
-                .map(opt => {
-                  const isActive = selectedStatuses.includes(opt.value);
-                  return (
-                    <Badge
-                      key={opt.value}
-                      variant={isActive ? "default" : "outline"}
-                      className="cursor-pointer select-none transition-colors"
-                      onClick={() => {
-                        setSelectedStatuses(prev =>
-                          prev.includes(opt.value)
-                            ? prev.filter(s => s !== opt.value)
-                            : [...prev, opt.value]
-                        );
-                      }}
-                    >
-                      {opt.label}
-                    </Badge>
-                  );
-                })}
-            </div>
+            
             {viewMode === "per-project" && (
               <MultiSelectFilter
                 options={projectOptions}
@@ -325,6 +299,34 @@ export default function FinancialStatements() {
               </TabsTrigger>
             )}
           </TabsList>
+
+          <div className="flex flex-wrap items-center gap-1.5 mt-3">
+            {[...statusOptions]
+              .sort((a, b) => {
+                const aSelected = selectedStatuses.includes(a.value) ? 0 : 1;
+                const bSelected = selectedStatuses.includes(b.value) ? 0 : 1;
+                return aSelected - bSelected;
+              })
+              .map(opt => {
+                const isActive = selectedStatuses.includes(opt.value);
+                return (
+                  <Badge
+                    key={opt.value}
+                    variant={isActive ? "default" : "outline"}
+                    className="cursor-pointer select-none transition-colors"
+                    onClick={() => {
+                      setSelectedStatuses(prev =>
+                        prev.includes(opt.value)
+                          ? prev.filter(s => s !== opt.value)
+                          : [...prev, opt.value]
+                      );
+                    }}
+                  >
+                    {opt.label}
+                  </Badge>
+                );
+              })}
+          </div>
 
           <div ref={printRef}>
             {canViewPnL && (
