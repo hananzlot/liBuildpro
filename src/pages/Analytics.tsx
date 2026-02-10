@@ -4,6 +4,9 @@ import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { useAnalyticsPermissions } from "@/hooks/useAnalyticsPermissions";
 import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 
 export default function Analytics() {
   const navigate = useNavigate();
@@ -11,8 +14,24 @@ export default function Analytics() {
   const [searchParams] = useSearchParams();
   const { tab: routeTab } = useParams<{ tab?: string }>();
   const filtersRef = useRef<HTMLDivElement>(null);
+  const { companyId } = useCompanyContext();
   
   const { visibleReports, isLoading: permissionsLoading } = useAnalyticsPermissions();
+  
+  // Fetch projects for proper tab naming
+  const { data: projects = [] } = useQuery({
+    queryKey: ["analytics-projects-lookup", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, project_number, customer_first_name, customer_last_name")
+        .eq("company_id", companyId)
+        .is("deleted_at", null);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
   
   // Use route param as initial tab, fall back to search param, then first visible report
   const initialTab = routeTab || searchParams.get('tab') || undefined;
@@ -34,19 +53,30 @@ export default function Analytics() {
     initialTab?: string, 
     returnTo?: 'payables' | 'outstandingAR', 
     financeSubTab?: 'bills' | 'history',
-    highlightInvoiceId?: string
+    highlightInvoiceId?: string,
+    highlightBillId?: string
   ) => {
     let url = `/project/${projectId}`;
     const params = new URLSearchParams();
     if (initialTab) params.set('tab', initialTab);
-    if (financeSubTab) params.set('financeSubTab', financeSubTab);
+    if (financeSubTab) params.set('financeTab', financeSubTab);
     if (highlightInvoiceId) params.set('highlightInvoice', highlightInvoiceId);
+    if (highlightBillId) params.set('highlightBill', highlightBillId);
     if (returnTo) params.set('returnTo', returnTo);
     
     const queryString = params.toString();
     if (queryString) url += `?${queryString}`;
     
-    openTab(url, `Project ${projectId.slice(0, 8)}`);
+    // Build proper tab title using project data
+    const project = projects.find(p => p.id === projectId);
+    const customerName = project 
+      ? [project.customer_first_name, project.customer_last_name].filter(Boolean).join(' ').trim()
+      : '';
+    const title = project
+      ? (customerName ? `Project ${project.project_number} (${customerName})` : `Project ${project.project_number}`)
+      : `Project ${projectId.slice(0, 8)}`;
+    
+    openTab(url, title);
   };
 
   return (
