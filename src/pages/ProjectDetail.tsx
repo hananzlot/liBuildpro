@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,12 +20,13 @@ export default function ProjectDetail() {
   const { companyId } = useCompanyContext();
   const { closeTab, tabs, activeTabId } = useAppTabs();
   
-  // Get initial tab/subtab from search params
-  const initialTab = searchParams.get("tab") || undefined;
-  const initialFinanceSubTab = (searchParams.get("financeTab") as 'bills' | 'history') || undefined;
-  const initialFinanceSection = searchParams.get("financeSubTab") || undefined;
-  const highlightInvoiceId = searchParams.get("highlightInvoice") || undefined;
-  const highlightBillId = searchParams.get("highlightBill") || undefined;
+  // Get initial tab/subtab from search params — capture in state so they
+  // survive URL rewrites from syncTabPath inside ProjectDetailSheet.
+  const [initialTab] = useState(() => searchParams.get("tab") || undefined);
+  const [initialFinanceSubTab] = useState(() => (searchParams.get("financeTab") as 'bills' | 'history') || undefined);
+  const [initialFinanceSection] = useState(() => searchParams.get("financeSubTab") || undefined);
+  const [highlightInvoiceId] = useState(() => searchParams.get("highlightInvoice") || undefined);
+  const [highlightBillId] = useState(() => searchParams.get("highlightBill") || undefined);
   
   // Fetch project data
   const { data: project, isLoading, refetch } = useQuery({
