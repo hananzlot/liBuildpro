@@ -902,10 +902,11 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       .in("sync_status", ["synced", "pending_refresh", "deleted_in_qb"])
       .maybeSingle();
 
-    if (existingLog?.quickbooks_id) {
-      // Already has a QB record (even if deleted/pending), just resync
+    if (existingLog?.quickbooks_id && existingLog.sync_status !== "deleted_in_qb") {
+      // Already has a QB record and it's not deleted — just resync
       return syncRecordToQuickBooks(recordType, recordId);
     }
+    // If deleted_in_qb, fall through to duplicate check so user can link to existing QB record
 
     // Check for duplicates in QB
     try {
