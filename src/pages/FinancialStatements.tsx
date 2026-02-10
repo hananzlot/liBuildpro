@@ -36,7 +36,7 @@ export default function FinancialStatements() {
   const [activeTab, setActiveTab] = useState(getDefaultTab());
   const [viewMode, setViewMode] = useState<"aggregate" | "per-project">("aggregate");
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["New", "In Progress", "Completed"]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["New Job", "In-Progress", "Completed"]);
   const statusOptionsInitialized = useRef(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -75,7 +75,7 @@ export default function FinancialStatements() {
   // Auto-select matching default statuses on first load
   useEffect(() => {
     if (!statusOptionsInitialized.current && statusOptions.length > 0) {
-      const defaults = ["new", "in progress", "completed"];
+      const defaults = ["new job", "in-progress", "completed"];
       const validDefaults = statusOptions
         .filter(o => defaults.includes(o.value.toLowerCase()))
         .map(o => o.value);
