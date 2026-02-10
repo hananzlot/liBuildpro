@@ -397,7 +397,7 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
+        <SheetContent className="sm:max-w-5xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>AI Generation Queue</SheetTitle>
             <SheetDescription>
