@@ -526,12 +526,23 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       });
     });
 
-    return transactions.sort((a, b) => {
+    // Apply date range filter to transactions
+    const dateFrom = filters.dateRange?.from;
+    const dateTo = filters.dateRange?.to;
+    const filtered = (dateFrom && dateTo)
+      ? transactions.filter(t => {
+          if (!t.date) return false;
+          const d = new Date(t.date);
+          return d >= dateFrom && d <= dateTo;
+        })
+      : transactions;
+
+    return filtered.sort((a, b) => {
       if (!a.date) return 1;
       if (!b.date) return -1;
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [payments, billPayments, bills, filteredProjects, projects]);
+  }, [payments, billPayments, bills, filteredProjects, projects, filters.dateRange]);
 
   // Commission summary by salesperson
   const commissionSummary: SalespersonCommission[] = useMemo(() => {
