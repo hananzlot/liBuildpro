@@ -3238,7 +3238,18 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         isAdmin={isAdmin}
         isSuperAdmin={isSuperAdmin}
         isQBConnected={isQBConnectedMain}
-        onSyncPayment={async (paymentId) => {
+        onSyncPayment={async (paymentId, paymentDetails) => {
+          if (paymentDetails) {
+            const billForVendor = bills.find(b => b.id === historyBill?.id);
+            const result = await checkQbDuplicatesAndSync("bill_payment", paymentId, {
+              amount: paymentDetails.amount,
+              date: paymentDetails.date,
+              reference: paymentDetails.reference,
+              vendorName: billForVendor?.installer_company || null,
+              paymentMethod: paymentDetails.paymentMethod,
+            });
+            return { synced: result.synced };
+          }
           const result = await syncRecordToQuickBooks("bill_payment", paymentId);
           return { synced: result.synced };
         }}
@@ -5339,7 +5350,7 @@ function BillPaymentHistoryDialog({
   isAdmin: boolean;
   isSuperAdmin: boolean;
   isQBConnected?: boolean;
-  onSyncPayment?: (paymentId: string) => Promise<{ synced: boolean }>;
+  onSyncPayment?: (paymentId: string, paymentDetails?: { amount: number; date: string; reference: string | null; paymentMethod: string | null }) => Promise<{ synced: boolean }>;
 }) {
   const queryClient = useQueryClient();
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
@@ -5981,7 +5992,12 @@ function BillPaymentHistoryDialog({
                                       if (!onSyncPayment || syncingPaymentId) return;
                                       setSyncingPaymentId(payment.id);
                                       try {
-                                        const result = await onSyncPayment(payment.id);
+                                        const result = await onSyncPayment(payment.id, {
+                                          amount: payment.payment_amount,
+                                          date: payment.payment_date || "",
+                                          reference: payment.payment_reference || null,
+                                          paymentMethod: payment.payment_method || null,
+                                        });
                                         if (result.synced) {
                                           toast.success("Payment synced to QuickBooks");
                                           queryClient.invalidateQueries({ queryKey: ["bill-payment-history-sync-statuses"] });
