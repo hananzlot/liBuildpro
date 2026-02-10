@@ -203,8 +203,9 @@ export function EditBillPaymentDialog({
       queryClient.invalidateQueries({ queryKey: ["qb-sync-status"] });
       queryClient.invalidateQueries({ queryKey: ["bill-payment-sync-statuses"] });
 
-      // If the QB record has no reference but local does, push the reference to QB
-      if (!qbReference && qbDuplicateState.localReference) {
+      // If local has a reference that differs from QB's, push it to QB
+      const localRef = qbDuplicateState.localReference;
+      if (localRef && localRef !== qbReference) {
         toast.info("Updating QuickBooks with reference #...");
         const { data: result, error } = await supabase.functions.invoke("sync-to-quickbooks", {
           body: { companyId, syncType: "bill_payment", recordId: qbDuplicateState.paymentId },
