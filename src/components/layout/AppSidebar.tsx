@@ -212,22 +212,6 @@ const navSections: NavSection[] = [
         requiredFeature: 'production'
       },
       { 
-        title: "Outstanding AR", 
-        dynamicSuffix: "ar",
-        url: "/outstanding-ar", 
-        icon: FileText,
-        roles: ['super_admin', 'admin', 'production'],
-        requiredFeature: 'production'
-      },
-      { 
-        title: "Outstanding AP", 
-        dynamicSuffix: "ap",
-        url: "/outstanding-ap", 
-        icon: Briefcase,
-        roles: ['super_admin', 'admin', 'production'],
-        requiredFeature: 'production'
-      },
-      { 
         title: "Subcontractors", 
         url: "/production?view=subcontractors", 
         icon: HardHat,
