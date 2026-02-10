@@ -6547,7 +6547,7 @@ function ProjectFinancialStatements({
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex justify-start">
         <Button variant="outline" size="sm" onClick={handleExportPDF}>
           <Download className="h-4 w-4 mr-1" />
           Export PDF
