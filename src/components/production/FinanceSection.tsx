@@ -1834,12 +1834,15 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
       {/* Sub-tabs for Agreements, Phases, Invoices, Payments, Bills, Commission */}
       <Tabs value={activeSubTab} onValueChange={handleSubTabChange}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="agreements" className="text-xs">
             Contracts
           </TabsTrigger>
           <TabsTrigger value="phases" className="text-xs">
             Phases
+          </TabsTrigger>
+          <TabsTrigger value="statements" className="text-xs">
+            Statements
           </TabsTrigger>
           <TabsTrigger value="invoices" className="text-xs">
             Invoices
@@ -1851,6 +1854,19 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
             Commission
           </TabsTrigger>
         </TabsList>
+
+        {/* Statements Tab - Project P&L and Balance Sheet */}
+        <TabsContent value="statements" className="mt-4">
+          <ProjectFinancialStatements
+            totalRevenue={totalAgreementsValue}
+            totalCOGS={totalBills}
+            totalBillsPaid={totalBillsPaid}
+            totalCollected={totalPaymentsReceived}
+            totalInvoiced={totalInvoiced}
+            leadCostPercent={leadCostPercent}
+            commissionSplitPct={commissionSplitPct}
+          />
+        </TabsContent>
 
         {/* Invoices Tab */}
         <TabsContent value="invoices" className="mt-4">
@@ -6427,5 +6443,110 @@ function CommissionPaymentDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// --- Inline Project Financial Statements (P&L + Balance Sheet) ---
+function ProjectFinancialStatements({
+  totalRevenue,
+  totalCOGS,
+  totalBillsPaid,
+  totalCollected,
+  totalInvoiced,
+  leadCostPercent,
+  commissionSplitPct,
+}: {
+  totalRevenue: number;
+  totalCOGS: number;
+  totalBillsPaid: number;
+  totalCollected: number;
+  totalInvoiced: number;
+  leadCostPercent: number;
+  commissionSplitPct: number;
+}) {
+  const leadCost = totalRevenue * (leadCostPercent / 100);
+  const commission = totalRevenue * (commissionSplitPct / 100);
+  const grossProfit = totalRevenue - totalCOGS;
+  const opex = leadCost + commission;
+  const netIncome = grossProfit - opex;
+
+  const ar = totalInvoiced - totalCollected;
+  const ap = totalCOGS - totalBillsPaid;
+  const totalAssets = totalCollected + Math.max(ar, 0);
+  const totalLiabilities = Math.max(ap, 0);
+  const equity = totalAssets - totalLiabilities;
+
+  const fmt = (n: number) => formatCurrency(n);
+
+  const lineRow = (label: string, amount: number, opts?: { indent?: boolean; bold?: boolean; grandTotal?: boolean }) => (
+    <tr className={cn(
+      "border-b last:border-0",
+      opts?.bold && "bg-muted/30 font-semibold",
+      opts?.grandTotal && "bg-primary/10 font-bold"
+    )}>
+      <td className={cn("py-2 px-4 text-sm", opts?.indent && "pl-8")}>{label}</td>
+      <td className={cn("py-2 px-4 text-sm text-right tabular-nums", amount < 0 && "text-destructive")}>{fmt(amount)}</td>
+    </tr>
+  );
+
+  return (
+    <div className="grid md:grid-cols-2 gap-4">
+      {/* P&L */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Profit & Loss</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <tbody>
+                {lineRow("Revenue (Contracts)", totalRevenue)}
+                {lineRow("Cost of Goods Sold (Bills)", -totalCOGS, { indent: true })}
+                {lineRow("Gross Profit", grossProfit, { bold: true })}
+                {lineRow("Lead Costs", -leadCost, { indent: true })}
+                {lineRow("Commissions", -commission, { indent: true })}
+                {lineRow("Operating Expenses", -opex, { bold: true })}
+                {lineRow("Net Income", netIncome, { grandTotal: true })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Balance Sheet */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Balance Sheet</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/50 px-4 py-1.5 border-b"><span className="text-xs font-semibold">Assets</span></div>
+            <table className="w-full text-sm">
+              <tbody>
+                {lineRow("Cash (Payments Collected)", totalCollected, { indent: true })}
+                {lineRow("Accounts Receivable", Math.max(ar, 0), { indent: true })}
+                {lineRow("Total Assets", totalAssets, { bold: true })}
+              </tbody>
+            </table>
+          </div>
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/50 px-4 py-1.5 border-b"><span className="text-xs font-semibold">Liabilities</span></div>
+            <table className="w-full text-sm">
+              <tbody>
+                {lineRow("Accounts Payable (Bills Outstanding)", Math.max(ap, 0), { indent: true })}
+                {lineRow("Total Liabilities", totalLiabilities, { bold: true })}
+              </tbody>
+            </table>
+          </div>
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <tbody>
+                {lineRow("Equity (Net Position)", equity, { grandTotal: true })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
