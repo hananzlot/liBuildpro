@@ -122,6 +122,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Nullify audit_logs references to avoid FK constraint violation
+    await supabaseAdmin
+      .from("audit_logs")
+      .update({ user_id: null })
+      .eq("user_id", userId);
+
     // Delete the user (this will cascade to profiles and user_roles due to foreign keys)
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
