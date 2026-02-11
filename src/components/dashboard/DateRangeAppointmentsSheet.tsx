@@ -935,15 +935,15 @@ export function DateRangeAppointmentsSheet({
                                 </button>
                               </div>
                             )}
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-muted-foreground">
                               {salesPerson && (
-                                <span><span className="font-medium">Rep:</span> {salesPerson}</span>
+                                <span><span className="font-bold text-foreground">Rep:</span> {salesPerson}</span>
                               )}
                               {defaultStatusFilter === "showed" && opp?.status && (
-                                <span><span className="font-medium">Opp:</span> <span className="capitalize">{opp.status}</span></span>
+                                <span><span className="font-bold text-foreground">Opp:</span> <span className="capitalize">{opp.status}</span></span>
                               )}
                               {defaultStatusFilter === "showed" && opp?.stage_name && (
-                                <span><span className="font-medium">Stage:</span> {opp.stage_name}</span>
+                                <span><span className="font-bold text-foreground">Stage:</span> {opp.stage_name}</span>
                               )}
                             </div>
                           </div>
