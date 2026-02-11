@@ -2,15 +2,34 @@ import { useEffect, useRef, useState } from "react";
 import { X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppTabs } from "@/contexts/AppTabsContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function AppTabBar() {
   const { tabs, activeTabId, switchToTab, closeTab, closeAllTabs, reorderTabs } = useAppTabs();
+  const { company } = useAuth();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const tabsCountRef = useRef(tabs.length);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
+
+  const { data: pendingDepositsCount = 0 } = useQuery({
+    queryKey: ["pending-deposits-count-tab", company?.id],
+    queryFn: async () => {
+      if (!company?.id) return 0;
+      const { count } = await supabase
+        .from("project_payments")
+        .select("*", { count: "exact", head: true })
+        .eq("company_id", company.id)
+        .eq("payment_status", "Received")
+        .or("deposit_verified.is.null,deposit_verified.eq.false");
+      return count || 0;
+    },
+    enabled: !!company?.id,
+  });
 
   // Auto-scroll to the end when new tabs are added
   useEffect(() => {
@@ -95,6 +114,11 @@ export function AppTabBar() {
               onClick={() => switchToTab(tab.id)}
             >
               <span className="truncate">{tab.title}</span>
+              {tab.path === "/pending-deposits" && pendingDepositsCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold leading-none">
+                  {pendingDepositsCount}
+                </span>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
