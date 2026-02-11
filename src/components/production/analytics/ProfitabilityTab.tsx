@@ -172,6 +172,22 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
     return [...projectsWithSales].sort((a, b) => b.contractsTotal - a.contractsTotal);
   }, [projectsWithSales]);
 
+  // Summary grouped by status
+  const statusSummary = useMemo(() => {
+    const groups: Record<string, { status: string; count: number; sold: number; costs: number; profit: number }> = {};
+    projectsWithSales.forEach(p => {
+      const status = p.project_status || 'Unknown';
+      if (!groups[status]) groups[status] = { status, count: 0, sold: 0, costs: 0, profit: 0 };
+      const isCompleted = p.project_status === 'Completed';
+      const cost = isCompleted ? p.totalBillsReceived : Math.max(p.totalBillsReceived, p.effectiveEstimatedCost);
+      groups[status].count += 1;
+      groups[status].sold += p.contractsTotal;
+      groups[status].costs += cost;
+      groups[status].profit += p.expectedNetProfit;
+    });
+    return Object.values(groups).sort((a, b) => b.sold - a.sold);
+  }, [projectsWithSales]);
+
   return (
     <div className="space-y-6">
       {/* Filters */}
@@ -403,6 +419,42 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
                   );
                 })}
               </TableBody>
+              <tfoot>
+                {statusSummary.map(group => {
+                  const margin = group.sold > 0 ? (group.profit / group.sold) * 100 : 0;
+                  return (
+                    <TableRow key={group.status} className="bg-muted/40 font-semibold border-t">
+                      <TableCell />
+                      <TableCell colSpan={2}>
+                        <Badge variant="outline" className="text-xs mr-2">{group.status}</Badge>
+                        {group.count} projects
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(group.sold)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(group.costs)}</TableCell>
+                      <TableCell className={`text-right font-medium ${group.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {formatCurrency(group.profit)}
+                      </TableCell>
+                      <TableCell className={`text-right ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {margin.toFixed(1)}%
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  );
+                })}
+                <TableRow className="bg-primary/10 font-bold border-t-2">
+                  <TableCell />
+                  <TableCell colSpan={2}>Grand Total — {projectsWithSales.length} projects</TableCell>
+                  <TableCell className="text-right">{formatCurrency(filteredTotals.totalRevenue)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(filteredTotals.totalCosts)}</TableCell>
+                  <TableCell className={`text-right ${filteredTotals.totalNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {formatCurrency(filteredTotals.totalNetProfit)}
+                  </TableCell>
+                  <TableCell className={`text-right ${filteredTotals.profitMargin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {filteredTotals.profitMargin.toFixed(1)}%
+                  </TableCell>
+                  <TableCell />
+                </TableRow>
+              </tfoot>
             </Table>
           </div>
         </CardContent>
