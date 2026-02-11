@@ -1130,7 +1130,7 @@ serve(async (req) => {
     const {
       projectType,
       projectDescription,
-      workScopeDescription,
+      workScopeDescription: rawWorkScope,
       jobAddress,
       existingGroups,
       defaultMarkupPercent,
@@ -1139,7 +1139,18 @@ serve(async (req) => {
       jobId,
       stagedMode = true, // Default to new staged mode
       recoverJobId, // If provided, recover a failed job by running final assembly on saved stage_results
+      sqFtToBuild,
+      finishingGrade,
     } = body;
+
+    // Prepend Sq/Ft and Finishing Grade to the work scope so the AI factors them in
+    const scopePrefix = [
+      sqFtToBuild ? `Sq/Ft To Build: ${sqFtToBuild}` : null,
+      finishingGrade ? `Finishing Grade: ${finishingGrade}` : null,
+    ].filter(Boolean).join('\n');
+    const workScopeDescription = scopePrefix
+      ? `${scopePrefix}\n\n${rawWorkScope || ''}`
+      : (rawWorkScope || '');
 
     // ===== RECOVER MODE: Complete a failed job using saved stage_results =====
     if (recoverJobId) {
