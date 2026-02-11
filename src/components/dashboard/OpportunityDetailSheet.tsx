@@ -2782,7 +2782,12 @@ export function OpportunityDetailSheet({
                         className="hover:underline text-left"
                       >
                         {(savedPhone ?? contact?.phone) ? (
-                          <span className="text-primary">{savedPhone ?? contact?.phone}</span>
+                          <span className="text-primary">{(() => {
+                            const raw = (savedPhone ?? contact?.phone ?? "").replace(/\D/g, '');
+                            const digits = raw.startsWith('1') && raw.length === 11 ? raw.slice(1) : raw;
+                            if (digits.length === 10) return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+                            return savedPhone ?? contact?.phone;
+                          })()}</span>
                         ) : (
                           <span className="italic text-muted-foreground/60">No phone - click to add</span>
                         )}
