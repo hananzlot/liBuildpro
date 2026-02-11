@@ -194,6 +194,14 @@ const navSections: NavSection[] = [
         requiredFeature: 'estimates'
       },
       { 
+        title: "Scope Submissions", 
+        url: "/production?view=scope-submissions", 
+        icon: ClipboardList,
+        roles: ['super_admin', 'admin', 'contract_manager'],
+        requiredFeature: 'estimates',
+        dynamicSuffix: 'pendingScopes'
+      },
+      { 
         title: "E-Sign Misc Docs", 
         url: "/documents", 
         icon: FileText,
@@ -235,14 +243,6 @@ const navSections: NavSection[] = [
         icon: Users,
         roles: ['super_admin', 'admin', 'dispatch'],
         requiredFeature: 'production'
-      },
-      { 
-        title: "Scope Submissions", 
-        url: "/production?view=scope-submissions", 
-        icon: ClipboardList,
-        roles: ['super_admin', 'admin', 'production'],
-        requiredFeature: 'production',
-        dynamicSuffix: 'pendingScopes'
       },
     ],
   },
