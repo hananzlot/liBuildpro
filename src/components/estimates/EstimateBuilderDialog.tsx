@@ -3221,7 +3221,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   {(() => {
                     if (isProposalReadOnly) return null;
                     
-                    const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim() && formData.salesperson_name?.trim();
+                    const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim() && formData.salesperson_name?.trim() && formData.sq_ft_to_build?.trim() && formData.finishing_grade?.trim();
                     const hasWorkScope = formData.work_scope_description?.trim()?.length > 0;
                     const hasEstimateValue = totals.total > 0;
                     const missingFields = [];
@@ -3229,6 +3229,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     if (!formData.job_address?.trim()) missingFields.push('Job Address');
                     if (!formData.estimate_title?.trim()) missingFields.push('Project Title');
                     if (!formData.salesperson_name?.trim()) missingFields.push('Salesperson');
+                    if (!formData.sq_ft_to_build?.trim()) missingFields.push('Sq/Ft To Build');
+                    if (!formData.finishing_grade?.trim()) missingFields.push('Finishing Grade');
                     
                     // Show "Generate AI Estimate" when user has entered work scope but no estimate yet
                     if (hasWorkScope && !hasEstimateValue) {
@@ -3412,12 +3414,14 @@ The more detail you provide, the more accurate the AI-generated estimate will be
 
                   {/* Check if mandatory fields are filled for AI generation */}
                   {(() => {
-                    const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim() && formData.salesperson_name?.trim();
+                    const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim() && formData.salesperson_name?.trim() && formData.sq_ft_to_build?.trim() && formData.finishing_grade?.trim();
                     const missingFields = [];
                     if (!formData.customer_name?.trim()) missingFields.push('Customer Name');
                     if (!formData.job_address?.trim()) missingFields.push('Job Address');
                     if (!formData.estimate_title?.trim()) missingFields.push('Project Title');
                     if (!formData.salesperson_name?.trim()) missingFields.push('Salesperson');
+                    if (!formData.sq_ft_to_build?.trim()) missingFields.push('Sq/Ft To Build');
+                    if (!formData.finishing_grade?.trim()) missingFields.push('Finishing Grade');
                     
                     return groups.length === 0 ? (
                       <>
