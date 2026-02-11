@@ -243,12 +243,12 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
       if (g) {
         const m = g.sold > 0 ? (g.profit / g.sold * 100) : 0;
         const cls = g.profit >= 0 ? 'positive' : 'negative';
-        html += `<tr class="summary-row"><td></td><td colspan="2">${g.status} — ${g.count} projects</td><td>${formatCurrency(g.sold)}</td><td>${formatCurrency(g.costs)}</td><td class="${cls}">${formatCurrency(g.profit)}</td><td class="${cls}">${m.toFixed(1)}%</td><td></td></tr>`;
+        html += `<tr class="summary-row"><td></td><td>${g.status} — ${g.count} projects</td><td></td><td>${formatCurrency(g.sold)}</td><td>${formatCurrency(g.costs)}</td><td class="${cls}">${formatCurrency(g.profit)}</td><td class="${cls}">${m.toFixed(1)}%</td><td></td></tr>`;
       }
     });
     const gm = filteredTotals.profitMargin;
     const gc = filteredTotals.totalNetProfit >= 0 ? 'positive' : 'negative';
-    html += `<tr class="grand-total"><td></td><td colspan="2">Grand Total — ${projectsWithSales.length} projects</td><td>${formatCurrency(filteredTotals.totalRevenue)}</td><td>${formatCurrency(filteredTotals.totalCosts)}</td><td class="${gc}">${formatCurrency(filteredTotals.totalNetProfit)}</td><td class="${gc}">${gm.toFixed(1)}%</td><td></td></tr>`;
+    html += `<tr class="grand-total"><td></td><td>Grand Total — ${projectsWithSales.length} projects</td><td></td><td>${formatCurrency(filteredTotals.totalRevenue)}</td><td>${formatCurrency(filteredTotals.totalCosts)}</td><td class="${gc}">${formatCurrency(filteredTotals.totalNetProfit)}</td><td class="${gc}">${gm.toFixed(1)}%</td><td></td></tr>`;
     html += `</tbody></table></body></html>`;
 
     const blob = new Blob([html], { type: 'text/html' });
