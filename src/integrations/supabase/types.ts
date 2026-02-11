@@ -2518,6 +2518,8 @@ export type Database = {
           estimate_number: number
           estimate_title: string
           expiration_date: string | null
+          finishing_grade: string | null
+          garage_sq_ft: string | null
           id: string
           job_address: string | null
           lead_source: string | null
@@ -2534,6 +2536,7 @@ export type Database = {
           show_line_items_to_customer: boolean
           show_scope_to_customer: boolean
           signed_at: string | null
+          sq_ft_to_build: string | null
           status: Database["public"]["Enums"]["estimate_status"]
           subtotal: number | null
           tax_amount: number | null
@@ -2570,6 +2573,8 @@ export type Database = {
           estimate_number?: number
           estimate_title: string
           expiration_date?: string | null
+          finishing_grade?: string | null
+          garage_sq_ft?: string | null
           id?: string
           job_address?: string | null
           lead_source?: string | null
@@ -2586,6 +2591,7 @@ export type Database = {
           show_line_items_to_customer?: boolean
           show_scope_to_customer?: boolean
           signed_at?: string | null
+          sq_ft_to_build?: string | null
           status?: Database["public"]["Enums"]["estimate_status"]
           subtotal?: number | null
           tax_amount?: number | null
@@ -2622,6 +2628,8 @@ export type Database = {
           estimate_number?: number
           estimate_title?: string
           expiration_date?: string | null
+          finishing_grade?: string | null
+          garage_sq_ft?: string | null
           id?: string
           job_address?: string | null
           lead_source?: string | null
@@ -2638,6 +2646,7 @@ export type Database = {
           show_line_items_to_customer?: boolean
           show_scope_to_customer?: boolean
           signed_at?: string | null
+          sq_ft_to_build?: string | null
           status?: Database["public"]["Enums"]["estimate_status"]
           subtotal?: number | null
           tax_amount?: number | null
