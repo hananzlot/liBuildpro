@@ -2698,27 +2698,6 @@ export function OpportunityDetailSheet({
               </div>
               <div className="flex flex-col items-end gap-1">
                 <div className="flex items-center gap-2">
-                  {/* Est. Cost inline next to Opp Value */}
-                  <div className="flex flex-col items-end gap-0.5">
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span className="text-muted-foreground">Est. Cost:</span>
-                      {isEditingCost ? <div className="flex items-center gap-1">
-                          <span className="text-amber-500">$</span>
-                          <Input type="text" inputMode="decimal" value={estimatedCost} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setEstimatedCost(val); setCostError(null); } }} className={`h-6 w-20 text-xs ${costError ? 'border-destructive' : ''}`} />
-                          <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
-                            {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setIsEditingCost(false); setCostError(null); }}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div> : <button onClick={() => setIsEditingCost(true)} className="text-amber-500 font-medium hover:underline">
-                          {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
-                        </button>}
-                    </div>
-                    {costError && (
-                      <span className="text-[10px] text-destructive max-w-[220px] text-right">{costError}</span>
-                    )}
-                  </div>
                   {isEditingOppValue ? (
                     <div className="flex items-center gap-1">
                       <span className="text-lg font-bold text-emerald-400">$</span>
@@ -2740,6 +2719,27 @@ export function OpportunityDetailSheet({
                       {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
                     </button>
                   )}
+                  {/* Est. Cost after Opp Value */}
+                  <div className="flex flex-col items-end gap-0.5">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="text-muted-foreground">Est. Cost:</span>
+                      {isEditingCost ? <div className="flex items-center gap-1">
+                          <span className="text-amber-500">$</span>
+                          <Input type="text" inputMode="decimal" value={estimatedCost} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setEstimatedCost(val); setCostError(null); } }} className={`h-6 w-20 text-xs ${costError ? 'border-destructive' : ''}`} />
+                          <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
+                            {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setIsEditingCost(false); setCostError(null); }}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div> : <button onClick={() => setIsEditingCost(true)} className="text-amber-500 font-medium hover:underline">
+                          {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
+                        </button>}
+                    </div>
+                    {costError && (
+                      <span className="text-[10px] text-destructive max-w-[220px] text-right">{costError}</span>
+                    )}
+                  </div>
                 </div>
                 <Button variant="outline" size="sm" className="h-7 text-xs" onClick={openTaskDialog}>
                   <Plus className="h-3 w-3 mr-1" />
