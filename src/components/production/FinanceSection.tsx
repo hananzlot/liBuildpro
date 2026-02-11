@@ -7179,8 +7179,8 @@ function ProjectFinancialStatements({
   const leadCost = totalRevenue * (leadCostPercent / 100);
   const commissionBase = totalRevenue - leadCost - totalCOGS;
   const commission = commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0;
-  const grossIncomeAfterCommission = grossIncome - leadCost - commission;
-  const netIncome = grossIncomeAfterCommission;
+  const grossIncomeAfterCommission = grossIncome - commission;
+  const netIncome = grossIncomeAfterCommission + leadCost;
 
   const ar = totalInvoiced - totalCollected;
   const ap = totalCOGS - totalBillsPaid;
@@ -7224,7 +7224,6 @@ function ProjectFinancialStatements({
                   {lineRow("Bills Outstanding", -billsOutstanding, { indent: true })}
                   {lineRow("Cost of Sales Total", -totalCOGS, { bold: true })}
                   {lineRow("Gross Income", grossIncome, { bold: true })}
-                  {lineRow("Lead Cost", -leadCost, { indent: true })}
                   {lineRow(
                     <span className="flex items-center gap-1.5">
                       Commissions
@@ -7233,6 +7232,7 @@ function ProjectFinancialStatements({
                     -commission, { indent: true }
                   )}
                   {lineRow("Gross Income After Commission", grossIncomeAfterCommission, { bold: true })}
+                  {lineRow("Lead Fee", leadCost, { indent: true })}
                   {lineRow(
                     <span className="flex items-center gap-1.5">
                       Net Income
