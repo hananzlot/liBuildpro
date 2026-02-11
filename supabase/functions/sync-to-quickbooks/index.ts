@@ -534,10 +534,42 @@ Deno.serve(async (req) => {
             if (syncRes.ok) {
               syncData = await syncRes.json();
               console.log(`Created invoice in QB, ID: ${syncData.Invoice.Id}`);
+            } else {
+              // Check for Duplicate Document Number error - retry without DocNumber so QB auto-assigns
+              const errBody = await syncRes.text();
+              if (errBody.includes("Duplicate Document Number") && qbInvoice.DocNumber) {
+                console.log(`Invoice ${invoice.invoice_number} - DocNumber conflict in QB, retrying without DocNumber to let QB auto-assign...`);
+                const retryPayload = { ...qbInvoice };
+                delete retryPayload.DocNumber;
+                
+                const retryRes = await fetch(`${QB_BASE_URL}/${realm_id}/invoice`, {
+                  method: "POST",
+                  headers: qbHeaders,
+                  body: JSON.stringify(retryPayload),
+                });
+                
+                if (retryRes.ok) {
+                  syncData = await retryRes.json();
+                  syncRes = retryRes;
+                  console.log(`Created invoice in QB (auto-assigned DocNumber), ID: ${syncData.Invoice.Id}, DocNumber: ${syncData.Invoice.DocNumber}`);
+                } else {
+                  // Use the retry error for reporting
+                  const retryErr = await retryRes.text();
+                  console.error(`Retry also failed for invoice ${invoice.invoice_number}:`, retryErr);
+                  results.failed++;
+                  results.errors.push(`Invoice ${invoice.invoice_number}: ${retryErr}`);
+                  continue;
+                }
+              } else {
+                console.error(`Failed to sync invoice ${invoice.invoice_number}:`, errBody);
+                results.failed++;
+                results.errors.push(`Invoice ${invoice.invoice_number}: ${errBody}`);
+                continue;
+              }
             }
           }
 
-          if (syncRes.ok && syncData) {
+          if (syncData) {
             await supabase.from("quickbooks_sync_log").upsert({
               company_id: companyId,
               record_type: "invoice",
@@ -547,11 +579,6 @@ Deno.serve(async (req) => {
               synced_at: new Date().toISOString(),
             }, { onConflict: "company_id,record_type,record_id" });
             results.synced++;
-          } else {
-            const errText = await syncRes.text();
-            console.error(`Failed to sync invoice ${invoice.invoice_number}:`, errText);
-            results.failed++;
-            results.errors.push(`Invoice ${invoice.invoice_number}: ${errText}`);
           }
         } catch (err: unknown) {
           results.failed++;
