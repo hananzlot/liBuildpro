@@ -617,10 +617,10 @@ export function DateRangeAppointmentsSheet({
   // Created date editing functions
   const startEditingCreatedDate = (apt: DBAppointment, e: React.MouseEvent) => {
     e.stopPropagation();
-    const currentDate = localCreatedDateState[apt.ghl_id] ?? apt.ghl_date_added ?? apt.created_at;
-    // Format as datetime-local input value
+    const aptKey = apt.id;
+    const currentDate = localCreatedDateState[aptKey] ?? apt.ghl_date_added ?? apt.created_at;
     const dateValue = currentDate ? format(new Date(currentDate), "yyyy-MM-dd'T'HH:mm") : "";
-    setEditingCreatedDateId(apt.ghl_id);
+    setEditingCreatedDateId(aptKey);
     setEditCreatedDateValue(dateValue);
   };
 
@@ -632,22 +632,22 @@ export function DateRangeAppointmentsSheet({
 
   const saveCreatedDate = async (apt: DBAppointment, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!apt.ghl_id || !editCreatedDateValue) return;
+    if (!editCreatedDateValue) return;
 
     setIsSavingCreatedDate(true);
     try {
       const newDate = new Date(editCreatedDateValue).toISOString();
       
-      // Update in database
+      // Update in database using id (works for all appointment types)
       const { error } = await supabase
         .from("appointments")
         .update({ ghl_date_added: newDate, updated_at: new Date().toISOString() })
-        .eq("ghl_id", apt.ghl_id);
+        .eq("id", apt.id);
 
       if (error) throw error;
 
       // Update local state for immediate feedback
-      setLocalCreatedDateState((prev) => ({ ...prev, [apt.ghl_id]: newDate }));
+      setLocalCreatedDateState((prev) => ({ ...prev, [apt.id]: newDate }));
       
       // Refresh data
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
@@ -1043,7 +1043,7 @@ export function DateRangeAppointmentsSheet({
                         {defaultStatusFilter !== "showed" && (
                           <>
                             <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
-                              {editingCreatedDateId === apt.ghl_id ? (
+                              {editingCreatedDateId === apt.id ? (
                                 <div className="flex items-center gap-1">
                                   <Input
                                     type="datetime-local"
@@ -1079,7 +1079,7 @@ export function DateRangeAppointmentsSheet({
                                 <div className="flex items-center gap-1 group">
                                   <span>
                                     {(() => {
-                                      const createdDate = localCreatedDateState[apt.ghl_id] ?? apt.ghl_date_added ?? apt.created_at;
+                                      const createdDate = localCreatedDateState[apt.id] ?? apt.ghl_date_added ?? apt.created_at;
                                       return createdDate 
                                         ? format(new Date(createdDate), "MMM d, yyyy h:mma")
                                         : "-";
