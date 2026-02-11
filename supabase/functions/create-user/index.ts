@@ -108,15 +108,36 @@ Deno.serve(async (req) => {
       },
     });
 
+    let userId: string | undefined;
+
     if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      // If user already exists, find them and proceed with role/company assignment
+      if (createError.message?.includes("already been registered")) {
+        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const existingUser = existingUsers?.users?.find(
+          (u) => u.email?.toLowerCase() === email.toLowerCase()
+        );
+        if (existingUser) {
+          userId = existingUser.id;
+          console.log(`User ${email} already exists (${userId}), proceeding with role/company assignment`);
+        } else {
+          return new Response(JSON.stringify({ error: "User exists but could not be found" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        return new Response(JSON.stringify({ error: createError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      userId = newUser.user?.id;
     }
 
     // Update profile with company_id and/or corporation_id if provided
-    if (newUser.user && (targetCompanyId || corporationId)) {
+    if (userId && (targetCompanyId || corporationId)) {
       const updateData: { company_id?: string; corporation_id?: string } = {};
       if (targetCompanyId) updateData.company_id = targetCompanyId;
       if (corporationId) updateData.corporation_id = corporationId;
@@ -124,18 +145,15 @@ Deno.serve(async (req) => {
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
         .update(updateData)
-        .eq("id", newUser.user.id);
+        .eq("id", userId);
 
       if (profileError) {
         console.error("Error updating profile:", profileError);
-        // Don't fail the request, user was created
       }
     }
 
-    // Assign role if provided (e.g., 'admin' for company admins)
-    // Create a client with the requesting user's JWT to call the RPC
-    // This allows the RPC to check auth.uid() and verify the caller is a super_admin
-    if (newUser.user && role) {
+    // Assign role if provided
+    if (userId && role) {
       const supabaseWithUserAuth = createClient(supabaseUrl, serviceRoleKey, {
         auth: {
           autoRefreshToken: false,
@@ -150,17 +168,16 @@ Deno.serve(async (req) => {
 
       const { error: roleError } = await supabaseWithUserAuth
         .rpc('admin_assign_role', { 
-          target_user_id: newUser.user.id, 
+          target_user_id: userId, 
           target_role: role 
         });
 
       if (roleError) {
         console.error("Error assigning role:", roleError);
-        // Don't fail the request, user was created successfully
       }
     }
 
-    return new Response(JSON.stringify({ user: newUser.user }), {
+    return new Response(JSON.stringify({ user: { id: userId, email } }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
