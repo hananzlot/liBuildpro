@@ -1644,13 +1644,8 @@ export default function Production() {
         <div className="py-4 px-4 lg:px-6 space-y-4">
           {activeView === 'projects' && (
             <div className="space-y-4">
-              {/* Date Range Filter for KPIs + Action Buttons */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <AdminKPIFilters
-                  dateRange={kpiDateRange}
-                  onDateRangeChange={setKpiDateRange}
-                />
-                <div className="flex gap-2 shrink-0">
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2">
                   {isAdmin && (
                     <Button 
                       variant="outline" 
@@ -1689,7 +1684,6 @@ export default function Production() {
                     <Plus className="h-4 w-4 mr-2" />
                     Add Project
                   </Button>
-                </div>
               </div>
               {/* Collapsible KPI Cards Section */}
               <Collapsible defaultOpen={false}>
@@ -1727,6 +1721,10 @@ export default function Production() {
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3 space-y-3">
+                  <AdminKPIFilters
+                    dateRange={kpiDateRange}
+                    onDateRangeChange={setKpiDateRange}
+                  />
                   <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <Card className="p-0">
                       <CardHeader className="pb-1 pt-3 px-4">
