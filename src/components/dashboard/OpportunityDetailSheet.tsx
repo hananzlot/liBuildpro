@@ -2700,6 +2700,7 @@ export function OpportunityDetailSheet({
                 <div className="flex items-center gap-2">
                   {isEditingOppValue ? (
                     <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Opp Value:</span>
                       <span className="text-lg font-bold text-emerald-400">$</span>
                       <Input type="text" inputMode="decimal" value={editedOppValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedOppValue(val); }} className="text-lg font-bold h-8 w-28" autoFocus />
                       <Button size="sm" className="h-7 px-2 text-xs" onClick={handleSaveOppValue} disabled={isSavingOppValue}>
@@ -2711,20 +2712,24 @@ export function OpportunityDetailSheet({
                     </div>
                   ) : isEditing ? (
                     <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Opp Value:</span>
                       <span className="text-lg font-bold text-emerald-400">$</span>
                       <Input type="text" inputMode="decimal" value={editedMonetaryValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedMonetaryValue(val); }} className="text-lg font-bold h-8 w-28" />
                     </div>
                   ) : (
-                    <button onClick={() => { setEditedOppValue(((savedValues.monetary_value ?? opportunity.monetary_value) || 0).toString()); setIsEditingOppValue(true); }} className="text-lg font-bold text-emerald-400 hover:underline cursor-pointer">
-                      {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Opp Value:</span>
+                      <button onClick={() => { setEditedOppValue(((savedValues.monetary_value ?? opportunity.monetary_value) || 0).toString()); setIsEditingOppValue(true); }} className="text-lg font-bold text-emerald-400 hover:underline cursor-pointer">
+                        {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
+                      </button>
+                    </div>
                   )}
                   {/* Est. Cost after Opp Value */}
                   <div className="flex flex-col items-end gap-0.5">
                     <div className="flex items-center gap-1.5 text-xs">
                       <span className="text-muted-foreground">Est. Cost:</span>
                       {isEditingCost ? <div className="flex items-center gap-1">
-                          <span className="text-amber-500">$</span>
+                          <span className="text-destructive">$</span>
                           <Input type="text" inputMode="decimal" value={estimatedCost} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setEstimatedCost(val); setCostError(null); } }} className={`h-6 w-20 text-xs ${costError ? 'border-destructive' : ''}`} />
                           <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
                             {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
@@ -2732,7 +2737,7 @@ export function OpportunityDetailSheet({
                           <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setIsEditingCost(false); setCostError(null); }}>
                             <X className="h-3 w-3" />
                           </Button>
-                        </div> : <button onClick={() => setIsEditingCost(true)} className="text-amber-500 font-medium hover:underline">
+                        </div> : <button onClick={() => setIsEditingCost(true)} className="text-destructive font-medium hover:underline">
                           {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
                         </button>}
                     </div>
