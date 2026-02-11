@@ -229,7 +229,7 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
       @media print { body { padding: 0; } }
     </style></head><body>`;
     html += `<h1>Project Profitability Details</h1>`;
-    html += `<p class="subtitle">As of ${asOf} — ${sortedProjects.length} projects</p>`;
+    html += `<p class="subtitle">As of ${asOf} — ${sortedProjects.length} projects · Profits are net of commissions due on each project</p>`;
     html += `<table><thead><tr><th>#</th><th>Project</th><th>Salesperson</th><th>Sold</th><th>Costs</th><th>Profit</th><th>Margin</th><th>Status</th></tr></thead><tbody>`;
     groupedByStatus.forEach(({ status, projects: groupProjects }) => {
       groupProjects.forEach(p => {
