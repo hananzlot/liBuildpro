@@ -254,6 +254,13 @@ export function OpportunityDetailSheet({
   const [estimatedCost, setEstimatedCost] = useState<string>("");
   const [isEditingCost, setIsEditingCost] = useState(false);
   const [isSavingCost, setIsSavingCost] = useState(false);
+  const [costError, setCostError] = useState<string | null>(null);
+
+  // Inline Opp Value editing
+  const [isEditingOppValue, setIsEditingOppValue] = useState(false);
+  const [editedOppValue, setEditedOppValue] = useState("");
+  const [isSavingOppValue, setIsSavingOppValue] = useState(false);
+
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [appointmentEditDialogOpen, setAppointmentEditDialogOpen] = useState(false);
   const [originalAppointmentDate, setOriginalAppointmentDate] = useState("");
@@ -1820,12 +1827,48 @@ export function OpportunityDetailSheet({
       setIsSaving(false);
     }
   };
+  const handleSaveOppValue = async () => {
+    if (!opportunity) return;
+    setIsSavingOppValue(true);
+    try {
+      const newValue = parseFloat(editedOppValue) || 0;
+      const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
+        body: {
+          ghl_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
+          monetary_value: newValue,
+          edited_by: user?.id || null,
+          company_id: companyId,
+        }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setSavedValues(prev => ({ ...prev, monetary_value: newValue }));
+      toast.success("Opportunity value updated");
+      setIsEditingOppValue(false);
+      setCostError(null);
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
+    } catch (error) {
+      console.error("Error saving opp value:", error);
+      toast.error("Failed to update opportunity value");
+    } finally {
+      setIsSavingOppValue(false);
+    }
+  };
+
   const handleSaveEstimatedCost = async () => {
     if (!opportunity) return;
+    const costValue = parseFloat(estimatedCost) || 0;
+    const oppValue = savedValues.monetary_value ?? opportunity.monetary_value ?? 0;
+
+    if (oppValue > 0 && costValue > oppValue) {
+      setCostError(`Est. Cost ($${costValue.toLocaleString()}) cannot exceed Opp Value ($${oppValue.toLocaleString()})`);
+      return;
+    }
+    setCostError(null);
     setIsSavingCost(true);
     try {
-      const costValue = parseFloat(estimatedCost) || 0;
-
       // Upsert the estimated cost
       const {
         error
@@ -2659,28 +2702,48 @@ export function OpportunityDetailSheet({
                     <Plus className="h-3 w-3 mr-1" />
                     Task
                   </Button>
-                  {isEditing ? <div className="flex items-center gap-1">
+                  {isEditingOppValue ? (
+                    <div className="flex items-center gap-1">
                       <span className="text-lg font-bold text-emerald-400">$</span>
-                      <Input type="text" inputMode="decimal" value={editedMonetaryValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedMonetaryValue(val); }} className="text-lg font-bold h-8 w-28" />
-                    </div> : <div className="text-lg font-bold text-emerald-400">
-                      {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
-                    </div>}
-                </div>
-                {/* Estimated Cost */}
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="text-muted-foreground">Est. Cost:</span>
-                  {isEditingCost ? <div className="flex items-center gap-1">
-                      <span className="text-amber-500">$</span>
-                      <Input type="text" inputMode="decimal" value={estimatedCost} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEstimatedCost(val); }} className="h-6 w-20 text-xs" />
-                      <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
-                        {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                      <Input type="text" inputMode="decimal" value={editedOppValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedOppValue(val); }} className="text-lg font-bold h-8 w-28" autoFocus />
+                      <Button size="sm" className="h-7 px-2 text-xs" onClick={handleSaveOppValue} disabled={isSavingOppValue}>
+                        {isSavingOppValue ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => setIsEditingCost(false)}>
+                      <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" onClick={() => setIsEditingOppValue(false)}>
                         <X className="h-3 w-3" />
                       </Button>
-                    </div> : <button onClick={() => setIsEditingCost(true)} className="text-amber-500 font-medium hover:underline">
-                      {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
-                    </button>}
+                    </div>
+                  ) : isEditing ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg font-bold text-emerald-400">$</span>
+                      <Input type="text" inputMode="decimal" value={editedMonetaryValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedMonetaryValue(val); }} className="text-lg font-bold h-8 w-28" />
+                    </div>
+                  ) : (
+                    <button onClick={() => { setEditedOppValue(((savedValues.monetary_value ?? opportunity.monetary_value) || 0).toString()); setIsEditingOppValue(true); }} className="text-lg font-bold text-emerald-400 hover:underline cursor-pointer">
+                      {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
+                    </button>
+                  )}
+                </div>
+                {/* Estimated Cost */}
+                <div className="flex flex-col items-end gap-0.5">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted-foreground">Est. Cost:</span>
+                    {isEditingCost ? <div className="flex items-center gap-1">
+                        <span className="text-amber-500">$</span>
+                        <Input type="text" inputMode="decimal" value={estimatedCost} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setEstimatedCost(val); setCostError(null); } }} className={`h-6 w-20 text-xs ${costError ? 'border-destructive' : ''}`} />
+                        <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
+                          {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setIsEditingCost(false); setCostError(null); }}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div> : <button onClick={() => setIsEditingCost(true)} className="text-amber-500 font-medium hover:underline">
+                        {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
+                      </button>}
+                  </div>
+                  {costError && (
+                    <span className="text-[10px] text-destructive max-w-[220px] text-right">{costError}</span>
+                  )}
                 </div>
               </div>
             </div>
