@@ -211,13 +211,9 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
   }, [sortedProjects]);
 
   const handleExportPDF = useCallback(() => {
-    const el = tableRef.current;
-    if (!el) return;
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
     const now = new Date();
     const asOf = now.toLocaleDateString() + " " + now.toLocaleTimeString();
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Project Profitability Details</title><style>
+    let html = `<!DOCTYPE html><html><head><title>Project Profitability Details</title><style>
       body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; color: #111; }
       table { width: 100%; border-collapse: collapse; }
       th, td { padding: 6px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
@@ -231,31 +227,50 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
       .summary-row { background: #f9fafb; font-weight: 600; }
       .grand-total { background: #e5e7eb; font-weight: 700; }
       @media print { body { padding: 0; } }
-    </style></head><body>`);
-    printWindow.document.write(`<h1>Project Profitability Details</h1>`);
-    printWindow.document.write(`<p class="subtitle">As of ${asOf} — ${sortedProjects.length} projects</p>`);
-    printWindow.document.write(`<table><thead><tr><th>#</th><th>Project</th><th>Salesperson</th><th>Sold</th><th>Costs</th><th>Profit</th><th>Margin</th><th>Status</th></tr></thead><tbody>`);
+    </style></head><body>`;
+    html += `<h1>Project Profitability Details</h1>`;
+    html += `<p class="subtitle">As of ${asOf} — ${sortedProjects.length} projects</p>`;
+    html += `<table><thead><tr><th>#</th><th>Project</th><th>Salesperson</th><th>Sold</th><th>Costs</th><th>Profit</th><th>Margin</th><th>Status</th></tr></thead><tbody>`;
     groupedByStatus.forEach(({ status, projects: groupProjects }) => {
       groupProjects.forEach(p => {
         const isCompleted = p.project_status === 'Completed';
         const cost = isCompleted ? p.totalBillsReceived : Math.max(p.totalBillsReceived, p.effectiveEstimatedCost);
         const margin = p.contractsTotal > 0 ? (p.expectedNetProfit / p.contractsTotal * 100) : 0;
         const profitClass = p.expectedNetProfit >= 0 ? 'positive' : 'negative';
-        printWindow.document.write(`<tr><td>${p.project_number}</td><td>${p.project_address || p.project_name}</td><td>${p.primary_salesperson || '-'}</td><td>${formatCurrency(p.contractsTotal)}</td><td>${formatCurrency(cost)}</td><td class="${profitClass}">${formatCurrency(p.expectedNetProfit)}</td><td class="${profitClass}">${margin.toFixed(1)}%</td><td>${p.project_status || 'Unknown'}</td></tr>`);
+        html += `<tr><td>${p.project_number}</td><td>${p.project_address || p.project_name}</td><td>${p.primary_salesperson || '-'}</td><td>${formatCurrency(p.contractsTotal)}</td><td>${formatCurrency(cost)}</td><td class="${profitClass}">${formatCurrency(p.expectedNetProfit)}</td><td class="${profitClass}">${margin.toFixed(1)}%</td><td>${p.project_status || 'Unknown'}</td></tr>`;
       });
       const g = statusSummary[status];
       if (g) {
         const m = g.sold > 0 ? (g.profit / g.sold * 100) : 0;
         const cls = g.profit >= 0 ? 'positive' : 'negative';
-        printWindow.document.write(`<tr class="summary-row"><td></td><td colspan="2">${g.status} — ${g.count} projects</td><td>${formatCurrency(g.sold)}</td><td>${formatCurrency(g.costs)}</td><td class="${cls}">${formatCurrency(g.profit)}</td><td class="${cls}">${m.toFixed(1)}%</td><td></td></tr>`);
+        html += `<tr class="summary-row"><td></td><td colspan="2">${g.status} — ${g.count} projects</td><td>${formatCurrency(g.sold)}</td><td>${formatCurrency(g.costs)}</td><td class="${cls}">${formatCurrency(g.profit)}</td><td class="${cls}">${m.toFixed(1)}%</td><td></td></tr>`;
       }
     });
     const gm = filteredTotals.profitMargin;
     const gc = filteredTotals.totalNetProfit >= 0 ? 'positive' : 'negative';
-    printWindow.document.write(`<tr class="grand-total"><td></td><td colspan="2">Grand Total — ${projectsWithSales.length} projects</td><td>${formatCurrency(filteredTotals.totalRevenue)}</td><td>${formatCurrency(filteredTotals.totalCosts)}</td><td class="${gc}">${formatCurrency(filteredTotals.totalNetProfit)}</td><td class="${gc}">${gm.toFixed(1)}%</td><td></td></tr>`);
-    printWindow.document.write(`</tbody></table></body></html>`);
-    printWindow.document.close();
-    setTimeout(() => { printWindow.print(); }, 250);
+    html += `<tr class="grand-total"><td></td><td colspan="2">Grand Total — ${projectsWithSales.length} projects</td><td>${formatCurrency(filteredTotals.totalRevenue)}</td><td>${formatCurrency(filteredTotals.totalCosts)}</td><td class="${gc}">${formatCurrency(filteredTotals.totalNetProfit)}</td><td class="${gc}">${gm.toFixed(1)}%</td><td></td></tr>`;
+    html += `</tbody></table></body></html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    iframe.onload = () => {
+      setTimeout(() => {
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          URL.revokeObjectURL(url);
+        }, 1000);
+      }, 250);
+    };
   }, [groupedByStatus, statusSummary, filteredTotals, projectsWithSales.length, sortedProjects]);
 
   return (
