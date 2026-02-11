@@ -37,6 +37,7 @@ import BackupManagement from "@/pages/super-admin/BackupManagement";
 import Onboarding from "@/pages/Onboarding";
 import OutstandingAR from "@/pages/OutstandingAR";
 import OutstandingAP from "@/pages/OutstandingAP";
+import PendingDeposits from "@/pages/PendingDeposits";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import QuickBooksHelp from "@/pages/QuickBooksHelp";
@@ -243,6 +244,16 @@ export function AppRoutes() {
           element={
             <ProtectedRoute>
               <OutstandingAP />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Pending Deposits */}
+        <Route
+          path="/pending-deposits"
+          element={
+            <ProtectedRoute requiredRole="production" requiredFeature="production">
+              <PendingDeposits />
             </ProtectedRoute>
           }
         />

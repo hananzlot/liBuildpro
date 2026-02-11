@@ -39,6 +39,7 @@ import {
   ClipboardList,
   Contact,
   BrainCircuit,
+  Landmark,
   Pin,
   PinOff
 } from "lucide-react";
@@ -208,6 +209,13 @@ const navSections: NavSection[] = [
         title: "Projects", 
         url: "/production?view=projects", 
         icon: FolderKanban,
+        roles: ['super_admin', 'admin', 'production'],
+        requiredFeature: 'production'
+      },
+      { 
+        title: "Pending Deposits", 
+        url: "/pending-deposits", 
+        icon: Landmark,
         roles: ['super_admin', 'admin', 'production'],
         requiredFeature: 'production'
       },
