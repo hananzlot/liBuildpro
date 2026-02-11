@@ -2211,13 +2211,13 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs w-[100px]">Invoice #</TableHead>
-                          <TableHead className="text-xs w-[100px]">Date</TableHead>
-                          <TableHead className="text-xs">Phase</TableHead>
-                          <TableHead className="text-xs text-right w-[110px]">Amount</TableHead>
-                          <TableHead className="text-xs text-right w-[110px]">Balance Due</TableHead>
-                          {isQBConnectedMain && <TableHead className="text-xs w-[70px]">QB</TableHead>}
-                          <TableHead className="text-xs w-[70px]"></TableHead>
+                          <TableHead className="text-xs w-[14%]">Invoice #</TableHead>
+                          <TableHead className="text-xs w-[14%]">Date</TableHead>
+                          <TableHead className="text-xs w-[22%]">Phase</TableHead>
+                          <TableHead className="text-xs text-right w-[14%]">Amount</TableHead>
+                          <TableHead className="text-xs text-right w-[14%]">Balance Due</TableHead>
+                          {isQBConnectedMain && <TableHead className="text-xs w-[10%]">QB</TableHead>}
+                          <TableHead className="text-xs w-[12%]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -2276,13 +2276,13 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs">Bank</TableHead>
-                          <TableHead className="text-xs">Date</TableHead>
-                          <TableHead className="text-xs">Ref #</TableHead>
-                          <TableHead className="text-xs">Payment Status</TableHead>
-                          <TableHead className="text-xs text-center">Amount</TableHead>
-                          {isQBConnectedMain && <TableHead className="text-xs">QB</TableHead>}
-                          <TableHead className="text-xs w-24"></TableHead>
+                          <TableHead className="text-xs w-[12%]">Bank</TableHead>
+                          <TableHead className="text-xs w-[12%]">Date</TableHead>
+                          <TableHead className="text-xs w-[10%]">Ref #</TableHead>
+                          <TableHead className="text-xs w-[22%]">Payment Status</TableHead>
+                          <TableHead className="text-xs text-center w-[12%]">Amount</TableHead>
+                          {isQBConnectedMain && <TableHead className="text-xs w-[10%]">QB</TableHead>}
+                          <TableHead className="text-xs w-[12%]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
