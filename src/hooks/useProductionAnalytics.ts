@@ -391,8 +391,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       const commissionBase = contractsTotal - leadCostAmount - costForProfit;
       const totalCommission = commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0;
 
-      // Company Net Profit = Total Sold - Max(Bills, Est) - Commission
-      const expectedNetProfit = grossProfit - totalCommission;
+      // Company Net Profit = Gross Profit - Commission + Lead Fee
+      const expectedNetProfit = grossProfit - totalCommission + leadCostAmount;
       const cashPosition = invoicesCollected - totalBillPayments;
 
       // Determine cash status
