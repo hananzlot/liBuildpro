@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 export interface AppTab {
@@ -8,6 +8,8 @@ export interface AppTab {
   icon?: string;
   /** The ID of the tab that opened this tab (for return navigation) */
   parentTabId?: string;
+  /** Company this tab belongs to – used to isolate tabs per tenant */
+  companyId?: string | null;
 }
 
 interface AppTabsContextType {
@@ -21,6 +23,8 @@ interface AppTabsContextType {
   reorderTabs: (draggedTabId: string, targetTabId: string) => void;
   /** Update the path of the active tab (for syncing inner state like sub-tabs) */
   updateActiveTabPath: (newPath: string) => void;
+  /** Set the current company context so new tabs are tagged and only matching tabs show */
+  setTabCompanyId: (companyId: string | null) => void;
 }
 
 const AppTabsContext = createContext<AppTabsContextType | undefined>(undefined);
@@ -65,9 +69,12 @@ function generateTabId(): string {
 export function AppTabsProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Current company context for tab isolation
+  const [currentCompanyId, setCurrentCompanyId] = useState<string | null>(null);
   
-  // Load tabs from localStorage on mount
-  const [tabs, setTabs] = useState<AppTab[]>(() => {
+  // Load ALL tabs from localStorage on mount (includes tabs from every company)
+  const [allTabs, setAllTabs] = useState<AppTab[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       return saved ? JSON.parse(saved) : [];
@@ -75,14 +82,20 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
       return [];
     }
   });
+
+  // Filtered tabs for the current company
+  const tabs = useMemo(() => {
+    if (!currentCompanyId) return allTabs.filter(t => !t.companyId);
+    return allTabs.filter(t => !t.companyId || t.companyId === currentCompanyId);
+  }, [allTabs, currentCompanyId]);
   
   // Active tab is derived from current URL - find a tab whose path matches
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
   // Persist tabs to localStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs));
-  }, [tabs]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allTabs));
+  }, [allTabs]);
 
   // Sync activeTabId with current location
   // When the browser URL changes, find the matching tab
@@ -103,7 +116,7 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
       // Update the tab's path if we navigated within the same base route
       // (e.g., switching sub-tabs within a project)
       if (matchingTab.path !== currentPath && matchingTab.path.split("?")[0] === currentBasePath) {
-        setTabs(prev => prev.map(t => 
+        setAllTabs(prev => prev.map(t => 
           t.id === matchingTab.id ? { ...t, path: currentPath } : t
         ));
       }
@@ -112,17 +125,21 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [location, tabs]);
 
+  const setTabCompanyId = useCallback((companyId: string | null) => {
+    setCurrentCompanyId(companyId);
+  }, []);
+
   const openTab = useCallback((path: string, title: string, icon?: string) => {
     const basePath = path.split("?")[0];
     
     // Capture the current active tab as the parent
     const parentId = activeTabId;
     
-    // Check if tab already exists (by base path)
+    // Check if tab already exists (by base path) in the current company's tabs
     const existingTab = tabs.find(tab => tab.path.split("?")[0] === basePath);
     if (existingTab) {
       // Update the path, title, parent, and navigate
-      setTabs(prev => prev.map(t => 
+      setAllTabs(prev => prev.map(t => 
         t.id === existingTab.id ? { ...t, path, title: title || t.title, parentTabId: parentId || t.parentTabId } : t
       ));
       setActiveTabId(existingTab.id);
@@ -136,18 +153,19 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
       title: title || getRouteTitle(path),
       icon,
       parentTabId: parentId || undefined,
+      companyId: currentCompanyId,
     };
 
-    setTabs(prev => [...prev, newTab]);
+    setAllTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
     navigate(path);
-  }, [tabs, activeTabId, navigate]);
+  }, [tabs, activeTabId, navigate, currentCompanyId]);
 
   const closeTab = useCallback((tabId: string) => {
     const tabToClose = tabs.find(t => t.id === tabId);
     const tabIndex = tabs.findIndex(t => t.id === tabId);
     const newTabs = tabs.filter(t => t.id !== tabId);
-    setTabs(newTabs);
+    setAllTabs(prev => prev.filter(t => t.id !== tabId));
 
     // If we're closing the active tab, switch to another
     if (activeTabId === tabId) {
@@ -176,13 +194,18 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
   }, [tabs, activeTabId, navigate]);
 
   const closeAllTabs = useCallback(() => {
-    setTabs([]);
+    // Only close tabs for the current company
+    if (currentCompanyId) {
+      setAllTabs(prev => prev.filter(t => t.companyId !== currentCompanyId));
+    } else {
+      setAllTabs([]);
+    }
     setActiveTabId(null);
     navigate('/');
-  }, [navigate]);
+  }, [navigate, currentCompanyId]);
 
   const reorderTabs = useCallback((draggedTabId: string, targetTabId: string) => {
-    setTabs(prev => {
+    setAllTabs(prev => {
       const newTabs = [...prev];
       const draggedIndex = newTabs.findIndex(t => t.id === draggedTabId);
       const targetIndex = newTabs.findIndex(t => t.id === targetTabId);
@@ -224,7 +247,7 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
   const updateActiveTabPath = useCallback((newPath: string) => {
     if (!activeTabId) return;
     
-    setTabs(prev => prev.map(tab => 
+    setAllTabs(prev => prev.map(tab => 
       tab.id === activeTabId ? { ...tab, path: newPath } : tab
     ));
     
@@ -247,6 +270,7 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
         handleNavigation,
         reorderTabs,
         updateActiveTabPath,
+        setTabCompanyId,
       }}
     >
       {children}

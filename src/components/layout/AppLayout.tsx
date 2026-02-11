@@ -32,8 +32,13 @@ export function AppLayout({
   showNotifications = true,
   headerContent 
 }: AppLayoutProps) {
-  const { updatePassword, isAdmin } = useAuth();
-  const { openTab } = useAppTabs();
+  const { updatePassword, isAdmin, companyId } = useAuth();
+  const { openTab, setTabCompanyId } = useAppTabs();
+
+  // Sync company context into the tab system so tabs are isolated per tenant
+  useEffect(() => {
+    setTabCompanyId(companyId);
+  }, [companyId, setTabCompanyId]);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
