@@ -966,9 +966,9 @@ export function DateRangeAppointmentsSheet({
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span className="text-xs line-clamp-2">{apt.title || "No title"}</span>
+                            <span className="text-xs whitespace-normal break-words">{apt.title || "No title"}</span>
                             {scopeOfWork && (
-                              <span className="text-xs text-muted-foreground line-clamp-1">{scopeOfWork}</span>
+                              <span className="text-xs text-muted-foreground whitespace-normal break-words">{scopeOfWork}</span>
                             )}
                           </div>
                         </TableCell>
@@ -1016,7 +1016,7 @@ export function DateRangeAppointmentsSheet({
                                   <span className="text-[10px] text-muted-foreground font-medium">
                                     {note.ghl_date_added ? format(new Date(note.ghl_date_added), "MMM d") : ""}
                                   </span>
-                                  <span className="text-xs line-clamp-2">
+                                  <span className="text-xs whitespace-normal break-words">
                                     {stripHtmlTags(note.body || "-")}
                                   </span>
                                 </div>
@@ -1030,7 +1030,7 @@ export function DateRangeAppointmentsSheet({
                                   <span className="text-[10px] text-muted-foreground font-medium">
                                     {task.created_at ? format(new Date(task.created_at), "MMM d") : ""}
                                   </span>
-                                  <span className="text-xs line-clamp-2">
+                                  <span className="text-xs whitespace-normal break-words">
                                     {task.title || "-"}
                                   </span>
                                 </div>
