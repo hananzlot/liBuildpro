@@ -941,7 +941,7 @@ export function UpcomingAppointmentsSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-3xl p-0 overflow-hidden flex flex-col max-h-screen">
+        <SheetContent className="w-full sm:max-w-[90vw] p-0 overflow-hidden flex flex-col max-h-screen">
           <div className="sticky top-0 bg-background border-b p-4">
             <SheetHeader>
               <div className="flex items-center gap-2">
