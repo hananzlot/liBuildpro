@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import { useSidebarFinancials } from "@/hooks/useSidebarFinancials";
 import { useTodayAppointmentsCount } from "@/hooks/useTodayAppointmentsCount";
@@ -96,7 +98,7 @@ interface NavItem {
   roles?: AppRole[];
   excludeRoles?: AppRole[];
   subItems?: NavSubItem[];
-  dynamicSuffix?: 'ar' | 'ap' | 'todayAppts' | 'pendingScopes';
+  dynamicSuffix?: 'ar' | 'ap' | 'todayAppts' | 'pendingScopes' | 'pendingDeposits';
   requiredFeature?: string;
 }
 
@@ -217,7 +219,8 @@ const navSections: NavSection[] = [
         url: "/pending-deposits", 
         icon: Landmark,
         roles: ['super_admin', 'admin', 'production'],
-        requiredFeature: 'production'
+        requiredFeature: 'production',
+        dynamicSuffix: 'pendingDeposits'
       },
       { 
         title: "Subcontractors", 
@@ -307,6 +310,22 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { data: todayAppointmentsCount = 0 } = useTodayAppointmentsCount();
   const { data: pendingScopesCount = 0 } = usePendingScopeSubmissionsCount();
   const { activeCount: aiQueueCount } = useAIGenerationQueue();
+  const { data: pendingDepositsCount = 0 } = useQuery({
+    queryKey: ["pending-deposits-count", company?.id],
+    queryFn: async () => {
+      if (!company?.id) return 0;
+      const { count, error } = await supabase
+        .from("project_payments")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", company.id)
+        .eq("payment_status", "Received")
+        .eq("is_voided", false)
+        .or("deposit_verified.is.null,deposit_verified.eq.false");
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!company?.id,
+  });
   const { visibleReports, hasAnyAnalyticsAccess } = useAnalyticsPermissions();
   const collapsed = state === "collapsed";
 
@@ -594,6 +613,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       if (item.dynamicSuffix === 'pendingScopes' && pendingScopesCount > 0) {
         return pendingScopesCount.toString();
       }
+      if (item.dynamicSuffix === 'pendingDeposits' && pendingDepositsCount > 0) {
+        return pendingDepositsCount.toString();
+      }
       return null;
     };
     
@@ -602,6 +624,17 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     
     const renderTitleWithAmount = () => {
       if (!dynamicAmount) return <span>{item.title}</span>;
+      // Pending deposits: red round badge
+      if (item.dynamicSuffix === 'pendingDeposits') {
+        return (
+          <span className="flex items-center gap-2">
+            <span>{item.title}</span>
+            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
+              {dynamicAmount}
+            </span>
+          </span>
+        );
+      }
       // AR in dark green, AP in orange, Today's appointments in blue, Pending scopes in amber
       const colorClass = item.dynamicSuffix === 'ar' 
         ? "text-green-700 dark:text-green-500" 
