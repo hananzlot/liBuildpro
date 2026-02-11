@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback, useRef } from "react";
 import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,8 @@ import { MetricCard } from "./MetricCard";
 import { KPIProjectsSheet, KPIType } from "./KPIProjectsSheet";
 import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
 import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
-import { DollarSign, TrendingUp, TrendingDown, Percent, Receipt, Wallet, Filter } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Percent, Receipt, Wallet, Filter, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   BarChart,
   Bar,
@@ -47,6 +48,7 @@ const DEFAULT_STATUSES = ['Completed', 'In-Progress', 'New Job'];
 
 export function ProfitabilityTab({ projects, totals, onProjectClick }: ProfitabilityTabProps) {
   const [selectedKPI, setSelectedKPI] = useState<KPIType | null>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(DEFAULT_STATUSES);
 
@@ -187,6 +189,51 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
     });
     return Object.values(groups).sort((a, b) => b.sold - a.sold);
   }, [projectsWithSales]);
+
+  const handleExportPDF = useCallback(() => {
+    const el = tableRef.current;
+    if (!el) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    const now = new Date();
+    const asOf = now.toLocaleDateString() + " " + now.toLocaleTimeString();
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Project Profitability Details</title><style>
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; color: #111; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 6px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+      th { text-align: left; font-weight: 600; background: #f3f4f6; }
+      td:nth-child(n+4) { text-align: right; font-variant-numeric: tabular-nums; }
+      th:nth-child(n+4) { text-align: right; }
+      h1 { font-size: 16px; margin-bottom: 2px; }
+      .subtitle { color: #6b7280; font-size: 11px; margin-bottom: 12px; }
+      .positive { color: #059669; }
+      .negative { color: #dc2626; }
+      .summary-row { background: #f9fafb; font-weight: 600; }
+      .grand-total { background: #e5e7eb; font-weight: 700; }
+      @media print { body { padding: 0; } }
+    </style></head><body>`);
+    printWindow.document.write(`<h1>Project Profitability Details</h1>`);
+    printWindow.document.write(`<p class="subtitle">As of ${asOf} — ${sortedProjects.length} projects</p>`);
+    printWindow.document.write(`<table><thead><tr><th>#</th><th>Project</th><th>Salesperson</th><th>Sold</th><th>Costs</th><th>Profit</th><th>Margin</th><th>Status</th></tr></thead><tbody>`);
+    sortedProjects.forEach(p => {
+      const isCompleted = p.project_status === 'Completed';
+      const cost = isCompleted ? p.totalBillsReceived : Math.max(p.totalBillsReceived, p.effectiveEstimatedCost);
+      const margin = p.contractsTotal > 0 ? (p.expectedNetProfit / p.contractsTotal * 100) : 0;
+      const profitClass = p.expectedNetProfit >= 0 ? 'positive' : 'negative';
+      printWindow.document.write(`<tr><td>${p.project_number}</td><td>${p.project_address || p.project_name}</td><td>${p.primary_salesperson || '-'}</td><td>${formatCurrency(p.contractsTotal)}</td><td>${formatCurrency(cost)}</td><td class="${profitClass}">${formatCurrency(p.expectedNetProfit)}</td><td class="${profitClass}">${margin.toFixed(1)}%</td><td>${p.project_status || 'Unknown'}</td></tr>`);
+    });
+    statusSummary.forEach(g => {
+      const m = g.sold > 0 ? (g.profit / g.sold * 100) : 0;
+      const cls = g.profit >= 0 ? 'positive' : 'negative';
+      printWindow.document.write(`<tr class="summary-row"><td></td><td colspan="2">${g.status} — ${g.count} projects</td><td>${formatCurrency(g.sold)}</td><td>${formatCurrency(g.costs)}</td><td class="${cls}">${formatCurrency(g.profit)}</td><td class="${cls}">${m.toFixed(1)}%</td><td></td></tr>`);
+    });
+    const gm = filteredTotals.profitMargin;
+    const gc = filteredTotals.totalNetProfit >= 0 ? 'positive' : 'negative';
+    printWindow.document.write(`<tr class="grand-total"><td></td><td colspan="2">Grand Total — ${projectsWithSales.length} projects</td><td>${formatCurrency(filteredTotals.totalRevenue)}</td><td>${formatCurrency(filteredTotals.totalCosts)}</td><td class="${gc}">${formatCurrency(filteredTotals.totalNetProfit)}</td><td class="${gc}">${gm.toFixed(1)}%</td><td></td></tr>`);
+    printWindow.document.write(`</tbody></table></body></html>`);
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); }, 250);
+  }, [sortedProjects, statusSummary, filteredTotals, projectsWithSales.length]);
 
   return (
     <div className="space-y-6">
@@ -346,9 +393,15 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
 
       {/* Project Table */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Project Profitability Details</CardTitle>
-          <CardDescription>Click a row to view project details</CardDescription>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Project Profitability Details</CardTitle>
+            <CardDescription>Click a row to view project details</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleExportPDF}>
+            <Download className="h-4 w-4 mr-1" />
+            Export PDF
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
