@@ -1005,8 +1005,10 @@ async function processEstimateGenerationStaged(params: {
   const groups = estimatePlan.groups || [];
   const totalStages = baseStages + groups.length; // Add GROUP_ITEMS stages
   
-  // ===== STAGE 3: GROUP_ITEMS (loop for each group) =====
+  // ===== STAGE 3: GROUP_ITEMS (loop for each group, with retry + skip) =====
   const groupResults: any[] = [];
+  const skippedGroups: string[] = [];
+  const MAX_GROUP_RETRIES = 2;
   
   for (let i = 0; i < groups.length; i++) {
     // Check for cancellation before each group
@@ -1023,29 +1025,62 @@ async function processEstimateGenerationStaged(params: {
       await updateJobProgress(jobId, `GROUP_ITEMS:${groupName}`, currentStageNum + i, totalStages, stageResults);
     }
     
-    const groupItems = await processGroupItemsStage(
-      groupName,
-      groupDescription,
-      targetItemCount,
-      workScopeDescription,
-      jobAddress,
-      defaultMarkupPercent,
-      regionInfo,
-      planDigest,
-      systemPrompt,
-      aiTemperature,
-      LOVABLE_API_KEY,
-      aiProvider
-    );
+    let groupItems: any = null;
+    let lastError: Error | null = null;
     
-    groupResults.push({
-      group_name: groupName,
-      description: groupDescription,
-      items: groupItems.items || [],
-      missing_info: groupItems.missing_info || [],
-    });
+    for (let attempt = 0; attempt <= MAX_GROUP_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          console.log(`[GROUP_ITEMS] Retry ${attempt}/${MAX_GROUP_RETRIES} for "${groupName}"`);
+          // Brief pause before retry
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
+        
+        groupItems = await processGroupItemsStage(
+          groupName,
+          groupDescription,
+          targetItemCount,
+          workScopeDescription,
+          jobAddress,
+          defaultMarkupPercent,
+          regionInfo,
+          planDigest,
+          systemPrompt,
+          aiTemperature,
+          LOVABLE_API_KEY,
+          aiProvider
+        );
+        break; // Success — exit retry loop
+      } catch (err) {
+        lastError = err as Error;
+        console.warn(`[GROUP_ITEMS] Attempt ${attempt + 1} failed for "${groupName}": ${(err as Error).message}`);
+      }
+    }
     
-    stageResults[`group_${i}`] = groupItems;
+    if (groupItems) {
+      groupResults.push({
+        group_name: groupName,
+        description: groupDescription,
+        items: groupItems.items || [],
+        missing_info: groupItems.missing_info || [],
+      });
+      stageResults[`group_${i}`] = groupItems;
+    } else {
+      // All retries failed — skip this group and continue
+      console.error(`[GROUP_ITEMS] All ${MAX_GROUP_RETRIES + 1} attempts failed for "${groupName}". Skipping group. Last error: ${lastError?.message}`);
+      skippedGroups.push(groupName);
+      stageResults[`group_${i}_skipped`] = { error: lastError?.message };
+    }
+  }
+  
+  // Log skipped groups summary
+  if (skippedGroups.length > 0) {
+    console.warn(`[GROUP_ITEMS] ${skippedGroups.length} group(s) skipped after retries: ${skippedGroups.join(', ')}`);
+  }
+  
+  // If ALL groups failed, throw so job is marked as failed
+  if (groupResults.length === 0 && groups.length > 0) {
+    throw new Error(`All ${groups.length} group(s) failed to generate after retries. Please try again.`);
   }
   
   // ===== STAGE 4: FINAL_ASSEMBLY =====
@@ -1066,13 +1101,22 @@ async function processEstimateGenerationStaged(params: {
   };
   finalResult.apiProvider = aiProvider === 'openai' ? 'OpenAI (GPT-5.2)' : 'Gemini (Staged)';
   
+  // Collect warnings
+  const warnings: string[] = [];
   if (pdfTooLarge) {
-    finalResult.warning = 'The uploaded PDF was too large to analyze. The estimate was generated from the work description only.';
+    warnings.push('The uploaded PDF was too large to analyze. The estimate was generated from the work description only.');
+  }
+  if (skippedGroups.length > 0) {
+    warnings.push(`${skippedGroups.length} phase(s) could not be generated after retries and were skipped: ${skippedGroups.join(', ')}. You may want to add these manually.`);
+  }
+  
+  if (warnings.length > 0) {
+    finalResult.warning = warnings.join(' | ');
   }
   
   return {
     scope: finalResult,
-    warning: pdfTooLarge ? 'PDF too large - estimate generated from description only' : undefined
+    warning: warnings.length > 0 ? warnings.join(' | ') : undefined
   };
 }
 
