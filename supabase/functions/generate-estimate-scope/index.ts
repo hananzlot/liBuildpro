@@ -339,7 +339,7 @@ async function persistScopeToDatabase(
   // Delete existing groups/items/schedule for this estimate
   await supabase.from('estimate_line_items').delete().eq('estimate_id', estimateId);
   await supabase.from('estimate_groups').delete().eq('estimate_id', estimateId);
-  await supabase.from('estimate_payment_schedule').delete().eq('estimate_id', estimateId);
+  // NOTE: Payment schedule is NOT deleted/rebuilt here — it is managed exclusively by the Estimate Builder UI.
   
   // Insert groups and line items
   let totalEstimate = 0;
@@ -411,59 +411,8 @@ async function persistScopeToDatabase(
     }
   }
   
-  // Insert payment schedule with proper deposit cap handling
-  if (paymentSchedule.length > 0) {
-    // Fetch deposit_max_amount from the estimate to calculate proper deposit cap
-    const { data: estimateSettings } = await supabase
-      .from('estimates')
-      .select('deposit_percent, deposit_max_amount')
-      .eq('id', estimateId)
-      .single();
-    
-    const effectiveDepositPercent = estimateSettings?.deposit_percent ?? depositPercent;
-    const depositMaxAmount = estimateSettings?.deposit_max_amount;
-    
-    // Calculate capped deposit (matches UI logic in EstimateBuilderDialog)
-    const calculatedDeposit = (effectiveDepositPercent / 100) * totalEstimate;
-    const cappedDeposit = depositMaxAmount != null && depositMaxAmount > 0
-      ? Math.min(calculatedDeposit, depositMaxAmount)
-      : calculatedDeposit;
-    const remainingTotal = Math.max(0, totalEstimate - cappedDeposit);
-    
-    console.log(`Payment schedule calculation: total=${totalEstimate}, depositPercent=${effectiveDepositPercent}, maxAmount=${depositMaxAmount}, cappedDeposit=${cappedDeposit}, remaining=${remainingTotal}`);
-    
-    const scheduleToInsert = paymentSchedule.map((phase: any, index: number) => {
-      const phaseName = phase.phase_name || `Phase ${index + 1}`;
-      const isDepositPhase = phaseName.toLowerCase().includes('deposit');
-      const phasePercent = phase.percent || 0;
-      
-      // For deposit phase: use capped deposit amount, set percent to 0 since it's a fixed amount
-      // For other phases: calculate based on remaining total after deposit
-      const amount = isDepositPhase 
-        ? cappedDeposit 
-        : (remainingTotal * phasePercent) / 100;
-      
-      return {
-        estimate_id: estimateId,
-        company_id: companyId,
-        phase_name: phaseName,
-        percent: isDepositPhase ? 0 : phasePercent,
-        amount: amount,
-        due_type: phase.due_type || 'milestone',
-        due_date: phase.due_date || null,
-        description: phase.description || null,
-        sort_order: index,
-      };
-    });
-    
-    const { error: scheduleError } = await supabase
-      .from('estimate_payment_schedule')
-      .insert(scheduleToInsert);
-    
-    if (scheduleError) {
-      console.error(`Failed to insert payment schedule:`, scheduleError);
-    }
-  }
+  // Payment schedule is managed exclusively by the Estimate Builder UI.
+  // The AI does NOT write payment phases to avoid overriding group-based schedule logic.
   
   // Update estimate with total, tax rate, and deposit
   const { error: updateError } = await supabase
