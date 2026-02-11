@@ -667,7 +667,7 @@ export function DateRangeAppointmentsSheet({
   return (
     <>
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[95vw] p-0 flex flex-col">
+      <SheetContent className="w-full sm:max-w-3xl p-0 flex flex-col">
         <div className="p-4 border-b">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
