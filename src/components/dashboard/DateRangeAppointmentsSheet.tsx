@@ -780,35 +780,8 @@ export function DateRangeAppointmentsSheet({
                         {sortColumn === "scheduled" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
                       </div>
                     </TableHead>
-                    <TableHead 
-                      className="w-[8%] cursor-pointer hover:bg-muted/50 select-none"
-                      onClick={() => handleSort("assigned")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Assigned
-                        {sortColumn === "assigned" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
-                      </div>
-                    </TableHead>
                     {defaultStatusFilter === "showed" && (
                       <>
-                        <TableHead 
-                          className="w-[6%] cursor-pointer hover:bg-muted/50 select-none"
-                          onClick={() => handleSort("oppStatus")}
-                        >
-                          <div className="flex items-center gap-1">
-                            Opp
-                            {sortColumn === "oppStatus" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
-                          </div>
-                        </TableHead>
-                        <TableHead 
-                          className="w-[10%] cursor-pointer hover:bg-muted/50 select-none"
-                          onClick={() => handleSort("stage")}
-                        >
-                          <div className="flex items-center gap-1">
-                            Stage
-                            {sortColumn === "stage" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
-                          </div>
-                        </TableHead>
                         <TableHead 
                           className="w-[7%] cursor-pointer hover:bg-muted/50 select-none"
                           onClick={() => handleSort("value")}
@@ -962,6 +935,17 @@ export function DateRangeAppointmentsSheet({
                                 </button>
                               </div>
                             )}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
+                              {salesPerson && (
+                                <span><span className="font-medium">Rep:</span> {salesPerson}</span>
+                              )}
+                              {defaultStatusFilter === "showed" && opp?.status && (
+                                <span><span className="font-medium">Opp:</span> <span className="capitalize">{opp.status}</span></span>
+                              )}
+                              {defaultStatusFilter === "showed" && opp?.stage_name && (
+                                <span><span className="font-medium">Stage:</span> {opp.stage_name}</span>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -990,23 +974,8 @@ export function DateRangeAppointmentsSheet({
                             {sortedDates.length === 0 && "-"}
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs">
-                          <span className="line-clamp-2">{salesPerson || "-"}</span>
-                        </TableCell>
                         {defaultStatusFilter === "showed" && (
                           <>
-                            <TableCell>
-                              {opp?.status ? (
-                                <Badge className={`${oppStatusColor} text-[10px] px-1.5 py-0.5 capitalize`}>
-                                  {opp.status}
-                                </Badge>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              <span className="line-clamp-2">{opp?.stage_name || "-"}</span>
-                            </TableCell>
                             <TableCell className="text-xs font-medium">
                               {formatCurrency(opp?.monetary_value)}
                             </TableCell>
