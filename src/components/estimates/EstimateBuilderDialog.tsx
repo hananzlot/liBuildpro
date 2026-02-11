@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
 import { AIGenerationProgress } from "./AIGenerationProgress";
 import { MissingInfoPanel, parseMissingInfo, groupByCategory, MultiSelectDropdown, type ParsedQuestion } from "./MissingInfoPanel";
@@ -123,6 +124,8 @@ interface EstimateFormData {
   notes_to_customer: string;
   terms_and_conditions: string;
   work_scope_description: string;
+  sq_ft_to_build: string;
+  finishing_grade: string;
   show_details_to_customer: boolean;
   show_scope_to_customer: boolean;
   show_line_items_to_customer: boolean;
@@ -213,6 +216,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     notes_to_customer: "",
     terms_and_conditions: "",
     work_scope_description: "",
+    sq_ft_to_build: "Home Improvement project",
+    finishing_grade: "Mid",
     show_details_to_customer: false,
     show_scope_to_customer: false,
     show_line_items_to_customer: false,
@@ -809,6 +814,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         notes_to_customer: (est as any).notes_to_customer || "",
         terms_and_conditions: est.terms_and_conditions || "",
         work_scope_description: est.work_scope_description || "",
+        sq_ft_to_build: (est as any).sq_ft_to_build || "Home Improvement project",
+        finishing_grade: (est as any).finishing_grade || "Mid",
         show_details_to_customer: est.show_details_to_customer ?? false,
         show_scope_to_customer: est.show_scope_to_customer ?? false,
         show_line_items_to_customer: est.show_line_items_to_customer ?? false,
@@ -933,6 +940,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         notes_to_customer: "",
         terms_and_conditions: "",
         work_scope_description: "",
+        sq_ft_to_build: "Home Improvement project",
+        finishing_grade: "Mid",
         show_details_to_customer: false,
         show_scope_to_customer: false,
         show_line_items_to_customer: false,
@@ -1642,6 +1651,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         companyId: companyId,
         plansFileUrl: plansFileUrl,
         jobId: jobId, // Pass job ID for background processing
+        sqFtToBuild: formData.sq_ft_to_build,
+        finishingGrade: formData.finishing_grade,
       };
 
       // Make the request - even if it fails due to tab switch, the job continues in background
@@ -2699,8 +2710,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     if (!formData.work_scope_description?.trim() && groups.length === 0) {
       missing.push("Work Scope Description or Line Items");
     }
+    if (!formData.sq_ft_to_build?.trim()) {
+      missing.push("Sq/Ft To Build");
+    }
+    if (!formData.finishing_grade?.trim()) {
+      missing.push("Finishing Grade");
+    }
     return { isValid: missing.length === 0, missing };
-  }, [formData.work_scope_description, groups.length]);
+  }, [formData.work_scope_description, formData.sq_ft_to_build, formData.finishing_grade, groups.length]);
 
   const validatePaymentsTab = useCallback(() => {
     // Payments tab has no required fields - always valid
@@ -3248,6 +3265,41 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     return null;
                   })()}
                   
+                  {/* Sq/Ft To Build & Finishing Grade */}
+                  <Card>
+                    <CardContent className="pt-5 pb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm font-bold">Sq/Ft To Build <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={formData.sq_ft_to_build}
+                            onChange={(e) => setFormData({ ...formData, sq_ft_to_build: e.target.value })}
+                            placeholder='e.g. 2500 or "Home Improvement project"'
+                            disabled={isProposalReadOnly}
+                            className="text-base font-medium"
+                          />
+                          <p className="text-xs text-muted-foreground">Enter square footage or "Home Improvement project"</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-sm font-bold">Finishing Grade <span className="text-destructive">*</span></Label>
+                          <RadioGroup
+                            value={formData.finishing_grade}
+                            onValueChange={(val) => setFormData({ ...formData, finishing_grade: val })}
+                            className="flex flex-wrap gap-3 pt-1"
+                            disabled={isProposalReadOnly}
+                          >
+                            {["Builder", "Mid", "High", "Ultra Luxury"].map((grade) => (
+                              <div key={grade} className="flex items-center space-x-1.5">
+                                <RadioGroupItem value={grade} id={`grade-${grade}`} />
+                                <Label htmlFor={`grade-${grade}`} className="text-sm font-semibold cursor-pointer">{grade}</Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   {/* Work Scope Description - Collapsible, defaulted to collapsed */}
                   <Card>
                     <Collapsible open={showWorkScopeDescription} onOpenChange={setShowWorkScopeDescription}>
