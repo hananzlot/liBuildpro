@@ -204,13 +204,6 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
           onClick={() => handleKPIClick('totalCosts')}
         />
         <MetricCard
-          title="Lead % Fee"
-          value={formatCurrency(filteredTotals.totalLeadCost)}
-          subValue="Company fee from sales"
-          icon={TrendingDown}
-          onClick={() => handleKPIClick('leadFee')}
-        />
-        <MetricCard
           title="Gross Profit"
           value={formatCurrency(filteredTotals.totalGrossProfit)}
           subValue="Sold - Max(Bills, Est)"
@@ -219,10 +212,19 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
           onClick={() => handleKPIClick('grossProfit')}
         />
         <MetricCard
+          title="Lead % Fee"
+          value={formatCurrency(filteredTotals.totalLeadCost)}
+          subValue="Company fee from sales"
+          icon={TrendingDown}
+          variant="success"
+          onClick={() => handleKPIClick('leadFee')}
+        />
+        <MetricCard
           title="Commissions"
           value={formatCurrency(filteredTotals.totalCommission)}
-          subValue="(Sold - Lead Fee - Max(Bills, Est)) × %"
+          subValue="(Sold - Lead Fee - Costs) × %"
           icon={Wallet}
+          variant="warning"
           onClick={() => handleKPIClick('commissions')}
         />
         <MetricCard
