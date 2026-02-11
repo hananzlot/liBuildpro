@@ -401,6 +401,10 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
                             <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/20">
                               est
                             </Badge>
+                          ) : !isCompleted && project.exceededExpectedCosts ? (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-red-500/10 text-red-600 border-red-500/20">
+                              ToDate
+                            </Badge>
                           ) : null}
                         </div>
                       </TableCell>
