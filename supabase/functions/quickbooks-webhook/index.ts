@@ -807,20 +807,29 @@ async function processEntityChange(
       }
 
       // Fallback: mark as pending_refresh if the immediate fetch failed
-      log("info", `Marking existing ${entityType} ${qbId} for refresh`);
-      const { error: updateError } = await supabase
-        .from("quickbooks_sync_log")
-        .update({
-          sync_status: "pending_refresh",
-          synced_at: new Date().toISOString(),
-          sync_error: `${operation} detected in QuickBooks at ${entity.lastUpdated}`
-        })
-        .eq("id", syncLog.id);
+      // BUT skip if the record was recently synced (within 60s) to avoid race conditions
+      // where our own sync triggers a webhook that downgrades the status
+      const lastSyncTime = syncLog.synced_at ? new Date(syncLog.synced_at).getTime() : 0;
+      const secondsSinceSync = (Date.now() - lastSyncTime) / 1000;
       
-      if (updateError) {
-        log("error", `Failed to mark for refresh`, { error: updateError.message });
+      if (syncLog.sync_status === "synced" && secondsSinceSync < 60) {
+        log("info", `Skipping pending_refresh for ${entityType} ${qbId} - was synced ${secondsSinceSync.toFixed(0)}s ago (likely our own sync triggered this webhook)`);
       } else {
-        log("info", `✓ Marked ${entityType} ${qbId} as pending_refresh`);
+        log("info", `Marking existing ${entityType} ${qbId} for refresh`);
+        const { error: updateError } = await supabase
+          .from("quickbooks_sync_log")
+          .update({
+            sync_status: "pending_refresh",
+            synced_at: new Date().toISOString(),
+            sync_error: `${operation} detected in QuickBooks at ${entity.lastUpdated}`
+          })
+          .eq("id", syncLog.id);
+        
+        if (updateError) {
+          log("error", `Failed to mark for refresh`, { error: updateError.message });
+        } else {
+          log("info", `✓ Marked ${entityType} ${qbId} as pending_refresh`);
+        }
       }
     } else if (operation === "Create") {
       // New entity created in QuickBooks that we don't have
