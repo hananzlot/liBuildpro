@@ -1141,11 +1141,13 @@ serve(async (req) => {
       recoverJobId, // If provided, recover a failed job by running final assembly on saved stage_results
       sqFtToBuild,
       finishingGrade,
+      garageSqFt,
     } = body;
 
     // Prepend Sq/Ft and Finishing Grade to the work scope so the AI factors them in
     const scopePrefix = [
       sqFtToBuild ? `Sq/Ft To Build: ${sqFtToBuild}` : null,
+      garageSqFt ? `Garage Sq/Ft: ${garageSqFt}` : null,
       finishingGrade ? `Finishing Grade: ${finishingGrade}` : null,
     ].filter(Boolean).join('\n');
     const workScopeDescription = scopePrefix
