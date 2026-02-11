@@ -169,9 +169,14 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
       }));
   }, [projectsWithSales]);
 
-  // Sorted projects for table (only projects with sales)
+  // Sort by Status (Asc), then by Profit (Desc)
   const sortedProjects = useMemo(() => {
-    return [...projectsWithSales].sort((a, b) => b.contractsTotal - a.contractsTotal);
+    return [...projectsWithSales].sort((a, b) => {
+      const statusA = (a.project_status || 'Unknown').toLowerCase();
+      const statusB = (b.project_status || 'Unknown').toLowerCase();
+      if (statusA !== statusB) return statusA.localeCompare(statusB);
+      return b.expectedNetProfit - a.expectedNetProfit;
+    });
   }, [projectsWithSales]);
 
   // Summary grouped by status
@@ -187,8 +192,23 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
       groups[status].costs += cost;
       groups[status].profit += p.expectedNetProfit;
     });
-    return Object.values(groups).sort((a, b) => b.sold - a.sold);
+    return groups;
   }, [projectsWithSales]);
+
+  // Group projects by status in sorted order for rendering
+  const groupedByStatus = useMemo(() => {
+    const groups: { status: string; projects: typeof sortedProjects }[] = [];
+    let currentStatus = '';
+    sortedProjects.forEach(p => {
+      const status = p.project_status || 'Unknown';
+      if (status !== currentStatus) {
+        currentStatus = status;
+        groups.push({ status, projects: [] });
+      }
+      groups[groups.length - 1].projects.push(p);
+    });
+    return groups;
+  }, [sortedProjects]);
 
   const handleExportPDF = useCallback(() => {
     const el = tableRef.current;
@@ -215,17 +235,20 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
     printWindow.document.write(`<h1>Project Profitability Details</h1>`);
     printWindow.document.write(`<p class="subtitle">As of ${asOf} — ${sortedProjects.length} projects</p>`);
     printWindow.document.write(`<table><thead><tr><th>#</th><th>Project</th><th>Salesperson</th><th>Sold</th><th>Costs</th><th>Profit</th><th>Margin</th><th>Status</th></tr></thead><tbody>`);
-    sortedProjects.forEach(p => {
-      const isCompleted = p.project_status === 'Completed';
-      const cost = isCompleted ? p.totalBillsReceived : Math.max(p.totalBillsReceived, p.effectiveEstimatedCost);
-      const margin = p.contractsTotal > 0 ? (p.expectedNetProfit / p.contractsTotal * 100) : 0;
-      const profitClass = p.expectedNetProfit >= 0 ? 'positive' : 'negative';
-      printWindow.document.write(`<tr><td>${p.project_number}</td><td>${p.project_address || p.project_name}</td><td>${p.primary_salesperson || '-'}</td><td>${formatCurrency(p.contractsTotal)}</td><td>${formatCurrency(cost)}</td><td class="${profitClass}">${formatCurrency(p.expectedNetProfit)}</td><td class="${profitClass}">${margin.toFixed(1)}%</td><td>${p.project_status || 'Unknown'}</td></tr>`);
-    });
-    statusSummary.forEach(g => {
-      const m = g.sold > 0 ? (g.profit / g.sold * 100) : 0;
-      const cls = g.profit >= 0 ? 'positive' : 'negative';
-      printWindow.document.write(`<tr class="summary-row"><td></td><td colspan="2">${g.status} — ${g.count} projects</td><td>${formatCurrency(g.sold)}</td><td>${formatCurrency(g.costs)}</td><td class="${cls}">${formatCurrency(g.profit)}</td><td class="${cls}">${m.toFixed(1)}%</td><td></td></tr>`);
+    groupedByStatus.forEach(({ status, projects: groupProjects }) => {
+      groupProjects.forEach(p => {
+        const isCompleted = p.project_status === 'Completed';
+        const cost = isCompleted ? p.totalBillsReceived : Math.max(p.totalBillsReceived, p.effectiveEstimatedCost);
+        const margin = p.contractsTotal > 0 ? (p.expectedNetProfit / p.contractsTotal * 100) : 0;
+        const profitClass = p.expectedNetProfit >= 0 ? 'positive' : 'negative';
+        printWindow.document.write(`<tr><td>${p.project_number}</td><td>${p.project_address || p.project_name}</td><td>${p.primary_salesperson || '-'}</td><td>${formatCurrency(p.contractsTotal)}</td><td>${formatCurrency(cost)}</td><td class="${profitClass}">${formatCurrency(p.expectedNetProfit)}</td><td class="${profitClass}">${margin.toFixed(1)}%</td><td>${p.project_status || 'Unknown'}</td></tr>`);
+      });
+      const g = statusSummary[status];
+      if (g) {
+        const m = g.sold > 0 ? (g.profit / g.sold * 100) : 0;
+        const cls = g.profit >= 0 ? 'positive' : 'negative';
+        printWindow.document.write(`<tr class="summary-row"><td></td><td colspan="2">${g.status} — ${g.count} projects</td><td>${formatCurrency(g.sold)}</td><td>${formatCurrency(g.costs)}</td><td class="${cls}">${formatCurrency(g.profit)}</td><td class="${cls}">${m.toFixed(1)}%</td><td></td></tr>`);
+      }
     });
     const gm = filteredTotals.profitMargin;
     const gc = filteredTotals.totalNetProfit >= 0 ? 'positive' : 'negative';
@@ -233,7 +256,7 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
     printWindow.document.write(`</tbody></table></body></html>`);
     printWindow.document.close();
     setTimeout(() => { printWindow.print(); }, 250);
-  }, [sortedProjects, statusSummary, filteredTotals, projectsWithSales.length]);
+  }, [groupedByStatus, statusSummary, filteredTotals, projectsWithSales.length, sortedProjects]);
 
   return (
     <div className="space-y-6">
@@ -419,85 +442,87 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedProjects.slice(0, 50).map((project) => {
-                  const margin = project.contractsTotal > 0 
-                    ? (project.expectedNetProfit / project.contractsTotal) * 100 
-                    : 0;
-                  
-                  // For completed projects, always use real bills - no estimates
-                  const isCompleted = project.project_status === 'Completed';
-                  const costForDisplay = isCompleted 
-                    ? project.totalBillsReceived 
-                    : Math.max(project.totalBillsReceived, project.effectiveEstimatedCost);
-                  const isUsingEstimate = !isCompleted && project.effectiveEstimatedCost > project.totalBillsReceived;
-                  
-                  return (
-                    <TableRow 
-                      key={project.id} 
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => onProjectClick?.(project.id)}
-                    >
-                      <TableCell className="font-medium">{project.project_number}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {project.project_address || project.project_name}
-                      </TableCell>
-                      <TableCell>{project.primary_salesperson || '-'}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(project.contractsTotal)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {formatCurrency(costForDisplay)}
-                          {isCompleted ? (
-                            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-green-500/10 text-green-600 border-green-500/20">
-                              ✓
+                {groupedByStatus.map(({ status, projects: groupProjects }) => {
+                  const group = statusSummary[status];
+                  const groupMargin = group && group.sold > 0 ? (group.profit / group.sold) * 100 : 0;
+                  return groupProjects.map((project, idx) => {
+                    const margin = project.contractsTotal > 0 
+                      ? (project.expectedNetProfit / project.contractsTotal) * 100 
+                      : 0;
+                    const isCompleted = project.project_status === 'Completed';
+                    const costForDisplay = isCompleted 
+                      ? project.totalBillsReceived 
+                      : Math.max(project.totalBillsReceived, project.effectiveEstimatedCost);
+                    const isUsingEstimate = !isCompleted && project.effectiveEstimatedCost > project.totalBillsReceived;
+                    const isLast = idx === groupProjects.length - 1;
+                    
+                    return (
+                      <>
+                        <TableRow 
+                          key={project.id} 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => onProjectClick?.(project.id)}
+                        >
+                          <TableCell className="font-medium">{project.project_number}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">
+                            {project.project_address || project.project_name}
+                          </TableCell>
+                          <TableCell>{project.primary_salesperson || '-'}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(project.contractsTotal)}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {formatCurrency(costForDisplay)}
+                              {isCompleted ? (
+                                <Badge variant="outline" className="h-4 px-1 text-[9px] bg-green-500/10 text-green-600 border-green-500/20">
+                                  ✓
+                                </Badge>
+                              ) : isUsingEstimate ? (
+                                <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/20">
+                                  est
+                                </Badge>
+                              ) : !isCompleted && project.exceededExpectedCosts ? (
+                                <Badge variant="outline" className="h-4 px-1 text-[9px] bg-red-500/10 text-red-600 border-red-500/20">
+                                  ToDate
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          <TableCell className={`text-right font-medium ${project.expectedNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {formatCurrency(project.expectedNetProfit)}
+                          </TableCell>
+                          <TableCell className={`text-right ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {margin.toFixed(1)}%
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {project.project_status || 'Unknown'}
                             </Badge>
-                          ) : isUsingEstimate ? (
-                            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/20">
-                              est
-                            </Badge>
-                          ) : !isCompleted && project.exceededExpectedCosts ? (
-                            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-red-500/10 text-red-600 border-red-500/20">
-                              ToDate
-                            </Badge>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                      <TableCell className={`text-right font-medium ${project.expectedNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {formatCurrency(project.expectedNetProfit)}
-                      </TableCell>
-                      <TableCell className={`text-right ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {margin.toFixed(1)}%
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {project.project_status || 'Unknown'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
+                          </TableCell>
+                        </TableRow>
+                        {isLast && group && (
+                          <TableRow key={`summary-${status}`} className="bg-muted/40 font-semibold border-t">
+                            <TableCell />
+                            <TableCell colSpan={2}>
+                              <Badge variant="outline" className="text-xs mr-2">{group.status}</Badge>
+                              {group.count} projects
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(group.sold)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(group.costs)}</TableCell>
+                            <TableCell className={`text-right font-medium ${group.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {formatCurrency(group.profit)}
+                            </TableCell>
+                            <TableCell className={`text-right ${groupMargin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                              {groupMargin.toFixed(1)}%
+                            </TableCell>
+                            <TableCell />
+                          </TableRow>
+                        )}
+                      </>
+                    );
+                  });
                 })}
               </TableBody>
               <tfoot>
-                {statusSummary.map(group => {
-                  const margin = group.sold > 0 ? (group.profit / group.sold) * 100 : 0;
-                  return (
-                    <TableRow key={group.status} className="bg-muted/40 font-semibold border-t">
-                      <TableCell />
-                      <TableCell colSpan={2}>
-                        <Badge variant="outline" className="text-xs mr-2">{group.status}</Badge>
-                        {group.count} projects
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(group.sold)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(group.costs)}</TableCell>
-                      <TableCell className={`text-right font-medium ${group.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {formatCurrency(group.profit)}
-                      </TableCell>
-                      <TableCell className={`text-right ${margin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                        {margin.toFixed(1)}%
-                      </TableCell>
-                      <TableCell />
-                    </TableRow>
-                  );
-                })}
                 <TableRow className="bg-primary/10 font-bold border-t-2">
                   <TableCell />
                   <TableCell colSpan={2}>Grand Total — {projectsWithSales.length} projects</TableCell>
