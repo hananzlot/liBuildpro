@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   MessageSquare, 
   Archive, 
@@ -84,6 +85,8 @@ export function ChatManagement() {
   const queryClient = useQueryClient();
   const { companyId } = useCompanyContext();
   const [activeTab, setActiveTab] = useState('settings');
+  const [selectedCurrentIds, setSelectedCurrentIds] = useState<Set<string>>(new Set());
+  const [selectedArchivedIds, setSelectedArchivedIds] = useState<Set<string>>(new Set());
 
   // Fetch daily email setting (company-scoped)
   const { data: dailyEmailEnabled, isLoading: settingLoading } = useQuery({
@@ -274,11 +277,100 @@ export function ChatManagement() {
     },
     onSuccess: (data) => {
       toast.success(data?.message || 'All chats archived');
+      setSelectedCurrentIds(new Set());
       queryClient.invalidateQueries({ queryKey: ['admin-current-chats', companyId] });
       queryClient.invalidateQueries({ queryKey: ['admin-archived-chats', companyId] });
     },
     onError: (error: Error) => {
       toast.error(error.message);
+    },
+  });
+
+  // Archive selected current messages
+  const archiveSelectedMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (!companyId) throw new Error("No company selected");
+      // Fetch the messages to archive
+      const { data: msgs, error: fetchErr } = await supabase
+        .from('portal_chat_messages')
+        .select('*')
+        .in('id', ids);
+      if (fetchErr) throw fetchErr;
+      if (!msgs || msgs.length === 0) return { archived: 0 };
+
+      const archivedRecords = msgs.map((msg: any) => ({
+        original_id: msg.id,
+        project_id: msg.project_id,
+        sender_type: msg.sender_type,
+        sender_name: msg.sender_name,
+        sender_email: msg.sender_email,
+        sender_user_id: msg.sender_user_id,
+        message: msg.message,
+        is_read: msg.is_read,
+        portal_token_id: msg.portal_token_id,
+        original_created_at: msg.created_at,
+        original_updated_at: msg.updated_at,
+      }));
+
+      const { error: archErr } = await supabase
+        .from('portal_chat_messages_archived')
+        .insert(archivedRecords);
+      if (archErr) throw archErr;
+
+      const { error: delErr } = await supabase
+        .from('portal_chat_messages')
+        .delete()
+        .in('id', ids);
+      if (delErr) throw delErr;
+
+      return { archived: msgs.length };
+    },
+    onSuccess: (data) => {
+      toast.success(`Archived ${data?.archived || 0} messages`);
+      setSelectedCurrentIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ['admin-current-chats', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-archived-chats', companyId] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to archive: ${error.message}`);
+    },
+  });
+
+  // Delete selected current messages
+  const deleteSelectedCurrentMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('portal_chat_messages')
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`Deleted ${selectedCurrentIds.size} messages`);
+      setSelectedCurrentIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ['admin-current-chats', companyId] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to delete: ${error.message}`);
+    },
+  });
+
+  // Delete selected archived messages
+  const deleteSelectedArchivedMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('portal_chat_messages_archived')
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`Deleted ${selectedArchivedIds.size} archived messages`);
+      setSelectedArchivedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ['admin-archived-chats', companyId] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to delete: ${error.message}`);
     },
   });
 
@@ -288,6 +380,38 @@ export function ChatManagement() {
       `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim() ||
       'Unnamed';
     return `#${project.project_number} - ${name}`;
+  };
+
+  const toggleCurrentId = (id: string) => {
+    setSelectedCurrentIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleArchivedId = (id: string) => {
+    setSelectedArchivedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllCurrent = () => {
+    if (selectedCurrentIds.size === currentChats.length) {
+      setSelectedCurrentIds(new Set());
+    } else {
+      setSelectedCurrentIds(new Set(currentChats.map(c => c.id)));
+    }
+  };
+
+  const toggleAllArchived = () => {
+    if (selectedArchivedIds.size === archivedChats.length) {
+      setSelectedArchivedIds(new Set());
+    } else {
+      setSelectedArchivedIds(new Set(archivedChats.map(c => c.id)));
+    }
   };
 
   return (
@@ -429,33 +553,89 @@ export function ChatManagement() {
             </TabsContent>
 
             <TabsContent value="current">
-              <div className="flex justify-end mb-4">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={currentChats.length === 0}>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Clear All Current
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Clear All Current Messages?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete all {currentChats.length} current chat messages. 
-                        This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => clearCurrentChatsMutation.mutate()}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Delete All
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm text-muted-foreground">
+                  {selectedCurrentIds.size > 0 && `${selectedCurrentIds.size} selected`}
+                </div>
+                <div className="flex gap-2">
+                  {selectedCurrentIds.size > 0 && (
+                    <>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <Archive className="h-4 w-4 mr-2" />
+                            Archive Selected ({selectedCurrentIds.size})
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Archive Selected Messages?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will archive {selectedCurrentIds.size} selected messages. They can still be viewed in the Archived tab.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => archiveSelectedMutation.mutate(Array.from(selectedCurrentIds))}>
+                              Archive
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm">
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Selected ({selectedCurrentIds.size})
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Selected Messages?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete {selectedCurrentIds.size} selected messages. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteSelectedCurrentMutation.mutate(Array.from(selectedCurrentIds))}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
+                  )}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" disabled={currentChats.length === 0}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Clear All Current
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Clear All Current Messages?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete all {currentChats.length} current chat messages. 
+                          This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => clearCurrentChatsMutation.mutate()}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete All
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
 
               {currentLoading ? (
@@ -471,6 +651,12 @@ export function ChatManagement() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={currentChats.length > 0 && selectedCurrentIds.size === currentChats.length}
+                            onCheckedChange={toggleAllCurrent}
+                          />
+                        </TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Project</TableHead>
                         <TableHead>Sender</TableHead>
@@ -480,7 +666,13 @@ export function ChatManagement() {
                     </TableHeader>
                     <TableBody>
                       {currentChats.map((chat) => (
-                        <TableRow key={chat.id}>
+                        <TableRow key={chat.id} data-state={selectedCurrentIds.has(chat.id) ? 'selected' : undefined}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedCurrentIds.has(chat.id)}
+                              onCheckedChange={() => toggleCurrentId(chat.id)}
+                            />
+                          </TableCell>
                           <TableCell className="whitespace-nowrap text-sm">
                             {format(new Date(chat.created_at), 'MMM d, h:mm a')}
                           </TableCell>
@@ -511,33 +703,65 @@ export function ChatManagement() {
             </TabsContent>
 
             <TabsContent value="archived">
-              <div className="flex justify-end mb-4">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={archivedChats.length === 0}>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Clear All Archived
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Clear All Archived Messages?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete all {archivedChats.length} archived chat messages. 
-                        This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => clearArchivedChatsMutation.mutate()}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Delete All
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-sm text-muted-foreground">
+                  {selectedArchivedIds.size > 0 && `${selectedArchivedIds.size} selected`}
+                </div>
+                <div className="flex gap-2">
+                  {selectedArchivedIds.size > 0 && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Selected ({selectedArchivedIds.size})
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Selected Archived Messages?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete {selectedArchivedIds.size} selected archived messages. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteSelectedArchivedMutation.mutate(Array.from(selectedArchivedIds))}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" disabled={archivedChats.length === 0}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Clear All Archived
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Clear All Archived Messages?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete all {archivedChats.length} archived chat messages. 
+                          This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => clearArchivedChatsMutation.mutate()}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete All
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
 
               {archivedLoading ? (
@@ -553,6 +777,12 @@ export function ChatManagement() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-10">
+                          <Checkbox
+                            checked={archivedChats.length > 0 && selectedArchivedIds.size === archivedChats.length}
+                            onCheckedChange={toggleAllArchived}
+                          />
+                        </TableHead>
                         <TableHead>Original Date</TableHead>
                         <TableHead>Archived</TableHead>
                         <TableHead>Project</TableHead>
@@ -563,7 +793,13 @@ export function ChatManagement() {
                     </TableHeader>
                     <TableBody>
                       {archivedChats.map((chat) => (
-                        <TableRow key={chat.id}>
+                        <TableRow key={chat.id} data-state={selectedArchivedIds.has(chat.id) ? 'selected' : undefined}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedArchivedIds.has(chat.id)}
+                              onCheckedChange={() => toggleArchivedId(chat.id)}
+                            />
+                          </TableCell>
                           <TableCell className="whitespace-nowrap text-sm">
                             {format(new Date(chat.original_created_at), 'MMM d, h:mm a')}
                           </TableCell>
