@@ -1644,82 +1644,82 @@ export default function Production() {
         <div className="py-4 px-4 lg:px-6 space-y-4">
           {activeView === 'projects' && (
             <div className="space-y-4">
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2">
-                  {isAdmin && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => createTestProjectMutation.mutate()}
-                      disabled={createTestProjectMutation.isPending}
-                    >
-                      {createTestProjectMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <FlaskConical className="h-4 w-4 mr-2" />
-                      )}
-                      Add Test Project
-                    </Button>
-                  )}
-                  {/* Warnings Button */}
-                  <WarningsDialog
-                    warningCounts={warningCounts}
-                    bookkeepingWarningCounts={bookkeepingWarningCounts}
-                    totalWarnings={totalWarnings}
-                    totalBookkeepingWarnings={totalBookkeepingWarnings}
-                    onOpenWarningSheet={handleOpenWarningSheet}
-                    onOpenPendingDeposits={() => setPendingDepositsSheetOpen(true)}
-                  />
-                  {isAdmin && (
-                    <Button variant="outline" size="sm" onClick={() => setMergeProjectsDialogOpen(true)}>
-                      <Merge className="h-4 w-4 mr-2" />
-                      Merge
-                    </Button>
-                  )}
-                  <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Import
-                  </Button>
-                  <Button size="sm" onClick={() => openTab('/project/new', 'Project-New')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Project
-                  </Button>
-              </div>
-              {/* Collapsible KPI Cards Section */}
+              {/* KPI Summary + Action Buttons on same row */}
               <Collapsible defaultOpen={false}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground p-0 h-auto group">
-                    <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-90" />
-                    <span>KPI Summary</span>
-                    <div className="flex items-center gap-3 ml-2 text-[11px] group-data-[state=open]:hidden">
-                      <span className="flex items-center gap-1">
-                        <span className="text-muted-foreground">Projects:</span>
-                        <span className="font-semibold text-foreground">{totalProjects}</span>
-                      </span>
-                      <span className="text-border">•</span>
-                      <span className="flex items-center gap-1">
-                        <span className="text-muted-foreground">In Progress:</span>
-                        <span className="font-semibold text-amber-500">{inProgressProjects}</span>
-                      </span>
-                      <span className="text-border">•</span>
-                      <span className="flex items-center gap-1">
-                        <span className="text-muted-foreground">Sold:</span>
-                        <span className="font-semibold text-foreground">{formatCurrency(filteredFinancialsTotal)}</span>
-                      </span>
-                      {isAdmin && (
-                        <>
-                          <span className="text-border">•</span>
-                          <span className="flex items-center gap-1">
-                            <span className="text-muted-foreground">Profit:</span>
-                            <span className={`font-semibold ${(profitKPIs.expectedProfit + profitKPIs.realizedProfit) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                              {formatCurrency(profitKPIs.expectedProfit + profitKPIs.realizedProfit)}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground p-0 h-auto group">
+                      <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+                      <span>KPI Summary</span>
+                      <div className="flex items-center gap-3 ml-2 text-sm group-data-[state=open]:hidden">
+                        <span className="flex items-center gap-1">
+                          <span className="text-muted-foreground">Projects:</span>
+                          <span className="font-semibold text-foreground">{totalProjects}</span>
+                        </span>
+                        <span className="text-border">•</span>
+                        <span className="flex items-center gap-1">
+                          <span className="text-muted-foreground">In Progress:</span>
+                          <span className="font-semibold text-amber-500">{inProgressProjects}</span>
+                        </span>
+                        <span className="text-border">•</span>
+                        <span className="flex items-center gap-1">
+                          <span className="text-muted-foreground">Sold:</span>
+                          <span className="font-semibold text-foreground">{formatCurrency(filteredFinancialsTotal)}</span>
+                        </span>
+                        {isAdmin && (
+                          <>
+                            <span className="text-border">•</span>
+                            <span className="flex items-center gap-1">
+                              <span className="text-muted-foreground">Profit:</span>
+                              <span className={`font-semibold ${(profitKPIs.expectedProfit + profitKPIs.realizedProfit) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                                {formatCurrency(profitKPIs.expectedProfit + profitKPIs.realizedProfit)}
+                              </span>
                             </span>
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </Button>
-                </CollapsibleTrigger>
+                          </>
+                        )}
+                      </div>
+                    </Button>
+                  </CollapsibleTrigger>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => createTestProjectMutation.mutate()}
+                        disabled={createTestProjectMutation.isPending}
+                      >
+                        {createTestProjectMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <FlaskConical className="h-4 w-4 mr-2" />
+                        )}
+                        Add Test Project
+                      </Button>
+                    )}
+                    <WarningsDialog
+                      warningCounts={warningCounts}
+                      bookkeepingWarningCounts={bookkeepingWarningCounts}
+                      totalWarnings={totalWarnings}
+                      totalBookkeepingWarnings={totalBookkeepingWarnings}
+                      onOpenWarningSheet={handleOpenWarningSheet}
+                      onOpenPendingDeposits={() => setPendingDepositsSheetOpen(true)}
+                    />
+                    {isAdmin && (
+                      <Button variant="outline" size="sm" onClick={() => setMergeProjectsDialogOpen(true)}>
+                        <Merge className="h-4 w-4 mr-2" />
+                        Merge
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Import
+                    </Button>
+                    <Button size="sm" onClick={() => openTab('/project/new', 'Project-New')}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Project
+                    </Button>
+                  </div>
+                </div>
                 <CollapsibleContent className="pt-3 space-y-3">
                   <AdminKPIFilters
                     dateRange={kpiDateRange}
@@ -1800,7 +1800,7 @@ export default function Production() {
                       >
                         <CardHeader className="pb-1 pt-3 px-4">
                           <CardDescription className="text-xs flex items-center gap-1">
-                            <TrendingUp className="h-3 w-3" />
+                            <DollarSign className="h-3 w-3" />
                             Realized Profit (Completed)
                           </CardDescription>
                         </CardHeader>
@@ -1814,13 +1814,13 @@ export default function Production() {
                         </CardContent>
                       </Card>
                       <Card 
-                        className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-primary/30 bg-primary/5"
+                        className={`p-0 cursor-pointer hover:border-primary/50 transition-colors ${cashFlowKPI.netCashFlow >= 0 ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'}`}
                         onClick={() => setCashFlowSheetOpen(true)}
                       >
                         <CardHeader className="pb-1 pt-3 px-4">
                           <CardDescription className="text-xs flex items-center gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            Cash Flow from Projects
+                            <TrendingUp className="h-3 w-3" />
+                            Net Cash Flow
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="pb-3 px-4">
@@ -1836,7 +1836,6 @@ export default function Production() {
                   )}
                 </CollapsibleContent>
               </Collapsible>
-
 
               {/* Missing Projects from Won Opportunities - Admin Only */}
               {isAdmin && <MissingProjectsSection />}
