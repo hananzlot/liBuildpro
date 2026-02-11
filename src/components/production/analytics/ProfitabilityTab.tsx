@@ -434,7 +434,7 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
         <CardHeader className="pb-2 flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base">Project Profitability Details</CardTitle>
-            <CardDescription>Click a row to view project details</CardDescription>
+            <CardDescription>Click a row to view project details · Profits are net of commissions due on each project</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={handleExportPDF}>
             <Download className="h-4 w-4 mr-1" />
