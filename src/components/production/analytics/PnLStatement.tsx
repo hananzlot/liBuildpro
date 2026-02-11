@@ -91,9 +91,9 @@ function buildPnLLines(data: {
     { label: "Bills Outstanding", amount: -data.billsOutstanding, indent: true },
     { label: "Cost of Sales Total", amount: -data.totalCOGS, isTotal: true },
     { label: "Gross Income", amount: data.grossIncome, isTotal: true },
+    { label: <PctLabel text="Lead Cost Income" pct={data.avgLeadCostPct} isAvg={data.isAvg} />, amount: -data.totalLeadCost, indent: true },
     { label: <PctLabel text="Commissions" pct={data.avgCommissionPct} isAvg={data.isAvg} />, amount: -data.totalCommission, indent: true },
     { label: "Gross Income After Commission", amount: data.grossIncomeAfterCommission, isTotal: true },
-    { label: <PctLabel text="Lead Cost Income" pct={data.avgLeadCostPct} isAvg={data.isAvg} />, amount: data.totalLeadCost, indent: true },
     { label: "Net Income", amount: data.netIncome, isGrandTotal: true },
   ];
 }
@@ -104,10 +104,10 @@ function computeAggregate(projects: ProjectWithFinancials[]) {
   const totalBillsPaid = projects.reduce((s, p) => s + p.totalBillsPaid, 0);
   const billsOutstanding = totalCOGS - totalBillsPaid;
   const grossIncome = totalRevenue - totalCOGS;
-  const totalCommission = projects.reduce((s, p) => s + p.totalCommission, 0);
-  const grossIncomeAfterCommission = grossIncome - totalCommission;
   const totalLeadCost = projects.reduce((s, p) => s + p.leadCostAmount, 0);
-  const netIncome = grossIncomeAfterCommission + totalLeadCost;
+  const totalCommission = projects.reduce((s, p) => s + p.totalCommission, 0);
+  const grossIncomeAfterCommission = grossIncome - totalLeadCost - totalCommission;
+  const netIncome = grossIncomeAfterCommission;
 
   // Revenue-weighted average percentages
   const revenueProjects = projects.filter(p => p.contractsTotal > 0);
@@ -132,8 +132,8 @@ export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }
       .map(p => {
         const billsOutstanding = p.totalBillsReceived - p.totalBillsPaid;
         const grossIncome = p.contractsTotal - p.totalBillsReceived;
-        const grossIncomeAfterCommission = grossIncome - p.totalCommission;
-        const netIncome = grossIncomeAfterCommission + p.leadCostAmount;
+        const grossIncomeAfterCommission = grossIncome - p.leadCostAmount - p.totalCommission;
+        const netIncome = grossIncomeAfterCommission;
         return {
           project: p,
           lines: buildPnLLines({
