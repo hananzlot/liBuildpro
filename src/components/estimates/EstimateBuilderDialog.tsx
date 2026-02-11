@@ -125,6 +125,7 @@ interface EstimateFormData {
   terms_and_conditions: string;
   work_scope_description: string;
   sq_ft_to_build: string;
+  garage_sq_ft: string;
   finishing_grade: string;
   show_details_to_customer: boolean;
   show_scope_to_customer: boolean;
@@ -217,6 +218,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     terms_and_conditions: "",
     work_scope_description: "",
     sq_ft_to_build: "Home Improvement project",
+    garage_sq_ft: "",
     finishing_grade: "Mid",
     show_details_to_customer: false,
     show_scope_to_customer: false,
@@ -815,6 +817,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         terms_and_conditions: est.terms_and_conditions || "",
         work_scope_description: est.work_scope_description || "",
         sq_ft_to_build: (est as any).sq_ft_to_build || "Home Improvement project",
+        garage_sq_ft: (est as any).garage_sq_ft || "",
         finishing_grade: (est as any).finishing_grade || "Mid",
         show_details_to_customer: est.show_details_to_customer ?? false,
         show_scope_to_customer: est.show_scope_to_customer ?? false,
@@ -941,6 +944,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         terms_and_conditions: "",
         work_scope_description: "",
         sq_ft_to_build: "Home Improvement project",
+        garage_sq_ft: "",
         finishing_grade: "Mid",
         show_details_to_customer: false,
         show_scope_to_customer: false,
@@ -1652,6 +1656,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         plansFileUrl: plansFileUrl,
         jobId: jobId, // Pass job ID for background processing
         sqFtToBuild: formData.sq_ft_to_build,
+        garageSqFt: formData.garage_sq_ft || null,
         finishingGrade: formData.finishing_grade,
       };
 
@@ -3270,7 +3275,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   {/* Sq/Ft To Build & Finishing Grade */}
                   <Card>
                     <CardContent className="pt-5 pb-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-1.5">
                           <Label className="text-sm font-bold">Sq/Ft To Build <span className="text-destructive">*</span></Label>
                           <Input
@@ -3281,6 +3286,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                             className="text-base font-medium"
                           />
                           <p className="text-xs text-muted-foreground">Enter square footage or "Home Improvement project"</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-sm font-bold">Garage Sq/Ft</Label>
+                          <Input
+                            value={formData.garage_sq_ft}
+                            onChange={(e) => setFormData({ ...formData, garage_sq_ft: e.target.value })}
+                            placeholder="e.g. 600 (optional)"
+                            disabled={isProposalReadOnly}
+                            className="text-base font-medium"
+                          />
+                          <p className="text-xs text-muted-foreground">Leave blank if no garage</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-sm font-bold">Finishing Grade <span className="text-destructive">*</span></Label>
