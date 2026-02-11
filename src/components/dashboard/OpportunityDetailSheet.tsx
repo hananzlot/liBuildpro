@@ -1862,7 +1862,7 @@ export function OpportunityDetailSheet({
     const costValue = parseFloat(estimatedCost) || 0;
     const oppValue = savedValues.monetary_value ?? opportunity.monetary_value ?? 0;
 
-    if (oppValue > 0 && costValue > oppValue) {
+    if (costValue > oppValue) {
       setCostError(`Est. Cost ($${costValue.toLocaleString()}) cannot exceed Opp Value ($${oppValue.toLocaleString()})`);
       return;
     }
