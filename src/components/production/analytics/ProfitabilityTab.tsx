@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, useRef } from "react";
 import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
+import { differenceInDays, format, parseISO } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -237,7 +238,10 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
         const cost = isCompleted ? p.totalBillsReceived : Math.max(p.totalBillsReceived, p.effectiveEstimatedCost);
         const margin = p.contractsTotal > 0 ? (p.expectedNetProfit / p.contractsTotal * 100) : 0;
         const profitClass = p.expectedNetProfit >= 0 ? 'positive' : 'negative';
-        html += `<tr><td>${p.project_number}</td><td>${p.project_address || p.project_name}</td><td>${p.primary_salesperson || '-'}</td><td>${formatCurrency(p.contractsTotal)}</td><td>${formatCurrency(cost)}</td><td class="${profitClass}">${formatCurrency(p.expectedNetProfit)}</td><td class="${profitClass}">${margin.toFixed(1)}%</td><td>${p.project_status || 'Unknown'}</td></tr>`;
+        const startDate = p.install_start_date ? new Date(p.install_start_date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }) : '—';
+        const endDate = p.completion_date ? new Date(p.completion_date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }) : 'Present';
+        const days = p.install_start_date ? Math.floor((((p.completion_date ? new Date(p.completion_date) : new Date()).getTime()) - new Date(p.install_start_date).getTime()) / (1000 * 60 * 60 * 24)) : '—';
+        html += `<tr><td>${p.project_number}</td><td>${p.project_address || p.project_name}<br><span style="font-size:10px;color:#6b7280">${startDate} → ${endDate} · ${days}${typeof days === 'number' ? 'd' : ''}</span></td><td>${p.primary_salesperson || '-'}</td><td>${formatCurrency(p.contractsTotal)}</td><td>${formatCurrency(cost)}</td><td class="${profitClass}">${formatCurrency(p.expectedNetProfit)}</td><td class="${profitClass}">${margin.toFixed(1)}%</td><td>${p.project_status || 'Unknown'}</td></tr>`;
       });
       const g = statusSummary[status];
       if (g) {
@@ -479,8 +483,20 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
                           onClick={() => onProjectClick?.(project.id)}
                         >
                           <TableCell className="font-medium">{project.project_number}</TableCell>
-                          <TableCell className="max-w-[200px] truncate">
-                            {project.project_address || project.project_name}
+                          <TableCell className="max-w-[200px]">
+                            <div className="truncate">{project.project_address || project.project_name}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {project.install_start_date ? format(parseISO(project.install_start_date), 'MM/dd/yy') : '—'}
+                              {' → '}
+                              {project.completion_date ? format(parseISO(project.completion_date), 'MM/dd/yy') : 'Present'}
+                              {' · '}
+                              {(() => {
+                                if (!project.install_start_date) return '—';
+                                const start = parseISO(project.install_start_date);
+                                const end = project.completion_date ? parseISO(project.completion_date) : new Date();
+                                return `${differenceInDays(end, start)}d`;
+                              })()}
+                            </div>
                           </TableCell>
                           <TableCell>{project.primary_salesperson || '-'}</TableCell>
                           <TableCell className="text-right">{formatCurrency(project.contractsTotal)}</TableCell>
