@@ -29,6 +29,8 @@ export interface ProjectWithFinancials {
   lead_cost_percent: number | null;
   commission_split_pct: number | null;
   agreement_signed_date: string | null;
+  install_start_date: string | null;
+  completion_date: string | null;
   created_at: string;
   // Calculated fields
   contractsTotal: number;
@@ -428,6 +430,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         lead_cost_percent: project.lead_cost_percent,
         commission_split_pct: project.commission_split_pct,
         agreement_signed_date: project.agreement_signed_date,
+        install_start_date: project.install_start_date,
+        completion_date: project.completion_date,
         created_at: project.created_at,
         contractsTotal,
         totalBillsReceived,
