@@ -438,14 +438,18 @@ export function GlobalAdminSearch() {
         const address = est.job_address?.toLowerCase() || "";
         const estimateNum = est.estimate_number?.toString() || "";
         
+        // Check if search matches estimate/proposal total
+        const amountMatch = parsedAmount !== null && est.total !== null && est.total === parsedAmount;
+        
         return (
           customerName.includes(queryLower) ||
           address.includes(queryLower) ||
-          estimateNum.includes(searchQuery.trim())
+          estimateNum.includes(searchQuery.trim()) ||
+          amountMatch
         );
       })
       .slice(0, 8);
-  }, [searchQuery, estimates]);
+  }, [searchQuery, estimates, parsedAmount]);
 
   const filteredContacts = useMemo(() => {
     if (!searchQuery.trim()) return [];
