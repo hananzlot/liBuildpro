@@ -769,12 +769,12 @@ export default function Documents() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Document</TableHead>
-                    <TableHead>Recipients</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Date Emailed</TableHead>
-                    <TableHead className="w-[180px]">Actions</TableHead>
+                    <TableHead className="w-[25%]">Document</TableHead>
+                    <TableHead className="w-[22%]">Recipients</TableHead>
+                    <TableHead className="w-[12%]">Status</TableHead>
+                    <TableHead className="w-[12%] whitespace-nowrap">Created</TableHead>
+                    <TableHead className="w-[12%] whitespace-nowrap">Emailed</TableHead>
+                    <TableHead className="w-[17%]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -873,12 +873,12 @@ export default function Documents() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          {format(new Date(doc.created_at), "MMM d, yyyy")}
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {format(new Date(doc.created_at), "MM/dd/yy")}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
                           {doc.sent_at ? (
-                            format(new Date(doc.sent_at), "MMM d, yyyy")
+                            format(new Date(doc.sent_at), "MM/dd/yy")
                           ) : (
                             <span className="text-muted-foreground">-</span>
                           )}

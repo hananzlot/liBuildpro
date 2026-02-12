@@ -574,13 +574,13 @@ export function DuplicateOpportunitiesCleanup({
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead className="w-[50px]">Keep</TableHead>
-                                <TableHead>Opportunity Name</TableHead>
-                                <TableHead>Stage</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Value</TableHead>
-                                <TableHead>Date Added</TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
+                                <TableHead className="w-[8%]">Keep</TableHead>
+                                <TableHead className="w-[30%]">Opportunity Name</TableHead>
+                                <TableHead className="w-[14%]">Stage</TableHead>
+                                <TableHead className="w-[12%]">Status</TableHead>
+                                <TableHead className="w-[12%]">Value</TableHead>
+                                <TableHead className="w-[16%] whitespace-nowrap">Date Added</TableHead>
+                                <TableHead className="w-[8%]"></TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>

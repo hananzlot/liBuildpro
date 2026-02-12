@@ -153,12 +153,12 @@ export function CommissionReportTab({ commissionSummary, commissionPayments, tot
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Salesperson</TableHead>
-                    <TableHead className="text-right">Calculated</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead className="text-right">Balance</TableHead>
-                    <TableHead className="text-right">Projects</TableHead>
-                  </TableRow>
+                     <TableHead className="w-[30%]">Salesperson</TableHead>
+                     <TableHead className="w-[18%] text-right">Calculated</TableHead>
+                     <TableHead className="w-[18%] text-right">Paid</TableHead>
+                     <TableHead className="w-[18%] text-right">Balance</TableHead>
+                     <TableHead className="w-[16%] text-right">Projects</TableHead>
+                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {commissionSummary.length === 0 ? (
@@ -202,11 +202,11 @@ export function CommissionReportTab({ commissionSummary, commissionPayments, tot
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Salesperson</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
+                     <TableHead className="w-[25%] whitespace-nowrap">Date</TableHead>
+                     <TableHead className="w-[25%]">Salesperson</TableHead>
+                     <TableHead className="w-[20%]">Method</TableHead>
+                     <TableHead className="w-[30%] text-right">Amount</TableHead>
+                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {commissionPayments.length === 0 ? (
@@ -225,9 +225,9 @@ export function CommissionReportTab({ commissionSummary, commissionPayments, tot
                       .slice(0, 50)
                       .map((payment) => (
                         <TableRow key={payment.id}>
-                          <TableCell>
+                          <TableCell className="whitespace-nowrap text-sm">
                             {payment.payment_date 
-                              ? new Date(payment.payment_date).toLocaleDateString() 
+                              ? new Date(payment.payment_date).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: '2-digit'}) 
                               : '-'
                             }
                           </TableCell>

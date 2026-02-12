@@ -243,12 +243,12 @@ export default function AuditLog() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date/Time</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Table</TableHead>
-                      <TableHead>Action</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead></TableHead>
+                      <TableHead className="w-[15%] whitespace-nowrap">Date/Time</TableHead>
+                      <TableHead className="w-[18%]">User</TableHead>
+                      <TableHead className="w-[12%]">Table</TableHead>
+                      <TableHead className="w-[10%]">Action</TableHead>
+                      <TableHead className="w-[38%]">Description</TableHead>
+                      <TableHead className="w-[7%]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -261,8 +261,8 @@ export default function AuditLog() {
                     ) : (
                       logs?.map((log) => (
                         <TableRow key={log.id}>
-                          <TableCell className="whitespace-nowrap">
-                            {format(new Date(log.changed_at), "MMM d, yyyy h:mm a")}
+                          <TableCell className="whitespace-nowrap text-sm">
+                            {format(new Date(log.changed_at), "MM/dd/yy h:mm a")}
                           </TableCell>
                           <TableCell className="max-w-[200px] truncate">
                             {log.user_email || "System"}

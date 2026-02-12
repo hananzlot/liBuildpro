@@ -934,38 +934,38 @@ export default function OutstandingAP() {
                     <Table className="print-table">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="cursor-pointer" onClick={() => handleSort('project_number')}>
+                          <TableHead className="w-[16%] cursor-pointer" onClick={() => handleSort('project_number')}>
                             <div className="flex items-center gap-1">
                               Project
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
-                          <TableHead className="cursor-pointer" onClick={() => handleSort('vendor')}>
+                          <TableHead className="w-[14%] cursor-pointer" onClick={() => handleSort('vendor')}>
                             <div className="flex items-center gap-1">
                               Vendor
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
-                          <TableHead>Ref</TableHead>
-                          <TableHead className="text-right">Bill Amount</TableHead>
-                          <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount_due')}>
+                          <TableHead className="w-[8%]">Ref</TableHead>
+                          <TableHead className="w-[10%] text-right">Bill Amt</TableHead>
+                          <TableHead className="w-[10%] text-right cursor-pointer" onClick={() => handleSort('amount_due')}>
                             <div className="flex items-center justify-end gap-1">
-                              Amount Due
+                              Amt Due
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
-                          <TableHead className="text-right cursor-pointer" onClick={() => handleSort('project_current_cash')}>
+                          <TableHead className="w-[10%] text-right cursor-pointer" onClick={() => handleSort('project_current_cash')}>
                             <div className="flex items-center justify-end gap-1">
-                              Project Cash
+                              Proj Cash
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
-                          <TableHead className="text-right cursor-pointer" onClick={() => handleSort('cash_after_payment')}>
+                          <TableHead className="w-[12%] text-right cursor-pointer" onClick={() => handleSort('cash_after_payment')}>
                             <div className="flex items-center justify-end gap-1">
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <span className="flex items-center gap-1 cursor-help">
-                                    After Scheduled
+                                    After Sched
                                     <Info className="h-3 w-3 text-muted-foreground" />
                                   </span>
                                 </TooltipTrigger>
@@ -976,13 +976,13 @@ export default function OutstandingAP() {
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
-                          <TableHead className="cursor-pointer" onClick={() => handleSort('scheduled_payment_date')}>
+                          <TableHead className="w-[12%] whitespace-nowrap cursor-pointer" onClick={() => handleSort('scheduled_payment_date')}>
                             <div className="flex items-center gap-1">
                               Scheduled
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
-                          <TableHead className="w-[100px]">Actions</TableHead>
+                          <TableHead className="w-[8%]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1310,34 +1310,34 @@ export default function OutstandingAP() {
                     <Table className="print-table">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="cursor-pointer" onClick={() => handleSort('scheduled_payment_date')}>
+                          <TableHead className="w-[14%] whitespace-nowrap cursor-pointer" onClick={() => handleSort('scheduled_payment_date')}>
                             <div className="flex items-center gap-1">
-                              Scheduled Date
+                              Sched. Date
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
-                          <TableHead className="cursor-pointer" onClick={() => handleSort('project_number')}>
+                          <TableHead className="w-[16%] cursor-pointer" onClick={() => handleSort('project_number')}>
                             <div className="flex items-center gap-1">
                               Project
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
-                          <TableHead className="cursor-pointer" onClick={() => handleSort('vendor')}>
+                          <TableHead className="w-[16%] cursor-pointer" onClick={() => handleSort('vendor')}>
                             <div className="flex items-center gap-1">
                               Vendor
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
-                          <TableHead>Ref</TableHead>
-                          <TableHead className="text-right">Bill Amount</TableHead>
-                          <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount_due')}>
+                          <TableHead className="w-[10%]">Ref</TableHead>
+                          <TableHead className="w-[12%] text-right">Bill Amt</TableHead>
+                          <TableHead className="w-[12%] text-right cursor-pointer" onClick={() => handleSort('amount_due')}>
                             <div className="flex items-center justify-end gap-1">
-                              Amount Due
+                              Amt Due
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
-                          <TableHead className="text-right">Scheduled Amount</TableHead>
-                          <TableHead className="w-[100px]">Actions</TableHead>
+                          <TableHead className="w-[12%] text-right">Sched. Amt</TableHead>
+                          <TableHead className="w-[8%]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1347,9 +1347,9 @@ export default function OutstandingAP() {
                             className="cursor-pointer hover:bg-muted/50"
                             onClick={() => handleProjectClick(payable.project_id)}
                           >
-                            <TableCell>
+                            <TableCell className="whitespace-nowrap">
                               <Badge variant="outline" className="bg-primary/10 text-primary">
-                                {payable.scheduled_payment_date && format(parseISO(payable.scheduled_payment_date), 'MMM d, yyyy')}
+                                {payable.scheduled_payment_date && format(parseISO(payable.scheduled_payment_date), 'MM/dd/yy')}
                               </Badge>
                             </TableCell>
                             <TableCell className="max-w-[200px]">
@@ -1520,16 +1520,16 @@ export default function OutstandingAP() {
                       <TableHeader>
                         <TableRow>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
+                            className="w-[12%] whitespace-nowrap cursor-pointer hover:bg-muted/50"
                             onClick={() => handlePaidSort('payment_date')}
                           >
                             <div className="flex items-center">
-                              Payment Date
+                              Date
                               <PaidSortIcon field="payment_date" />
                             </div>
                           </TableHead>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
+                            className="w-[16%] cursor-pointer hover:bg-muted/50"
                             onClick={() => handlePaidSort('project_number')}
                           >
                             <div className="flex items-center">
@@ -1538,7 +1538,7 @@ export default function OutstandingAP() {
                             </div>
                           </TableHead>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
+                            className="w-[14%] cursor-pointer hover:bg-muted/50"
                             onClick={() => handlePaidSort('vendor')}
                           >
                             <div className="flex items-center">
@@ -1547,7 +1547,7 @@ export default function OutstandingAP() {
                             </div>
                           </TableHead>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
+                            className="w-[8%] cursor-pointer hover:bg-muted/50"
                             onClick={() => handlePaidSort('ref')}
                           >
                             <div className="flex items-center">
@@ -1556,16 +1556,16 @@ export default function OutstandingAP() {
                             </div>
                           </TableHead>
                           <TableHead 
-                            className="text-right cursor-pointer hover:bg-muted/50"
+                            className="w-[12%] text-right cursor-pointer hover:bg-muted/50"
                             onClick={() => handlePaidSort('amount')}
                           >
                             <div className="flex items-center justify-end">
-                              Amount Paid
+                              Amt Paid
                               <PaidSortIcon field="amount" />
                             </div>
                           </TableHead>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
+                            className="w-[10%] cursor-pointer hover:bg-muted/50"
                             onClick={() => handlePaidSort('method')}
                           >
                             <div className="flex items-center">
@@ -1574,7 +1574,7 @@ export default function OutstandingAP() {
                             </div>
                           </TableHead>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
+                            className="w-[10%] cursor-pointer hover:bg-muted/50"
                             onClick={() => handlePaidSort('check')}
                           >
                             <div className="flex items-center">
@@ -1583,7 +1583,7 @@ export default function OutstandingAP() {
                             </div>
                           </TableHead>
                           <TableHead 
-                            className="cursor-pointer hover:bg-muted/50"
+                            className="w-[10%] cursor-pointer hover:bg-muted/50"
                             onClick={() => handlePaidSort('bank')}
                           >
                             <div className="flex items-center">
@@ -1600,9 +1600,9 @@ export default function OutstandingAP() {
                             className="cursor-pointer hover:bg-muted/50"
                             onClick={() => handlePaidBillClick(payment)}
                           >
-                            <TableCell>
+                            <TableCell className="whitespace-nowrap">
                               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600">
-                                {payment.payment_date && format(parseISO(payment.payment_date), 'MMM d, yyyy')}
+                                {payment.payment_date && format(parseISO(payment.payment_date), 'MM/dd/yy')}
                               </Badge>
                             </TableCell>
                             <TableCell className="max-w-[200px]">
@@ -1663,14 +1663,14 @@ export default function OutstandingAP() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Project</TableHead>
-                            <TableHead>Vendor</TableHead>
-                            <TableHead>Ref</TableHead>
-                            <TableHead className="text-right">Bill Amount</TableHead>
-                            <TableHead className="text-right">Amount Paid</TableHead>
-                            <TableHead className="text-right">Balance</TableHead>
-                            <TableHead>Voided At</TableHead>
-                            <TableHead className="w-[100px]">Actions</TableHead>
+                            <TableHead className="w-[16%]">Project</TableHead>
+                            <TableHead className="w-[14%]">Vendor</TableHead>
+                            <TableHead className="w-[10%]">Ref</TableHead>
+                            <TableHead className="w-[12%] text-right">Bill Amt</TableHead>
+                            <TableHead className="w-[12%] text-right">Amt Paid</TableHead>
+                            <TableHead className="w-[12%] text-right">Balance</TableHead>
+                            <TableHead className="w-[12%] whitespace-nowrap">Voided At</TableHead>
+                            <TableHead className="w-[8%]">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1695,10 +1695,10 @@ export default function OutstandingAP() {
                               <TableCell className="text-right font-medium text-muted-foreground">
                                 {formatCurrencyWithDecimals((bill.bill_amount || 0) - (bill.amount_paid || 0))}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="whitespace-nowrap">
                                 {bill.updated_at && (
                                   <span className="text-xs text-muted-foreground">
-                                    {format(parseISO(bill.updated_at), 'MMM d, yyyy')}
+                                    {format(parseISO(bill.updated_at), 'MM/dd/yy')}
                                   </span>
                                 )}
                               </TableCell>
