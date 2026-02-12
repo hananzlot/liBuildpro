@@ -673,26 +673,34 @@ export default function Estimates() {
         </div>
 
         <Tabs value={currentView} onValueChange={handleViewChange} className="w-full">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
-            <TabsTrigger value="list" className="flex items-center gap-1.5 text-xs sm:text-sm">
-              <Calculator className="h-3.5 w-3.5 hidden sm:block" />
-              <span>Estimates ({draftEstimates.length})</span>
-              <span className="text-muted-foreground font-normal hidden sm:inline">{formatCurrency(draftTotal)}</span>
+          <TabsList className="w-full max-w-3xl grid grid-cols-4 h-auto">
+            <TabsTrigger value="list" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 text-xs sm:text-sm py-2">
+              <div className="flex items-center gap-1">
+                <Calculator className="h-3.5 w-3.5 hidden sm:inline-block" />
+                <span>Estimates ({draftEstimates.length})</span>
+              </div>
+              <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">{formatCurrency(draftTotal)}</span>
             </TabsTrigger>
-            <TabsTrigger value="proposals" className="flex items-center gap-1.5 text-xs sm:text-sm">
-              <Send className="h-3.5 w-3.5 hidden sm:block" />
-              <span>Proposals ({proposalEstimates.length})</span>
-              <span className="text-muted-foreground font-normal hidden sm:inline">{formatCurrency(proposalTotal)}</span>
+            <TabsTrigger value="proposals" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 text-xs sm:text-sm py-2">
+              <div className="flex items-center gap-1">
+                <Send className="h-3.5 w-3.5 hidden sm:inline-block" />
+                <span>Proposals ({proposalEstimates.length})</span>
+              </div>
+              <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">{formatCurrency(proposalTotal)}</span>
             </TabsTrigger>
-            <TabsTrigger value="contracts" className="flex items-center gap-1.5 text-xs sm:text-sm">
-              <FileSignature className="h-3.5 w-3.5 hidden sm:block" />
-              <span>Contracts ({contractEstimates.length})</span>
-              <span className="text-muted-foreground font-normal hidden sm:inline">{formatCurrency(contractTotal)}</span>
+            <TabsTrigger value="contracts" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 text-xs sm:text-sm py-2">
+              <div className="flex items-center gap-1">
+                <FileSignature className="h-3.5 w-3.5 hidden sm:inline-block" />
+                <span>Contracts ({contractEstimates.length})</span>
+              </div>
+              <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">{formatCurrency(contractTotal)}</span>
             </TabsTrigger>
-            <TabsTrigger value="declined" className="flex items-center gap-1.5 text-xs sm:text-sm">
-              <Trash2 className="h-3.5 w-3.5 hidden sm:block" />
-              <span>Declined ({declinedEstimates.length})</span>
-              <span className="text-muted-foreground font-normal hidden sm:inline">{formatCurrency(declinedTotal)}</span>
+            <TabsTrigger value="declined" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 text-xs sm:text-sm py-2">
+              <div className="flex items-center gap-1">
+                <Trash2 className="h-3.5 w-3.5 hidden sm:inline-block" />
+                <span>Declined ({declinedEstimates.length})</span>
+              </div>
+              <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">{formatCurrency(declinedTotal)}</span>
             </TabsTrigger>
           </TabsList>
 
