@@ -25,9 +25,9 @@ export default function ProjectDetail() {
   const [initialTab] = useState(() => searchParams.get("tab") || undefined);
   const [initialFinanceSubTab] = useState(() => (searchParams.get("financeTab") as 'bills' | 'history') || undefined);
   const [initialFinanceSection] = useState(() => searchParams.get("financeSubTab") || undefined);
-  const [highlightInvoiceId] = useState(() => searchParams.get("highlightInvoice") || undefined);
-  const [highlightBillId] = useState(() => searchParams.get("highlightBill") || undefined);
-  const [highlightPaymentId] = useState(() => searchParams.get("highlightPayment") || undefined);
+  const [highlightInvoiceId] = useState(() => searchParams.get("highlightInvoiceId") || searchParams.get("highlightInvoice") || undefined);
+  const [highlightBillId] = useState(() => searchParams.get("highlightBillId") || searchParams.get("highlightBill") || undefined);
+  const [highlightPaymentId] = useState(() => searchParams.get("highlightPaymentId") || searchParams.get("highlightPayment") || undefined);
   
   // Fetch project data
   const { data: project, isLoading, refetch } = useQuery({
