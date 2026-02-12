@@ -55,6 +55,12 @@ const platformItems: NavItem[] = [
     icon: Users,
     description: "Super admin users"
   },
+  { 
+    title: "User Management", 
+    url: "/super-admin/users", 
+    icon: Users,
+    description: "All users by corp & company"
+  },
 ];
 
 const settingsItems: NavItem[] = [

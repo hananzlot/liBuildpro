@@ -34,6 +34,7 @@ import PlatformAdmins from "@/pages/super-admin/PlatformAdmins";
 import SubscriptionPlans from "@/pages/super-admin/SubscriptionPlans";
 import PlatformEmailSettingsPage from "@/pages/super-admin/PlatformEmailSettings";
 import BackupManagement from "@/pages/super-admin/BackupManagement";
+import SuperAdminUsers from "@/pages/super-admin/SuperAdminUsers";
 import Onboarding from "@/pages/Onboarding";
 import OutstandingAR from "@/pages/OutstandingAR";
 import OutstandingAP from "@/pages/OutstandingAP";
@@ -433,6 +434,7 @@ export function AppRoutes() {
         <Route path="/super-admin/plans" element={<SubscriptionPlans />} />
         <Route path="/super-admin/email-settings" element={<PlatformEmailSettingsPage />} />
         <Route path="/super-admin/backups" element={<BackupManagement />} />
+        <Route path="/super-admin/users" element={<SuperAdminUsers />} />
         
         {/* Catch-all */}
         <Route path="*" element={<NotFound />} />
