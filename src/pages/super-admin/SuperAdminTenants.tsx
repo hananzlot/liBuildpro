@@ -214,7 +214,7 @@ export default function SuperAdminTenants() {
       return;
     }
 
-    // Update corporation_id on the company
+    // Update corporation_id on the company and cascade to users
     const newCorpId = editForm.corporation_id || null;
     if (newCorpId !== (selectedCompany.corporation_id || null)) {
       const { error: corpError } = await supabase
@@ -224,6 +224,16 @@ export default function SuperAdminTenants() {
       if (corpError) {
         toast.error('Failed to update corporation');
         return;
+      }
+
+      // Update all users associated with this company to match the new corporation_id
+      const { error: usersError } = await supabase
+        .from('profiles')
+        .update({ corporation_id: newCorpId })
+        .eq('company_id', selectedCompany.id);
+      if (usersError) {
+        console.error('Failed to update user corporation_ids:', usersError);
+        toast.error('Corporation updated on company but failed to update users');
       }
     }
 
