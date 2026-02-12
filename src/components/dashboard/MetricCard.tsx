@@ -17,15 +17,15 @@ interface MetricCardProps {
 export function MetricCard({ title, value, secondaryValue, subtitle, icon: Icon, trend, className }: MetricCardProps) {
   return (
     <div className={cn(
-      "relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50",
+      "relative overflow-hidden rounded-xl bg-card p-4 border border-border/50",
       "transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5",
       className
     )}>
       <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
           <div className="flex items-baseline gap-2">
-            <p className="text-3xl font-bold tracking-tight text-foreground">{value}</p>
+            <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
             {secondaryValue && (
               <span className="text-sm text-muted-foreground">/ {secondaryValue}</span>
             )}
@@ -43,11 +43,10 @@ export function MetricCard({ title, value, secondaryValue, subtitle, icon: Icon,
             </div>
           )}
         </div>
-        <div className="rounded-xl bg-primary/10 p-3">
-          <Icon className="h-5 w-5 text-primary" />
+        <div className="rounded-lg bg-primary/10 p-2">
+          <Icon className="h-4 w-4 text-primary" />
         </div>
       </div>
-      <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
     </div>
   );
 }
