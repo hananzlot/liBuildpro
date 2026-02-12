@@ -431,16 +431,16 @@ export default function Estimates() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[100px]">#</TableHead>
-            <TableHead>Customer</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead>Salesperson</TableHead>
-            <TableHead>Date</TableHead>
-            {isContractsTab && <TableHead>Date Accepted</TableHead>}
-            {isDeclinedTab && <TableHead>Date Declined</TableHead>}
-            {!isContractsTab && !isDeclinedTab && <TableHead>Status</TableHead>}
-            <TableHead className="text-right">Total</TableHead>
-            <TableHead className="w-[140px]">Actions</TableHead>
+            <TableHead className="w-[8%]">#</TableHead>
+            <TableHead className="w-[20%]">Customer</TableHead>
+            <TableHead className="w-[22%]">Title</TableHead>
+            <TableHead className="w-[12%]">Salesperson</TableHead>
+            <TableHead className="w-[10%] whitespace-nowrap">Date</TableHead>
+            {isContractsTab && <TableHead className="w-[10%] whitespace-nowrap">Accepted</TableHead>}
+            {isDeclinedTab && <TableHead className="w-[10%] whitespace-nowrap">Declined</TableHead>}
+            {!isContractsTab && !isDeclinedTab && <TableHead className="w-[8%]">Status</TableHead>}
+            <TableHead className="w-[10%] text-right">Total</TableHead>
+            <TableHead className="w-[10%]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -472,21 +472,21 @@ export default function Estimates() {
                   {estimate.salesperson_name || '-'}
                 </span>
               </TableCell>
-              <TableCell>
+              <TableCell className="whitespace-nowrap">
                 <div className="flex flex-col">
-                  <span>{format(new Date(estimate.estimate_date), "MMM d, yyyy")}</span>
+                  <span className="text-sm">{format(new Date(estimate.estimate_date), "MM/dd/yy")}</span>
                   {estimate.expiration_date && !isContractsTab && !isDeclinedTab && (
                     <span className="text-xs text-muted-foreground">
-                      Exp: {format(new Date(estimate.expiration_date), "MMM d")}
+                      Exp: {format(new Date(estimate.expiration_date), "MM/dd/yy")}
                     </span>
                   )}
                 </div>
               </TableCell>
               {isContractsTab && (
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   {estimate.signed_at ? (
-                    <span className="text-green-600 font-medium">
-                      {format(new Date(estimate.signed_at), "MMM d, yyyy")}
+                    <span className="text-green-600 font-medium text-sm">
+                      {format(new Date(estimate.signed_at), "MM/dd/yy")}
                     </span>
                   ) : (
                     <span className="text-muted-foreground">-</span>
@@ -494,10 +494,10 @@ export default function Estimates() {
                 </TableCell>
               )}
               {isDeclinedTab && (
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   {estimate.declined_at ? (
-                    <span className="text-red-600 font-medium">
-                      {format(new Date(estimate.declined_at), "MMM d, yyyy")}
+                    <span className="text-red-600 font-medium text-sm">
+                      {format(new Date(estimate.declined_at), "MM/dd/yy")}
                     </span>
                   ) : (
                     <span className="text-muted-foreground">-</span>
