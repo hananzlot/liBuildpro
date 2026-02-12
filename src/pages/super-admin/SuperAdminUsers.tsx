@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
@@ -520,8 +520,8 @@ export default function SuperAdminUsers() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {suspendTarget?.suspend
-                ? <>Are you sure you want to suspend <strong>{suspendTarget.user.full_name || suspendTarget.user.email}</strong>? They will be unable to log in until unsuspended.</>
-                : <>Are you sure you want to unsuspend <strong>{suspendTarget?.user.full_name || suspendTarget?.user.email}</strong>? They will regain the ability to log in.</>
+                ? <Fragment>Are you sure you want to suspend <strong>{suspendTarget.user.full_name || suspendTarget.user.email}</strong>? They will be unable to log in until unsuspended.</Fragment>
+                : <Fragment>Are you sure you want to unsuspend <strong>{suspendTarget?.user.full_name || suspendTarget?.user.email}</strong>? They will regain the ability to log in.</Fragment>
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
