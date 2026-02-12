@@ -595,9 +595,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return { subtotal: total, totalCost: 0, grossProfit: total, marginPercent: 100, discountAmount: 0, total, depositAmount };
     }
     
-    const subtotal = groups.reduce((sum, group) => 
+    const subtotal = Math.round(groups.reduce((sum, group) => 
       sum + group.items.reduce((itemSum, item) => itemSum + item.line_total, 0), 0
-    );
+    ) * 100) / 100;
     
     const totalCost = groups.reduce((sum, group) => 
       sum + group.items.reduce((itemSum, item) => itemSum + (item.quantity * item.cost), 0), 0
@@ -628,7 +628,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     const finalPrice = parseFloat(finalPriceDraft);
     if (isNaN(finalPrice) || finalPrice < 0) return;
     
-    if (finalPrice > totals.subtotal) {
+    const roundedSubtotal = Math.round(totals.subtotal * 100) / 100;
+    if (finalPrice > roundedSubtotal) {
       const bufferAmount = 1200;
       
       if (totals.subtotal > 0 && totals.totalCost > 0) {
@@ -644,6 +645,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             newSubtotal += newLineTotal;
           });
         });
+        newSubtotal = Math.round(newSubtotal * 100) / 100;
         const requiredDiscount = Math.round((newSubtotal - finalPrice) * 100) / 100;
         
         setGroups(prevGroups => prevGroups.map(g => ({
@@ -667,7 +669,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         }));
       }
     } else {
-      const newDiscount = Math.max(0, Math.round((totals.subtotal - finalPrice) * 100) / 100);
+      const newDiscount = Math.max(0, Math.round((roundedSubtotal - finalPrice) * 100) / 100);
       setFormData(prev => ({ 
         ...prev, 
         discount_type: 'fixed',
