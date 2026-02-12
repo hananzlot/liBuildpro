@@ -238,6 +238,7 @@ export function GlobalAdminSearch() {
   // Fetch financial records matching dollar amount
   interface FinancialMatch {
     project_id: string;
+    record_id: string;
     amount: number;
     type: 'bill' | 'invoice' | 'payment';
     description: string;
@@ -252,20 +253,20 @@ export function GlobalAdminSearch() {
       const [billsRes, invoicesRes, paymentsRes] = await Promise.all([
         supabase
           .from("project_bills")
-          .select("project_id, bill_amount, installer_company, bill_ref")
+          .select("id, project_id, bill_amount, installer_company, bill_ref")
           .eq("company_id", companyId)
           .eq("is_voided", false)
           .eq("bill_amount", parsedAmount)
           .limit(20),
         supabase
           .from("project_invoices")
-          .select("project_id, amount, invoice_number")
+          .select("id, project_id, amount, invoice_number")
           .eq("company_id", companyId)
           .eq("amount", parsedAmount)
           .limit(20),
         supabase
           .from("project_payments")
-          .select("project_id, payment_amount, check_number")
+          .select("id, project_id, payment_amount, check_number")
           .eq("company_id", companyId)
           .eq("is_voided", false)
           .eq("payment_amount", parsedAmount)
@@ -275,6 +276,7 @@ export function GlobalAdminSearch() {
       billsRes.data?.forEach(b => {
         if (b.project_id) results.push({
           project_id: b.project_id,
+          record_id: b.id,
           amount: b.bill_amount!,
           type: 'bill',
           description: [b.installer_company, b.bill_ref].filter(Boolean).join(' • ') || 'Bill',
@@ -283,6 +285,7 @@ export function GlobalAdminSearch() {
       invoicesRes.data?.forEach(i => {
         if (i.project_id) results.push({
           project_id: i.project_id,
+          record_id: i.id,
           amount: i.amount!,
           type: 'invoice',
           description: i.invoice_number ? `Invoice #${i.invoice_number}` : 'Invoice',
@@ -291,6 +294,7 @@ export function GlobalAdminSearch() {
       paymentsRes.data?.forEach(p => {
         if (p.project_id) results.push({
           project_id: p.project_id,
+          record_id: p.id,
           amount: p.payment_amount!,
           type: 'payment',
           description: p.check_number ? `Check #${p.check_number}` : 'Payment',
@@ -551,13 +555,24 @@ export function GlobalAdminSearch() {
     setSearchQuery("");
   };
 
-  const handleSelectProject = (proj: Project) => {
-    // Open as a tab using the full-page project route
+  const handleSelectProject = (proj: Project, financialMatch?: FinancialMatch) => {
     const customerName = [proj.customer_first_name, proj.customer_last_name].filter(Boolean).join(' ').trim();
     const tabTitle = customerName 
       ? `Project ${proj.project_number} (${customerName})`
       : `Project ${proj.project_number}`;
-    openTab(`/project/${proj.id}`, tabTitle);
+    
+    let url = `/project/${proj.id}`;
+    if (financialMatch) {
+      if (financialMatch.type === 'bill') {
+        url = `/project/${proj.id}?tab=finance&financeTab=bills&highlightBillId=${financialMatch.record_id}`;
+      } else if (financialMatch.type === 'invoice') {
+        url = `/project/${proj.id}?tab=finance&financeTab=invoices&highlightInvoice=${financialMatch.record_id}`;
+      } else if (financialMatch.type === 'payment') {
+        url = `/project/${proj.id}?tab=finance&financeTab=payments&highlightPaymentId=${financialMatch.record_id}`;
+      }
+    }
+    
+    openTab(url, tabTitle);
     setIsOpen(false);
     setSearchQuery("");
   };
@@ -705,9 +720,9 @@ export function GlobalAdminSearch() {
                       {filteredProjects.map((proj) => {
                         const finMatches = financialMatchesByProject.get(proj.id);
                         return (
-                          <button
+                          <div
                             key={proj.id}
-                            className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                            className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                             onClick={() => handleSelectProject(proj)}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -720,7 +735,14 @@ export function GlobalAdminSearch() {
                                   {proj.primary_salesperson && ` • ${proj.primary_salesperson}`}
                                 </div>
                                 {finMatches && finMatches.map((fm, i) => (
-                                  <div key={i} className="flex items-center gap-1 mt-1 text-xs">
+                                  <div
+                                    key={i}
+                                    className="flex items-center gap-1 mt-1 text-xs cursor-pointer hover:underline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSelectProject(proj, fm);
+                                    }}
+                                  >
                                     <DollarSign className="h-3 w-3 text-primary" />
                                     <span className="font-medium text-primary">
                                       {formatCurrencyUtil(fm.amount)}
@@ -735,7 +757,7 @@ export function GlobalAdminSearch() {
                                 {proj.project_status || "Unknown"}
                               </Badge>
                             </div>
-                          </button>
+                          </div>
                         );
                       })}
                     </div>
