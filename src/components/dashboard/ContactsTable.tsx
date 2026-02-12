@@ -146,7 +146,7 @@ export function ContactsTable({
           <TableHeader>
             <TableRow>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[22%] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('name')}
               >
                 <div className="flex items-center">
@@ -155,7 +155,7 @@ export function ContactsTable({
                 </div>
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[24%] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('email')}
               >
                 <div className="flex items-center">
@@ -164,7 +164,7 @@ export function ContactsTable({
                 </div>
               </TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[16%] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('phone')}
               >
                 <div className="flex items-center">
@@ -172,9 +172,9 @@ export function ContactsTable({
                   <SortIcon field="phone" />
                 </div>
               </TableHead>
-              <TableHead>Address</TableHead>
+              <TableHead className="w-[18%]">Address</TableHead>
               <TableHead 
-                className="cursor-pointer hover:bg-muted/50"
+                className="w-[12%] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('source')}
               >
                 <div className="flex items-center">
@@ -182,7 +182,7 @@ export function ContactsTable({
                   <SortIcon field="source" />
                 </div>
               </TableHead>
-              <TableHead className="text-right">Opportunities</TableHead>
+              <TableHead className="w-[8%] text-right">Opps</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -234,16 +234,16 @@ export function ContactsTable({
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {address ? (
-                        <div className="flex items-center gap-1.5 text-sm max-w-[200px] truncate">
-                          <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          {address}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
+                   <TableCell className="whitespace-nowrap">
+                       {address ? (
+                         <div className="flex items-center gap-1.5 text-sm max-w-[200px] truncate">
+                           <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                           {address}
+                         </div>
+                       ) : (
+                         <span className="text-muted-foreground">—</span>
+                       )}
+                     </TableCell>
                     <TableCell>
                       {contact.source ? (
                         <Badge variant="outline" className="text-xs">
