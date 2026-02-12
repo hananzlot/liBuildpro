@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, X, Briefcase, FolderKanban, FileText, CalendarCheck, Users } from "lucide-react";
+import { Search, X, Briefcase, FolderKanban, FileText, CalendarCheck, Users, DollarSign } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAddressFromContact, findContactByIdOrGhlId } from "@/lib/utils";
+import { formatCurrency as formatCurrencyUtil } from "@/lib/utils";
 
 interface Opportunity {
   ghl_id: string;
@@ -224,6 +225,84 @@ export function GlobalAdminSearch() {
     staleTime: 60 * 1000,
   });
 
+  // Detect if search query looks like a dollar amount (e.g., "1134.71", "$1,134.71")
+  const parsedAmount = useMemo(() => {
+    const cleaned = searchQuery.replace(/[$,\s]/g, "");
+    const num = parseFloat(cleaned);
+    if (!isNaN(num) && num > 0 && /^\d+(\.\d{1,2})?$/.test(cleaned)) {
+      return num;
+    }
+    return null;
+  }, [searchQuery]);
+
+  // Fetch financial records matching dollar amount
+  interface FinancialMatch {
+    project_id: string;
+    amount: number;
+    type: 'bill' | 'invoice' | 'payment';
+    description: string;
+  }
+
+  const { data: financialMatches = [] } = useQuery({
+    queryKey: ["global-search-financials", companyId, parsedAmount],
+    queryFn: async (): Promise<FinancialMatch[]> => {
+      if (!parsedAmount) return [];
+      const results: FinancialMatch[] = [];
+      
+      const [billsRes, invoicesRes, paymentsRes] = await Promise.all([
+        supabase
+          .from("project_bills")
+          .select("project_id, bill_amount, installer_company, bill_ref")
+          .eq("company_id", companyId)
+          .eq("is_voided", false)
+          .eq("bill_amount", parsedAmount)
+          .limit(20),
+        supabase
+          .from("project_invoices")
+          .select("project_id, amount, invoice_number")
+          .eq("company_id", companyId)
+          .eq("amount", parsedAmount)
+          .limit(20),
+        supabase
+          .from("project_payments")
+          .select("project_id, payment_amount, check_number")
+          .eq("company_id", companyId)
+          .eq("is_voided", false)
+          .eq("payment_amount", parsedAmount)
+          .limit(20),
+      ]);
+
+      billsRes.data?.forEach(b => {
+        if (b.project_id) results.push({
+          project_id: b.project_id,
+          amount: b.bill_amount!,
+          type: 'bill',
+          description: [b.installer_company, b.bill_ref].filter(Boolean).join(' • ') || 'Bill',
+        });
+      });
+      invoicesRes.data?.forEach(i => {
+        if (i.project_id) results.push({
+          project_id: i.project_id,
+          amount: i.amount!,
+          type: 'invoice',
+          description: i.invoice_number ? `Invoice #${i.invoice_number}` : 'Invoice',
+        });
+      });
+      paymentsRes.data?.forEach(p => {
+        if (p.project_id) results.push({
+          project_id: p.project_id,
+          amount: p.payment_amount!,
+          type: 'payment',
+          description: p.check_number ? `Check #${p.check_number}` : 'Payment',
+        });
+      });
+      
+      return results;
+    },
+    enabled: !!companyId && isOpen && parsedAmount !== null,
+    staleTime: 30 * 1000,
+  });
+
   const normalizePhone = (phone: string | null | undefined): string => {
     if (!phone) return "";
     return phone.replace(/\D/g, "");
@@ -293,6 +372,17 @@ export function GlobalAdminSearch() {
       .slice(0, 8);
   }, [searchQuery, opportunities, contacts, projects, appointments]);
 
+  // Build a map of project IDs to their financial matches
+  const financialMatchesByProject = useMemo(() => {
+    const map = new Map<string, FinancialMatch[]>();
+    for (const match of financialMatches) {
+      const existing = map.get(match.project_id) || [];
+      existing.push(match);
+      map.set(match.project_id, existing);
+    }
+    return map;
+  }, [financialMatches]);
+
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return [];
     
@@ -300,7 +390,8 @@ export function GlobalAdminSearch() {
     const queryDigits = searchQuery.replace(/\D/g, "");
     const isPhoneSearch = /^\d+$/.test(queryLower.replace(/[\s\-\(\)]/g, ""));
     
-    return (projects as Project[])
+    // Standard text/phone matches
+    const textMatches = (projects as Project[])
       .filter((proj) => {
         const name = proj.project_name?.toLowerCase() || "";
         const customerName = `${proj.customer_first_name || ""} ${proj.customer_last_name || ""}`.toLowerCase();
@@ -322,9 +413,15 @@ export function GlobalAdminSearch() {
           salesperson.includes(queryLower) ||
           phoneMatch
         );
-      })
-      .slice(0, 8);
-  }, [searchQuery, projects]);
+      });
+
+    // Financial amount matches — add projects not already in text matches
+    const textMatchIds = new Set(textMatches.map(p => p.id));
+    const financialProjectMatches = (projects as Project[])
+      .filter(proj => financialMatchesByProject.has(proj.id) && !textMatchIds.has(proj.id));
+
+    return [...textMatches, ...financialProjectMatches].slice(0, 12);
+  }, [searchQuery, projects, financialMatchesByProject]);
 
   const filteredEstimates = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -502,7 +599,7 @@ export function GlobalAdminSearch() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, address, phone, project #..."
+              placeholder="Search by name, address, phone, project #, or $ amount..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-9"
@@ -605,28 +702,42 @@ export function GlobalAdminSearch() {
                 <div className="max-h-[280px] overflow-y-auto">
                   {filteredProjects.length > 0 ? (
                     <div className="p-2">
-                      {filteredProjects.map((proj) => (
-                        <button
-                          key={proj.id}
-                          className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                          onClick={() => handleSelectProject(proj)}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="font-medium truncate text-sm">
-                                #{proj.project_number} - {proj.project_address || proj.project_name}
+                      {filteredProjects.map((proj) => {
+                        const finMatches = financialMatchesByProject.get(proj.id);
+                        return (
+                          <button
+                            key={proj.id}
+                            className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                            onClick={() => handleSelectProject(proj)}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium truncate text-sm">
+                                  #{proj.project_number} - {proj.project_address || proj.project_name}
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {proj.customer_first_name} {proj.customer_last_name}
+                                  {proj.primary_salesperson && ` • ${proj.primary_salesperson}`}
+                                </div>
+                                {finMatches && finMatches.map((fm, i) => (
+                                  <div key={i} className="flex items-center gap-1 mt-1 text-xs">
+                                    <DollarSign className="h-3 w-3 text-primary" />
+                                    <span className="font-medium text-primary">
+                                      {formatCurrencyUtil(fm.amount)}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      — {fm.type === 'bill' ? 'Bill' : fm.type === 'invoice' ? 'Invoice' : 'Payment'}: {fm.description}
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {proj.customer_first_name} {proj.customer_last_name}
-                                {proj.primary_salesperson && ` • ${proj.primary_salesperson}`}
-                              </div>
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${getProjectStatusColor(proj.project_status)}`}>
+                                {proj.project_status || "Unknown"}
+                              </Badge>
                             </div>
-                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${getProjectStatusColor(proj.project_status)}`}>
-                              {proj.project_status || "Unknown"}
-                            </Badge>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="p-6 text-center text-muted-foreground text-sm">
