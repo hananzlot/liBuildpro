@@ -114,12 +114,25 @@ export default function SuperAdminUsers() {
 
   const toggleRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
-      const { data, error } = await supabase.rpc("admin_assign_role", {
-        target_user_id: userId,
-        target_role: role,
-      });
-      if (error) throw error;
-      return data;
+      const currentlyHas = roleMap.get(userId)?.has(role) ?? false;
+
+      if (currentlyHas) {
+        // Remove role
+        const { error } = await supabase
+          .from("user_roles")
+          .delete()
+          .eq("user_id", userId)
+          .eq("role", role);
+        if (error) throw error;
+      } else {
+        // Add role
+        const { data, error } = await supabase.rpc("admin_assign_role", {
+          target_user_id: userId,
+          target_role: role,
+        });
+        if (error) throw error;
+        return data;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sa-users-roles"] });
