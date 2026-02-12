@@ -2466,7 +2466,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                           const totalBalance = companyBills.reduce((s, b) => s + (b.balance || 0), 0);
                           const hasHighlightedBill = highlightBillId && companyBills.some(b => b.id === highlightBillId);
                           return (
-                            <Collapsible key={company} defaultOpen={!!hasHighlightedBill}>
+                            <Collapsible key={`${company}-${highlightBillId || ''}`} defaultOpen={!!hasHighlightedBill}>
                               <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left">
                                 <div className="flex items-center gap-2">
                                   <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [&[data-state=open]]:rotate-0 rotate-[-90deg]" />
@@ -2697,7 +2697,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                           const totalPaid = companyPayments.reduce((s: number, p: any) => s + (p.payment_amount || 0), 0);
                           const hasHighlightedPayment = highlightPaymentId && companyPayments.some((p: any) => p.id === highlightPaymentId);
                           return (
-                            <Collapsible key={company} defaultOpen={!!hasHighlightedPayment}>
+                            <Collapsible key={`${company}-${highlightPaymentId || ''}`} defaultOpen={!!hasHighlightedPayment}>
                               <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left">
                                 <div className="flex items-center gap-2">
                                   <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [&[data-state=open]]:rotate-0 rotate-[-90deg]" />
