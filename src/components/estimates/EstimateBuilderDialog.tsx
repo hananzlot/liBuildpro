@@ -4289,7 +4289,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 setFormData({ ...formData, discount_value: val });
                               }}
                               placeholder="0"
-                              className="w-16 h-7 text-sm"
+                              className="w-24 h-7 text-sm"
                             />
                             {totals.discountAmount > 0 && (
                               <span className="text-[10px] text-muted-foreground whitespace-nowrap">
