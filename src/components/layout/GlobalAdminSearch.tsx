@@ -438,8 +438,8 @@ export function GlobalAdminSearch() {
         const address = est.job_address?.toLowerCase() || "";
         const estimateNum = est.estimate_number?.toString() || "";
         
-        // Check if search matches estimate/proposal total
-        const amountMatch = parsedAmount !== null && est.total !== null && est.total === parsedAmount;
+        // Check if search matches estimate/proposal total (within rounding tolerance)
+        const amountMatch = parsedAmount !== null && est.total !== null && Math.abs(est.total - parsedAmount) < 0.05;
         
         return (
           customerName.includes(queryLower) ||
