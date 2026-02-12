@@ -558,11 +558,14 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     },
   });
 
-  // Auto-switch to payment history tab when highlightPaymentId or highlightBillId is set
+  // Auto-switch to correct bills sub-tab when highlight IDs are set
   useEffect(() => {
-    if ((highlightPaymentId || highlightBillId) && bills.length > 0) {
+    if (highlightPaymentId && bills.length > 0) {
       setActiveSubTab("bills");
       setActiveBillsSubTab("history");
+    } else if (highlightBillId && bills.length > 0) {
+      setActiveSubTab("bills");
+      setActiveBillsSubTab("bills");
     }
   }, [highlightPaymentId, highlightBillId, bills]);
 
