@@ -610,7 +610,7 @@ export function GlobalAdminSearch() {
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="w-[200px] sm:w-[280px] justify-start gap-2">
           <Search className="h-4 w-4 text-muted-foreground" />
-          <span className="text-muted-foreground truncate">Search App Database</span>
+          <span className="text-muted-foreground truncate">Search for Anything</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[420px] p-0" align="start">

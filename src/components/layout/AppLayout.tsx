@@ -100,7 +100,7 @@ export function AppLayout({
         
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {/* Header */}
-          <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between px-4 shrink-0">
+          <header className="h-14 border-b border-border/50 bg-card backdrop-blur-sm sticky top-0 z-30 flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <SidebarTrigger />
               {/* Always show GlobalAdminSearch for all authenticated users */}
