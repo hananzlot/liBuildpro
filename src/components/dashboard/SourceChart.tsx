@@ -187,7 +187,7 @@ export function SourceChart({
 
   return (
     <>
-      <div className="rounded-2xl bg-card p-4 border border-border/50 h-[280px] flex flex-col">
+      <div className="rounded-xl bg-card p-4 border border-border/50 h-[320px] flex flex-col">
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <div>
             <h3 className="text-base font-semibold text-foreground">{getChartTitle()}</h3>

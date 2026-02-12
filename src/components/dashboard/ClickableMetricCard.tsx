@@ -45,28 +45,28 @@ export function ClickableMetricCard({
 
   return (
     <>
-      <div 
+        <div 
         className={cn(
-          "relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50",
+          "relative overflow-hidden rounded-xl bg-card p-4 border border-border/50",
           "transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5",
-          onClick && "cursor-pointer hover:scale-[1.02]",
+          onClick && "cursor-pointer",
           className
         )}
         onClick={onClick}
       >
         <div className="flex items-start justify-between">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <button
               onClick={handleTitleClick}
-              className="group flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary transition-colors text-left"
+              className="group flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary transition-colors text-left"
             >
               <span>{title}</span>
               <Maximize2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
             <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-bold tracking-tight text-foreground">{value}</p>
+              <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
               {secondaryValue && (
-                <p className="text-lg font-semibold text-primary">{secondaryValue}</p>
+                <p className="text-base font-semibold text-primary">{secondaryValue}</p>
               )}
             </div>
             {subtitle && (
@@ -88,11 +88,10 @@ export function ClickableMetricCard({
               </div>
             )}
           </div>
-          <div className="rounded-xl bg-primary/10 p-3">
-            <Icon className="h-5 w-5 text-primary" />
+          <div className="rounded-lg bg-primary/10 p-2">
+            <Icon className="h-4 w-4 text-primary" />
           </div>
         </div>
-        <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
       </div>
 
       <Dialog open={isExpanded} onOpenChange={setIsExpanded}>

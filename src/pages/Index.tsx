@@ -167,24 +167,14 @@ const Index = () => {
     <AppLayout 
       onAdminAction={handleAdminAction}
     >
-      <div className="px-6 py-6 space-y-6">
+      <div className="px-4 py-4 space-y-4">
         {/* Onboarding Banner for new admins */}
         <OnboardingPromptBanner variant="dashboard" />
         
         {/* Top Actions Bar */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
-          <div className="flex items-center gap-2">
-            {dateRange?.from && (
-              <p className="text-sm text-muted-foreground">
-                Showing {metrics?.totalLeads || 0} leads in selected range
-              </p>
-            )}
-            {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
-            <SyncDropdown 
-              onSyncGHL={handleSync} 
-              isSyncingGHL={syncMutation.isPending} 
-            />
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold text-foreground">Dispatch Dashboard</h1>
             {!isGHLEnabled && (
               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
                 <HardDrive className="h-3 w-3" />
@@ -192,13 +182,21 @@ const Index = () => {
               </div>
             )}
           </div>
+          <div className="flex items-center gap-2">
+            <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
+            {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
+            <SyncDropdown 
+              onSyncGHL={handleSync} 
+              isSyncingGHL={syncMutation.isPending} 
+            />
+          </div>
         </div>
 
         {/* Metrics Grid */}
         <section className="flex flex-wrap gap-3 [&>*]:flex-1 [&>*]:min-w-[200px] [&>*]:max-w-full">
           {isLoading ? (
             <>
-              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
+              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
             </>
           ) : (
             <>
@@ -209,37 +207,37 @@ const Index = () => {
                 icon={DollarSign} 
                 onClick={() => setOpportunitiesSheetOpen(true)} 
               />
-              <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
+              <div className="relative overflow-hidden rounded-xl bg-card p-4 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Appointments (in date range)</p>
-                    <div className="flex flex-wrap gap-3 text-sm">
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Appointments (in date range)</p>
+                    <div className="flex flex-wrap gap-2 text-sm">
                       <div 
-                        className="flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-blue-500/20 transition-colors" 
+                        className="flex items-center gap-1.5 bg-blue-500/10 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-blue-500/20 transition-colors" 
                         onClick={() => {
                           setDateRangeAppointmentsFilter("all");
                           setDateRangeAppointmentsSheetOpen(true);
                         }}
                       >
-                        <span className="text-xl font-bold text-blue-500">
+                        <span className="text-lg font-bold text-blue-500">
                           {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
                         </span>
                         <span className="text-blue-500/70 text-xs">created</span>
                       </div>
                       <div 
-                        className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-emerald-500/20 transition-colors" 
+                        className="flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-emerald-500/20 transition-colors" 
                         onClick={() => {
                           setDateRangeAppointmentsFilter("showed");
                           setDateRangeAppointmentsSheetOpen(true);
                         }}
                       >
-                        <span className="text-xl font-bold text-emerald-500">
+                        <span className="text-lg font-bold text-emerald-500">
                           {metrics?.appointmentsShowedInDateRange || 0}
                         </span>
                         <span className="text-emerald-500/70 text-xs">showed</span>
                       </div>
                       <div 
-                        className="flex items-center gap-2 bg-purple-500/10 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-purple-500/20 transition-colors"
+                        className="flex items-center gap-1.5 bg-purple-500/10 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-purple-500/20 transition-colors"
                         onClick={() => setAppointmentsAnalysisOpen(true)}
                       >
                         <span className="text-purple-500 text-xs font-medium">Analysis</span>
@@ -252,11 +250,10 @@ const Index = () => {
                       </span>
                     </div>
                   </div>
-                  <div className="rounded-xl bg-primary/10 p-3">
-                    <CalendarCheck className="h-5 w-5 text-primary" />
+                  <div className="rounded-lg bg-primary/10 p-2">
+                    <CalendarCheck className="h-4 w-4 text-primary" />
                   </div>
                 </div>
-                <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
               </div>
               <ClickableMetricCard 
                 title="Appointments (Today's & Future)" 
@@ -285,10 +282,10 @@ const Index = () => {
                   onClick={() => setOpportunitySalesSheetOpen(true)} 
                 />
               )}
-              <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
+              <div className="relative overflow-hidden rounded-xl bg-card p-4 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Activity</p>
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Activity</p>
                     <div 
                       className="flex items-baseline gap-2 cursor-pointer hover:opacity-80" 
                       onClick={() => {
@@ -296,7 +293,7 @@ const Index = () => {
                         setActivitySheetOpen(true);
                       }}
                     >
-                      <p className="text-3xl font-bold tracking-tight text-foreground">
+                      <p className="text-2xl font-bold tracking-tight text-foreground">
                         {(metrics?.opportunityEdits || 0) + (metrics?.inAppAppointmentActivityCount || 0) + (metrics?.inAppTaskActivityCount || 0) + (metrics?.inAppNoteActivityCount || 0)}
                       </p>
                       <span className="text-sm text-muted-foreground">total</span>
@@ -349,29 +346,25 @@ const Index = () => {
                     </div>
                   </div>
                   <div 
-                    className="rounded-xl bg-primary/10 p-3 cursor-pointer hover:bg-primary/20 transition-colors" 
+                    className="rounded-lg bg-primary/10 p-2 cursor-pointer hover:bg-primary/20 transition-colors" 
                     onClick={() => {
                       setActivityDefaultTab("edits");
                       setActivitySheetOpen(true);
                     }}
                   >
-                    <Pencil className="h-5 w-5 text-primary" />
+                    <Pencil className="h-4 w-4 text-primary" />
                   </div>
                 </div>
-                <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
               </div>
             </>
           )}
         </section>
 
-        {/* Visual separator */}
-        <div className="border-t border-border/50" />
-
-        {/* Charts Row - All 4 in one line */}
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {/* Charts Row - 2x2 grid */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {isLoading ? (
             <>
-              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-[280px] rounded-2xl" />)}
+              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-[320px] rounded-xl" />)}
             </>
           ) : (
             <>
