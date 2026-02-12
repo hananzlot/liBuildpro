@@ -1,30 +1,62 @@
 
-## Add Average Commission % and Lead Cost % to P&L Labels
 
-### What Changes
-In the P&L Statement, the "Commissions" and "Lead Cost Income" line items will display the average percentage used next to their label -- e.g., **"Commissions (avg 48.5%)"** and **"Lead Cost Income (avg 17.2%)"**.
+# Compact Professional Layout for Estimates Page
 
-### How It Works
+## Problem
+The Estimates page wastes significant vertical space with three layers of redundant information stacked before the actual table data:
+1. **Page header** with title + subtitle that changes per tab
+2. **4 KPI summary cards** (each ~100px tall) showing count + total per status
+3. **Tab bar** that repeats the same categories with counts
+4. **Card wrapper** inside each tab with yet another title + description
 
-**Aggregate view:** Compute a revenue-weighted average of each project's `commission_split_pct` and `lead_cost_percent` across all included projects. This gives a meaningful average that reflects how much each project contributes to the total.
+The KPI cards and tabs show the same information (Estimates, Proposals, Contracts, Declined) -- the counts are duplicated in both places.
 
-**Per-project view:** Show the exact percentage used for that specific project (e.g., "Commissions (50%)" and "Lead Cost Income (18%)").
+## Solution
+Consolidate everything into a single compact header row, similar to how the Opportunities page works. The KPI values will be embedded directly into the tab triggers, eliminating the separate card grid entirely.
 
-### Technical Details
+### New Layout (top to bottom):
+1. **Single header row**: Title on the left, action buttons (Refresh, New Estimate) on the right
+2. **Enhanced tab bar**: Each tab trigger shows the category name, count, AND dollar total inline -- replacing both the old tabs and KPI cards
+3. **Table directly below**: Remove the redundant Card > CardHeader wrapper inside each TabsContent
 
-**File:** `src/components/production/analytics/PnLStatement.tsx`
+### Visual comparison:
 
-1. **Extend `buildPnLLines` parameters** to accept two new optional fields: `avgCommissionPct` and `avgLeadCostPct`.
+```text
+BEFORE (~300px before data):
++------------------------------------------+
+| Estimates                    [Refresh][+] |  <- header
+| Create and manage estimates               |  <- subtitle
++------------------------------------------+
+| [Estimates 5] [Proposals 3] [Contracts 2] |  <- KPI cards row
+| [$50,000]     [$30,000]     [$20,000]     |
++------------------------------------------+
+| [Estimates(5)][Proposals(3)][Contracts(2)]|  <- tabs (duplicate)
++------------------------------------------+
+| All Estimates                             |  <- card header (duplicate)
+| View and manage all draft estimates       |  <- card description
++------------------------------------------+
+| # | Customer | Title | ...               |  <- FINALLY the data
 
-2. **Update label rendering** for the Commissions and Lead Cost Income rows to include the percentage in a muted style:
-   - `Commissions (avg 48.5%)` for aggregate
-   - `Commissions (50%)` for per-project
+AFTER (~80px before data):
++------------------------------------------+
+| Estimates                    [Refresh][+] |  <- compact header
++------------------------------------------+
+| [Estimates 5 $50K][Proposals 3 $30K][...]|  <- tabs WITH KPI data
++------------------------------------------+
+| # | Customer | Title | ...               |  <- data immediately
+```
 
-3. **Compute weighted averages in `computeAggregate`:**
-   - Weighted avg commission = sum(project.contractsTotal * project.commission_split_pct) / sum(project.contractsTotal) for projects with revenue > 0
-   - Same approach for lead cost percent
-   - Uses each project's `commission_split_pct` (default 50) and `lead_cost_percent` (default 18)
+## Technical Details
 
-4. **Per-project data** will pass each project's individual `commission_split_pct` and `lead_cost_percent` directly.
+### File: `src/pages/Estimates.tsx`
 
-5. The percentage will be rendered as a `<span>` with `text-muted-foreground text-xs` styling so it's visible but doesn't dominate the label.
+**Changes:**
+- Remove the subtitle `<p>` from the header (the tab selection makes it obvious)
+- Remove the entire "Summary Cards" grid (lines 688-730)
+- Update each `TabsTrigger` to show count + formatted dollar total (e.g., "Estimates (5) $50K")
+- Remove `Card`, `CardHeader`, `CardTitle`, `CardDescription` wrappers inside each `TabsContent` -- render the table directly with minimal padding
+- Reduce `mt-6` on `TabsContent` to `mt-2` for tighter spacing
+- Reduce outer container gap from `gap-6` to `gap-3`
+
+This is a single-file change. No new components or dependencies are needed.
+
