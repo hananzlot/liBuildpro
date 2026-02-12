@@ -52,6 +52,8 @@ const ROLE_FEATURE_MAP: Partial<Record<AppRole, string>> = {
 
 const ROLE_CONFIG: { role: AppRole; label: string; color: string }[] = [
   { role: 'super_admin', label: 'Super Admin', color: 'bg-red-500/10 text-red-500' },
+  { role: 'corp_admin', label: 'Corp Admin', color: 'bg-orange-500/10 text-orange-500' },
+  { role: 'corp_viewer', label: 'Corp Viewer', color: 'bg-yellow-500/10 text-yellow-500' },
   { role: 'admin', label: 'Admin', color: 'bg-primary/10 text-primary' },
   { role: 'magazine', label: 'Magazine', color: 'bg-amber-500/10 text-amber-500' },
   { role: 'production', label: 'Production', color: 'bg-emerald-500/10 text-emerald-500' },
