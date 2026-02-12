@@ -117,13 +117,17 @@ export default function SuperAdminUsers() {
       const currentlyHas = roleMap.get(userId)?.has(role) ?? false;
 
       if (currentlyHas) {
-        // Remove role
-        const { error } = await supabase
+        // Remove role - use .select() to verify rows were actually deleted
+        const { data: deleted, error } = await supabase
           .from("user_roles")
           .delete()
           .eq("user_id", userId)
-          .eq("role", role);
+          .eq("role", role)
+          .select();
         if (error) throw error;
+        if (!deleted || deleted.length === 0) {
+          throw new Error("Failed to remove role – no rows were deleted. Check RLS policies on user_roles.");
+        }
       } else {
         // Add role
         const { data, error } = await supabase.rpc("admin_assign_role", {
