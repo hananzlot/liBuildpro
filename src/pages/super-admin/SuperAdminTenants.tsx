@@ -26,8 +26,10 @@ interface CompanyWithSubscription {
   slug: string;
   is_active: boolean;
   created_at: string;
+  corporation_id: string | null;
   subscription?: CompanySubscription & { plan?: SubscriptionPlan };
   user_count: number;
+  corporation_name?: string;
 }
 
 export default function SuperAdminTenants() {
@@ -39,6 +41,7 @@ export default function SuperAdminTenants() {
   const [inviteCompany, setInviteCompany] = useState<{ id: string; name: string } | null>(null);
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [editForm, setEditForm] = useState({
+    corporation_id: '' as string,
     plan_id: '',
     status: '' as SubscriptionStatus | '',
     billing_cycle: '' as 'monthly' | 'yearly' | '',
@@ -101,6 +104,19 @@ export default function SuperAdminTenants() {
       });
 
       return result;
+    },
+  });
+
+  // Fetch corporations
+  const { data: corporations } = useQuery({
+    queryKey: ['corporations'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('corporations')
+        .select('id, name')
+        .order('name');
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -179,6 +195,7 @@ export default function SuperAdminTenants() {
     setSelectedCompany(company);
     setFeaturesOpen(false);
     setEditForm({
+      corporation_id: company.corporation_id || '',
       plan_id: company.subscription?.plan_id || '',
       status: company.subscription?.status || 'active',
       billing_cycle: company.subscription?.billing_cycle || 'monthly',
@@ -191,10 +208,23 @@ export default function SuperAdminTenants() {
     setIsEditDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedCompany || !editForm.plan_id || !editForm.status || !editForm.billing_cycle) {
       toast.error('Please fill in all required fields');
       return;
+    }
+
+    // Update corporation_id on the company
+    const newCorpId = editForm.corporation_id || null;
+    if (newCorpId !== (selectedCompany.corporation_id || null)) {
+      const { error: corpError } = await supabase
+        .from('companies')
+        .update({ corporation_id: newCorpId })
+        .eq('id', selectedCompany.id);
+      if (corpError) {
+        toast.error('Failed to update corporation');
+        return;
+      }
     }
 
     const maxUsersOverride = editForm.max_users_override.trim() === '' 
@@ -294,6 +324,7 @@ export default function SuperAdminTenants() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Company</TableHead>
+                    <TableHead>Corporation</TableHead>
                     <TableHead>Plan</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Users</TableHead>
@@ -310,6 +341,13 @@ export default function SuperAdminTenants() {
                           <div className="font-medium">{company.name}</div>
                           <div className="text-sm text-muted-foreground">{company.slug}</div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {company.corporation_id ? (
+                          <span className="text-sm">{corporations?.find(c => c.id === company.corporation_id)?.name || '—'}</span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {company.subscription?.plan?.name || (
@@ -393,6 +431,26 @@ export default function SuperAdminTenants() {
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Corporation</Label>
+                <Select 
+                  value={editForm.corporation_id || 'none'} 
+                  onValueChange={(v) => setEditForm(prev => ({ ...prev, corporation_id: v === 'none' ? '' : v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select corporation (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {corporations?.map((corp) => (
+                      <SelectItem key={corp.id} value={corp.id}>
+                        {corp.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <Label>Plan</Label>
                 <Select 
