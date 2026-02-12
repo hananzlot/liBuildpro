@@ -111,15 +111,15 @@ export default function OutstandingAR() {
                 <Table className="print-table">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Salesperson</TableHead>
-                      <TableHead>Project</TableHead>
-                      <TableHead>Phase Description</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="text-right">Paid</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                      <TableHead className="text-right">Days</TableHead>
-                      <TableHead>Aging</TableHead>
+                      <TableHead className="w-[14%]">Salesperson</TableHead>
+                      <TableHead className="w-[18%]">Project</TableHead>
+                      <TableHead className="w-[20%]">Phase</TableHead>
+                      <TableHead className="w-[10%] whitespace-nowrap">Date</TableHead>
+                      <TableHead className="w-[10%] text-right">Amount</TableHead>
+                      <TableHead className="w-[10%] text-right">Paid</TableHead>
+                      <TableHead className="w-[11%] text-right">Balance</TableHead>
+                      <TableHead className="w-[5%] text-right">Days</TableHead>
+                      <TableHead className="w-[2%]">Aging</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -137,9 +137,9 @@ export default function OutstandingAR() {
                           )}
                         </TableCell>
                         <TableCell>{inv.phase_description || '-'}</TableCell>
-                        <TableCell>
-                          {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString() : '-'}
-                        </TableCell>
+                         <TableCell className="whitespace-nowrap text-sm">
+                           {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: '2-digit'}) : '-'}
+                         </TableCell>
                         <TableCell className="text-right">{formatCurrency(inv.amount || 0)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(inv.payments_received || 0)}</TableCell>
                         <TableCell className="text-right font-medium text-amber-600">

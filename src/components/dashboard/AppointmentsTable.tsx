@@ -138,16 +138,16 @@ export function AppointmentsTable({
   };
 
   const formatDateTime = (dateString: string | null) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
+     if (!dateString) return '-';
+     const date = new Date(dateString);
+     return date.toLocaleString('en-US', {
+       month: '2-digit',
+       day: '2-digit',
+       hour: 'numeric',
+       minute: '2-digit',
+       hour12: true,
+     });
+   };
 
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -886,91 +886,91 @@ export function AppointmentsTable({
         </CardHeader>
         <CardContent>
           <Table className="table-fixed w-full">
-            <TableHeader>
-              <TableRow className="border-border/50 hover:bg-transparent">
-                <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[180px]"
-                  onClick={() => handleSort('contact')}
-                >
-                  <div className="flex items-center">
-                    Contact
-                    <SortIcon column="contact" />
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[140px]"
-                  onClick={() => handleSort('address')}
-                >
-                  <div className="flex items-center">
-                    Address
-                    <SortIcon column="address" />
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[100px]"
-                  onClick={() => handleSort('start')}
-                >
-                  <div className="flex items-center">
-                    Start
-                    <SortIcon column="start" />
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[100px]"
-                  onClick={() => handleSort('status')}
-                >
-                  <div className="flex items-center">
-                    Status
-                    <SortIcon column="status" />
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[80px]"
-                  onClick={() => handleSort('rep')}
-                >
-                  <div className="flex items-center">
-                    Rep
-                    <SortIcon column="rep" />
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[100px]"
-                  onClick={() => handleSort('source')}
-                >
-                  <div className="flex items-center">
-                    Source
-                    <SortIcon column="source" />
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[70px]"
-                  onClick={() => handleSort('oppStatus')}
-                >
-                  <div className="flex items-center">
-                    Opp
-                    <SortIcon column="oppStatus" />
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[110px]"
-                  onClick={() => handleSort('stage')}
-                >
-                  <div className="flex items-center">
-                    Stage
-                    <SortIcon column="stage" />
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[80px]"
-                  onClick={() => handleSort('oppValue')}
-                >
-                  <div className="flex items-center">
-                    Value
-                    <SortIcon column="oppValue" />
-                  </div>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
+             <TableHeader>
+               <TableRow className="border-border/50 hover:bg-transparent">
+                 <TableHead 
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[18%]"
+                   onClick={() => handleSort('contact')}
+                 >
+                   <div className="flex items-center">
+                     Contact
+                     <SortIcon column="contact" />
+                   </div>
+                 </TableHead>
+                 <TableHead 
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[16%]"
+                   onClick={() => handleSort('address')}
+                 >
+                   <div className="flex items-center">
+                     Address
+                     <SortIcon column="address" />
+                   </div>
+                 </TableHead>
+                 <TableHead 
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[13%] whitespace-nowrap"
+                   onClick={() => handleSort('start')}
+                 >
+                   <div className="flex items-center">
+                     Start
+                     <SortIcon column="start" />
+                   </div>
+                 </TableHead>
+                 <TableHead 
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[11%]"
+                   onClick={() => handleSort('status')}
+                 >
+                   <div className="flex items-center">
+                     Status
+                     <SortIcon column="status" />
+                   </div>
+                 </TableHead>
+                 <TableHead 
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[10%]"
+                   onClick={() => handleSort('rep')}
+                 >
+                   <div className="flex items-center">
+                     Rep
+                     <SortIcon column="rep" />
+                   </div>
+                 </TableHead>
+                 <TableHead 
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[11%]"
+                   onClick={() => handleSort('source')}
+                 >
+                   <div className="flex items-center">
+                     Source
+                     <SortIcon column="source" />
+                   </div>
+                 </TableHead>
+                 <TableHead 
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[9%]"
+                   onClick={() => handleSort('oppStatus')}
+                 >
+                   <div className="flex items-center">
+                     Opp
+                     <SortIcon column="oppStatus" />
+                   </div>
+                 </TableHead>
+                 <TableHead 
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[12%]"
+                   onClick={() => handleSort('stage')}
+                 >
+                   <div className="flex items-center">
+                     Stage
+                     <SortIcon column="stage" />
+                   </div>
+                 </TableHead>
+                 <TableHead 
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[10%]"
+                   onClick={() => handleSort('oppValue')}
+                 >
+                   <div className="flex items-center">
+                     Value
+                     <SortIcon column="oppValue" />
+                   </div>
+                 </TableHead>
+               </TableRow>
+             </TableHeader>
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
@@ -1008,9 +1008,9 @@ export function AppointmentsTable({
                     <TableCell className="text-muted-foreground text-xs truncate py-2">
                       {getAddress(appt)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs py-2">
-                      {formatDateTime(appt.start_time)}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground text-xs py-2 whitespace-nowrap">
+                       <span className="text-sm">{formatDateTime(appt.start_time)}</span>
+                     </TableCell>
                     <TableCell className="py-2">
                       <div className="flex items-center gap-1">
                         <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getStatusColor(appt.appointment_status)}`}>
