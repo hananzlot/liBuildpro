@@ -92,7 +92,7 @@ export function AppLayout({
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
-      <div className="min-h-screen flex w-full">
+      <div className="h-screen flex w-full overflow-hidden">
         <AppSidebar 
           onAdminAction={onAdminAction} 
           onChangePassword={() => setChangePasswordOpen(true)}
