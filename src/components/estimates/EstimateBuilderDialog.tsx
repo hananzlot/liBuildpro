@@ -4315,23 +4315,19 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   setFinalPriceDraft(val);
                                 }
                               }}
+                              onBlur={() => {
+                                if (finalPriceDraft) {
+                                  applyFinalPrice();
+                                }
+                              }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   applyFinalPrice();
+                                  (e.target as HTMLInputElement).blur();
                                 }
                               }}
                               className="w-32 h-8 text-sm"
                             />
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="h-8 px-3 text-xs"
-                              disabled={!finalPriceDraft}
-                              onClick={applyFinalPrice}
-                            >
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Apply
-                            </Button>
                           </div>
                         </div>
                       </div>
