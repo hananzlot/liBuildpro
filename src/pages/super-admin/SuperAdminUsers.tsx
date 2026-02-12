@@ -14,13 +14,32 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Search,
   ChevronDown,
   ChevronRight,
   Building2,
   Building,
   User,
-  Users,
+  MoreVertical,
+  Ban,
+  ShieldOff,
+  Trash2,
 } from "lucide-react";
 import type { AppRole } from "@/contexts/AuthContext";
 
@@ -64,6 +83,8 @@ export default function SuperAdminUsers() {
   const [search, setSearch] = useState("");
   const [openCorps, setOpenCorps] = useState<Set<string>>(new Set());
   const [openCompanies, setOpenCompanies] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<ProfileRow | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<{ user: ProfileRow; suspend: boolean } | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch all data in parallel
@@ -141,6 +162,44 @@ export default function SuperAdminUsers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sa-users-roles"] });
       toast.success("Role updated");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sa-users-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["sa-users-roles"] });
+      toast.success("User deleted");
+      setDeleteTarget(null);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const suspendUserMutation = useMutation({
+    mutationFn: async ({ userId, suspend }: { userId: string; suspend: boolean }) => {
+      const { data, error } = await supabase.functions.invoke("suspend-user", {
+        body: { userId, suspend },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      toast.success(variables.suspend ? "User suspended" : "User unsuspended");
+      setSuspendTarget(null);
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -385,6 +444,35 @@ export default function SuperAdminUsers() {
                                           </div>
                                         );
                                       })}
+
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 ml-1">
+                                            <MoreVertical className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem
+                                            onClick={() => setSuspendTarget({ user, suspend: true })}
+                                          >
+                                            <Ban className="h-4 w-4 mr-2" />
+                                            Suspend User
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() => setSuspendTarget({ user, suspend: false })}
+                                          >
+                                            <ShieldOff className="h-4 w-4 mr-2" />
+                                            Unsuspend User
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            onClick={() => setDeleteTarget(user)}
+                                            className="text-destructive focus:text-destructive"
+                                          >
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Delete User
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
                                     </div>
                                   </div>
                                 ))}
@@ -399,6 +487,65 @@ export default function SuperAdminUsers() {
           </div>
         )}
       </div>
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete{" "}
+              <strong>{deleteTarget?.full_name || deleteTarget?.email}</strong>?
+              This action cannot be undone. All roles and profile data will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && deleteUserMutation.mutate(deleteTarget.id)}
+              disabled={deleteUserMutation.isPending}
+            >
+              {deleteUserMutation.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Suspend Confirmation */}
+      <AlertDialog open={!!suspendTarget} onOpenChange={(open) => !open && setSuspendTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {suspendTarget?.suspend ? "Suspend User" : "Unsuspend User"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {suspendTarget?.suspend
+                ? <>Are you sure you want to suspend <strong>{suspendTarget.user.full_name || suspendTarget.user.email}</strong>? They will be unable to log in until unsuspended.</>
+                : <>Are you sure you want to unsuspend <strong>{suspendTarget?.user.full_name || suspendTarget?.user.email}</strong>? They will regain the ability to log in.</>
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                suspendTarget &&
+                suspendUserMutation.mutate({
+                  userId: suspendTarget.user.id,
+                  suspend: suspendTarget.suspend,
+                })
+              }
+              disabled={suspendUserMutation.isPending}
+            >
+              {suspendUserMutation.isPending
+                ? "Processing…"
+                : suspendTarget?.suspend
+                  ? "Suspend"
+                  : "Unsuspend"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SuperAdminLayout>
   );
 }
