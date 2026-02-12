@@ -177,14 +177,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     : actualRoles;
 
   // Determine effective company context
-  // Super admins: companyId comes ONLY from the switcher (viewingCompanyId)
+  // Super admins & corp admins: companyId can come from the switcher (viewingCompanyId)
   // Regular users: companyId comes from their profile
-  const isViewingOtherCompany = actualIsSuperAdmin && viewingCompanyId !== null;
-  const companyId = actualIsSuperAdmin ? viewingCompanyId : baseCompanyId;
-  const corporationId = actualIsSuperAdmin 
+  const canSwitchCompany = actualIsSuperAdmin || actualIsCorpAdmin;
+  const isViewingOtherCompany = canSwitchCompany && viewingCompanyId !== null;
+  const companyId = canSwitchCompany && viewingCompanyId ? viewingCompanyId : baseCompanyId;
+  const corporationId = canSwitchCompany && viewingCompanyId
     ? (viewingCompany?.corporation_id ?? null) 
     : baseCorporationId;
-  const effectiveCompany = actualIsSuperAdmin ? viewingCompany : company;
+  const effectiveCompany = canSwitchCompany && viewingCompanyId ? viewingCompany : company;
 
   // Use subscription hook with the effective company
   const subscriptionData = useSubscription({ companyId, isSuperAdmin });
@@ -221,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setViewingCompanyId = useCallback((newCompanyId: string | null) => {
-    if (!actualIsSuperAdmin) return; // Only super admins can switch
+    if (!actualIsSuperAdmin && !actualIsCorpAdmin) return; // Only super admins and corp admins can switch
     
     setViewingCompanyIdState(newCompanyId);
     
@@ -233,14 +234,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.removeItem('super_admin_viewing_company');
       setViewingCompany(null);
     }
-  }, [actualIsSuperAdmin, fetchViewingCompany]);
+  }, [actualIsSuperAdmin, actualIsCorpAdmin, fetchViewingCompany]);
 
-  // Restore viewing company from sessionStorage on mount for super admins
+  // Restore viewing company from sessionStorage on mount for super admins and corp admins
   useEffect(() => {
-    if (actualIsSuperAdmin && viewingCompanyId && !viewingCompany) {
+    if ((actualIsSuperAdmin || actualIsCorpAdmin) && viewingCompanyId && !viewingCompany) {
       fetchViewingCompany(viewingCompanyId);
     }
-  }, [actualIsSuperAdmin, viewingCompanyId, viewingCompany, fetchViewingCompany]);
+  }, [actualIsSuperAdmin, actualIsCorpAdmin, viewingCompanyId, viewingCompany, fetchViewingCompany]);
 
   useEffect(() => {
     // Set up auth state listener FIRST

@@ -22,7 +22,9 @@ import { Badge } from "@/components/ui/badge";
 export function CompanySwitcher() {
   const { 
     isSuperAdmin, 
+    isCorpAdmin,
     company, 
+    corporationId,
     viewingCompanyId, 
     setViewingCompanyId, 
     isViewingOtherCompany 
@@ -32,17 +34,27 @@ export function CompanySwitcher() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch all companies for super admins
+  const canSwitch = isSuperAdmin || isCorpAdmin;
+
+  // Fetch companies: all for super admins, corporation-scoped for corp admins
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    if (!canSwitch) return;
     
     const fetchCompanies = async () => {
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from("companies")
         .select("*")
         .eq("is_active", true)
         .order("name");
+      
+      // Corp admins only see companies in their corporation
+      if (!isSuperAdmin && isCorpAdmin && company?.corporation_id) {
+        query = query.eq("corporation_id", company.corporation_id);
+      }
+      
+      const { data, error } = await query;
       
       if (!error && data) {
         setCompanies(data as Company[]);
@@ -51,16 +63,21 @@ export function CompanySwitcher() {
     };
     
     fetchCompanies();
-  }, [isSuperAdmin]);
+  }, [canSwitch, isSuperAdmin, isCorpAdmin, company?.corporation_id]);
 
-  if (!isSuperAdmin) return null;
+  if (!canSwitch) return null;
 
   const selectedCompany = viewingCompanyId 
     ? companies.find(c => c.id === viewingCompanyId)
-    : null;
+    : company;
 
   const handleSelect = (companyId: string) => {
-    setViewingCompanyId(companyId);
+    // If selecting their own company, reset the override
+    if (!isSuperAdmin && companyId === company?.id) {
+      setViewingCompanyId(null);
+    } else {
+      setViewingCompanyId(companyId);
+    }
     setOpen(false);
   };
 
@@ -69,8 +86,10 @@ export function CompanySwitcher() {
     setViewingCompanyId(null);
   };
 
-  // Show a prompt if no company is selected
-  const noCompanySelected = !viewingCompanyId;
+  // Super admins must select a company; corp admins default to their own
+  const noCompanySelected = isSuperAdmin && !viewingCompanyId;
+  const isOverriding = viewingCompanyId !== null;
+  const label = isSuperAdmin ? "Working on:" : "Viewing:";
 
   return (
     <div className="px-2 py-2">
@@ -83,25 +102,25 @@ export function CompanySwitcher() {
             className={cn(
               "w-full justify-between text-left font-normal h-auto py-2",
               noCompanySelected && "border-destructive/50 bg-destructive/5",
-              viewingCompanyId && "border-amber-500/50 bg-amber-500/5"
+              isOverriding && "border-amber-500/50 bg-amber-500/5"
             )}
           >
             <div className="flex items-center gap-2 min-w-0">
               <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="flex flex-col min-w-0">
                 <span className="text-xs text-muted-foreground">
-                  {noCompanySelected ? "Select Company" : "Working on:"}
+                  {noCompanySelected ? "Select Company" : label}
                 </span>
                 <span className={cn(
                   "text-sm font-medium truncate",
                   noCompanySelected && "text-destructive"
                 )}>
-                  {selectedCompany?.name || "No company selected"}
+                  {selectedCompany?.name || (noCompanySelected ? "No company selected" : company?.name || "—")}
                 </span>
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              {viewingCompanyId && (
+              {isOverriding && (
                 <Badge 
                   variant="outline" 
                   className="h-5 px-1.5 text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30 cursor-pointer hover:bg-amber-500/20"
@@ -122,25 +141,30 @@ export function CompanySwitcher() {
                 {isLoading ? "Loading..." : "No companies found."}
               </CommandEmpty>
               <CommandGroup>
-                {companies.map((c) => (
-                  <CommandItem
-                    key={c.id}
-                    value={c.name}
-                    onSelect={() => handleSelect(c.id)}
-                    className="flex items-center gap-2"
-                  >
-                    <div className="flex h-6 w-6 items-center justify-center rounded bg-muted text-xs font-medium shrink-0">
-                      {c.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <span className="truncate flex-1">{c.name}</span>
-                    <Check
-                      className={cn(
-                        "h-4 w-4 shrink-0",
-                        viewingCompanyId === c.id ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                  </CommandItem>
-                ))}
+                {companies.map((c) => {
+                  const isActive = viewingCompanyId 
+                    ? viewingCompanyId === c.id 
+                    : company?.id === c.id;
+                  return (
+                    <CommandItem
+                      key={c.id}
+                      value={c.name}
+                      onSelect={() => handleSelect(c.id)}
+                      className="flex items-center gap-2"
+                    >
+                      <div className="flex h-6 w-6 items-center justify-center rounded bg-muted text-xs font-medium shrink-0">
+                        {c.name.substring(0, 2).toUpperCase()}
+                      </div>
+                      <span className="truncate flex-1">{c.name}</span>
+                      <Check
+                        className={cn(
+                          "h-4 w-4 shrink-0",
+                          isActive ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             </CommandList>
           </Command>
