@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,14 +19,14 @@ export default function ProjectDetail() {
   const { companyId } = useCompanyContext();
   const { closeTab, tabs, activeTabId } = useAppTabs();
   
-  // Get initial tab/subtab from search params — capture in state so they
-  // survive URL rewrites from syncTabPath inside ProjectDetailSheet.
-  const [initialTab] = useState(() => searchParams.get("tab") || undefined);
-  const [initialFinanceSubTab] = useState(() => (searchParams.get("financeTab") as 'bills' | 'history') || undefined);
-  const [initialFinanceSection] = useState(() => searchParams.get("financeSubTab") || undefined);
-  const [highlightInvoiceId] = useState(() => searchParams.get("highlightInvoiceId") || searchParams.get("highlightInvoice") || undefined);
-  const [highlightBillId] = useState(() => searchParams.get("highlightBillId") || searchParams.get("highlightBill") || undefined);
-  const [highlightPaymentId] = useState(() => searchParams.get("highlightPaymentId") || searchParams.get("highlightPayment") || undefined);
+  // Read tab/subtab from search params reactively so navigation to the same
+  // project with different highlight params updates correctly.
+  const initialTab = searchParams.get("tab") || undefined;
+  const initialFinanceSubTab = (searchParams.get("financeTab") as 'bills' | 'history') || undefined;
+  const initialFinanceSection = searchParams.get("financeSubTab") || undefined;
+  const highlightInvoiceId = searchParams.get("highlightInvoiceId") || searchParams.get("highlightInvoice") || undefined;
+  const highlightBillId = searchParams.get("highlightBillId") || searchParams.get("highlightBill") || undefined;
+  const highlightPaymentId = searchParams.get("highlightPaymentId") || searchParams.get("highlightPayment") || undefined;
   
   // Fetch project data
   const { data: project, isLoading, refetch } = useQuery({
