@@ -8,7 +8,7 @@ import { useAppTabs } from "@/contexts/AppTabsContext";
 import { fetchAllPages } from "@/lib/supabasePagination";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -652,22 +652,9 @@ export default function Estimates() {
 
   return (
     <AppLayout>
-      <div className="flex flex-col gap-6 p-6">
+      <div className="flex flex-col gap-3 p-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {currentView === "list" && "Estimates"}
-              {currentView === "proposals" && "Proposals"}
-              {currentView === "contracts" && "Contracts"}
-              {currentView === "declined" && "Declined"}
-            </h1>
-            <p className="text-muted-foreground">
-              {currentView === "list" && "Create and manage estimates"}
-              {currentView === "proposals" && "Track sent proposals and client responses"}
-              {currentView === "contracts" && "View signed contracts"}
-              {currentView === "declined" && "Review declined proposals"}
-            </p>
-          </div>
+          <h1 className="text-3xl font-bold tracking-tight">Estimates</h1>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -685,144 +672,64 @@ export default function Estimates() {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Estimates</CardTitle>
-              <Calculator className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{draftEstimates.length}</div>
-              <p className="text-xs text-muted-foreground">{formatCurrency(draftTotal)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Proposals</CardTitle>
-              <Send className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{proposalEstimates.length}</div>
-              <p className="text-xs text-muted-foreground">{formatCurrency(proposalTotal)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Contracts Accepted</CardTitle>
-              <FileSignature className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{contractEstimates.length}</div>
-              <p className="text-xs text-muted-foreground">{formatCurrency(contractTotal)}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Declined</CardTitle>
-              <Trash2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{declinedEstimates.length}</div>
-              <p className="text-xs text-muted-foreground">{formatCurrency(declinedTotal)}</p>
-            </CardContent>
-          </Card>
-        </div>
-
         <Tabs value={currentView} onValueChange={handleViewChange} className="w-full">
-          <TabsList className="grid w-full max-w-xl grid-cols-4">
-            <TabsTrigger value="list" className="flex items-center gap-2">
-              <Calculator className="h-4 w-4" />
-              Estimates ({draftEstimates.length})
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
+            <TabsTrigger value="list" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <Calculator className="h-3.5 w-3.5 hidden sm:block" />
+              <span>Estimates ({draftEstimates.length})</span>
+              <span className="text-muted-foreground font-normal hidden sm:inline">{formatCurrency(draftTotal)}</span>
             </TabsTrigger>
-            <TabsTrigger value="proposals" className="flex items-center gap-2">
-              <Send className="h-4 w-4" />
-              Proposals ({proposalEstimates.length})
+            <TabsTrigger value="proposals" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <Send className="h-3.5 w-3.5 hidden sm:block" />
+              <span>Proposals ({proposalEstimates.length})</span>
+              <span className="text-muted-foreground font-normal hidden sm:inline">{formatCurrency(proposalTotal)}</span>
             </TabsTrigger>
-            <TabsTrigger value="contracts" className="flex items-center gap-2">
-              <FileSignature className="h-4 w-4" />
-              Contracts ({contractEstimates.length})
+            <TabsTrigger value="contracts" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <FileSignature className="h-3.5 w-3.5 hidden sm:block" />
+              <span>Contracts ({contractEstimates.length})</span>
+              <span className="text-muted-foreground font-normal hidden sm:inline">{formatCurrency(contractTotal)}</span>
             </TabsTrigger>
-            <TabsTrigger value="declined" className="flex items-center gap-2">
-              <Trash2 className="h-4 w-4" />
-              Declined ({declinedEstimates.length})
+            <TabsTrigger value="declined" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <Trash2 className="h-3.5 w-3.5 hidden sm:block" />
+              <span>Declined ({declinedEstimates.length})</span>
+              <span className="text-muted-foreground font-normal hidden sm:inline">{formatCurrency(declinedTotal)}</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="list" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>All Estimates</CardTitle>
-                <CardDescription>
-                  View and manage all draft estimates. Create new estimates or edit existing ones.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {renderEstimateTable(
-                  draftEstimates,
-                  "No Draft Estimates",
-                  <Calculator className="h-12 w-12 text-muted-foreground mb-4" />,
-                  'list'
-                )}
-              </CardContent>
-            </Card>
+          <TabsContent value="list" className="mt-2">
+            {renderEstimateTable(
+              draftEstimates,
+              "No Draft Estimates",
+              <Calculator className="h-12 w-12 text-muted-foreground mb-4" />,
+              'list'
+            )}
           </TabsContent>
 
-          <TabsContent value="proposals" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Proposals</CardTitle>
-                <CardDescription>
-                  Track proposals sent to clients. Monitor views, approvals, and client responses.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {renderEstimateTable(
-                  proposalEstimates,
-                  "No Proposals Sent",
-                  <Send className="h-12 w-12 text-muted-foreground mb-4" />,
-                  'proposals'
-                )}
-              </CardContent>
-            </Card>
+          <TabsContent value="proposals" className="mt-2">
+            {renderEstimateTable(
+              proposalEstimates,
+              "No Proposals Sent",
+              <Send className="h-12 w-12 text-muted-foreground mb-4" />,
+              'proposals'
+            )}
           </TabsContent>
 
-          <TabsContent value="contracts" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Contracts</CardTitle>
-                <CardDescription>
-                  Manage signed contracts. View contract status and audit trails.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {renderEstimateTable(
-                  contractEstimates,
-                  "No Contracts Yet",
-                  <FileSignature className="h-12 w-12 text-muted-foreground mb-4" />,
-                  'contracts'
-                )}
-              </CardContent>
-            </Card>
+          <TabsContent value="contracts" className="mt-2">
+            {renderEstimateTable(
+              contractEstimates,
+              "No Contracts Yet",
+              <FileSignature className="h-12 w-12 text-muted-foreground mb-4" />,
+              'contracts'
+            )}
           </TabsContent>
 
-          <TabsContent value="declined" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Declined Proposals</CardTitle>
-                <CardDescription>
-                  View proposals that were declined by clients. You can edit and resend as new estimates.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {renderEstimateTable(
-                  declinedEstimates,
-                  "No Declined Proposals",
-                  <Trash2 className="h-12 w-12 text-muted-foreground mb-4" />,
-                  'declined'
-                )}
-              </CardContent>
-            </Card>
+          <TabsContent value="declined" className="mt-2">
+            {renderEstimateTable(
+              declinedEstimates,
+              "No Declined Proposals",
+              <Trash2 className="h-12 w-12 text-muted-foreground mb-4" />,
+              'declined'
+            )}
           </TabsContent>
         </Tabs>
       </div>
