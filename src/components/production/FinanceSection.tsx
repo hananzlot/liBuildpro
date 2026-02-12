@@ -2464,8 +2464,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                           const totalAmount = companyBills.reduce((s, b) => s + (b.bill_amount || 0), 0);
                           const totalPaid = companyBills.reduce((s, b) => s + (b.amount_paid || 0), 0);
                           const totalBalance = companyBills.reduce((s, b) => s + (b.balance || 0), 0);
+                          const hasHighlightedBill = highlightBillId && companyBills.some(b => b.id === highlightBillId);
                           return (
-                            <Collapsible key={company}>
+                            <Collapsible key={company} defaultOpen={!!hasHighlightedBill}>
                               <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left">
                                 <div className="flex items-center gap-2">
                                   <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [&[data-state=open]]:rotate-0 rotate-[-90deg]" />
@@ -2499,7 +2500,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                       const hasBeenOffset = bill.original_bill_amount !== null && bill.original_bill_amount !== bill.bill_amount;
                                       
                                       return (
-                                      <TableRow key={bill.id} className={cn(bill.is_voided && "opacity-50 bg-muted/30", bill.offset_bill_id && "bg-primary/5")}>
+                                      <TableRow key={bill.id} className={cn(bill.is_voided && "opacity-50 bg-muted/30", bill.offset_bill_id && "bg-primary/5", highlightBillId === bill.id && "bg-yellow-100 dark:bg-yellow-900/30 animate-pulse")}>
                                         <TableCell className="text-xs">
                                           <div className="flex items-center gap-1.5">
                                             <span className="font-medium">{bill.bill_ref || "-"}</span>
