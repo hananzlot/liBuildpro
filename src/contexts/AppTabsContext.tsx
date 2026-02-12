@@ -194,15 +194,12 @@ export function AppTabsProvider({ children }: { children: React.ReactNode }) {
   }, [tabs, activeTabId, navigate]);
 
   const closeAllTabs = useCallback(() => {
-    // Only close tabs for the current company
-    if (currentCompanyId) {
-      setAllTabs(prev => prev.filter(t => t.companyId !== currentCompanyId));
-    } else {
-      setAllTabs([]);
-    }
+    // Close all currently visible tabs (filtered by company context)
+    const visibleTabIds = new Set(tabs.map(t => t.id));
+    setAllTabs(prev => prev.filter(t => !visibleTabIds.has(t.id)));
     setActiveTabId(null);
     navigate('/');
-  }, [navigate, currentCompanyId]);
+  }, [navigate, tabs]);
 
   const reorderTabs = useCallback((draggedTabId: string, targetTabId: string) => {
     setAllTabs(prev => {
