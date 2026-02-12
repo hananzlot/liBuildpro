@@ -589,8 +589,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const calculateTotals = useCallback(() => {
     // Manual mode: use user-entered total directly
     if (estimateMode === 'manual') {
-      const total = manualTotal;
-      const percentDeposit = (total * formData.deposit_percent) / 100;
+      const total = Math.round(manualTotal * 100) / 100;
+      const percentDeposit = Math.round((total * formData.deposit_percent) / 100 * 100) / 100;
       const depositAmount = Math.min(percentDeposit, formData.deposit_max_amount);
       return { subtotal: total, totalCost: 0, grossProfit: total, marginPercent: 100, discountAmount: 0, total, depositAmount };
     }
@@ -605,23 +605,78 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     
     let discountAmount = 0;
     if (formData.discount_type === "percent") {
-      discountAmount = (subtotal * formData.discount_value) / 100;
+      discountAmount = Math.round((subtotal * formData.discount_value) / 100 * 100) / 100;
     } else {
       discountAmount = formData.discount_value;
     }
     
-    // Total = Subtotal - Discount (no tax)
-    const total = subtotal - discountAmount;
+    // Total = Subtotal - Discount (no tax), rounded to the penny
+    const total = Math.round((subtotal - discountAmount) * 100) / 100;
     // Deposit = min(total * percent, max_amount)
-    const percentDeposit = (total * formData.deposit_percent) / 100;
+    const percentDeposit = Math.round((total * formData.deposit_percent) / 100 * 100) / 100;
     const depositAmount = Math.min(percentDeposit, formData.deposit_max_amount);
-    const grossProfit = subtotal - totalCost;
+    const grossProfit = Math.round((subtotal - totalCost) * 100) / 100;
     const marginPercent = subtotal > 0 ? (grossProfit / subtotal) * 100 : 0;
     
     return { subtotal, totalCost, grossProfit, marginPercent, discountAmount, total, depositAmount };
   }, [estimateMode, manualTotal, groups, formData.discount_type, formData.discount_value, formData.deposit_percent, formData.deposit_max_amount]);
 
   const totals = calculateTotals();
+
+  // Apply final price: recalculates markup/discount to hit the desired total
+  const applyFinalPrice = useCallback(() => {
+    const finalPrice = parseFloat(finalPriceDraft);
+    if (isNaN(finalPrice) || finalPrice < 0) return;
+    
+    if (finalPrice > totals.subtotal) {
+      const bufferAmount = 1200;
+      
+      if (totals.subtotal > 0 && totals.totalCost > 0) {
+        const targetPreDiscountTotal = finalPrice + bufferAmount;
+        const scaleFactor = targetPreDiscountTotal / totals.subtotal;
+        const newMarkupPercent = ((totals.subtotal * scaleFactor / totals.totalCost) - 1) * 100;
+        
+        let newSubtotal = 0;
+        groups.forEach(g => {
+          g.items.forEach(item => {
+            const newUnitPrice = Math.round(item.cost * (1 + newMarkupPercent / 100) * 100) / 100;
+            const newLineTotal = Math.round(item.quantity * newUnitPrice * 100) / 100;
+            newSubtotal += newLineTotal;
+          });
+        });
+        const requiredDiscount = Math.round((newSubtotal - finalPrice) * 100) / 100;
+        
+        setGroups(prevGroups => prevGroups.map(g => ({
+          ...g,
+          items: g.items.map(item => {
+            const newUnitPrice = item.cost * (1 + newMarkupPercent / 100);
+            return {
+              ...item,
+              markup_percent: Math.round(newMarkupPercent * 100) / 100,
+              unit_price: Math.round(newUnitPrice * 100) / 100,
+              line_total: Math.round(item.quantity * newUnitPrice * 100) / 100,
+            };
+          }),
+        })));
+        
+        setFormData(prev => ({ 
+          ...prev, 
+          discount_type: 'fixed',
+          discount_value: requiredDiscount,
+          default_markup_percent: Math.round(newMarkupPercent * 100) / 100
+        }));
+      }
+    } else {
+      const newDiscount = Math.max(0, Math.round((totals.subtotal - finalPrice) * 100) / 100);
+      setFormData(prev => ({ 
+        ...prev, 
+        discount_type: 'fixed',
+        discount_value: newDiscount 
+      }));
+    }
+    setFinalPriceDraft('');
+    toast.success(`Final price set to $${finalPrice.toLocaleString()}`);
+  }, [finalPriceDraft, totals, groups, setGroups, setFormData]);
 
   // Fetch default terms & conditions from company settings first, then app settings
   const { data: defaultTerms } = useQuery({
@@ -4245,7 +4300,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         {/* Final Price Override */}
                         <div className="border rounded p-2 bg-background min-w-0">
                           <Label className="text-[10px] text-muted-foreground mb-0.5 block">Final Price</Label>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5">
                             <span className="text-xs text-muted-foreground">$</span>
                             <Input
                               type="text"
@@ -4258,65 +4313,23 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   setFinalPriceDraft(val);
                                 }
                               }}
-                              onBlur={() => {
-                                const finalPrice = parseFloat(finalPriceDraft);
-                                if (!isNaN(finalPrice) && finalPrice >= 0) {
-                                  if (finalPrice > totals.subtotal) {
-                                    const bufferAmount = 1200;
-                                    
-                                    if (totals.subtotal > 0 && totals.totalCost > 0) {
-                                      const targetPreDiscountTotal = finalPrice + bufferAmount;
-                                      const scaleFactor = targetPreDiscountTotal / totals.subtotal;
-                                      const newMarkupPercent = ((totals.subtotal * scaleFactor / totals.totalCost) - 1) * 100;
-                                      
-                                      let newSubtotal = 0;
-                                      groups.forEach(g => {
-                                        g.items.forEach(item => {
-                                          const newUnitPrice = Math.round(item.cost * (1 + newMarkupPercent / 100) * 100) / 100;
-                                          const newLineTotal = Math.round(item.quantity * newUnitPrice * 100) / 100;
-                                          newSubtotal += newLineTotal;
-                                        });
-                                      });
-                                      const requiredDiscount = Math.round((newSubtotal - finalPrice) * 100) / 100;
-                                      
-                                      setGroups(prevGroups => prevGroups.map(g => ({
-                                        ...g,
-                                        items: g.items.map(item => {
-                                          const newUnitPrice = item.cost * (1 + newMarkupPercent / 100);
-                                          return {
-                                            ...item,
-                                            markup_percent: Math.round(newMarkupPercent * 100) / 100,
-                                            unit_price: Math.round(newUnitPrice * 100) / 100,
-                                            line_total: Math.round(item.quantity * newUnitPrice * 100) / 100,
-                                          };
-                                        }),
-                                      })));
-                                      
-                                      setFormData(prev => ({ 
-                                        ...prev, 
-                                        discount_type: 'fixed',
-                                        discount_value: requiredDiscount,
-                                        default_markup_percent: Math.round(newMarkupPercent * 100) / 100
-                                      }));
-                                    }
-                                  } else {
-                                    const newDiscount = Math.max(0, totals.subtotal - finalPrice);
-                                    setFormData({ 
-                                      ...formData, 
-                                      discount_type: 'fixed',
-                                      discount_value: Math.round(newDiscount * 100) / 100 
-                                    });
-                                  }
-                                }
-                                setFinalPriceDraft('');
-                              }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
-                                  (e.target as HTMLInputElement).blur();
+                                  applyFinalPrice();
                                 }
                               }}
-                              className="w-20 h-7 text-sm"
+                              className="w-32 h-8 text-sm"
                             />
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="h-8 px-3 text-xs"
+                              disabled={!finalPriceDraft}
+                              onClick={applyFinalPrice}
+                            >
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Apply
+                            </Button>
                           </div>
                         </div>
                       </div>
