@@ -91,10 +91,10 @@ export function FinancialSearchResultsSheet({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead>{sectionType === 'Bills Received' || sectionType === 'Bills Paid' ? 'Vendor' : 'Description'}</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="w-[80px]"></TableHead>
+                <TableHead className="w-[30%]">Project</TableHead>
+                <TableHead className="w-[35%]">{sectionType === 'Bills Received' || sectionType === 'Bills Paid' ? 'Vendor' : 'Description'}</TableHead>
+                <TableHead className="w-[20%] text-right">Amount</TableHead>
+                <TableHead className="w-[15%]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -127,8 +127,8 @@ export function FinancialSearchResultsSheet({
                           </div>
                         )}
                         {record.date && (
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(record.date).toLocaleDateString()}
+                          <div className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(record.date).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: '2-digit'})}
                           </div>
                         )}
                       </div>

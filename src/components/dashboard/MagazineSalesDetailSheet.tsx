@@ -172,16 +172,16 @@ export const MagazineSalesDetailSheet = ({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Buyer</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Issue Date</TableHead>
-                  <TableHead>Ad Sold</TableHead>
-                  <TableHead>Page Size</TableHead>
-                  <TableHead>Page #</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Entered</TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="w-[14%]">Buyer</TableHead>
+                  <TableHead className="w-[14%]">Company</TableHead>
+                  <TableHead className="w-[10%] whitespace-nowrap">Issue Date</TableHead>
+                  <TableHead className="w-[12%]">Ad Sold</TableHead>
+                  <TableHead className="w-[10%]">Page Size</TableHead>
+                  <TableHead className="w-[6%]">Page #</TableHead>
+                  <TableHead className="w-[10%] text-right">Price</TableHead>
+                  <TableHead className="w-[8%]">Contact</TableHead>
+                  <TableHead className="w-[10%] whitespace-nowrap">Entered</TableHead>
+                  <TableHead className="w-[6%]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -217,8 +217,8 @@ export const MagazineSalesDetailSheet = ({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {format(new Date(sale.created_at), "MMM d, yyyy")}
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(sale.created_at), "MM/dd/yy")}
                       </TableCell>
                       <TableCell>
                         {(isAdmin || sale.entered_by === userId) && (

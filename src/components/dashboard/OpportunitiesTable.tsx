@@ -392,7 +392,7 @@ export function OpportunitiesTable({
     if (!dateString) return "-";
     const date = new Date(dateString);
     return (
-      date.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+      date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" }) +
       " " +
       date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
     );
@@ -1246,11 +1246,11 @@ export function OpportunitiesTable({
                           {opp.status || "?"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">
-                        {contactDate ? new Date(contactDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "-"}
+                      <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                        {contactDate ? new Date(contactDate).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">
-                        {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "-"}
+                      <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                        {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
                       </TableCell>
 
                       <TableCell className="text-muted-foreground text-xs">
@@ -1272,7 +1272,7 @@ export function OpportunitiesTable({
                           {latestNote ? (
                             <div className="flex flex-col flex-1 min-w-0">
                               <span className="text-[10px]">
-                                {latestNote.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "-"}
+                                {latestNote.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" }) : "-"}
                               </span>
                               {notePreview && (
                                 <span className="text-[10px] text-muted-foreground/70 truncate" title={latestNote.body?.replace(/<[^>]*>/g, '') || ''}>
@@ -1303,8 +1303,8 @@ export function OpportunitiesTable({
                             <div className="flex flex-col flex-1 min-w-0">
                               <span className={cn("text-[10px]", overdueTask && "font-medium")}>
                                 {latestTask.due_date 
-                                  ? new Date(latestTask.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) 
-                                  : new Date(latestTask.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                  ? new Date(latestTask.due_date).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" }) 
+                                  : new Date(latestTask.created_at).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" })}
                               </span>
                               <span className="text-[10px] text-muted-foreground/70 truncate" title={latestTask.title}>
                                 {latestTask.title.slice(0, 15)}...
