@@ -301,7 +301,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const location = useLocation();
   const { openTab } = useAppTabs();
   const { 
-    user, profile, company, isAdmin, isSuperAdmin, isMagazine, isProduction, 
+    user, profile, company, isAdmin, isSuperAdmin, isCorpAdmin, isMagazine, isProduction, 
     isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, 
     setSimulatedRole, availableRoles, canUseFeature, isViewingOtherCompany 
   } = useAuth();
@@ -815,8 +815,8 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           )}
         </div>
         
-        {/* Company Switcher for Super Admins */}
-        {isSuperAdmin && !collapsed && <CompanySwitcher />}
+        {/* Company Switcher for Super Admins and Corp Admins */}
+        {(isSuperAdmin || isCorpAdmin) && !collapsed && <CompanySwitcher />}
       </SidebarHeader>
 
       <SidebarContent onClickCapture={handleSidebarContentClickCapture}>
