@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAddressFromContact, findContactByIdOrGhlId } from "@/lib/utils";
-import { formatCurrency2 as formatCurrencyUtil } from "@/lib/utils";
+import { formatCurrencyWithDecimals as formatCurrencyUtil } from "@/lib/utils";
 
 interface Opportunity {
   ghl_id: string;
