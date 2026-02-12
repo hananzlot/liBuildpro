@@ -3234,56 +3234,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 </TabsContent>
 
                 <TabsContent value="scope" className="mt-0 space-y-4">
-                  {/* Custom button logic for Scope tab - show AI generate hint if needed */}
-                  {(() => {
-                    if (isProposalReadOnly) return null;
-                    
-                    const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim() && formData.salesperson_name?.trim() && formData.sq_ft_to_build?.trim() && formData.finishing_grade?.trim();
-                    const hasWorkScope = formData.work_scope_description?.trim()?.length > 0;
-                    const hasEstimateValue = totals.total > 0;
-                    const missingFields = [];
-                    if (!formData.customer_name?.trim()) missingFields.push('Customer Name');
-                    if (!formData.job_address?.trim()) missingFields.push('Job Address');
-                    if (!formData.estimate_title?.trim()) missingFields.push('Project Title');
-                    if (!formData.salesperson_name?.trim()) missingFields.push('Salesperson');
-                    if (!formData.sq_ft_to_build?.trim()) missingFields.push('Sq/Ft To Build');
-                    if (!formData.finishing_grade?.trim()) missingFields.push('Finishing Grade');
-                    
-                    // Show "Generate AI Estimate" when user has entered work scope but no estimate yet
-                    if (hasWorkScope && !hasEstimateValue) {
-                      return (
-                        <div className="flex items-center justify-end gap-2 pb-2">
-                          {!canGenerateAI && (
-                            <div className="flex items-center gap-1 text-sm text-warning">
-                              <AlertCircle className="h-4 w-4" />
-                              <span>Missing: {missingFields.join(", ")}</span>
-                            </div>
-                          )}
-                          <Button
-                            type="button"
-                            onClick={generateScope}
-                            disabled={isGeneratingScope || !canGenerateAI}
-                            size="sm"
-                          >
-                            {isGeneratingScope ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Generating...
-                              </>
-                            ) : (
-                              <>
-                                <Wand2 className="mr-2 h-4 w-4" />
-                                Generate AI Estimate
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      );
-                    }
-                    
-                    return null;
-                  })()}
-                  
                   {/* Sq/Ft To Build & Finishing Grade */}
                   <Card>
                     <CardContent className="pt-5 pb-4">
