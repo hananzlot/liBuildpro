@@ -14,6 +14,8 @@ export interface EstimateDraft {
   linkedOpportunityGhlId: string | null;
   plansFileUrl: string | null;
   plansFileName: string | null;
+  estimateMode?: 'ai' | 'manual';
+  manualTotal?: number;
   savedAt: number;
 }
 

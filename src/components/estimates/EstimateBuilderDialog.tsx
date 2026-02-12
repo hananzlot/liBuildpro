@@ -231,6 +231,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [isGeneratingScope, setIsGeneratingScope] = useState(false);
   const [activeTab, setActiveTab] = useState("customer");
   
+  // Estimate mode: 'ai' uses AI generation, 'manual' lets user enter total + payment phases directly
+  const [estimateMode, setEstimateMode] = useState<'ai' | 'manual'>('ai');
+  const [manualTotal, setManualTotal] = useState<number>(0);
+  const [manualTotalDraft, setManualTotalDraft] = useState<string>("");
+  
   // AI stage tracking for multi-stage generation
   const [currentAIStage, setCurrentAIStage] = useState<string | null>(null);
   const [stageProgress, setStageProgress] = useState<{ current: number; total: number } | null>(null);
@@ -364,7 +369,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     linkedOpportunityGhlId,
     plansFileUrl,
     plansFileName,
-  }), [formData, groups, paymentSchedule, activeTab, aiSummary, linkedProjectId, linkedOpportunityUuid, linkedOpportunityGhlId, plansFileUrl, plansFileName]);
+    estimateMode,
+    manualTotal,
+  }), [formData, groups, paymentSchedule, activeTab, aiSummary, linkedProjectId, linkedOpportunityUuid, linkedOpportunityGhlId, plansFileUrl, plansFileName, estimateMode, manualTotal]);
 
   // Keep the latest draft snapshot in a ref so event handlers can always save
   // the most up-to-date values without re-binding listeners on every keystroke.
@@ -428,6 +435,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             setLinkedOpportunityGhlId(sessionDraft.linkedOpportunityGhlId);
             setPlansFileUrl(sessionDraft.plansFileUrl);
             setPlansFileName(sessionDraft.plansFileName);
+            if (sessionDraft.estimateMode) setEstimateMode(sessionDraft.estimateMode);
+            if (sessionDraft.manualTotal !== undefined) setManualTotal(sessionDraft.manualTotal);
           }
         }
       }
@@ -464,18 +473,20 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return;
     }
 
-    const restoreFromDraft = (draft: typeof draftData & { savedAt?: number }) => {
+    const restoreFromDraft = (draft: Partial<typeof draftData> & { savedAt?: number }) => {
       console.log('Restoring draft:', draft.formData?.job_address);
-      setFormData(draft.formData);
+      if (draft.formData) setFormData(draft.formData);
       setGroups(draft.groups || []);
       setPaymentSchedule(draft.paymentSchedule || []);
       setActiveTab(draft.activeTab || "customer");
       setAiSummary(draft.aiSummary || { ...emptyAiSummary });
-      setLinkedProjectId(draft.linkedProjectId);
-      setLinkedOpportunityUuid(draft.linkedOpportunityUuid);
-      setLinkedOpportunityGhlId(draft.linkedOpportunityGhlId);
-      setPlansFileUrl(draft.plansFileUrl);
-      setPlansFileName(draft.plansFileName);
+      setLinkedProjectId(draft.linkedProjectId ?? null);
+      setLinkedOpportunityUuid(draft.linkedOpportunityUuid ?? null);
+      setLinkedOpportunityGhlId(draft.linkedOpportunityGhlId ?? null);
+      setPlansFileUrl(draft.plansFileUrl ?? null);
+      setPlansFileName(draft.plansFileName ?? null);
+      if (draft.estimateMode) setEstimateMode(draft.estimateMode);
+      if (draft.manualTotal !== undefined) setManualTotal(draft.manualTotal);
       setDraftRestored(true);
       // Prevent DB data from overwriting restored draft
       setWasManuallyCleared(true);
@@ -576,6 +587,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
   }, []);
   const calculateTotals = useCallback(() => {
+    // Manual mode: use user-entered total directly
+    if (estimateMode === 'manual') {
+      const total = manualTotal;
+      const percentDeposit = (total * formData.deposit_percent) / 100;
+      const depositAmount = Math.min(percentDeposit, formData.deposit_max_amount);
+      return { subtotal: total, totalCost: 0, grossProfit: total, marginPercent: 100, discountAmount: 0, total, depositAmount };
+    }
+    
     const subtotal = groups.reduce((sum, group) => 
       sum + group.items.reduce((itemSum, item) => itemSum + item.line_total, 0), 0
     );
@@ -600,7 +619,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     const marginPercent = subtotal > 0 ? (grossProfit / subtotal) * 100 : 0;
     
     return { subtotal, totalCost, grossProfit, marginPercent, discountAmount, total, depositAmount };
-  }, [groups, formData.discount_type, formData.discount_value, formData.deposit_percent, formData.deposit_max_amount]);
+  }, [estimateMode, manualTotal, groups, formData.discount_type, formData.discount_value, formData.deposit_percent, formData.deposit_max_amount]);
 
   const totals = calculateTotals();
 
@@ -3234,6 +3253,130 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 </TabsContent>
 
                 <TabsContent value="scope" className="mt-0 space-y-4">
+                  {/* Estimate Mode Selector */}
+                  {!isProposalReadOnly && (
+                    <Card>
+                      <CardContent className="pt-4 pb-3">
+                        <Label className="text-sm font-bold mb-2 block">Estimate Method</Label>
+                        <RadioGroup
+                          value={estimateMode}
+                          onValueChange={(val) => setEstimateMode(val as 'ai' | 'manual')}
+                          className="flex gap-6"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="ai" id="mode-ai" />
+                            <Label htmlFor="mode-ai" className="text-sm cursor-pointer font-medium">
+                              <span className="flex items-center gap-1.5">
+                                <Wand2 className="h-3.5 w-3.5" />
+                                AI Generated
+                              </span>
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="manual" id="mode-manual" />
+                            <Label htmlFor="mode-manual" className="text-sm cursor-pointer font-medium">
+                              <span className="flex items-center gap-1.5">
+                                <DollarSign className="h-3.5 w-3.5" />
+                                Manual Entry
+                              </span>
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Manual Entry Mode */}
+                  {estimateMode === 'manual' ? (
+                    <>
+                      {/* Work Scope Description - always available for manual mode too */}
+                      <Card>
+                        <CardContent className="pt-5 pb-4 space-y-4">
+                          <div className="space-y-1.5">
+                            <Label className="text-sm font-bold flex items-center gap-1.5">
+                              <FileText className="h-3.5 w-3.5" />
+                              Work Scope Description
+                            </Label>
+                            <Textarea
+                              value={formData.work_scope_description}
+                              onChange={(e) => setFormData({ ...formData, work_scope_description: e.target.value })}
+                              placeholder="Describe the work scope for this estimate..."
+                              className="min-h-[120px]"
+                              disabled={isProposalReadOnly}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Optional — describe the project scope for reference.
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Manual Total Entry */}
+                      <Card>
+                        <CardContent className="pt-5 pb-4 space-y-4">
+                          <div className="space-y-1.5">
+                            <Label className="text-sm font-bold flex items-center gap-1.5">
+                              <DollarSign className="h-3.5 w-3.5" />
+                              Estimate Total <span className="text-destructive">*</span>
+                            </Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-semibold text-muted-foreground">$</span>
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                value={manualTotalDraft || (manualTotal > 0 ? manualTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '')}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/[^0-9.]/g, '');
+                                  if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                                    setManualTotalDraft(val);
+                                    if (val !== '' && val !== '.' && !val.endsWith('.')) {
+                                      setManualTotal(parseFloat(val) || 0);
+                                    }
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const val = parseFloat(manualTotalDraft) || 0;
+                                  setManualTotal(val);
+                                  setManualTotalDraft('');
+                                }}
+                                placeholder="Enter total estimate amount"
+                                className="max-w-[250px] text-lg font-semibold h-11"
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Enter the total price for this estimate. Payment phases will be based on this amount.
+                            </p>
+                          </div>
+
+                          {manualTotal > 0 && (
+                            <div className="border rounded-lg p-3 bg-muted/30 space-y-1">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Total</span>
+                                <span className="font-semibold">{formatCurrency(manualTotal)}</span>
+                              </div>
+                              {totals.depositAmount > 0 && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Deposit ({formData.deposit_percent}%)</span>
+                                  <span className="font-medium">{formatCurrency(totals.depositAmount)}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* Next button to go to payment phases */}
+                      {manualTotal > 0 && (
+                        <div className="flex justify-end">
+                          <Button onClick={() => setActiveTab("payments")} size="sm">
+                            Next: Payment Phases
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
                   {/* Sq/Ft To Build & Finishing Grade */}
                   <Card>
                     <CardContent className="pt-5 pb-4">
@@ -3719,6 +3862,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       </>
                     );
                   })()}
+                    </>
+                  )}
 
                 </TabsContent>
 
