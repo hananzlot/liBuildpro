@@ -1046,6 +1046,7 @@ const Calendar = () => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [missingScopeFilter, setMissingScopeFilter] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   // Navigate to today
   const handleGoToToday = () => {
@@ -1237,6 +1238,16 @@ const Calendar = () => {
   const filteredCalendarAppointments = useMemo(() => {
     let result = allAppointmentsForCalendar;
 
+    // Filter by status
+    if (statusFilter) {
+      result = result.filter((a: DBAppointment) => {
+        const s = a.appointment_status?.toLowerCase() || "";
+        if (statusFilter === "new") return s === "new" || s === "";
+        if (statusFilter === "no_show") return s === "no_show" || s === "noshow";
+        return s === statusFilter;
+      });
+    }
+
     // Filter by rep - check both salesperson_id and assigned_user_id
     if (repFilter !== "all") {
       result = result.filter((a: DBAppointment) => getEffectiveRepId(a) === repFilter);
@@ -1258,7 +1269,7 @@ const Calendar = () => {
     }
 
     return result;
-  }, [allAppointmentsForCalendar, repFilter, searchFilter, contacts, missingScopeFilter, opportunities]);
+  }, [allAppointmentsForCalendar, repFilter, searchFilter, contacts, missingScopeFilter, opportunities, statusFilter]);
 
   // Filtered appointments for list view (today + upcoming only)
   const todayAndUpcomingAppointments = useMemo(() => {
@@ -1276,6 +1287,16 @@ const Calendar = () => {
   const filteredListAppointments = useMemo(() => {
     let result = todayAndUpcomingAppointments;
 
+    // Filter by status
+    if (statusFilter) {
+      result = result.filter((a: DBAppointment) => {
+        const s = a.appointment_status?.toLowerCase() || "";
+        if (statusFilter === "new") return s === "new" || s === "";
+        if (statusFilter === "no_show") return s === "no_show" || s === "noshow";
+        return s === statusFilter;
+      });
+    }
+
     // Filter by rep - check both salesperson_id and assigned_user_id
     if (repFilter !== "all") {
       result = result.filter((a: DBAppointment) => getEffectiveRepId(a) === repFilter);
@@ -1297,7 +1318,7 @@ const Calendar = () => {
     }
 
     return result;
-  }, [todayAndUpcomingAppointments, repFilter, searchFilter, contacts, missingScopeFilter, opportunities]);
+  }, [todayAndUpcomingAppointments, repFilter, searchFilter, contacts, missingScopeFilter, opportunities, statusFilter]);
 
   // Group by time period for list view
   const groupedAppointments = useMemo(() => {
@@ -1624,26 +1645,41 @@ const Calendar = () => {
           <div className="flex items-center gap-3">
             <span className="text-xs font-medium text-muted-foreground">Status:</span>
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-emerald-500/20">
+              <button
+                onClick={() => setStatusFilter(statusFilter === "confirmed" ? null : "confirmed")}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors bg-emerald-500/20 ${statusFilter === "confirmed" ? "ring-1 ring-emerald-500" : "hover:bg-emerald-500/30"}`}
+              >
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <span className="text-emerald-600 dark:text-emerald-400">Confirmed</span>
-              </div>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-blue-500/20">
+              </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === "showed" ? null : "showed")}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors bg-blue-500/20 ${statusFilter === "showed" ? "ring-1 ring-blue-500" : "hover:bg-blue-500/30"}`}
+              >
                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                 <span className="text-blue-600 dark:text-blue-400">Showed</span>
-              </div>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-amber-500/20">
+              </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === "no_show" ? null : "no_show")}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors bg-amber-500/20 ${statusFilter === "no_show" ? "ring-1 ring-amber-500" : "hover:bg-amber-500/30"}`}
+              >
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                 <span className="text-amber-600 dark:text-amber-400">No Show</span>
-              </div>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-red-500/20">
+              </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === "cancelled" ? null : "cancelled")}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors bg-red-500/20 ${statusFilter === "cancelled" ? "ring-1 ring-red-500" : "hover:bg-red-500/30"}`}
+              >
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
                 <span className="text-red-600 dark:text-red-400">Cancelled</span>
-              </div>
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-muted">
+              </button>
+              <button
+                onClick={() => setStatusFilter(statusFilter === "new" ? null : "new")}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs cursor-pointer transition-colors bg-muted ${statusFilter === "new" ? "ring-1 ring-muted-foreground" : "hover:bg-muted/80"}`}
+              >
                 <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50" />
                 <span className="text-muted-foreground">New/Other</span>
-              </div>
+              </button>
               <div className="h-4 w-px bg-border" />
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-amber-500/30">
                 <div className="w-4 h-4 rounded-full bg-amber-500 text-white text-[8px] font-bold flex items-center justify-center">!</div>
