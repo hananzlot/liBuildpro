@@ -263,8 +263,10 @@ export function GlobalAdminSearch() {
     if (!trimmed || trimmed.length < 2) return null;
     // If it's a dollar amount, skip ref search
     if (parsedAmount !== null) return null;
-    // Remove leading # if present
-    return trimmed.replace(/^#/, '');
+    // Strip common prefixes: "ref#", "ref #", "ref:", "check#", "check ", "chk#", "inv#", leading "#"
+    let cleaned = trimmed.replace(/^(ref\s*#?\s*|check\s*#?\s*|chk\s*#?\s*|inv\s*#?\s*|#)/i, '').trim();
+    if (!cleaned || cleaned.length < 1) return null;
+    return cleaned;
   }, [searchQuery, parsedAmount]);
 
   const { data: financialMatches = [] } = useQuery({
