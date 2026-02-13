@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useUnifiedMode } from "@/hooks/useUnifiedMode";
 import type { DashboardMetrics, LeadsBySource, SalesRepPerformance, GHLContact } from "@/types/ghl";
 import type { DateRange } from "react-day-picker";
 
@@ -224,7 +225,7 @@ async function fetchAllFromTable(
   table: string, 
   orderBy: string,
   excludeLocationId?: string,
-  companyId?: string | null
+  companyIds?: string[]
 ): Promise<any[]> {
   const allItems: any[] = [];
   const pageSize = 1000;
@@ -237,9 +238,13 @@ async function fetchAllFromTable(
       .select("*")
       .order(orderBy as any, { ascending: false });
     
-    // Filter by company_id if provided
-    if (companyId) {
-      query = query.eq("company_id", companyId);
+    // Filter by company_id(s) if provided
+    if (companyIds && companyIds.length > 0) {
+      if (companyIds.length === 1) {
+        query = query.eq("company_id", companyIds[0]);
+      } else {
+        query = query.in("company_id", companyIds);
+      }
     }
     
     // Exclude Location 2 records if specified
@@ -263,23 +268,20 @@ async function fetchAllFromTable(
   return allItems;
 }
 
-async function fetchContactsFromDB(companyId?: string | null): Promise<DBContact[]> {
+async function fetchContactsFromDB(companyIds?: string[]): Promise<DBContact[]> {
   // Include all locations - GHL Location 2 has equal priority
-  return fetchAllFromTable("contacts", "ghl_date_added", undefined, companyId) as Promise<DBContact[]>;
+  return fetchAllFromTable("contacts", "ghl_date_added", undefined, companyIds) as Promise<DBContact[]>;
 }
 
-async function fetchOpportunitiesFromDB(companyId?: string | null): Promise<DBOpportunity[]> {
+async function fetchOpportunitiesFromDB(companyIds?: string[]): Promise<DBOpportunity[]> {
   // Do NOT exclude Location 2 opportunities here; otherwise valid opportunities (e.g. Raya Gamburd)
   // can be hidden from the Opportunities table.
-  return fetchAllFromTable("opportunities", "ghl_date_added", undefined, companyId) as Promise<DBOpportunity[]>;
+  return fetchAllFromTable("opportunities", "ghl_date_added", undefined, companyIds) as Promise<DBOpportunity[]>;
 }
 
-async function fetchAppointmentsFromDB(companyId?: string | null): Promise<DBAppointment[]> {
-  // Optimize: Only fetch appointments from last 6 months to 3 months ahead
-  // This significantly reduces initial load time for the calendar
+async function fetchAppointmentsFromDB(companyIds?: string[]): Promise<DBAppointment[]> {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  
   const threeMonthsAhead = new Date();
   threeMonthsAhead.setMonth(threeMonthsAhead.getMonth() + 3);
 
@@ -296,14 +298,12 @@ async function fetchAppointmentsFromDB(companyId?: string | null): Promise<DBApp
       .lte("start_time", threeMonthsAhead.toISOString())
       .order("start_time", { ascending: false });
     
-    if (companyId) {
-      query = query.eq("company_id", companyId);
+    if (companyIds && companyIds.length > 0) {
+      query = companyIds.length === 1 ? query.eq("company_id", companyIds[0]) : query.in("company_id", companyIds);
     }
     
     const { data, error } = await query.range(from, from + pageSize - 1);
-
     if (error) throw new Error(error.message);
-
     if (data && data.length > 0) {
       allItems.push(...data);
       from += pageSize;
@@ -316,47 +316,44 @@ async function fetchAppointmentsFromDB(companyId?: string | null): Promise<DBApp
   return allItems;
 }
 
-async function fetchUsersFromDB(companyId?: string | null): Promise<DBUser[]> {
-  // Users from both locations are fine - but filter by company
+// Helper to apply company filter to a query
+function applyCompanyFilter<T>(query: T, companyIds?: string[]): T {
+  if (!companyIds || companyIds.length === 0) return query;
+  if (companyIds.length === 1) return (query as any).eq("company_id", companyIds[0]);
+  return (query as any).in("company_id", companyIds);
+}
+
+async function fetchUsersFromDB(companyIds?: string[]): Promise<DBUser[]> {
   let query = supabase.from("ghl_users").select("*");
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchConversationsFromDB(companyId?: string | null): Promise<DBConversation[]> {
-  // Include all locations - GHL Location 2 has equal priority
+async function fetchConversationsFromDB(companyIds?: string[]): Promise<DBConversation[]> {
   let query = supabase
     .from("conversations")
     .select("*")
     .order("last_message_date", { ascending: false });
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchTasksFromDB(companyId?: string | null): Promise<DBTask[]> {
-  // Include all locations - GHL Location 2 has equal priority
+async function fetchTasksFromDB(companyIds?: string[]): Promise<DBTask[]> {
   let query = supabase
     .from("ghl_tasks")
     .select("*")
     .order("due_date", { ascending: true });
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-// Fetch only recent notes (last 90 days) for dashboard performance
-async function fetchContactNotesFromDB(companyId?: string | null): Promise<DBContactNote[]> {
+async function fetchContactNotesFromDB(companyIds?: string[]): Promise<DBContactNote[]> {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   
@@ -366,16 +363,13 @@ async function fetchContactNotesFromDB(companyId?: string | null): Promise<DBCon
     .gte("ghl_date_added", ninetyDaysAgo.toISOString())
     .order("ghl_date_added", { ascending: false })
     .limit(1000);
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-// Fetch only recent call logs (last 90 days) for dashboard performance
-async function fetchCallLogsFromDB(companyId?: string | null): Promise<DBCallLog[]> {
+async function fetchCallLogsFromDB(companyIds?: string[]): Promise<DBCallLog[]> {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   
@@ -385,36 +379,30 @@ async function fetchCallLogsFromDB(companyId?: string | null): Promise<DBCallLog
     .gte("call_date", ninetyDaysAgo.toISOString())
     .order("call_date", { ascending: false })
     .limit(1000);
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchProfilesFromDB(companyId?: string | null): Promise<DBProfile[]> {
+async function fetchProfilesFromDB(companyIds?: string[]): Promise<DBProfile[]> {
   let query = supabase.from("profiles").select("*");
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchSalespeopleFromDB(companyId?: string | null): Promise<DBSalesperson[]> {
+async function fetchSalespeopleFromDB(companyIds?: string[]): Promise<DBSalesperson[]> {
   let query = supabase.from("salespeople").select("id, name, email, phone, ghl_user_id, is_active");
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
 // Fetch only recent edits (last 90 days) for performance
-async function fetchOpportunityEditsFromDB(companyId?: string | null): Promise<DBOpportunityEdit[]> {
+async function fetchOpportunityEditsFromDB(companyIds?: string[]): Promise<DBOpportunityEdit[]> {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   
@@ -424,30 +412,25 @@ async function fetchOpportunityEditsFromDB(companyId?: string | null): Promise<D
     .gte("edited_at", ninetyDaysAgo.toISOString())
     .order("edited_at", { ascending: false })
     .limit(1000);
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchOpportunitySalesFromDB(companyId?: string | null): Promise<DBOpportunitySale[]> {
+async function fetchOpportunitySalesFromDB(companyIds?: string[]): Promise<DBOpportunitySale[]> {
   let query = supabase
     .from("opportunity_sales")
     .select("*")
     .order("sold_date", { ascending: false })
     .limit(500);
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-// Fetch only recent edits (last 90 days) for performance
-async function fetchTaskEditsFromDB(companyId?: string | null): Promise<DBTaskEdit[]> {
+async function fetchTaskEditsFromDB(companyIds?: string[]): Promise<DBTaskEdit[]> {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   
@@ -457,16 +440,13 @@ async function fetchTaskEditsFromDB(companyId?: string | null): Promise<DBTaskEd
     .gte("edited_at", ninetyDaysAgo.toISOString())
     .order("edited_at", { ascending: false })
     .limit(1000);
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-// Fetch only recent edits (last 90 days) for performance
-async function fetchNoteEditsFromDB(companyId?: string | null): Promise<DBNoteEdit[]> {
+async function fetchNoteEditsFromDB(companyIds?: string[]): Promise<DBNoteEdit[]> {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   
@@ -476,16 +456,13 @@ async function fetchNoteEditsFromDB(companyId?: string | null): Promise<DBNoteEd
     .gte("edited_at", ninetyDaysAgo.toISOString())
     .order("edited_at", { ascending: false })
     .limit(1000);
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-// Fetch only recent edits (last 90 days) for performance
-async function fetchAppointmentEditsFromDB(companyId?: string | null): Promise<DBAppointmentEdit[]> {
+async function fetchAppointmentEditsFromDB(companyIds?: string[]): Promise<DBAppointmentEdit[]> {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   
@@ -495,9 +472,7 @@ async function fetchAppointmentEditsFromDB(companyId?: string | null): Promise<D
     .gte("edited_at", ninetyDaysAgo.toISOString())
     .order("edited_at", { ascending: false })
     .limit(1000);
-  if (companyId) {
-    query = query.eq("company_id", companyId);
-  }
+  query = applyCompanyFilter(query, companyIds);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
@@ -1086,186 +1061,186 @@ function processMetrics(
 }
 
 export function useContacts() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["contacts", companyId],
-    queryFn: () => fetchContactsFromDB(companyId),
-    staleTime: 5 * 60 * 1000, // 5 minutes - contacts don't change often
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+    queryKey: ["contacts", queryKeySuffix],
+    queryFn: () => fetchContactsFromDB(companyIds),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useOpportunities() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["opportunities", companyId],
-    queryFn: () => fetchOpportunitiesFromDB(companyId),
-    staleTime: 2 * 60 * 1000, // 2 minutes - opportunities update more frequently
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+    queryKey: ["opportunities", queryKeySuffix],
+    queryFn: () => fetchOpportunitiesFromDB(companyIds),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useAppointments() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["appointments", companyId],
-    queryFn: () => fetchAppointmentsFromDB(companyId),
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+    queryKey: ["appointments", queryKeySuffix],
+    queryFn: () => fetchAppointmentsFromDB(companyIds),
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useGHLUsers() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["ghl_users", companyId],
-    queryFn: () => fetchUsersFromDB(companyId),
+    queryKey: ["ghl_users", queryKeySuffix],
+    queryFn: () => fetchUsersFromDB(companyIds),
     staleTime: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useSalespeople() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["salespeople", companyId],
-    queryFn: () => fetchSalespeopleFromDB(companyId),
+    queryKey: ["salespeople", queryKeySuffix],
+    queryFn: () => fetchSalespeopleFromDB(companyIds),
     staleTime: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useConversations() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["conversations", companyId],
-    queryFn: () => fetchConversationsFromDB(companyId),
+    queryKey: ["conversations", queryKeySuffix],
+    queryFn: () => fetchConversationsFromDB(companyIds),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useTasks() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["ghl_tasks", companyId],
-    queryFn: () => fetchTasksFromDB(companyId),
+    queryKey: ["ghl_tasks", queryKeySuffix],
+    queryFn: () => fetchTasksFromDB(companyIds),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useContactNotes() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["contact_notes", companyId],
-    queryFn: () => fetchContactNotesFromDB(companyId),
+    queryKey: ["contact_notes", queryKeySuffix],
+    queryFn: () => fetchContactNotesFromDB(companyIds),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useCallLogs() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["call_logs", companyId],
-    queryFn: () => fetchCallLogsFromDB(companyId),
+    queryKey: ["call_logs", queryKeySuffix],
+    queryFn: () => fetchCallLogsFromDB(companyIds),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useProfiles() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["profiles", companyId],
-    queryFn: () => fetchProfilesFromDB(companyId),
+    queryKey: ["profiles", queryKeySuffix],
+    queryFn: () => fetchProfilesFromDB(companyIds),
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useOpportunityEdits() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["opportunity_edits", companyId],
-    queryFn: () => fetchOpportunityEditsFromDB(companyId),
+    queryKey: ["opportunity_edits", queryKeySuffix],
+    queryFn: () => fetchOpportunityEditsFromDB(companyIds),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useOpportunitySales() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["opportunity_sales", companyId],
-    queryFn: () => fetchOpportunitySalesFromDB(companyId),
+    queryKey: ["opportunity_sales", queryKeySuffix],
+    queryFn: () => fetchOpportunitySalesFromDB(companyIds),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useTaskEdits() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["task_edits", companyId],
-    queryFn: () => fetchTaskEditsFromDB(companyId),
+    queryKey: ["task_edits", queryKeySuffix],
+    queryFn: () => fetchTaskEditsFromDB(companyIds),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useNoteEdits() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["note_edits", companyId],
-    queryFn: () => fetchNoteEditsFromDB(companyId),
+    queryKey: ["note_edits", queryKeySuffix],
+    queryFn: () => fetchNoteEditsFromDB(companyIds),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
 export function useAppointmentEdits() {
-  const { companyId } = useCompanyContext();
+  const { companyIds, queryKeySuffix } = useUnifiedMode();
 
   return useQuery({
-    queryKey: ["appointment_edits", companyId],
-    queryFn: () => fetchAppointmentEditsFromDB(companyId),
+    queryKey: ["appointment_edits", queryKeySuffix],
+    queryFn: () => fetchAppointmentEditsFromDB(companyIds),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
-    enabled: !!companyId,
+    enabled: companyIds.length > 0,
   });
 }
 
