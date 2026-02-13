@@ -2515,6 +2515,7 @@ export type Database = {
           discount_type: string | null
           discount_value: number | null
           estimate_date: string
+          estimate_mode: string | null
           estimate_number: number
           estimate_title: string
           expiration_date: string | null
@@ -2523,6 +2524,7 @@ export type Database = {
           id: string
           job_address: string | null
           lead_source: string | null
+          manual_total: number | null
           notes: string | null
           notes_to_customer: string | null
           opportunity_id: string | null
@@ -2570,6 +2572,7 @@ export type Database = {
           discount_type?: string | null
           discount_value?: number | null
           estimate_date?: string
+          estimate_mode?: string | null
           estimate_number?: number
           estimate_title: string
           expiration_date?: string | null
@@ -2578,6 +2581,7 @@ export type Database = {
           id?: string
           job_address?: string | null
           lead_source?: string | null
+          manual_total?: number | null
           notes?: string | null
           notes_to_customer?: string | null
           opportunity_id?: string | null
@@ -2625,6 +2629,7 @@ export type Database = {
           discount_type?: string | null
           discount_value?: number | null
           estimate_date?: string
+          estimate_mode?: string | null
           estimate_number?: number
           estimate_title?: string
           expiration_date?: string | null
@@ -2633,6 +2638,7 @@ export type Database = {
           id?: string
           job_address?: string | null
           lead_source?: string | null
+          manual_total?: number | null
           notes?: string | null
           notes_to_customer?: string | null
           opportunity_id?: string | null
