@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Phone, Mail, MapPin, ChevronUp, ChevronDown } from "lucide-react";
+import { Phone, Mail, MapPin, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useUnifiedMode } from "@/hooks/useUnifiedMode";
 import {
   Table,
@@ -68,6 +69,8 @@ export function ContactsTable({
   const { isUnified, getCompanyName } = useUnifiedMode();
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 100;
 
   const getContactName = (contact: Contact) => {
     return contact.contact_name || 
@@ -92,6 +95,7 @@ export function ContactsTable({
       setSortField(field);
       setSortDirection('asc');
     }
+    setCurrentPage(1);
   };
 
   const sortedContacts = useMemo(() => {
@@ -129,6 +133,9 @@ export function ContactsTable({
     });
   }, [contacts, sortField, sortDirection]);
 
+  const totalPages = Math.max(1, Math.ceil(sortedContacts.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedContacts = sortedContacts.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null;
     return sortDirection === 'asc' 
@@ -140,7 +147,7 @@ export function ContactsTable({
     <div className="space-y-4">
       {/* Results count */}
       <div className="text-sm text-muted-foreground">
-        {sortedContacts.length} contacts
+        {sortedContacts.length} contacts{totalPages > 1 && ` • Page ${safeCurrentPage} of ${totalPages}`}
       </div>
 
       {/* Table */}
@@ -197,7 +204,7 @@ export function ContactsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              sortedContacts.slice(0, 100).map((contact) => {
+              paginatedContacts.map((contact) => {
                 const address = getAddress(contact);
                 const oppCount = getOpportunityCount(contact.ghl_id);
                 
@@ -277,9 +284,26 @@ export function ContactsTable({
             )}
           </TableBody>
         </Table>
-        {sortedContacts.length > 100 && (
-          <div className="p-3 text-center text-sm text-muted-foreground border-t">
-            Showing first 100 of {sortedContacts.length} contacts
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between p-3 border-t">
+            <span className="text-xs text-muted-foreground">
+              {(safeCurrentPage - 1) * pageSize + 1}–{Math.min(safeCurrentPage * pageSize, sortedContacts.length)} of {sortedContacts.length}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={safeCurrentPage <= 1} onClick={() => setCurrentPage(1)}>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={safeCurrentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs text-muted-foreground px-2">{safeCurrentPage} / {totalPages}</span>
+              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={safeCurrentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={safeCurrentPage >= totalPages} onClick={() => setCurrentPage(totalPages)}>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </div>
