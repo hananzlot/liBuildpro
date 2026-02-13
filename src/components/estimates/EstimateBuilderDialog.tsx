@@ -2830,8 +2830,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return "";
   }, [showValidationErrors]);
 
-  // Tab order for navigation
-  const tabOrder = ["customer", "scope", "clarification", "payments", "terms"] as const;
+  // Tab order for navigation - exclude clarification in manual mode
+  const tabOrder: string[] = estimateMode === 'manual' 
+    ? ["customer", "scope", "payments", "terms"]
+    : ["customer", "scope", "clarification", "payments", "terms"];
 
   const handleNextTab = useCallback((currentTab: string, validation: { isValid: boolean; missing: string[] }) => {
     if (!validation.isValid) {
