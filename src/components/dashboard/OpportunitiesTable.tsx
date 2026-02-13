@@ -1165,38 +1165,40 @@ export function OpportunitiesTable({
                               );
                             })()}
                           </div>
-                          <span className="font-mono text-emerald-500 text-xs">{formatCurrency(opp.monetary_value)}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-xs truncate">
-                        {(() => {
-                          const scopeFromOpportunity = opp.scope_of_work;
-                          const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
-                          const scopeFromAttributions = (() => {
-                            if (!contact?.attributions) return null;
-                            const attrs = contact.attributions as Array<{ utmCampaign?: string }>;
-                            const campaign = attrs.find(a => a.utmCampaign)?.utmCampaign;
-                            return campaign || null;
-                          })();
-                          const scopeOfWork = scopeFromOpportunity || scopeFromCustomField || scopeFromAttributions;
-                          const stageText = opp.stage_name || "-";
-                          
-                          return scopeOfWork ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-help underline decoration-dotted underline-offset-2 truncate block">
-                                  {stageText}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
-                                <p className="font-semibold mb-1">Scope of Work:</p>
-                                <p>{scopeOfWork}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <span className="truncate block" title={stageText}>{stageText}</span>
-                          );
-                        })()}
+                      <TableCell className="text-muted-foreground text-xs">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          {(() => {
+                            const scopeFromOpportunity = opp.scope_of_work;
+                            const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+                            const scopeFromAttributions = (() => {
+                              if (!contact?.attributions) return null;
+                              const attrs = contact.attributions as Array<{ utmCampaign?: string }>;
+                              const campaign = attrs.find(a => a.utmCampaign)?.utmCampaign;
+                              return campaign || null;
+                            })();
+                            const scopeOfWork = scopeFromOpportunity || scopeFromCustomField || scopeFromAttributions;
+                            const stageText = opp.stage_name || "-";
+                            
+                            return scopeOfWork ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help underline decoration-dotted underline-offset-2 truncate block">
+                                    {stageText}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
+                                  <p className="font-semibold mb-1">Scope of Work:</p>
+                                  <p>{scopeOfWork}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <span className="truncate block" title={stageText}>{stageText}</span>
+                            );
+                          })()}
+                          <span className="font-mono text-emerald-500">{formatCurrency(opp.monetary_value)}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-xs">
                         <div className="flex flex-col gap-0.5 min-w-0">
