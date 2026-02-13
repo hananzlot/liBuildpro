@@ -94,7 +94,10 @@ export function CompanySwitcher() {
   // Super admins must select a company; corp admins default to their own
   const noCompanySelected = isSuperAdmin && !viewingCompanyId;
   const isOverriding = viewingCompanyId !== null;
-  const label = isSuperAdmin ? "Working on:" : "Viewing:";
+  const label = isUnified ? "Unified:" : (isSuperAdmin ? "Working on:" : "Viewing:");
+  const displayName = isUnified 
+    ? "All Companies" 
+    : (selectedCompany?.name || (noCompanySelected ? "No company selected" : company?.name || "—"));
 
   return (
     <div className="px-2 py-2">
@@ -120,7 +123,7 @@ export function CompanySwitcher() {
                   "text-sm font-medium truncate",
                   noCompanySelected && "text-destructive"
                 )}>
-                  {selectedCompany?.name || (noCompanySelected ? "No company selected" : company?.name || "—")}
+                  {displayName}
                 </span>
               </div>
             </div>
