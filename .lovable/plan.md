@@ -1,94 +1,54 @@
 
 
-# Replicate CA Pro Builders Data to Demo Co #1
+# Fix Data Replication: Handle Dependencies and Clean Up Duplicates
 
-## Overview
-Copy all records from CA Pro Builders (source) to Demo Co #1 (target) across 30+ tables, including admin settings and encrypted API keys (Resend, Twilio, OpenAI). Demo Co #1's existing data will be cleared first. GHL-specific data will be skipped.
+## Current Problems
 
-## Scope Summary
+1. **Doubled data**: Demo Co #1 has 2x the records it should (2,953 contacts vs 1,475 source) because the function ran multiple times without properly clearing first.
+2. **Missing tables**: `lead_sources` (2 records) was never included in the replication script.
+3. **Global unique constraints**: `project_statuses` (UNIQUE on `name`) and `project_types` (UNIQUE on `name`) have global uniqueness, not per-company. Since CA Pro Builders already has records with those names, copying them for Demo Co #1 would fail.
 
-| Category | Tables | Approx Records |
-|----------|--------|----------------|
-| CRM Core | contacts, opportunities, appointments | ~2,750 |
-| Tasks | tasks, contact_notes | ~2,512 |
-| Projects | projects, project_notes, project_documents, project_agreements | ~173 |
-| Financials | project_invoices, project_payments, project_bills, bill_payments, project_costs, project_payment_phases | ~490 |
-| Estimates | estimates, estimate_groups, estimate_line_items, estimate_payment_schedule | ~826 |
-| Portal | client_portal_tokens, portal_chat_messages | ~74 |
-| Config | company_settings (46), pipeline_stages (10), salespeople (15), subcontractors (25), trades (15), banks (3), lead_sources (2), project_statuses (8), project_types (21), archived_sources (8) | ~153 |
-| Documents | compliance_document_templates, compliance_template_fields, project_documents | ~99 |
-| Other | short_links, magazine_sales, scope_submissions, notifications | ~2,030 |
+## Fix Plan
 
-## Technical Approach
+### Step 1: Database Migration -- Fix Global Unique Constraints
 
-### Why an Edge Function?
-This operation requires:
-- Generating new UUIDs for every copied record
-- Maintaining a UUID mapping table so foreign key references (contact_uuid, opportunity_uuid, project_id, estimate_id, etc.) point to the correct new records
-- Handling 8,000+ records across 30+ tables in the correct dependency order
-- Copying encrypted API keys by reading from source company settings and writing to target
+Change `project_statuses` and `project_types` to use company-scoped unique constraints (same pattern we already applied to `salespeople`, `trades`, `banks`):
 
-### Implementation: `replicate-company-data` Edge Function
+```sql
+ALTER TABLE public.project_statuses DROP CONSTRAINT project_statuses_name_key;
+ALTER TABLE public.project_statuses ADD CONSTRAINT project_statuses_name_company_key UNIQUE (name, company_id);
 
-**Step 1 -- Clear Demo Co #1 data** (delete in reverse dependency order):
-- Child tables first (bill_payments, estimate_line_items, estimate_groups, etc.)
-- Then parent tables (projects, estimates, contacts, opportunities, etc.)
-- Then config tables (company_settings, pipeline_stages, salespeople, etc.)
+ALTER TABLE public.project_types DROP CONSTRAINT project_types_name_key;
+ALTER TABLE public.project_types ADD CONSTRAINT project_types_name_company_key UNIQUE (name, company_id);
+```
 
-**Step 2 -- Copy config/reference tables** (no foreign key remapping needed):
-- company_settings (all 46 rows, including encrypted Resend/Twilio/OpenAI keys)
-- pipeline_stages, salespeople, subcontractors, trades, banks, lead_sources
-- project_statuses, project_types, archived_sources
-- compliance_document_templates and compliance_template_fields
+### Step 2: Update Edge Function
 
-**Step 3 -- Copy CRM core tables** (build UUID mapping):
-1. **contacts** -- generate new UUIDs, store old-to-new mapping
-2. **opportunities** -- remap contact_uuid using mapping
-3. **appointments** -- remap contact_uuid using mapping
+Add the following missing tables to the replication script:
 
-**Step 4 -- Copy project-related tables:**
-1. **projects** -- remap contact_uuid, opportunity_uuid
-2. **project_notes, project_agreements, project_documents** -- remap project_id
-3. **project_invoices** -- remap project_id
-4. **project_payments** -- remap project_id, invoice_id
-5. **project_bills** -- remap project_id
-6. **bill_payments** -- remap bill_id
-7. **project_costs, project_payment_phases** -- remap project_id
+| Table | Records | Notes |
+|-------|---------|-------|
+| `lead_sources` | 2 | Company-scoped unique already |
+| `project_statuses` | 8 | After constraint fix |
+| `project_types` | 21 | After constraint fix |
 
-**Step 5 -- Copy estimate tables:**
-1. **estimates** -- remap contact_uuid, project_id, opportunity_id
-2. **estimate_groups** -- remap estimate_id
-3. **estimate_line_items** -- remap estimate_id, group_id
-4. **estimate_payment_schedule** -- remap estimate_id
+Also add these to the delete order so they get cleared properly.
 
-**Step 6 -- Copy remaining tables:**
-- contact_notes (remap contact_uuid)
-- tasks (remap contact_uuid, project_id)
-- client_portal_tokens (remap project_id, estimate_id)
-- portal_chat_messages (remap project_id)
-- short_links (remap, or skip if desired)
-- magazine_sales, scope_submissions, notifications
+### Step 3: Re-run with Clean Slate
 
-### API Key Handling
-For encrypted keys (resend_api_key_encrypted, twilio_account_sid, twilio_auth_token, twilio_phone_number), the function will:
-1. Read the decrypted values from CA Pro Builders using the existing `get_resend_api_key_encrypted` and similar RPC functions
-2. Store them into Demo Co #1 using `store_resend_api_key_encrypted` and direct inserts for Twilio keys
-3. For plain-text settings (openai_api_key, resend_api_key), copy the values directly
+The updated function will:
+1. Clear ALL Demo Co #1 data (including the doubled records)
+2. Copy `lead_sources`, `project_statuses`, `project_types` in Step 2 (config tables) before CRM core
+3. Copy all other tables as before
 
-### Skipped Tables
-- ghl_tasks, ghl_sync_exclusions, ghl_field_mappings, company_integrations (GHL)
-- google_calendar_connections, quickbooks_connections (integration-specific)
-- audit_logs, notifications (transient/historical)
-- profiles, user_roles (user-specific)
-- estimate_drafts, estimate_generation_queue (ephemeral)
+### Expected Result
 
-### Safety
-- The edge function will use a Supabase service role client for full access
-- It will run in a single invocation with sequential table processing
-- Errors at any step will be logged and returned in the response
-- The function is one-time use and can be deleted after execution
+Demo Co #1 will have an exact replica with correct counts matching CA Pro Builders:
+- 1,475 contacts, 1,174 opportunities, 44 projects, 28 estimates
+- Plus all config: 46 settings, 10 pipeline stages, 15 salespeople, 2 lead sources, 8 project statuses, 21 project types
 
-## Files to Create/Modify
-1. **`supabase/functions/replicate-company-data/index.ts`** -- New edge function
-2. **`supabase/config.toml`** -- Add function entry with `verify_jwt = false` (admin-only, protected by service role)
+### Technical Details -- Files to Modify
+
+1. **`supabase/functions/replicate-company-data/index.ts`** -- Add `lead_sources`, `project_statuses`, `project_types` to both delete and copy steps
+2. **Database migration** -- Fix unique constraints on `project_statuses` and `project_types`
 
