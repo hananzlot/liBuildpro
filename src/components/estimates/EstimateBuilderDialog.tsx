@@ -2840,8 +2840,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return "";
   }, [showValidationErrors]);
 
-  // Tab order for navigation
-  const tabOrder = ["customer", "scope", "clarification", "payments", "terms"] as const;
+  // Tab order for navigation - manual mode skips clarification
+  const tabOrder: string[] = estimateMode === 'manual'
+    ? ["customer", "scope", "photos", "files", "payments", "terms"]
+    : ["customer", "scope", "clarification", "photos", "files", "payments", "terms"];
 
   const handleNextTab = useCallback((currentTab: string, validation: { isValid: boolean; missing: string[] }) => {
     if (!validation.isValid) {
@@ -2854,17 +2856,19 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     if (currentIndex < tabOrder.length - 1) {
       setActiveTab(tabOrder[currentIndex + 1]);
     }
-  }, []);
+  }, [tabOrder]);
 
   // Next button component for tab bar - renders inline in TabsList
   const TabBarNextButton = useCallback(() => {
-    const currentIndex = tabOrder.indexOf(activeTab as typeof tabOrder[number]);
+    const currentIndex = tabOrder.indexOf(activeTab);
     if (currentIndex >= tabOrder.length - 1) return null; // No next button on last tab
     
     const nextTabName = tabOrder[currentIndex + 1];
     const nextTabLabels: Record<string, string> = {
       scope: "Scope",
       clarification: "Clarification",
+      photos: "Photos",
+      files: "Files",
       payments: "Phases",
       terms: "T&C",
     };
@@ -2884,11 +2888,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         size="sm"
         className="ml-auto h-8"
       >
-        Next: {nextTabLabels[nextTabName]}
+        Next: {nextTabLabels[nextTabName] || nextTabName}
         <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
       </Button>
     );
-  }, [activeTab, validateCustomerTab, validateScopeTab, validateClarificationTab, validatePaymentsTab, handleNextTab]);
+  }, [activeTab, tabOrder, validateCustomerTab, validateScopeTab, validateClarificationTab, validatePaymentsTab, handleNextTab]);
 
   // Page mode: render inline without Dialog wrapper
   const isPageMode = mode === 'page';
@@ -3091,7 +3095,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   <FileText className="h-4 w-4" />
                   Scope
                 </TabsTrigger>
-                {groups.length > 0 && (
+                {groups.length > 0 && estimateMode !== 'manual' && (
                   <>
                     <TabsTrigger value="clarification" className="flex items-center gap-2">
                       <HelpCircle className="h-4 w-4" />
