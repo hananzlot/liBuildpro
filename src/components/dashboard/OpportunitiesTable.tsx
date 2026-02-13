@@ -1112,7 +1112,7 @@ export function OpportunitiesTable({
                       )}
                       onClick={() => handleRowClick(opp)}
                     >
-                      <TableCell className="font-medium truncate">
+                      <TableCell className="font-medium truncate max-w-[150px]">
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
                             {overdueTask && (
