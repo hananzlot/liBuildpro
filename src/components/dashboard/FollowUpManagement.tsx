@@ -110,6 +110,7 @@ interface FollowUpManagementProps {
   tasks: DBTask[];
   onOpenOpportunity: (opportunity: DBOpportunity, taskGhlId?: string | null) => void;
   onDataRefresh?: () => void;
+  refreshSignal?: number;
 }
 type SortField = "appointment_date" | "last_note_date" | "contact_name" | "opportunity_name";
 type SortDirection = "asc" | "desc";
@@ -122,7 +123,8 @@ export function FollowUpManagement({
   contactNotes,
   tasks,
   onOpenOpportunity,
-  onDataRefresh
+  onDataRefresh,
+  refreshSignal = 0,
 }: FollowUpManagementProps) {
   const {
     user
@@ -511,10 +513,10 @@ export function FollowUpManagement({
     }
   };
 
+  // Re-fetch ghlTasks when companies change or when parent signals a refresh (e.g. detail sheet closed)
   useEffect(() => {
     fetchGhlTasks();
-    // Re-fetch when switching/simulating companies or toggling unified mode
-  }, [companyIds.join(",")]);
+  }, [companyIds.join(","), refreshSignal]);
 
   // Get unique assignees from GHL tasks
   const uniqueTaskAssignees = useMemo(() => {
