@@ -1,8 +1,7 @@
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   LayoutDashboard, 
@@ -14,7 +13,7 @@ import {
 } from "lucide-react";
 
 const Home = () => {
-  const navigate = useNavigate();
+  const { openTab } = useAppTabs();
   const { 
     company, 
     isAdmin, 
@@ -108,7 +107,7 @@ const Home = () => {
               <Card 
                 key={item.path}
                 className="group cursor-pointer transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
-                onClick={() => navigate(item.path)}
+                onClick={() => openTab(item.path, item.title)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-3">
