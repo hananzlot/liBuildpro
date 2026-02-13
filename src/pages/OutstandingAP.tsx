@@ -848,6 +848,61 @@ export default function OutstandingAP() {
     setQbBillSelectionDialogOpen(false);
   }, []);
 
+  // Handler when user links local payment to an existing QB BillPayment
+  const handleLinkExistingPayment = useCallback(async (qbBillPaymentId: string) => {
+    if (!pendingPaymentData) return;
+    
+    // Record the payment locally (no QB sync needed - it already exists in QB)
+    // Then save the sync log to link local record to QB BillPayment ID
+    try {
+      // First, record the payment locally
+      const { data: paymentRecord, error: insertError } = await supabase
+        .from("bill_payments")
+        .insert({
+          bill_id: pendingPaymentData.billId,
+          payment_date: pendingPaymentData.data.paymentDate.toISOString().split("T")[0],
+          payment_amount: pendingPaymentData.data.amount,
+          bank_id: pendingPaymentData.data.bankId,
+          bank_name: pendingPaymentData.data.bankName,
+          payment_method: pendingPaymentData.data.paymentMethod,
+          payment_reference: pendingPaymentData.data.paymentReference,
+          company_id: companyId,
+        })
+        .select("id")
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Save the sync log linking local payment to QB BillPayment
+      await supabase
+        .from("quickbooks_sync_log")
+        .insert({
+          company_id: companyId,
+          record_type: "bill_payment",
+          record_id: paymentRecord.id,
+          quickbooks_id: qbBillPaymentId,
+          sync_status: "synced",
+          synced_at: new Date().toISOString(),
+        });
+
+      toast.success("Payment recorded and linked to existing QuickBooks payment");
+      queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["paid-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-ap-due"] });
+      queryClient.invalidateQueries({ queryKey: ["qb-vendor-bills"] });
+    } catch (err) {
+      console.error("Failed to link payment:", err);
+      toast.error(`Failed to link payment: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setMarkAsPaidDialogOpen(false);
+      setMarkingAsPaidPayable(null);
+      setPendingPaymentData(null);
+      setQbBillSelectionDialogOpen(false);
+    }
+  }, [pendingPaymentData, companyId, queryClient]);
+
   return (
     <AppLayout>
       <div className="px-6 py-6 space-y-6">
@@ -1786,6 +1841,7 @@ export default function OutstandingAP() {
         onCreateNew={handleQbBillCreateNew}
         onSkipSync={handleSkipQBSync}
         onCancel={handleQbBillSelectionCancel}
+        onLinkExistingPayment={handleLinkExistingPayment}
       />
 
       {/* QuickBooks Customer Mapping Dialog */}
