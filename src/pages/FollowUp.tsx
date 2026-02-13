@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useGHLMetrics, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +12,7 @@ const FollowUp = () => {
   const navigate = useNavigate();
   const { opportunityId, taskGhlId } = useParams<{ opportunityId?: string; taskGhlId?: string }>();
   const { isAdmin, isSimulating } = useAuth();
+  const [refreshSignal, setRefreshSignal] = useState(0);
 
   const {
     data: metrics,
@@ -52,6 +53,9 @@ const FollowUp = () => {
   const handleDetailSheetClose = (open: boolean) => {
     if (!open) {
       navigate("/follow-up", { replace: true });
+      // Refetch data so follow-up lists clear resolved records
+      refetch();
+      setRefreshSignal(s => s + 1);
     }
   };
 
@@ -102,6 +106,7 @@ const FollowUp = () => {
             tasks={metrics?.tasks || []} 
             onOpenOpportunity={handleOpenOpportunity} 
             onDataRefresh={refetch} 
+            refreshSignal={refreshSignal}
           />
         )}
       </div>
