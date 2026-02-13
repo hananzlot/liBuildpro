@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Upload, File, X, ExternalLink, Loader2 } from "lucide-react";
+import { useUploadLimit } from "@/hooks/useUploadLimit";
 
 interface FileUploadProps {
   projectId: string;
@@ -21,14 +22,14 @@ export function FileUpload({
 }: FileUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { maxMb, validateFileSize } = useUploadLimit();
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (max 20MB)
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("File size must be less than 20MB");
+    if (!validateFileSize(file)) {
+      toast.error(`File size must be less than ${maxMb}MB`);
       return;
     }
 

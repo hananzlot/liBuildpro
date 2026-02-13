@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { useUploadLimit } from "@/hooks/useUploadLimit";
 import { FileText, Plus, Trash2, Upload, Loader2, GripVertical, Eye, Download, FileSignature, Settings2, FlaskConical, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ComplianceFieldEditor } from "./ComplianceFieldEditor";
@@ -78,6 +79,7 @@ const AVAILABLE_PLACEHOLDERS = [
 export function ComplianceTemplatesManager() {
   const { companyId } = useAuth();
   const queryClient = useQueryClient();
+  const { maxMb, validateFileSize } = useUploadLimit();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fieldEditorOpen, setFieldEditorOpen] = useState(false);
@@ -329,8 +331,8 @@ export function ComplianceTemplatesManager() {
         toast.error("Please upload a PDF file");
         return;
       }
-      if (file.size > 20 * 1024 * 1024) { // 20MB limit
-        toast.error("File size must be less than 20MB");
+      if (!validateFileSize(file)) {
+        toast.error(`File size must be less than ${maxMb}MB`);
         return;
       }
       setSelectedFile(file);

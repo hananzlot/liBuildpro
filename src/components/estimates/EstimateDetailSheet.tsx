@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, User, MapPin, Mail, Phone, Calendar, DollarSign, FileText, Percent, PenTool, Upload, File, Trash2, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { useUploadLimit } from "@/hooks/useUploadLimit";
 
 interface EstimateDetailSheetProps {
   estimateId: string | null;
@@ -94,6 +95,7 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const { maxMb, validateFileSize } = useUploadLimit();
 
   // Fetch estimate details
   const { data: estimate, isLoading: loadingEstimate } = useQuery({
@@ -266,9 +268,8 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Validate file size (max 20MB)
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("File size must be less than 20MB");
+    if (!validateFileSize(file)) {
+      toast.error(`File size must be less than ${maxMb}MB`);
       return;
     }
     

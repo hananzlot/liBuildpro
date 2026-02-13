@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUploadLimit } from "@/hooks/useUploadLimit";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   const { user, isAdmin } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
+  const { maxMb, validateFileSize } = useUploadLimit();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -301,8 +303,8 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 20 * 1024 * 1024) {
-        toast.error("File size must be less than 20MB");
+      if (!validateFileSize(file)) {
+        toast.error(`File size must be less than ${maxMb}MB`);
         return;
       }
       setSelectedFile(file);
