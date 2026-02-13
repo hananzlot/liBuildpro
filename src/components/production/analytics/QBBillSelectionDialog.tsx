@@ -26,7 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertCircle, AlertTriangle, CheckCircle2, FileText, Loader2 } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, FileText, Link2, Loader2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { formatCurrencyWithDecimals } from "@/lib/utils";
 
@@ -42,6 +42,15 @@ interface QBBill {
   customerName?: string | null;
 }
 
+interface QBMatchingBillPayment {
+  qbBillPaymentId: string;
+  txnDate: string;
+  totalAmt: number;
+  docNumber: string | null;
+  payType: string | null;
+  billRefs: Array<{ billId: string; billDocNumber: string | null; amount: number }>;
+}
+
 interface QBBillSelectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -53,6 +62,7 @@ interface QBBillSelectionDialogProps {
   onCreateNew: () => void;
   onSkipSync?: () => void;
   onCancel: () => void;
+  onLinkExistingPayment?: (qbBillPaymentId: string) => void;
 }
 
 export function QBBillSelectionDialog({
@@ -66,10 +76,12 @@ export function QBBillSelectionDialog({
   onCreateNew,
   onSkipSync,
   onCancel,
+  onLinkExistingPayment,
 }: QBBillSelectionDialogProps) {
   const { companyId } = useCompanyContext();
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
-  const [submittingAction, setSubmittingAction] = useState<"select" | "create" | "skip" | null>(null);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+  const [submittingAction, setSubmittingAction] = useState<"select" | "create" | "skip" | "link" | null>(null);
   const [showCreateConfirm, setShowCreateConfirm] = useState(false);
 
   // Fetch unpaid QB bills for this vendor (optionally filtered by project customer)
@@ -91,6 +103,7 @@ export function QBBillSelectionDialog({
         vendorFound: boolean;
         vendorId: string | null;
         bills: QBBill[];
+        matchingBillPayments?: QBMatchingBillPayment[];
         projectCustomerId?: string | null;
         projectCustomerName?: string | null;
         hasProjectMapping?: boolean;
@@ -125,6 +138,7 @@ export function QBBillSelectionDialog({
   useEffect(() => {
     if (!open) {
       setSelectedBillId(null);
+      setSelectedPaymentId(null);
       setSubmittingAction(null);
       setShowCreateConfirm(false);
     }
@@ -134,10 +148,27 @@ export function QBBillSelectionDialog({
     return data?.bills?.find((b) => b.qbBillId === selectedBillId);
   }, [data?.bills, selectedBillId]);
 
+  // Filter matching bill payments to show amount-matched ones first
+  const matchingPayments = useMemo(() => {
+    if (!data?.matchingBillPayments?.length) return [];
+    return data.matchingBillPayments;
+  }, [data?.matchingBillPayments]);
+
+  const amountMatchedPayments = useMemo(() => {
+    return matchingPayments.filter((p) => Math.abs(p.totalAmt - localBillAmount) < 0.01);
+  }, [matchingPayments, localBillAmount]);
+
   const handleSelect = () => {
     if (selectedBill) {
       setSubmittingAction("select");
       onSelect(selectedBill.qbBillId, selectedBill.docNumber);
+    }
+  };
+
+  const handleLinkPayment = () => {
+    if (selectedPaymentId && onLinkExistingPayment) {
+      setSubmittingAction("link");
+      onLinkExistingPayment(selectedPaymentId);
     }
   };
 
@@ -180,6 +211,7 @@ export function QBBillSelectionDialog({
 
   const billCount = data?.bills?.length || 0;
   const vendorNotFound = !isLoading && data && !data.vendorFound;
+  const showPaymentsSection = !isLoading && data?.vendorFound && data.bills.length === 0 && matchingPayments.length > 0 && onLinkExistingPayment;
 
   return (
     <>
@@ -279,10 +311,89 @@ export function QBBillSelectionDialog({
                     <span className="text-sm">{data.paidBillsWarning}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2 p-4 rounded-lg bg-muted text-muted-foreground">
-                  <AlertCircle className="h-5 w-5" />
-                  <span>No unpaid bills found in QuickBooks for this vendor.</span>
+                {!showPaymentsSection && (
+                  <div className="flex items-center gap-2 p-4 rounded-lg bg-muted text-muted-foreground">
+                    <AlertCircle className="h-5 w-5" />
+                    <span>No unpaid bills found in QuickBooks for this vendor.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Matching QB BillPayments section */}
+            {showPaymentsSection && (
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
+                  <Link2 className="h-5 w-5 shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium">Existing payments found in QuickBooks</p>
+                    <p className="text-blue-700 dark:text-blue-300 mt-1">
+                      Select a payment below to link your local record to the existing QB payment — no new record will be created in QuickBooks.
+                    </p>
+                  </div>
                 </div>
+
+                <ScrollArea className="h-[220px] pr-4">
+                  <RadioGroup
+                    value={selectedPaymentId || ""}
+                    onValueChange={setSelectedPaymentId}
+                    className="space-y-2"
+                  >
+                    {/* Show amount-matched payments first */}
+                    {matchingPayments.map((payment) => {
+                      const isAmountMatch = Math.abs(payment.totalAmt - localBillAmount) < 0.01;
+                      const isSelected = payment.qbBillPaymentId === selectedPaymentId;
+                      
+                      return (
+                        <div
+                          key={payment.qbBillPaymentId}
+                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                            isSelected
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/50 hover:bg-muted/50"
+                          }`}
+                          onClick={() => setSelectedPaymentId(payment.qbBillPaymentId)}
+                        >
+                          <RadioGroupItem
+                            value={payment.qbBillPaymentId}
+                            id={`bp-${payment.qbBillPaymentId}`}
+                            className="mt-1"
+                          />
+                          <Label
+                            htmlFor={`bp-${payment.qbBillPaymentId}`}
+                            className="flex-1 cursor-pointer space-y-1"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                Payment #{payment.docNumber || payment.qbBillPaymentId}
+                              </span>
+                              {payment.txnDate && (
+                                <span className="text-muted-foreground text-sm">
+                                  — {format(parseISO(payment.txnDate), "MMM d, yyyy")}
+                                </span>
+                              )}
+                              {isAmountMatch && (
+                                <Badge variant="secondary" className="bg-green-500/20 text-green-700 flex items-center gap-1">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Amount matches
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>Amount: {formatCurrencyWithDecimals(payment.totalAmt)}</span>
+                              {payment.payType && <span>Type: {payment.payType}</span>}
+                            </div>
+                            {payment.billRefs.length > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                Applied to {payment.billRefs.length} bill{payment.billRefs.length > 1 ? "s" : ""}
+                              </div>
+                            )}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </RadioGroup>
+                </ScrollArea>
               </div>
             )}
 
@@ -363,21 +474,34 @@ export function QBBillSelectionDialog({
             <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button 
-              variant="secondary"
-              onClick={handleCreateNewClick} 
-              disabled={isSubmitting}
-            >
-              {submittingAction === "create" && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              Create New Bill in QB
-            </Button>
-            <Button 
-              onClick={handleSelect} 
-              disabled={!selectedBillId || !data?.bills?.length || isSubmitting}
-            >
-              {submittingAction === "select" && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              {submittingAction === "select" ? "Processing..." : "Select Bill"}
-            </Button>
+            {showPaymentsSection ? (
+              <Button 
+                onClick={handleLinkPayment} 
+                disabled={!selectedPaymentId || isSubmitting}
+              >
+                {submittingAction === "link" && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                <Link2 className="h-4 w-4 mr-1" />
+                {submittingAction === "link" ? "Linking..." : "Link to QB Payment"}
+              </Button>
+            ) : (
+              <>
+                <Button 
+                  variant="secondary"
+                  onClick={handleCreateNewClick} 
+                  disabled={isSubmitting}
+                >
+                  {submittingAction === "create" && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Create New Bill in QB
+                </Button>
+                <Button 
+                  onClick={handleSelect} 
+                  disabled={!selectedBillId || !data?.bills?.length || isSubmitting}
+                >
+                  {submittingAction === "select" && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  {submittingAction === "select" ? "Processing..." : "Select Bill"}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

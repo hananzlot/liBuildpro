@@ -351,12 +351,73 @@ Deno.serve(async (req) => {
       };
     });
 
+    // If no unpaid bills found, search for existing BillPayments that match the amount
+    // This allows linking a local payment to an existing QB payment instead of creating a duplicate
+    interface MatchingBillPayment {
+      qbBillPaymentId: string;
+      txnDate: string;
+      totalAmt: number;
+      docNumber: string | null;
+      payType: string | null;
+      billRefs: Array<{ billId: string; billDocNumber: string | null; amount: number }>;
+    }
+    let matchingBillPayments: MatchingBillPayment[] = [];
+    
+    if (unpaidBills.length === 0) {
+      try {
+        // Query BillPayments for this vendor
+        const bpQuery = `SELECT * FROM BillPayment WHERE VendorRef = '${vendorId}' ORDERBY TxnDate DESC MAXRESULTS 20`;
+        const bpUrl = `${QB_BASE_URL}/${realm_id}/query?query=${encodeURIComponent(bpQuery)}`;
+        console.log(`No unpaid bills found - searching for existing BillPayments: ${bpQuery}`);
+        
+        const bpRes = await fetch(bpUrl, { headers: qbHeaders });
+        if (bpRes.ok) {
+          const bpData = await bpRes.json();
+          const rawBPs = bpData.QueryResponse?.BillPayment || [];
+          console.log(`Found ${rawBPs.length} BillPayments for vendor ${vendorId}`);
+          
+          // deno-lint-ignore no-explicit-any
+          matchingBillPayments = rawBPs.map((bp: any) => {
+            // Extract bill references from the Line items
+            // deno-lint-ignore no-explicit-any
+            const billRefs = (bp.Line || [])
+              // deno-lint-ignore no-explicit-any
+              .filter((line: any) => line.LinkedTxn)
+              // deno-lint-ignore no-explicit-any
+              .flatMap((line: any) => 
+                // deno-lint-ignore no-explicit-any
+                (line.LinkedTxn || []).filter((lt: any) => lt.TxnType === "Bill").map((lt: any) => ({
+                  billId: lt.TxnId,
+                  billDocNumber: null, // We don't have this from the payment record
+                  amount: line.Amount || 0,
+                }))
+              );
+            
+            return {
+              qbBillPaymentId: bp.Id,
+              txnDate: bp.TxnDate || "",
+              totalAmt: bp.TotalAmt || 0,
+              docNumber: bp.DocNumber || null,
+              payType: bp.PayType || null,
+              billRefs,
+            };
+          });
+          
+          console.log(`Returning ${matchingBillPayments.length} BillPayments for potential linking`);
+        }
+      } catch (err) {
+        console.error("Error fetching BillPayments:", err);
+        // Non-fatal - just won't show matching payments
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         vendorFound: true,
         vendorId,
         bills,
+        matchingBillPayments,
         // Include mapping info for the frontend
         projectCustomerId: qbCustomerId,
         projectCustomerName: qbCustomerName,
