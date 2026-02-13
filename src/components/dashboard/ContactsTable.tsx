@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone, Mail, MapPin, ChevronUp, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useUnifiedMode } from "@/hooks/useUnifiedMode";
 import {
   Table,
   TableBody,
@@ -23,6 +24,7 @@ interface Contact {
   source: string | null;
   custom_fields?: unknown;
   ghl_date_added?: string | null;
+  company_id?: string | null;
 }
 
 interface Opportunity {
@@ -63,6 +65,7 @@ export function ContactsTable({
   users,
 }: ContactsTableProps) {
   const navigate = useNavigate();
+  const { isUnified, getCompanyName } = useUnifiedMode();
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
@@ -145,6 +148,7 @@ export function ContactsTable({
         <Table>
           <TableHeader>
             <TableRow>
+              {isUnified && <TableHead className="w-[70px]">Co.</TableHead>}
               <TableHead 
                 className="w-[22%] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('name')}
@@ -188,7 +192,7 @@ export function ContactsTable({
           <TableBody>
             {sortedContacts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={isUnified ? 7 : 6} className="text-center py-8 text-muted-foreground">
                   No contacts found
                 </TableCell>
               </TableRow>
@@ -203,6 +207,13 @@ export function ContactsTable({
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => navigate(`/contacts/${contact.id}`)}
                   >
+                    {isUnified && (
+                      <TableCell className="text-xs">
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                          {getCompanyName(contact.company_id)}
+                        </Badge>
+                      </TableCell>
+                    )}
                     <TableCell className="font-medium">
                       {getContactName(contact)}
                     </TableCell>
