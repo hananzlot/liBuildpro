@@ -2830,10 +2830,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return "";
   }, [showValidationErrors]);
 
-  // Tab order for navigation - exclude clarification in manual mode
-  const tabOrder: string[] = estimateMode === 'manual' 
-    ? ["customer", "scope", "payments", "terms"]
-    : ["customer", "scope", "clarification", "payments", "terms"];
+  // Tab order for navigation
+  const tabOrder = ["customer", "scope", "clarification", "payments", "terms"] as const;
 
   const handleNextTab = useCallback((currentTab: string, validation: { isValid: boolean; missing: string[] }) => {
     if (!validation.isValid) {
@@ -3100,10 +3098,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                         ) : null;
                       })()}
                     </TabsTrigger>
-                  </>
-                )}
-                {(groups.length > 0 || estimateMode === 'manual') && (
-                  <>
                     <TabsTrigger value="payments" className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4" />
                       Phases
@@ -4248,6 +4242,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           </div>
                         </div>
 
+
                         {/* Deposit */}
                         <div className="border rounded p-2 bg-background min-w-0">
                           <Label className="text-[10px] text-muted-foreground mb-0.5 block">Deposit (min of % or max $)</Label>
@@ -4653,13 +4648,11 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           }}
                         />
                       </div>
-                      {estimateMode !== 'manual' && (
-                        <>
                       <div className="flex items-center justify-between gap-4 pt-2 border-t">
                         <div className="space-y-0.5 flex-1">
-                          <Label className="text-xs">Show AI Line Items</Label>
+                          <Label className="text-xs">Show AI Generated Line Items</Label>
                           <p className="text-[10px] text-muted-foreground leading-tight">
-                            Show AI-generated line items to customer
+                            Show itemized scope breakdown (titles only)
                           </p>
                         </div>
                         <Switch
@@ -4676,9 +4669,9 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       </div>
                       <div className="flex items-center justify-between gap-4 pt-2 border-t">
                         <div className="space-y-0.5 flex-1">
-                          <Label className="text-xs">Show Detailed Breakdown</Label>
+                          <Label className="text-xs">Show AI Driven Line Item Details</Label>
                           <p className="text-[10px] text-muted-foreground leading-tight">
-                            Show detailed pricing breakdown per group
+                            Show qty, unit, and unit price per item
                           </p>
                         </div>
                         <Switch
@@ -4690,22 +4683,20 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           disabled={!formData.show_line_items_to_customer}
                         />
                       </div>
-                        </>
-                      )}
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">Terms & Conditions</CardTitle>
+                      <CardTitle className="text-sm font-medium">Internal Notes</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                       <Textarea
-                        value={formData.terms_and_conditions}
-                        onChange={(e) => setFormData({ ...formData, terms_and_conditions: e.target.value })}
-                        placeholder="Enter terms and conditions..."
-                        rows={6}
-                        disabled={isProposalReadOnly}
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        placeholder="Add internal notes (not visible to customer)..."
+                        rows={3}
+                        className="text-sm"
                       />
                     </CardContent>
                   </Card>
@@ -4714,17 +4705,135 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium">Notes to Customer</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                       <Textarea
                         value={formData.notes_to_customer}
                         onChange={(e) => setFormData({ ...formData, notes_to_customer: e.target.value })}
-                        placeholder="Enter notes visible to the customer..."
-                        rows={4}
-                        disabled={isProposalReadOnly}
+                        placeholder="Add notes that will be shown to the customer..."
+                        rows={3}
+                        className="text-sm"
                       />
                     </CardContent>
                   </Card>
 
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Terms & Conditions</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <Textarea
+                        value={formData.terms_and_conditions}
+                        onChange={(e) => setFormData({ ...formData, terms_and_conditions: e.target.value })}
+                        placeholder="Enter terms and conditions..."
+                        rows={5}
+                        className="text-sm"
+                        disabled={isProposalReadOnly}
+                      />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Photos Tab */}
+                <TabsContent value="photos" className="mt-0">
+                  {linkedProjectId ? (
+                    <PhotosSection 
+                      projectId={linkedProjectId} 
+                      uploadLimitMb={15}
+                      photoCategory="Estimate Photo"
+                      filterCategory="Estimate Photo"
+                      sectionTitle="Estimate Photos"
+                      estimateId={currentEstimateId || undefined}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center mb-4">
+                        <Image className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground mb-4">
+                        Save the estimate first to upload photos
+                      </p>
+                      <Button
+                        onClick={() => saveMutation.mutate()}
+                        disabled={saveMutation.isPending}
+                      >
+                        {saveMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Save & Continue
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Files Tab */}
+                <TabsContent value="files" className="mt-0">
+                  {linkedProjectId && currentEstimateId ? (
+                    <EstimateFilesSection
+                      projectId={linkedProjectId}
+                      estimateId={currentEstimateId}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center mb-4">
+                        <FileText className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground mb-4">
+                        Save the estimate first to upload files
+                      </p>
+                      <Button
+                        onClick={() => saveMutation.mutate()}
+                        disabled={saveMutation.isPending}
+                      >
+                        {saveMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Save & Continue
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+              </ScrollArea>
+            </Tabs>
+          </div>
+
+          {/* Right Sidebar - Totals with Profit Metrics */}
+          <div className="w-80 border-l bg-muted/30 p-4 overflow-y-auto">
+            <h3 className="font-semibold mb-4">Estimate Summary</h3>
+            
+            <div className="space-y-3 text-sm">
+              {/* Cost & Profit Section */}
+              <div className="p-3 bg-background rounded-lg border space-y-2">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Total Cost</span>
+                  <span>{formatCurrency(totals.totalCost)}</span>
+                </div>
+                <div className="flex justify-between text-green-600">
+                  <span>Gross Profit</span>
+                  <span className="font-medium">{formatCurrency(totals.grossProfit)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Margin</span>
+                  <span className={`font-medium ${totals.marginPercent >= 30 ? 'text-green-600' : totals.marginPercent >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
+                    {totals.marginPercent.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+
+              <Separator />
 
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal (Selling)</span>
@@ -4794,11 +4903,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 </div>
               </>
             )}
-                </TabsContent>
-              </ScrollArea>
-            </Tabs>
           </div>
-        </div>
         </div>
         </DialogContent>
       </Dialog>
