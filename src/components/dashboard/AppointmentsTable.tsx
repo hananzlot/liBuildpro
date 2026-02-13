@@ -900,21 +900,12 @@ export function AppointmentsTable({
              <TableHeader>
                <TableRow className="border-border/50 hover:bg-transparent">
                  <TableHead 
-                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[18%]"
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[28%]"
                    onClick={() => handleSort('contact')}
                  >
                    <div className="flex items-center">
-                     Contact
+                     Contact Info
                      <SortIcon column="contact" />
-                   </div>
-                 </TableHead>
-                 <TableHead 
-                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[16%]"
-                   onClick={() => handleSort('address')}
-                 >
-                   <div className="flex items-center">
-                     Address
-                     <SortIcon column="address" />
                    </div>
                  </TableHead>
                  <TableHead 
@@ -985,7 +976,7 @@ export function AppointmentsTable({
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -996,11 +987,11 @@ export function AppointmentsTable({
                     className="border-border/30 hover:bg-muted/30 cursor-pointer"
                     onClick={() => handleRowClick(appt)}
                   >
-                    <TableCell className="py-2">
+                     <TableCell className="py-2">
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1">
                           <span className="font-medium text-foreground text-sm truncate">
-                            {getContactName(appt.contact_id)}
+                            {getContactName(appt.contact_id, appt.contact_uuid)}
                           </span>
                           {isUpcoming(appt.start_time) && (
                             <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-[10px] px-1 py-0">
@@ -1009,15 +1000,15 @@ export function AppointmentsTable({
                           )}
                         </div>
                         <span className="text-xs text-muted-foreground truncate">
-                          {getContactPhone(appt.contact_id)}
+                          {getAddress(appt)}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate">
+                          {getContactPhone(appt.contact_id, appt.contact_uuid)}
                         </span>
                         <span className="text-xs text-muted-foreground/70 truncate italic">
                           {appt.title || 'Untitled'}
                         </span>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-xs truncate py-2">
-                      {getAddress(appt)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs py-2 whitespace-nowrap">
                        <span className="text-sm">{formatDateTime(appt.start_time)}</span>
