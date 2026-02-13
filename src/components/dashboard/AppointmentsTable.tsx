@@ -945,21 +945,12 @@ export function AppointmentsTable({
                    </div>
                  </TableHead>
                  <TableHead 
-                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[9%]"
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[16%]"
                    onClick={() => handleSort('oppStatus')}
                  >
                    <div className="flex items-center">
-                     Opp
+                     Opp / Stage
                      <SortIcon column="oppStatus" />
-                   </div>
-                 </TableHead>
-                 <TableHead 
-                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[12%]"
-                   onClick={() => handleSort('stage')}
-                 >
-                   <div className="flex items-center">
-                     Stage
-                     <SortIcon column="stage" />
                    </div>
                  </TableHead>
                  <TableHead 
@@ -976,7 +967,7 @@ export function AppointmentsTable({
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -1032,16 +1023,18 @@ export function AppointmentsTable({
                       {getContactSource(appt.contact_id)}
                     </TableCell>
                     <TableCell className="py-2">
-                      {getOpportunityStatus(appt.contact_id, appt.contact_uuid) !== '-' ? (
-                        <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getOpportunityStatusColor(getOpportunityStatus(appt.contact_id, appt.contact_uuid))}`}>
-                          {getOpportunityStatus(appt.contact_id, appt.contact_uuid)}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-xs truncate py-2">
-                      {getOpportunityStage(appt.contact_id, appt.contact_uuid)}
+                      <div className="flex flex-col gap-0.5">
+                        {getOpportunityStatus(appt.contact_id, appt.contact_uuid) !== '-' ? (
+                          <Badge variant="outline" className={`text-xs px-1.5 py-0 w-fit ${getOpportunityStatusColor(getOpportunityStatus(appt.contact_id, appt.contact_uuid))}`}>
+                            {getOpportunityStatus(appt.contact_id, appt.contact_uuid)}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">-</span>
+                        )}
+                        <span className="text-xs text-muted-foreground truncate">
+                          {getOpportunityStage(appt.contact_id, appt.contact_uuid)}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs py-2">
                       {formatCurrency(getOpportunityValue(appt.contact_id, appt.contact_uuid))}
