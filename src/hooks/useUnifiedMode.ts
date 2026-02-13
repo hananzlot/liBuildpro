@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useUnifiedModeStore } from "@/stores/useUnifiedModeStore";
 
 /**
  * Hook for Corp Admins/Viewers to toggle a "unified view" that shows
@@ -24,12 +25,8 @@ export function useUnifiedMode() {
   
   const canUnify = (isCorpAdmin || isCorpViewer) && !isSuperAdmin;
 
-  const [isUnified, setIsUnified] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return sessionStorage.getItem("unified_mode") === "true";
-    }
-    return false;
-  });
+  // Use Zustand store for shared state across all hook consumers
+  const { isUnified: isUnifiedRaw, toggleUnified: toggleUnifiedStore } = useUnifiedModeStore();
 
   const [corporationCompanies, setCorporationCompanies] = useState<CompanyInfo[]>([]);
 
@@ -57,23 +54,19 @@ export function useUnifiedMode() {
   }, [canUnify, company?.corporation_id]);
 
   const toggleUnified = useCallback(() => {
-    setIsUnified((prev) => {
-      const next = !prev;
-      sessionStorage.setItem("unified_mode", String(next));
-      return next;
-    });
-  }, []);
+    toggleUnifiedStore();
+  }, [toggleUnifiedStore]);
 
   // The list of company IDs to query
   const companyIds = useMemo(() => {
-    if (canUnify && isUnified && corporationCompanies.length > 0) {
+    if (canUnify && isUnifiedRaw && corporationCompanies.length > 0) {
       return corporationCompanies.map((c) => c.id);
     }
     return companyId ? [companyId] : [];
-  }, [canUnify, isUnified, corporationCompanies, companyId]);
+  }, [canUnify, isUnifiedRaw, corporationCompanies, companyId]);
 
   // The effective "active" state
-  const effectiveUnified = canUnify && isUnified && corporationCompanies.length > 1;
+  const effectiveUnified = canUnify && isUnifiedRaw && corporationCompanies.length > 1;
 
   // Company name lookup for badges
   const companyNameMap = useMemo(() => {
