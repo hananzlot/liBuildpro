@@ -909,21 +909,12 @@ export function AppointmentsTable({
                    </div>
                  </TableHead>
                  <TableHead 
-                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[13%] whitespace-nowrap"
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[18%] whitespace-nowrap"
                    onClick={() => handleSort('start')}
                  >
                    <div className="flex items-center">
-                     Start
+                     Date / Status
                      <SortIcon column="start" />
-                   </div>
-                 </TableHead>
-                 <TableHead 
-                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[11%]"
-                   onClick={() => handleSort('status')}
-                 >
-                   <div className="flex items-center">
-                     Status
-                     <SortIcon column="status" />
                    </div>
                  </TableHead>
                  <TableHead 
@@ -967,7 +958,7 @@ export function AppointmentsTable({
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -1001,19 +992,19 @@ export function AppointmentsTable({
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs py-2 whitespace-nowrap">
-                       <span className="text-sm">{formatDateTime(appt.start_time)}</span>
-                     </TableCell>
                     <TableCell className="py-2">
-                      <div className="flex items-center gap-1">
-                        <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getStatusColor(appt.appointment_status)}`}>
-                          {appt.appointment_status || 'Unknown'}
-                        </Badge>
-                        {appt.salesperson_confirmed && (
-                          <span title="Salesperson Confirmed" className="text-emerald-500">
-                            <PhoneCall className="h-3 w-3" />
-                          </span>
-                        )}
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm whitespace-nowrap">{formatDateTime(appt.start_time)}</span>
+                        <div className="flex items-center gap-1">
+                          <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getStatusColor(appt.appointment_status)}`}>
+                            {appt.appointment_status || 'Unknown'}
+                          </Badge>
+                          {appt.salesperson_confirmed && (
+                            <span title="Salesperson Confirmed" className="text-emerald-500">
+                              <PhoneCall className="h-3 w-3" />
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs truncate py-2">
