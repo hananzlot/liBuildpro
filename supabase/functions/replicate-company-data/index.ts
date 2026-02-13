@@ -263,6 +263,10 @@ serve(async (req) => {
     const newOpps = opps.map(o => {
       const newId = crypto.randomUUID();
       opportunityMap.set(o.id, newId);
+      // Also map by ghl_id for project_costs lookup
+      if (o.ghl_id) {
+        opportunityMap.set(o.ghl_id, newId);
+      }
       const { id, edited_by, edited_at, ...rest } = o;
       return {
         id: newId, ...rest,
@@ -410,18 +414,23 @@ serve(async (req) => {
     await batchInsert("bill_payments", newBillPayments);
     log(`  Copied ${newBillPayments.length} bill_payments`);
 
-    // project_costs
+    // project_costs (opportunity_id is GHL ID, need to map via ghl_id)
     const costs = await fetchAll("project_costs", SOURCE_COMPANY_ID);
     const newCosts = costs.map(c => {
       const { id, ...rest } = c;
+      // Look up the opportunity by ghl_id to find the new UUID
+      const newOppId = c.opportunity_id ? (opportunityMap.get(c.opportunity_id) || null) : null;
+      if (!newOppId && c.opportunity_id) {
+        log(`  WARN: project_costs ${c.id} has opportunity_id=${c.opportunity_id} but no mapping found`);
+      }
       return {
         ...rest,
         company_id: TARGET_COMPANY_ID,
-        opportunity_id: c.opportunity_id ? (opportunityMap.get(c.opportunity_id) || null) : null,
+        opportunity_id: newOppId,
       };
-    });
+    }).filter(c => c.opportunity_id !== null); // Skip costs with no mapped opportunity
     await batchInsert("project_costs", newCosts);
-    log(`  Copied ${newCosts.length} project_costs`);
+    log(`  Copied ${newCosts.length} project_costs (skipped ${costs.length - newCosts.length} with unmapped opportunities)`);
 
     // project_payment_phases
     const phases = await fetchAll("project_payment_phases", SOURCE_COMPANY_ID);
@@ -449,7 +458,8 @@ serve(async (req) => {
         company_id: TARGET_COMPANY_ID,
         contact_uuid: e.contact_uuid ? (contactMap.get(e.contact_uuid) || null) : null,
         project_id: e.project_id ? (projectMap.get(e.project_id) || null) : null,
-        opportunity_id: e.opportunity_id ? (opportunityMap.get(e.opportunity_id) || null) : null,
+        opportunity_uuid: e.opportunity_id ? (opportunityMap.get(e.opportunity_id) || null) : null,
+        opportunity_id: null,
         created_by: null,
       };
     });
