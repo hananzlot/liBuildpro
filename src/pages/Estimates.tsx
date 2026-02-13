@@ -277,7 +277,7 @@ export default function Estimates() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
       queryClient.invalidateQueries({ queryKey: ["opportunities"] });
       toast.success("Estimate deleted successfully");
     },
