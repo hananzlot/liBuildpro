@@ -238,6 +238,22 @@ const navSections: NavSection[] = [
         requiredFeature: 'production'
       },
       { 
+        title: "Outstanding AR", 
+        url: "/outstanding-ar", 
+        icon: FileText,
+        roles: ['super_admin', 'admin', 'production'],
+        requiredFeature: 'production',
+        dynamicSuffix: 'ar'
+      },
+      { 
+        title: "Outstanding AP", 
+        url: "/outstanding-ap", 
+        icon: Briefcase,
+        roles: ['super_admin', 'admin', 'production'],
+        requiredFeature: 'production',
+        dynamicSuffix: 'ap'
+      },
+      { 
         title: "Salespeople", 
         url: "/production?view=salespeople", 
         icon: Users,
@@ -699,27 +715,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         });
       }
       
-      // Add Outstanding AR/AP as separate nav items if user has access
-      if (hasOutstandingAR) {
-        items.push({
-          title: "Outstanding AR",
-          dynamicSuffix: "ar" as const,
-          url: "/outstanding-ar",
-          icon: FileText,
-          roles: ['super_admin', 'admin', 'production', 'dispatch', 'contract_manager', 'magazine', 'sales'],
-          requiredFeature: 'analytics',
-        });
-      }
-      if (hasOutstandingAP) {
-        items.push({
-          title: "Outstanding AP",
-          dynamicSuffix: "ap" as const,
-          url: "/outstanding-ap",
-          icon: Briefcase,
-          roles: ['super_admin', 'admin', 'production', 'dispatch', 'contract_manager', 'magazine', 'sales'],
-          requiredFeature: 'analytics',
-        });
-      }
+      // Outstanding AR/AP moved to Production section
       
       return { ...section, items };
     });
