@@ -32,6 +32,7 @@ import { AIGenerationProgress } from "./AIGenerationProgress";
 import { MissingInfoPanel, parseMissingInfo, groupByCategory, MultiSelectDropdown, type ParsedQuestion } from "./MissingInfoPanel";
 import { AISummaryCard } from "./AISummaryCard";
 import { PhotosSection } from "@/components/production/PhotosSection";
+import { EstimateFilesSection } from "./EstimateFilesSection";
 import { EmailSyncDialog } from "@/components/shared/EmailSyncDialog";
 
 import type { LinkedOpportunity } from "./EstimateSourceDialog";
@@ -3143,6 +3144,40 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     Upload Photos
                   </Button>
                 )}
+                {/* Files tab */}
+                {linkedProjectId ? (
+                  <TabsTrigger value="files" className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Files
+                  </TabsTrigger>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="flex items-center gap-2 h-9 px-3 text-sm font-medium"
+                    disabled={saveMutation.isPending || isProposalReadOnly}
+                    onClick={async () => {
+                      try {
+                        const savedId = await saveMutation.mutateAsync();
+                        if (savedId) {
+                          setTimeout(() => {
+                            setActiveTab("files");
+                          }, 300);
+                        }
+                      } catch (err) {
+                        // Error already handled by mutation
+                      }
+                    }}
+                  >
+                    {saveMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4" />
+                    )}
+                    Upload Files
+                  </Button>
+                )}
                 {/* Next button in tab bar */}
                 <TabBarNextButton />
               </TabsList>
@@ -4716,6 +4751,41 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       </div>
                       <p className="text-muted-foreground mb-4">
                         Save the estimate first to upload photos
+                      </p>
+                      <Button
+                        onClick={() => saveMutation.mutate()}
+                        disabled={saveMutation.isPending}
+                      >
+                        {saveMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Save & Continue
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Files Tab */}
+                <TabsContent value="files" className="mt-0">
+                  {linkedProjectId && currentEstimateId ? (
+                    <EstimateFilesSection
+                      projectId={linkedProjectId}
+                      estimateId={currentEstimateId}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center mb-4">
+                        <FileText className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground mb-4">
+                        Save the estimate first to upload files
                       </p>
                       <Button
                         onClick={() => saveMutation.mutate()}
