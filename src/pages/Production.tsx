@@ -950,6 +950,7 @@ export default function Production() {
           customer_first_name: "Test",
           customer_last_name: "Customer",
           project_address: "123 Test Street, Test City, CA 90210",
+          company_id: companyId,
         });
       if (error) throw error;
     },
