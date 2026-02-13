@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
       "notifications",
       "company_settings", "pipeline_stages", "salespeople",
       "subcontractors", "trades", "banks", "archived_sources",
+      "lead_sources", "project_statuses", "project_types",
     ];
 
     for (const table of deleteOrder) {
@@ -205,6 +206,45 @@ Deno.serve(async (req) => {
     });
     await batchInsert("archived_sources", newAS);
     log(`  Copied ${newAS.length} archived_sources`);
+
+    // lead_sources
+    try {
+      const leadSources = await fetchAll("lead_sources", SOURCE_COMPANY_ID);
+      const newLeadSources = leadSources.map(ls => {
+        const { id, ...rest } = ls;
+        return { ...rest, company_id: TARGET_COMPANY_ID };
+      });
+      await batchInsert("lead_sources", newLeadSources);
+      log(`  Copied ${newLeadSources.length} lead_sources`);
+    } catch (e) {
+      log(`  WARN lead_sources: ${e.message}`);
+    }
+
+    // project_statuses
+    try {
+      const statuses = await fetchAll("project_statuses", SOURCE_COMPANY_ID);
+      const newStatuses = statuses.map(s => {
+        const { id, ...rest } = s;
+        return { ...rest, company_id: TARGET_COMPANY_ID };
+      });
+      await batchInsert("project_statuses", newStatuses);
+      log(`  Copied ${newStatuses.length} project_statuses`);
+    } catch (e) {
+      log(`  WARN project_statuses: ${e.message}`);
+    }
+
+    // project_types
+    try {
+      const types = await fetchAll("project_types", SOURCE_COMPANY_ID);
+      const newTypes = types.map(t => {
+        const { id, ...rest } = t;
+        return { ...rest, company_id: TARGET_COMPANY_ID };
+      });
+      await batchInsert("project_types", newTypes);
+      log(`  Copied ${newTypes.length} project_types`);
+    } catch (e) {
+      log(`  WARN project_types: ${e.message}`);
+    }
 
     // compliance_document_templates
     const templates = await fetchAll("compliance_document_templates", SOURCE_COMPANY_ID);
