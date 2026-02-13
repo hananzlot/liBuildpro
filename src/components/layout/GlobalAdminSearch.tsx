@@ -4,6 +4,7 @@ import { Search, X, Briefcase, FolderKanban, FileText, CalendarCheck, Users, Dol
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useUnifiedMode } from "@/hooks/useUnifiedMode";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
@@ -95,8 +96,17 @@ export function GlobalAdminSearch() {
   const { companyId } = useCompanyContext();
   const { isAdmin, isProduction, isContractManager } = useAuth();
   const { openTab } = useAppTabs();
+  const { isUnified, companyIds, queryKeySuffix } = useUnifiedMode();
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+
+  // Helper to apply company filter - uses .in() for unified mode, .eq() otherwise
+  const applyCompanyFilter = (query: any) => {
+    if (isUnified && companyIds.length > 1) {
+      return query.in("company_id", companyIds);
+    }
+    return query.eq("company_id", companyId);
+  };
   
   // Determine which tabs are visible based on user role
   // Admin: all tabs
@@ -132,17 +142,16 @@ export function GlobalAdminSearch() {
 
   // Fetch opportunities for search
   const { data: opportunities = [] } = useQuery({
-    queryKey: ["global-search-opportunities", companyId],
+    queryKey: ["global-search-opportunities", queryKeySuffix],
     queryFn: async () => {
-      // IMPORTANT: Supabase defaults to 1000 rows per query.
-      // For large tenants, pagination is required or older opps will never appear in search.
       return fetchAllPages<Opportunity>(async (from, to) => {
-        const { data, error } = await supabase
+        let query = supabase
           .from("opportunities")
           .select(
             "ghl_id, name, status, monetary_value, pipeline_stage_id, stage_name, contact_id, ghl_date_added, address, opportunity_number"
-          )
-          .eq("company_id", companyId)
+          );
+        query = applyCompanyFilter(query);
+        const { data, error } = await query
           .order("ghl_date_added", { ascending: false })
           .range(from, to);
 
@@ -150,19 +159,20 @@ export function GlobalAdminSearch() {
         return data as Opportunity[];
       });
     },
-    enabled: !!companyId && isOpen,
+    enabled: (!!companyId || (isUnified && companyIds.length > 0)) && isOpen,
     staleTime: 60 * 1000,
   });
 
   // Fetch contacts for name lookups
   const { data: contacts = [] } = useQuery({
-    queryKey: ["global-search-contacts", companyId],
+    queryKey: ["global-search-contacts", queryKeySuffix],
     queryFn: async () => {
       return fetchAllPages<Contact>(async (from, to) => {
-        const { data, error } = await supabase
+        let query = supabase
           .from("contacts")
-          .select("id, ghl_id, contact_name, first_name, last_name, email, phone, custom_fields")
-          .eq("company_id", companyId)
+          .select("id, ghl_id, contact_name, first_name, last_name, email, phone, custom_fields");
+        query = applyCompanyFilter(query);
+        const { data, error } = await query
           .order("ghl_date_added", { ascending: false })
           .range(from, to);
 
@@ -170,58 +180,60 @@ export function GlobalAdminSearch() {
         return data as Contact[];
       });
     },
-    enabled: !!companyId && isOpen,
+    enabled: (!!companyId || (isUnified && companyIds.length > 0)) && isOpen,
     staleTime: 60 * 1000,
   });
 
   // Fetch appointments for address lookups and upcoming appointment checks
   const { data: appointments = [] } = useQuery({
-    queryKey: ["global-search-appointments", companyId],
+    queryKey: ["global-search-appointments", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("appointments")
-        .select("ghl_id, contact_id, address, start_time")
-        .eq("company_id", companyId)
-        .limit(1000);
+        .select("ghl_id, contact_id, address, start_time");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query.limit(1000);
       if (error) throw error;
       return data as Appointment[];
     },
-    enabled: !!companyId && isOpen,
+    enabled: (!!companyId || (isUnified && companyIds.length > 0)) && isOpen,
     staleTime: 60 * 1000,
   });
 
   // Fetch projects for search (also used for opportunity address lookup)
   const { data: projects = [] } = useQuery({
-    queryKey: ["global-search-projects", companyId],
+    queryKey: ["global-search-projects", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("projects")
-        .select("id, project_number, project_name, project_status, customer_first_name, customer_last_name, project_address, primary_salesperson, cell_phone, opportunity_id")
-        .eq("company_id", companyId)
+        .select("id, project_number, project_name, project_status, customer_first_name, customer_last_name, project_address, primary_salesperson, cell_phone, opportunity_id");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query
         .is("deleted_at", null)
         .order("project_number", { ascending: false })
         .limit(500);
       if (error) throw error;
       return data as (Project & { opportunity_id?: string | null })[];
     },
-    enabled: !!companyId && isOpen,
+    enabled: (!!companyId || (isUnified && companyIds.length > 0)) && isOpen,
     staleTime: 60 * 1000,
   });
 
   // Fetch estimates for search
   const { data: estimates = [] } = useQuery({
-    queryKey: ["global-search-estimates", companyId],
+    queryKey: ["global-search-estimates", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("estimates")
-        .select("id, estimate_number, customer_name, job_address, status, total, created_at")
-        .eq("company_id", companyId)
+        .select("id, estimate_number, customer_name, job_address, status, total, created_at");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query
         .order("created_at", { ascending: false })
         .limit(500);
       if (error) throw error;
       return data as Estimate[];
     },
-    enabled: !!companyId && isOpen,
+    enabled: (!!companyId || (isUnified && companyIds.length > 0)) && isOpen,
     staleTime: 60 * 1000,
   });
 
@@ -245,32 +257,30 @@ export function GlobalAdminSearch() {
   }
 
   const { data: financialMatches = [] } = useQuery({
-    queryKey: ["global-search-financials", companyId, parsedAmount],
+    queryKey: ["global-search-financials", queryKeySuffix, parsedAmount],
     queryFn: async (): Promise<FinancialMatch[]> => {
       if (!parsedAmount) return [];
       const results: FinancialMatch[] = [];
       
+      let billsQuery = supabase
+        .from("project_bills")
+        .select("id, project_id, bill_amount, installer_company, bill_ref");
+      billsQuery = applyCompanyFilter(billsQuery);
+      
+      let invoicesQuery = supabase
+        .from("project_invoices")
+        .select("id, project_id, amount, invoice_number");
+      invoicesQuery = applyCompanyFilter(invoicesQuery);
+      
+      let paymentsQuery = supabase
+        .from("project_payments")
+        .select("id, project_id, payment_amount, check_number");
+      paymentsQuery = applyCompanyFilter(paymentsQuery);
+
       const [billsRes, invoicesRes, paymentsRes] = await Promise.all([
-        supabase
-          .from("project_bills")
-          .select("id, project_id, bill_amount, installer_company, bill_ref")
-          .eq("company_id", companyId)
-          .eq("is_voided", false)
-          .eq("bill_amount", parsedAmount)
-          .limit(20),
-        supabase
-          .from("project_invoices")
-          .select("id, project_id, amount, invoice_number")
-          .eq("company_id", companyId)
-          .eq("amount", parsedAmount)
-          .limit(20),
-        supabase
-          .from("project_payments")
-          .select("id, project_id, payment_amount, check_number")
-          .eq("company_id", companyId)
-          .eq("is_voided", false)
-          .eq("payment_amount", parsedAmount)
-          .limit(20),
+        billsQuery.eq("is_voided", false).eq("bill_amount", parsedAmount).limit(20),
+        invoicesQuery.eq("amount", parsedAmount).limit(20),
+        paymentsQuery.eq("is_voided", false).eq("payment_amount", parsedAmount).limit(20),
       ]);
 
       billsRes.data?.forEach(b => {
@@ -303,7 +313,7 @@ export function GlobalAdminSearch() {
       
       return results;
     },
-    enabled: !!companyId && isOpen && parsedAmount !== null,
+    enabled: (!!companyId || (isUnified && companyIds.length > 0)) && isOpen && parsedAmount !== null,
     staleTime: 30 * 1000,
   });
 
