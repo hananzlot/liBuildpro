@@ -224,3 +224,6 @@ verify_jwt = false
 
 [functions.quickbooks-find-duplicates]
 verify_jwt = false
+
+[functions.replicate-company-data]
+verify_jwt = false
