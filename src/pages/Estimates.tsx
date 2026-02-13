@@ -45,6 +45,7 @@ interface Estimate {
   signed_at: string | null;
   declined_at: string | null;
   salesperson_name: string | null;
+  project_id: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -562,6 +563,16 @@ export default function Estimates() {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
+                      {estimate.project_id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenCustomerPortal(estimate.id)}
+                          title="Open Customer Portal"
+                        >
+                          <Globe className="h-4 w-4" />
+                        </Button>
+                      )}
                       {isProposalsTab ? (
                         <>
                           <Button
