@@ -990,6 +990,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       } else {
         setAiSummary({ ...emptyAiSummary });
       }
+
+      // Restore estimate mode and manual total from DB
+      if (est.estimate_mode === 'manual') {
+        setEstimateMode('manual');
+        setManualTotal((est as any).manual_total || 0);
+      } else {
+        setEstimateMode('ai');
+      }
     }
   }, [existingEstimate, wasManuallyCleared]);
 
@@ -2184,6 +2192,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         lead_source: linkedLeadSource || null,
         ai_analysis: aiAnalysisData,
         plans_file_url: plansFileUrl || null,
+        estimate_mode: estimateMode,
+        manual_total: estimateMode === 'manual' ? manualTotal : 0,
       };
       
       // Only set status for new estimates (not when editing)
