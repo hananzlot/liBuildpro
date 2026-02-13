@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Upload, File, Trash2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { useUploadLimit } from "@/hooks/useUploadLimit";
 
 interface ProposalUploadDialogProps {
   open: boolean;
@@ -35,6 +36,7 @@ export function ProposalUploadDialog({
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const { maxMb, validateFileSize } = useUploadLimit();
 
   // Fetch the estimate to get project_id
   const { data: estimate } = useQuery({
@@ -136,8 +138,8 @@ export function ProposalUploadDialog({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("File size must be less than 20MB");
+    if (!validateFileSize(file)) {
+      toast.error(`File size must be less than ${maxMb}MB`);
       return;
     }
 
