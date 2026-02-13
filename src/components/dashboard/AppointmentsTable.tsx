@@ -735,109 +735,89 @@ export function AppointmentsTable({
 
           {/* Summary Stats */}
           {dedupedAppointments.length > 0 && (
-            <div className="flex flex-wrap gap-4 pt-2 pb-2 border-t border-border/30 mt-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">Total Value:</span>
-                <Badge variant="default" className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                  {formatCurrency(summaryStats.totalValue)}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">Total Won:</span>
-                <Badge variant="default" className="text-xs bg-primary/20 text-primary border-primary/30">
-                  {formatCurrency(summaryStats.totalWonValue)}
-                </Badge>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">By Status:</span>
-                {summaryStats.byStatus.map(([status, data]) => (
-                  <Badge 
-                    key={status} 
-                    variant="outline" 
-                    className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${getStatusColor(status)} ${statusFilter.length === 1 && statusFilter[0] === status.toLowerCase() ? 'ring-2 ring-primary' : ''}`}
-                    onClick={() => {
-                      if (statusFilter.length === 1 && statusFilter[0] === status.toLowerCase()) {
-                        setStatusFilter([]);
-                      } else {
-                        setStatusFilter([status.toLowerCase()]);
-                      }
-                      setCurrentPage(1);
-                    }}
-                  >
-                    {status}: {data.total}/{data.unique}
+            <Collapsible className="border-t border-border/30 mt-2 pt-2">
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1.5 w-full justify-start">
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
+                  <span>Summary Stats</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-1">
+                    {formatCurrency(summaryStats.totalValue)}
                   </Badge>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">By Opp. Status:</span>
-                {summaryStats.byOppStatus.map(([status, data]) => (
-                  <Badge 
-                    key={status} 
-                    variant="outline" 
-                    className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${getOpportunityStatusColor(status)} ${oppStatusFilter.length === 1 && oppStatusFilter[0] === status.toLowerCase() ? 'ring-2 ring-primary' : ''}`}
-                    onClick={() => {
-                      // If it's already selected via the dropdown, keep it selected (don't toggle off)
-                      setOppStatusFilter([status.toLowerCase()]);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    {status}: {data.count} ({formatCurrency(data.value)})
-                  </Badge>
-                ))}
-              </div>
-              {summaryStats.wonBySource.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">Won By Source:</span>
-                  {summaryStats.wonBySource.map(([source, data]) => (
-                    <Badge 
-                      key={source} 
-                      variant="outline" 
-                      className={`text-xs cursor-pointer hover:opacity-80 transition-opacity bg-emerald-500/10 text-emerald-400 border-emerald-500/30 ${sourceFilter.length === 1 && sourceFilter[0] === source && oppStatusFilter.length === 1 && oppStatusFilter[0] === 'won' ? 'ring-2 ring-primary' : ''}`}
-                      onClick={() => {
-                        // Filter by both source and won status
-                        setSourceFilter([source]);
-                        setOppStatusFilter(['won']);
-                        setCurrentPage(1);
-                      }}
-                    >
-                      {source}: {data.count} ({formatCurrency(data.value)})
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="flex flex-wrap gap-4 pt-2 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">Total Value:</span>
+                    <Badge variant="default" className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                      {formatCurrency(summaryStats.totalValue)}
                     </Badge>
-                  ))}
-                </div>
-              )}
-              <Collapsible className="w-full">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">By Source:</span>
-                  {summaryStats.bySource.slice(0, 5).map(([source, data]) => (
-                    <Badge 
-                      key={source} 
-                      variant="outline" 
-                      className={`text-xs cursor-pointer hover:opacity-80 transition-opacity bg-background ${sourceFilter.length === 1 && sourceFilter[0] === source ? 'ring-2 ring-primary' : ''}`}
-                      onClick={() => {
-                        if (sourceFilter.length === 1 && sourceFilter[0] === source) {
-                          setSourceFilter([]);
-                        } else {
-                          setSourceFilter([source]);
-                        }
-                        setCurrentPage(1);
-                      }}
-                    >
-                      {source}: {data.count} ({formatCurrency(data.value)})
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">Total Won:</span>
+                    <Badge variant="default" className="text-xs bg-primary/20 text-primary border-primary/30">
+                      {formatCurrency(summaryStats.totalWonValue)}
                     </Badge>
-                  ))}
-                  {summaryStats.bySource.length > 5 && (
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1">
-                        <span>+{summaryStats.bySource.length - 5} more</span>
-                        <ChevronDown className="h-3 w-3 transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
-                      </Button>
-                    </CollapsibleTrigger>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">By Status:</span>
+                    {summaryStats.byStatus.map(([status, data]) => (
+                      <Badge 
+                        key={status} 
+                        variant="outline" 
+                        className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${getStatusColor(status)} ${statusFilter.length === 1 && statusFilter[0] === status.toLowerCase() ? 'ring-2 ring-primary' : ''}`}
+                        onClick={() => {
+                          if (statusFilter.length === 1 && statusFilter[0] === status.toLowerCase()) {
+                            setStatusFilter([]);
+                          } else {
+                            setStatusFilter([status.toLowerCase()]);
+                          }
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {status}: {data.total}/{data.unique}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">By Opp. Status:</span>
+                    {summaryStats.byOppStatus.map(([status, data]) => (
+                      <Badge 
+                        key={status} 
+                        variant="outline" 
+                        className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${getOpportunityStatusColor(status)} ${oppStatusFilter.length === 1 && oppStatusFilter[0] === status.toLowerCase() ? 'ring-2 ring-primary' : ''}`}
+                        onClick={() => {
+                          setOppStatusFilter([status.toLowerCase()]);
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {status}: {data.count} ({formatCurrency(data.value)})
+                      </Badge>
+                    ))}
+                  </div>
+                  {summaryStats.wonBySource.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">Won By Source:</span>
+                      {summaryStats.wonBySource.map(([source, data]) => (
+                        <Badge 
+                          key={source} 
+                          variant="outline" 
+                          className={`text-xs cursor-pointer hover:opacity-80 transition-opacity bg-emerald-500/10 text-emerald-400 border-emerald-500/30 ${sourceFilter.length === 1 && sourceFilter[0] === source && oppStatusFilter.length === 1 && oppStatusFilter[0] === 'won' ? 'ring-2 ring-primary' : ''}`}
+                          onClick={() => {
+                            setSourceFilter([source]);
+                            setOppStatusFilter(['won']);
+                            setCurrentPage(1);
+                          }}
+                        >
+                          {source}: {data.count} ({formatCurrency(data.value)})
+                        </Badge>
+                      ))}
+                    </div>
                   )}
-                </div>
-                <CollapsibleContent>
-                  <ScrollArea className="max-h-32 mt-2">
-                    <div className="flex flex-wrap gap-2 pl-[70px]">
-                      {summaryStats.bySource.slice(5).map(([source, data]) => (
+                  <Collapsible className="w-full">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">By Source:</span>
+                      {summaryStats.bySource.slice(0, 5).map(([source, data]) => (
                         <Badge 
                           key={source} 
                           variant="outline" 
@@ -854,34 +834,65 @@ export function AppointmentsTable({
                           {source}: {data.count} ({formatCurrency(data.value)})
                         </Badge>
                       ))}
+                      {summaryStats.bySource.length > 5 && (
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1">
+                            <span>+{summaryStats.bySource.length - 5} more</span>
+                            <ChevronDown className="h-3 w-3 transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
+                          </Button>
+                        </CollapsibleTrigger>
+                      )}
                     </div>
-                  </ScrollArea>
-                </CollapsibleContent>
-              </Collapsible>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">By Rep:</span>
-                {summaryStats.byRep.map((rep) => (
-                  <Badge 
-                    key={rep.id} 
-                    variant="outline" 
-                    className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${repFilter.length === 1 && repFilter[0] === rep.id ? 'ring-2 ring-primary' : ''}`}
-                    onClick={() => {
-                      if (repFilter.length === 1 && repFilter[0] === rep.id) {
-                        setRepFilter([]);
-                      } else {
-                        setRepFilter([rep.id]);
-                      }
-                      setCurrentPage(1);
-                    }}
-                  >
-                    {rep.name}: {rep.count} ({formatCurrency(rep.value)}
-                    {rep.wonValue > 0 && (
-                      <span className="text-emerald-400 ml-1">/ {formatCurrency(rep.wonValue)} won</span>
-                    )})
-                  </Badge>
-                ))}
-              </div>
-            </div>
+                    <CollapsibleContent>
+                      <ScrollArea className="max-h-32 mt-2">
+                        <div className="flex flex-wrap gap-2 pl-[70px]">
+                          {summaryStats.bySource.slice(5).map(([source, data]) => (
+                            <Badge 
+                              key={source} 
+                              variant="outline" 
+                              className={`text-xs cursor-pointer hover:opacity-80 transition-opacity bg-background ${sourceFilter.length === 1 && sourceFilter[0] === source ? 'ring-2 ring-primary' : ''}`}
+                              onClick={() => {
+                                if (sourceFilter.length === 1 && sourceFilter[0] === source) {
+                                  setSourceFilter([]);
+                                } else {
+                                  setSourceFilter([source]);
+                                }
+                                setCurrentPage(1);
+                              }}
+                            >
+                              {source}: {data.count} ({formatCurrency(data.value)})
+                            </Badge>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </CollapsibleContent>
+                  </Collapsible>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">By Rep:</span>
+                    {summaryStats.byRep.map((rep) => (
+                      <Badge 
+                        key={rep.id} 
+                        variant="outline" 
+                        className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${repFilter.length === 1 && repFilter[0] === rep.id ? 'ring-2 ring-primary' : ''}`}
+                        onClick={() => {
+                          if (repFilter.length === 1 && repFilter[0] === rep.id) {
+                            setRepFilter([]);
+                          } else {
+                            setRepFilter([rep.id]);
+                          }
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {rep.name}: {rep.count} ({formatCurrency(rep.value)}
+                        {rep.wonValue > 0 && (
+                          <span className="text-emerald-400 ml-1">/ {formatCurrency(rep.wonValue)} won</span>
+                        )})
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </CardHeader>
         <CardContent>
