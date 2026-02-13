@@ -3098,6 +3098,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                         ) : null;
                       })()}
                     </TabsTrigger>
+                  </>
+                )}
+                {(groups.length > 0 || estimateMode === 'manual') && (
+                  <>
                     <TabsTrigger value="payments" className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4" />
                       Phases
