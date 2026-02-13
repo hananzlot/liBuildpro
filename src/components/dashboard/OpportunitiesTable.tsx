@@ -1050,19 +1050,12 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[8%]"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[10%]"
                   onClick={() => handleSort("updatedDate")}
                 >
                   <div className="flex items-center truncate">
-                    Edited
+                    Edited / Appt
                     <SortIcon column="updatedDate" />
-                  </div>
-                </TableHead>
-
-                <TableHead className="text-muted-foreground w-[9%]">
-                  <div className="flex items-center gap-1 truncate">
-                    <Clock className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="truncate">Appt</span>
                   </div>
                 </TableHead>
                 <TableHead className="text-muted-foreground w-[10%]">
@@ -1088,7 +1081,7 @@ export function OpportunitiesTable({
             <TableBody>
               {paginatedOpportunities.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No opportunities found
                   </TableCell>
                 </TableRow>
@@ -1232,23 +1225,20 @@ export function OpportunitiesTable({
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-emerald-500 text-xs">{formatCurrency(opp.monetary_value)}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
-                        {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
-                      </TableCell>
-
                       <TableCell className="text-muted-foreground text-xs">
-                        {latestAppt ? (
-                          <div className="flex flex-col min-w-0">
-                            <span className="truncate">{formatAppointmentDateTime(latestAppt.start_time)}</span>
-                            {oppAppointments.length > 1 && (
-                              <span className="text-[10px] text-muted-foreground/70">
-                                +{oppAppointments.length - 1}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          "-"
-                        )}
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="whitespace-nowrap">
+                            {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
+                          </span>
+                          {latestAppt ? (
+                            <span className="truncate text-muted-foreground/70">
+                              {formatAppointmentDateTime(latestAppt.start_time)}
+                              {oppAppointments.length > 1 && ` +${oppAppointments.length - 1}`}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/50">No appt</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">
                         <div className="flex items-center gap-0.5 min-w-0">
