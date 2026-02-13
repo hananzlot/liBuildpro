@@ -1040,22 +1040,10 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
 
-                <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[7%]"
-                  onClick={() => handleSort("value")}
-                >
-                  <div className="flex items-center">
-                    Value
-                    <SortIcon column="value" />
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[10%]"
-                  onClick={() => handleSort("updatedDate")}
-                >
-                  <div className="flex items-center truncate">
-                    Edited / Appt
-                    <SortIcon column="updatedDate" />
+                <TableHead className="text-muted-foreground w-[12%]">
+                  <div className="flex items-center gap-1 truncate">
+                    <User className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="truncate">Rep / Dates</span>
                   </div>
                 </TableHead>
                 <TableHead className="text-muted-foreground w-[10%]">
@@ -1070,18 +1058,12 @@ export function OpportunitiesTable({
                     <span className="truncate">Task</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-muted-foreground w-[7%]">
-                  <div className="flex items-center gap-1 truncate">
-                    <User className="h-3.5 w-3.5 flex-shrink-0" />
-                    <span className="truncate">Rep</span>
-                  </div>
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedOpportunities.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     No opportunities found
                   </TableCell>
                 </TableRow>
@@ -1131,56 +1113,59 @@ export function OpportunitiesTable({
                       onClick={() => handleRowClick(opp)}
                     >
                       <TableCell className="font-medium truncate">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {overdueTask && (
-                            <span title="Has overdue task">
-                              <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
-                            </span>
-                          )}
-                          {opp.contact_id && contactsWithAppointments.has(opp.contact_id) ? (
-                            <button
-                              type="button"
-                              title="View appointment"
-                              className="p-0.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors flex-shrink-0"
-                              onClick={(e) => handleCalendarIconClick(e, opp, contact)}
-                            >
-                              <CalendarCheck className="h-3.5 w-3.5 text-emerald-500" />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              title="Create appointment"
-                              className="p-0.5 rounded hover:bg-muted transition-colors flex-shrink-0"
-                              onClick={(e) => handleCalendarIconClick(e, opp, contact)}
-                            >
-                              <CalendarX className="h-3.5 w-3.5 text-muted-foreground/50" />
-                            </button>
-                          )}
-                          {(() => {
-                            const scopeFromOpportunity = opp.scope_of_work;
-                            const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
-                            const scopeFromAttributions = (() => {
-                              if (!contact?.attributions) return null;
-                              const attrs = contact.attributions as Array<{ utmCampaign?: string }>;
-                              const campaign = attrs.find(a => a.utmCampaign)?.utmCampaign;
-                              return campaign || null;
-                            })();
-                            const scopeOfWork = scopeFromOpportunity || scopeFromCustomField || scopeFromAttributions;
-                            
-                            return scopeOfWork ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="cursor-help underline decoration-dotted underline-offset-2 truncate">{displayName}</span>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
-                                  <p className="font-semibold mb-1">Scope of Work:</p>
-                                  <p>{scopeOfWork}</p>
-                                </TooltipContent>
-                              </Tooltip>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {overdueTask && (
+                              <span title="Has overdue task">
+                                <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
+                              </span>
+                            )}
+                            {opp.contact_id && contactsWithAppointments.has(opp.contact_id) ? (
+                              <button
+                                type="button"
+                                title="View appointment"
+                                className="p-0.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors flex-shrink-0"
+                                onClick={(e) => handleCalendarIconClick(e, opp, contact)}
+                              >
+                                <CalendarCheck className="h-3.5 w-3.5 text-emerald-500" />
+                              </button>
                             ) : (
-                              <span className="truncate" title={displayName}>{displayName}</span>
-                            );
-                          })()}
+                              <button
+                                type="button"
+                                title="Create appointment"
+                                className="p-0.5 rounded hover:bg-muted transition-colors flex-shrink-0"
+                                onClick={(e) => handleCalendarIconClick(e, opp, contact)}
+                              >
+                                <CalendarX className="h-3.5 w-3.5 text-muted-foreground/50" />
+                              </button>
+                            )}
+                            {(() => {
+                              const scopeFromOpportunity = opp.scope_of_work;
+                              const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+                              const scopeFromAttributions = (() => {
+                                if (!contact?.attributions) return null;
+                                const attrs = contact.attributions as Array<{ utmCampaign?: string }>;
+                                const campaign = attrs.find(a => a.utmCampaign)?.utmCampaign;
+                                return campaign || null;
+                              })();
+                              const scopeOfWork = scopeFromOpportunity || scopeFromCustomField || scopeFromAttributions;
+                              
+                              return scopeOfWork ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-help underline decoration-dotted underline-offset-2 truncate">{displayName}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
+                                    <p className="font-semibold mb-1">Scope of Work:</p>
+                                    <p>{scopeOfWork}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <span className="truncate" title={displayName}>{displayName}</span>
+                              );
+                            })()}
+                          </div>
+                          <span className="font-mono text-emerald-500 text-xs">{formatCurrency(opp.monetary_value)}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs truncate">
@@ -1224,20 +1209,16 @@ export function OpportunitiesTable({
                           </Badge>
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-emerald-500 text-xs">{formatCurrency(opp.monetary_value)}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">
                         <div className="flex flex-col gap-0.5 min-w-0">
-                          <span className="whitespace-nowrap">
-                            {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
-                          </span>
-                          {latestAppt ? (
-                            <span className="truncate text-muted-foreground/70">
+                          <span className="truncate"><span className="text-muted-foreground/70">Rep:</span> {salesRepName || "-"}</span>
+                          <span className="whitespace-nowrap"><span className="text-muted-foreground/70">Edit:</span> {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}</span>
+                          <span className="truncate"><span className="text-muted-foreground/70">Appt:</span> {latestAppt ? (
+                            <>
                               {formatAppointmentDateTime(latestAppt.start_time)}
                               {oppAppointments.length > 1 && ` +${oppAppointments.length - 1}`}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground/50">No appt</span>
-                          )}
+                            </>
+                          ) : "-"}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">
@@ -1297,7 +1278,6 @@ export function OpportunitiesTable({
                           </Button>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-xs truncate" title={salesRepName || "-"}>{salesRepName || "-"}</TableCell>
                     </TableRow>
                   );
                 })
