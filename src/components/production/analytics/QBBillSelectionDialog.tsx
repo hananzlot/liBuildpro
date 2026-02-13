@@ -95,6 +95,7 @@ export function QBBillSelectionDialog({
         projectCustomerName?: string | null;
         hasProjectMapping?: boolean;
         customerFilterWarning?: string | null;
+        paidBillsWarning?: string | null;
         error?: string;
         message?: string;
       };
@@ -271,9 +272,17 @@ export function QBBillSelectionDialog({
 
             {/* No bills found */}
             {!isLoading && data?.vendorFound && data.bills.length === 0 && (
-              <div className="flex items-center gap-2 p-4 rounded-lg bg-muted text-muted-foreground">
-                <AlertCircle className="h-5 w-5" />
-                <span>No unpaid bills found in QuickBooks for this vendor.</span>
+              <div className="space-y-2">
+                {data.paidBillsWarning && (
+                  <div className="flex items-start gap-2 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+                    <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                    <span className="text-sm">{data.paidBillsWarning}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 p-4 rounded-lg bg-muted text-muted-foreground">
+                  <AlertCircle className="h-5 w-5" />
+                  <span>No unpaid bills found in QuickBooks for this vendor.</span>
+                </div>
               </div>
             )}
 

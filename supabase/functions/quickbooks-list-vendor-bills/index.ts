@@ -325,7 +325,14 @@ Deno.serve(async (req) => {
     
     // Filter to only include bills with a positive balance (unpaid)
     const unpaidBills = rawBills.filter((bill) => (bill.Balance || 0) > 0);
-    console.log(`${unpaidBills.length} bills have balance > 0`);
+    const paidBills = rawBills.filter((bill) => (bill.Balance || 0) === 0);
+    console.log(`${unpaidBills.length} bills have balance > 0, ${paidBills.length} bills are fully paid`);
+
+    // If no unpaid bills but there are paid bills, add a warning
+    let paidBillsWarning: string | null = null;
+    if (unpaidBills.length === 0 && paidBills.length > 0) {
+      paidBillsWarning = `Found ${paidBills.length} bill(s) for this vendor in QuickBooks, but they are all fully paid (Balance = $0). The bill may have already been paid in QuickBooks.`;
+    }
 
     // Map to our response format - include customer info for display (derived from the first line ref)
     const bills = unpaidBills.map((bill) => {
@@ -355,6 +362,7 @@ Deno.serve(async (req) => {
         projectCustomerName: qbCustomerName,
         hasProjectMapping: !!qbCustomerId,
         customerFilterWarning,
+        paidBillsWarning,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
