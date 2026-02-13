@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanyContext } from '@/hooks/useCompanyContext';
@@ -32,7 +32,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle, Eye, EyeOff, RotateCcw } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle, Eye, EyeOff, RotateCcw, ChevronUp, ChevronDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -70,6 +70,8 @@ export function SalespeopleManagement() {
     }
     return query.eq("company_id", companyId);
   }, [isUnified, companyIds, companyId]);
+  const [sortField, setSortField] = useState<'name' | 'company' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [editingSalesperson, setEditingSalesperson] = useState<Salesperson | null>(null);
@@ -123,6 +125,24 @@ export function SalespeopleManagement() {
     },
     enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
+
+  const sortedSalespeople = useMemo(() => {
+    if (!sortField) return salespeople;
+    return [...salespeople].sort((a, b) => {
+      let aVal = '';
+      let bVal = '';
+      if (sortField === 'name') {
+        aVal = (a.name || '').toLowerCase();
+        bVal = (b.name || '').toLowerCase();
+      } else if (sortField === 'company') {
+        aVal = (getCompanyName(a.company_id) || '').toLowerCase();
+        bVal = (getCompanyName(b.company_id) || '').toLowerCase();
+      }
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [salespeople, sortField, sortDirection, getCompanyName]);
 
   // Restore archived salesperson mutation
   const restoreMutation = useMutation({
@@ -811,8 +831,32 @@ export function SalespeopleManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  {isUnified && <TableHead className="w-[80px]">Co.</TableHead>}
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => {
+                      if (sortField === 'name') setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+                      else { setSortField('name'); setSortDirection('asc'); }
+                    }}
+                  >
+                    <div className="flex items-center">
+                      Name
+                      {sortField === 'name' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />)}
+                    </div>
+                  </TableHead>
+                  {isUnified && (
+                    <TableHead 
+                      className="w-[80px] cursor-pointer hover:bg-muted/50"
+                      onClick={() => {
+                        if (sortField === 'company') setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+                        else { setSortField('company'); setSortDirection('asc'); }
+                      }}
+                    >
+                      <div className="flex items-center">
+                        Co.
+                        {sortField === 'company' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />)}
+                      </div>
+                    </TableHead>
+                  )}
                   <TableHead className="hidden sm:table-cell">Phone</TableHead>
                   <TableHead className="hidden md:table-cell">Email</TableHead>
                   
@@ -820,7 +864,7 @@ export function SalespeopleManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {salespeople.map((person) => {
+                {sortedSalespeople.map((person) => {
                   const hasToken = portalTokens.some(t => t.salesperson_id === person.id);
                   const isCopied = copiedId === person.id;
                   const isGenerating = generatingFor === person.id;
