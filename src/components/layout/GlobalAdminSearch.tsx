@@ -247,7 +247,7 @@ export function GlobalAdminSearch() {
     return null;
   }, [searchQuery]);
 
-  // Fetch financial records matching dollar amount
+  // Fetch financial records matching dollar amount or reference number
   interface FinancialMatch {
     project_id: string;
     record_id: string;
@@ -256,6 +256,16 @@ export function GlobalAdminSearch() {
     description: string;
     trx_date: string | null;
   }
+
+  // Detect if search looks like a reference/check number (alphanumeric, not a pure dollar amount)
+  const refSearchQuery = useMemo(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed || trimmed.length < 2) return null;
+    // If it's a dollar amount, skip ref search
+    if (parsedAmount !== null) return null;
+    // Remove leading # if present
+    return trimmed.replace(/^#/, '');
+  }, [searchQuery, parsedAmount]);
 
   const { data: financialMatches = [] } = useQuery({
     queryKey: ["global-search-financials", queryKeySuffix, parsedAmount],
@@ -349,6 +359,113 @@ export function GlobalAdminSearch() {
     staleTime: 30 * 1000,
   });
 
+  // Search financial records by reference/check number
+  const { data: refFinancialMatches = [] } = useQuery({
+    queryKey: ["global-search-financials-ref", queryKeySuffix, refSearchQuery],
+    queryFn: async (): Promise<FinancialMatch[]> => {
+      if (!refSearchQuery) return [];
+      const results: FinancialMatch[] = [];
+
+      let paymentsQuery = supabase
+        .from("project_payments")
+        .select("id, project_id, payment_amount, check_number, created_at");
+      paymentsQuery = applyCompanyFilter(paymentsQuery);
+
+      let billPaymentsQuery = supabase
+        .from("bill_payments")
+        .select("id, bill_id, payment_amount, payment_date, payment_reference");
+      billPaymentsQuery = applyCompanyFilter(billPaymentsQuery);
+
+      let invoicesQuery = supabase
+        .from("project_invoices")
+        .select("id, project_id, amount, invoice_number, invoice_date");
+      invoicesQuery = applyCompanyFilter(invoicesQuery);
+
+      let billsQuery = supabase
+        .from("project_bills")
+        .select("id, project_id, bill_amount, installer_company, bill_ref, created_at");
+      billsQuery = applyCompanyFilter(billsQuery);
+
+      const [paymentsRes, billPaymentsRes, invoicesRes, billsRes] = await Promise.all([
+        paymentsQuery.eq("is_voided", false).eq("check_number", refSearchQuery).limit(20),
+        billPaymentsQuery.eq("payment_reference", refSearchQuery).limit(20),
+        invoicesQuery.eq("invoice_number", refSearchQuery).limit(20),
+        billsQuery.eq("is_voided", false).eq("bill_ref", refSearchQuery).limit(20),
+      ]);
+
+      paymentsRes.data?.forEach(p => {
+        if (p.project_id) results.push({
+          project_id: p.project_id,
+          record_id: p.id,
+          amount: p.payment_amount!,
+          type: 'payment',
+          description: p.check_number ? `Check #${p.check_number}` : 'Payment',
+          trx_date: p.created_at,
+        });
+      });
+
+      invoicesRes.data?.forEach(i => {
+        if (i.project_id) results.push({
+          project_id: i.project_id,
+          record_id: i.id,
+          amount: i.amount!,
+          type: 'invoice',
+          description: `Invoice #${i.invoice_number}`,
+          trx_date: i.invoice_date,
+        });
+      });
+
+      billsRes.data?.forEach(b => {
+        if (b.project_id) results.push({
+          project_id: b.project_id,
+          record_id: b.id,
+          amount: b.bill_amount!,
+          type: 'bill',
+          description: [b.installer_company, b.bill_ref].filter(Boolean).join(' • ') || 'Bill',
+          trx_date: b.created_at,
+        });
+      });
+
+      // Resolve bill payments to projects
+      if (billPaymentsRes.data?.length) {
+        const billIds = [...new Set(billPaymentsRes.data.map(bp => bp.bill_id))];
+        const { data: bills } = await supabase
+          .from("project_bills")
+          .select("id, project_id")
+          .in("id", billIds);
+        const billProjectMap = new Map(bills?.map(b => [b.id, b.project_id]) || []);
+        
+        billPaymentsRes.data.forEach(bp => {
+          const projectId = billProjectMap.get(bp.bill_id);
+          if (projectId) results.push({
+            project_id: projectId,
+            record_id: bp.id,
+            amount: bp.payment_amount!,
+            type: 'bill_payment',
+            description: bp.payment_reference ? `Bill Pmt Ref #${bp.payment_reference}` : 'Bill Payment',
+            trx_date: bp.payment_date,
+          });
+        });
+      }
+
+      return results;
+    },
+    enabled: (!!companyId || (isUnified && companyIds.length > 0)) && isOpen && refSearchQuery !== null,
+    staleTime: 30 * 1000,
+  });
+
+  // Combine amount-based and ref-based financial matches
+  const allFinancialMatches = useMemo(() => {
+    const combined = [...financialMatches, ...refFinancialMatches];
+    // Deduplicate by record_id
+    const seen = new Set<string>();
+    return combined.filter(m => {
+      if (seen.has(m.record_id)) return false;
+      seen.add(m.record_id);
+      return true;
+    });
+  }, [financialMatches, refFinancialMatches]);
+
   const normalizePhone = (phone: string | null | undefined): string => {
     if (!phone) return "";
     return phone.replace(/\D/g, "");
@@ -421,13 +538,13 @@ export function GlobalAdminSearch() {
   // Build a map of project IDs to their financial matches
   const financialMatchesByProject = useMemo(() => {
     const map = new Map<string, FinancialMatch[]>();
-    for (const match of financialMatches) {
+    for (const match of allFinancialMatches) {
       const existing = map.get(match.project_id) || [];
       existing.push(match);
       map.set(match.project_id, existing);
     }
     return map;
-  }, [financialMatches]);
+  }, [allFinancialMatches]);
 
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -662,7 +779,7 @@ export function GlobalAdminSearch() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, address, phone, project #, or $ amount..."
+              placeholder="Name, address, phone, project #, $ amount, check #..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-9"
