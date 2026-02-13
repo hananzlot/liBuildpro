@@ -1031,11 +1031,11 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[9%]"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[10%]"
                   onClick={() => handleSort("source")}
                 >
                   <div className="flex items-center truncate">
-                    Source
+                    Source / Status
                     <SortIcon column="source" />
                   </div>
                 </TableHead>
@@ -1047,24 +1047,6 @@ export function OpportunitiesTable({
                   <div className="flex items-center">
                     Value
                     <SortIcon column="value" />
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[7%]"
-                  onClick={() => handleSort("status")}
-                >
-                  <div className="flex items-center">
-                    Status
-                    <SortIcon column="status" />
-                  </div>
-                </TableHead>
-                <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[8%]"
-                  onClick={() => handleSort("createdDate")}
-                >
-                  <div className="flex items-center truncate">
-                    Created
-                    <SortIcon column="createdDate" />
                   </div>
                 </TableHead>
                 <TableHead
@@ -1106,7 +1088,7 @@ export function OpportunitiesTable({
             <TableBody>
               {paginatedOpportunities.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     No opportunities found
                   </TableCell>
                 </TableRow>
@@ -1238,17 +1220,18 @@ export function OpportunitiesTable({
                           );
                         })()}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-xs truncate" title={contact?.source || "-"}>{contact?.source || "-"}</TableCell>
-
+                      <TableCell className="text-xs">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-muted-foreground truncate" title={contact?.source || "-"}>{contact?.source || "-"}</span>
+                          <span className="text-muted-foreground whitespace-nowrap">
+                            {contactDate ? new Date(contactDate).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
+                          </span>
+                          <Badge variant="outline" className={cn(getStatusColor(opp.status), "text-xs px-1.5 py-0 w-fit")}>
+                            {opp.status || "?"}
+                          </Badge>
+                        </div>
+                      </TableCell>
                       <TableCell className="font-mono text-emerald-500 text-xs">{formatCurrency(opp.monetary_value)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={cn(getStatusColor(opp.status), "text-xs px-1.5 py-0")}>
-                          {opp.status || "?"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
-                        {contactDate ? new Date(contactDate).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
-                      </TableCell>
                       <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                         {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
                       </TableCell>
