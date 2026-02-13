@@ -40,7 +40,10 @@ export default function SuperAdminTenants() {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteCompany, setInviteCompany] = useState<{ id: string; name: string } | null>(null);
   const [featuresOpen, setFeaturesOpen] = useState(false);
+  const [newCorpName, setNewCorpName] = useState('');
+  const [isCreatingCorp, setIsCreatingCorp] = useState(false);
   const [editForm, setEditForm] = useState({
+    company_name: '',
     corporation_id: '' as string,
     plan_id: '',
     status: '' as SubscriptionStatus | '',
@@ -194,7 +197,10 @@ export default function SuperAdminTenants() {
   const handleEditClick = (company: CompanyWithSubscription) => {
     setSelectedCompany(company);
     setFeaturesOpen(false);
+    setNewCorpName('');
+    setIsCreatingCorp(false);
     setEditForm({
+      company_name: company.name,
       corporation_id: company.corporation_id || '',
       plan_id: company.subscription?.plan_id || '',
       status: company.subscription?.status || 'active',
@@ -214,8 +220,36 @@ export default function SuperAdminTenants() {
       return;
     }
 
+    // Update company name if changed
+    if (editForm.company_name.trim() && editForm.company_name.trim() !== selectedCompany.name) {
+      const { error: nameError } = await supabase
+        .from('companies')
+        .update({ name: editForm.company_name.trim() })
+        .eq('id', selectedCompany.id);
+      if (nameError) {
+        toast.error('Failed to update company name');
+        return;
+      }
+    }
+
+    // Handle new corporation creation if needed
+    let newCorpId: string | null = editForm.corporation_id || null;
+    if (isCreatingCorp && newCorpName.trim()) {
+      const slug = newCorpName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const { data: newCorp, error: createCorpError } = await supabase
+        .from('corporations')
+        .insert({ name: newCorpName.trim(), slug })
+        .select('id')
+        .single();
+      if (createCorpError) {
+        toast.error('Failed to create corporation: ' + createCorpError.message);
+        return;
+      }
+      newCorpId = newCorp.id;
+      queryClient.invalidateQueries({ queryKey: ['corporations'] });
+    }
+
     // Update corporation_id on the company and cascade to users
-    const newCorpId = editForm.corporation_id || null;
     if (newCorpId !== (selectedCompany.corporation_id || null)) {
       const { error: corpError } = await supabase
         .from('companies')
@@ -226,7 +260,6 @@ export default function SuperAdminTenants() {
         return;
       }
 
-      // Update all users associated with this company to match the new corporation_id
       const { error: usersError } = await supabase
         .from('profiles')
         .update({ corporation_id: newCorpId })
@@ -441,24 +474,58 @@ export default function SuperAdminTenants() {
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {/* Company Name */}
+              <div className="space-y-2">
+                <Label>Company Name</Label>
+                <Input
+                  value={editForm.company_name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, company_name: e.target.value }))}
+                  placeholder="Company name"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label>Corporation</Label>
-                <Select 
-                  value={editForm.corporation_id || 'none'} 
-                  onValueChange={(v) => setEditForm(prev => ({ ...prev, corporation_id: v === 'none' ? '' : v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select corporation (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {corporations?.map((corp) => (
-                      <SelectItem key={corp.id} value={corp.id}>
-                        {corp.name}
+                {isCreatingCorp ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={newCorpName}
+                      onChange={(e) => setNewCorpName(e.target.value)}
+                      placeholder="New corporation name"
+                      autoFocus
+                    />
+                    <Button variant="outline" size="sm" onClick={() => { setIsCreatingCorp(false); setNewCorpName(''); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Select 
+                    value={editForm.corporation_id || 'none'} 
+                    onValueChange={(v) => {
+                      if (v === '__new__') {
+                        setIsCreatingCorp(true);
+                        setEditForm(prev => ({ ...prev, corporation_id: '' }));
+                      } else {
+                        setEditForm(prev => ({ ...prev, corporation_id: v === 'none' ? '' : v }));
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select corporation (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {corporations?.map((corp) => (
+                        <SelectItem key={corp.id} value={corp.id}>
+                          {corp.name}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__new__" className="text-primary font-medium">
+                        + Create New Corporation
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="space-y-2">
