@@ -24,6 +24,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -40,6 +49,7 @@ import {
   Ban,
   ShieldOff,
   Trash2,
+  KeyRound,
 } from "lucide-react";
 import type { AppRole } from "@/contexts/AuthContext";
 
@@ -85,6 +95,8 @@ export default function SuperAdminUsers() {
   const [openCompanies, setOpenCompanies] = useState<Set<string>>(new Set());
   const [deleteTarget, setDeleteTarget] = useState<ProfileRow | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<{ user: ProfileRow; suspend: boolean } | null>(null);
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<ProfileRow | null>(null);
+  const [newPassword, setNewPassword] = useState("");
   const queryClient = useQueryClient();
 
   // Fetch all data in parallel
@@ -200,6 +212,25 @@ export default function SuperAdminUsers() {
     onSuccess: (_, variables) => {
       toast.success(variables.suspend ? "User suspended" : "User unsuspended");
       setSuspendTarget(null);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+      const { data, error } = await supabase.functions.invoke("update-user-password", {
+        body: { userId, password },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Password reset successfully");
+      setResetPasswordTarget(null);
+      setNewPassword("");
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -465,6 +496,12 @@ export default function SuperAdminUsers() {
                                             Unsuspend User
                                           </DropdownMenuItem>
                                           <DropdownMenuItem
+                                            onClick={() => setResetPasswordTarget(user)}
+                                          >
+                                            <KeyRound className="h-4 w-4 mr-2" />
+                                            Reset Password
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
                                             onClick={() => setDeleteTarget(user)}
                                             className="text-destructive focus:text-destructive"
                                           >
@@ -546,6 +583,60 @@ export default function SuperAdminUsers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog
+        open={!!resetPasswordTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setResetPasswordTarget(null);
+            setNewPassword("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Set a new password for{" "}
+              <strong>{resetPasswordTarget?.full_name || resetPasswordTarget?.email}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="new-password">New Password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              placeholder="Minimum 6 characters"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResetPasswordTarget(null);
+                setNewPassword("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() =>
+                resetPasswordTarget &&
+                resetPasswordMutation.mutate({
+                  userId: resetPasswordTarget.id,
+                  password: newPassword,
+                })
+              }
+              disabled={resetPasswordMutation.isPending || newPassword.length < 6}
+            >
+              {resetPasswordMutation.isPending ? "Resetting…" : "Reset Password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SuperAdminLayout>
   );
 }
