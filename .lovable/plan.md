@@ -1,73 +1,94 @@
 
 
-# Professional Dashboard Redesign
+# Replicate CA Pro Builders Data to Demo Co #1
 
-## Current Issues
-The Dispatch Dashboard has several layout problems that make it feel unprofessional:
+## Overview
+Copy all records from CA Pro Builders (source) to Demo Co #1 (target) across 30+ tables, including admin settings and encrypted API keys (Resend, Twilio, OpenAI). Demo Co #1's existing data will be cleared first. GHL-specific data will be skipped.
 
-1. **Oversized KPI cards** (~136px tall each) with decorative circles and excessive padding take up too much vertical space
-2. **Inconsistent card styles** -- some KPIs are `ClickableMetricCard` components, others are inline custom divs (Appointments, Activity) with different internal layouts
-3. **Charts section is cramped** at a fixed 280px height with 4 columns, making each chart too narrow to be useful on most screens
-4. **Top action bar** mixes date filters, sync buttons, and status badges without clear visual hierarchy
-5. **Decorative elements** (the `bg-primary/5` circle in each card) add visual noise without value
+## Scope Summary
 
-## Proposed Changes
+| Category | Tables | Approx Records |
+|----------|--------|----------------|
+| CRM Core | contacts, opportunities, appointments | ~2,750 |
+| Tasks | tasks, contact_notes | ~2,512 |
+| Projects | projects, project_notes, project_documents, project_agreements | ~173 |
+| Financials | project_invoices, project_payments, project_bills, bill_payments, project_costs, project_payment_phases | ~490 |
+| Estimates | estimates, estimate_groups, estimate_line_items, estimate_payment_schedule | ~826 |
+| Portal | client_portal_tokens, portal_chat_messages | ~74 |
+| Config | company_settings (46), pipeline_stages (10), salespeople (15), subcontractors (25), trades (15), banks (3), lead_sources (2), project_statuses (8), project_types (21), archived_sources (8) | ~153 |
+| Documents | compliance_document_templates, compliance_template_fields, project_documents | ~99 |
+| Other | short_links, magazine_sales, scope_submissions, notifications | ~2,030 |
 
-### 1. Compact KPI Strip (save ~80px vertical space)
-Replace the current tall metric cards with a single-row compact KPI strip. Each KPI becomes a slim, inline element rather than a tall card with decorative circles.
+## Technical Approach
 
-- Reduce card padding from `p-6` to `p-4`
-- Remove the decorative `absolute -right-8 -bottom-8` circle from `ClickableMetricCard`
-- Reduce the main value from `text-3xl` to `text-2xl`
-- Shrink icon container from `p-3 rounded-xl` to `p-2 rounded-lg`
-- Apply the same compact style to the inline Appointments and Activity cards
+### Why an Edge Function?
+This operation requires:
+- Generating new UUIDs for every copied record
+- Maintaining a UUID mapping table so foreign key references (contact_uuid, opportunity_uuid, project_id, estimate_id, etc.) point to the correct new records
+- Handling 8,000+ records across 30+ tables in the correct dependency order
+- Copying encrypted API keys by reading from source company settings and writing to target
 
-### 2. Unified Header Row
-Consolidate the top bar into a cleaner layout:
-- Left: page title "Dispatch Dashboard" (small, `text-lg font-semibold`)
-- Right: date filter, action buttons grouped tightly
-- Remove the "Showing X leads in selected range" text (redundant with the Opportunities KPI)
+### Implementation: `replicate-company-data` Edge Function
 
-### 3. Better Charts Grid
-Change the charts section from a rigid 4-column grid to a 2+2 layout on large screens:
-- Source charts: `md:col-span-1` each in a 2-col row
-- Leaderboard + Won Deals: second row, each taking half width
-- Increase chart height from 280px to 320px for better readability
+**Step 1 -- Clear Demo Co #1 data** (delete in reverse dependency order):
+- Child tables first (bill_payments, estimate_line_items, estimate_groups, etc.)
+- Then parent tables (projects, estimates, contacts, opportunities, etc.)
+- Then config tables (company_settings, pipeline_stages, salespeople, etc.)
 
-### 4. Visual Polish
-- Add subtle `backdrop-blur` and `bg-background/80` to the header for a modern sticky feel
-- Use consistent `rounded-xl` (instead of mixing `rounded-2xl`) for a tighter, cleaner look
-- Tighten spacing: reduce outer padding from `px-6 py-6 space-y-6` to `px-4 py-4 space-y-4`
+**Step 2 -- Copy config/reference tables** (no foreign key remapping needed):
+- company_settings (all 46 rows, including encrypted Resend/Twilio/OpenAI keys)
+- pipeline_stages, salespeople, subcontractors, trades, banks, lead_sources
+- project_statuses, project_types, archived_sources
+- compliance_document_templates and compliance_template_fields
 
-## Technical Details
+**Step 3 -- Copy CRM core tables** (build UUID mapping):
+1. **contacts** -- generate new UUIDs, store old-to-new mapping
+2. **opportunities** -- remap contact_uuid using mapping
+3. **appointments** -- remap contact_uuid using mapping
 
-### Files Modified
+**Step 4 -- Copy project-related tables:**
+1. **projects** -- remap contact_uuid, opportunity_uuid
+2. **project_notes, project_agreements, project_documents** -- remap project_id
+3. **project_invoices** -- remap project_id
+4. **project_payments** -- remap project_id, invoice_id
+5. **project_bills** -- remap project_id
+6. **bill_payments** -- remap bill_id
+7. **project_costs, project_payment_phases** -- remap project_id
 
-**`src/components/dashboard/ClickableMetricCard.tsx`**
-- Remove the decorative circle div (`absolute -right-8 -bottom-8`)
-- Reduce padding: `p-6` to `p-4`, `rounded-2xl` to `rounded-xl`
-- Shrink value text: `text-3xl` to `text-2xl`
-- Shrink icon: `p-3 rounded-xl` to `p-2 rounded-lg`, icon `h-5 w-5` to `h-4 w-4`
-- Remove `hover:scale-[1.02]` (feels janky on dashboards)
+**Step 5 -- Copy estimate tables:**
+1. **estimates** -- remap contact_uuid, project_id, opportunity_id
+2. **estimate_groups** -- remap estimate_id
+3. **estimate_line_items** -- remap estimate_id, group_id
+4. **estimate_payment_schedule** -- remap estimate_id
 
-**`src/pages/Index.tsx`**
-- Reduce outer container spacing: `px-6 py-6 space-y-6` to `px-4 py-4 space-y-4`
-- Clean up header row: remove the "Showing X leads" text, tighten button gap
-- Apply same compact styling to the inline Appointments and Activity card divs (reduce `p-6` to `p-4`, remove decorative circles, shrink text sizes)
-- Change charts grid from `xl:grid-cols-4` to `lg:grid-cols-2` for wider, more readable charts
-- Remove the `border-t border-border/50` visual separator (unnecessary with tighter spacing)
+**Step 6 -- Copy remaining tables:**
+- contact_notes (remap contact_uuid)
+- tasks (remap contact_uuid, project_id)
+- client_portal_tokens (remap project_id, estimate_id)
+- portal_chat_messages (remap project_id)
+- short_links (remap, or skip if desired)
+- magazine_sales, scope_submissions, notifications
 
-**`src/components/dashboard/SourceChart.tsx`**
-- Increase height from `h-[280px]` to `h-[320px]`
-- Change `rounded-2xl` to `rounded-xl`
+### API Key Handling
+For encrypted keys (resend_api_key_encrypted, twilio_account_sid, twilio_auth_token, twilio_phone_number), the function will:
+1. Read the decrypted values from CA Pro Builders using the existing `get_resend_api_key_encrypted` and similar RPC functions
+2. Store them into Demo Co #1 using `store_resend_api_key_encrypted` and direct inserts for Twilio keys
+3. For plain-text settings (openai_api_key, resend_api_key), copy the values directly
 
-**`src/components/dashboard/SalesRepLeaderboard.tsx`**
-- Increase height from `h-[280px]` to `h-[320px]`
-- Change `rounded-2xl` to `rounded-xl`
+### Skipped Tables
+- ghl_tasks, ghl_sync_exclusions, ghl_field_mappings, company_integrations (GHL)
+- google_calendar_connections, quickbooks_connections (integration-specific)
+- audit_logs, notifications (transient/historical)
+- profiles, user_roles (user-specific)
+- estimate_drafts, estimate_generation_queue (ephemeral)
 
-**`src/components/dashboard/RecentWonDeals.tsx`**
-- Increase height from `h-[280px]` to `h-[320px]`
-- Change `rounded-2xl` to `rounded-xl`
+### Safety
+- The edge function will use a Supabase service role client for full access
+- It will run in a single invocation with sequential table processing
+- Errors at any step will be logged and returned in the response
+- The function is one-time use and can be deleted after execution
 
-No new dependencies or components needed. All changes are CSS/layout adjustments within existing files.
+## Files to Create/Modify
+1. **`supabase/functions/replicate-company-data/index.ts`** -- New edge function
+2. **`supabase/config.toml`** -- Add function entry with `verify_jwt = false` (admin-only, protected by service role)
 
