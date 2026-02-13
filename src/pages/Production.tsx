@@ -6,6 +6,7 @@ import { DateRange } from "react-day-picker";
 import { parseISO, isWithinInterval, startOfDay, endOfDay, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUnifiedMode } from "@/hooks/useUnifiedMode";
 import { logAudit } from "@/hooks/useAuditLog";
 import { formatCurrency, cn } from "@/lib/utils";
 import { fetchAllPages } from "@/lib/supabasePagination";
@@ -108,6 +109,7 @@ interface Project {
   agreement_signed_date: string | null;
   install_start_date: string | null;
   completion_date: string | null;
+  company_id: string | null;
 }
 
 interface ProjectFinancials {
@@ -218,6 +220,7 @@ export default function Production() {
   const { openTab } = useAppTabs();
   const { projectId: urlProjectId } = useParams<{ projectId?: string }>();
   const { isAdmin, isSimulating, companyId } = useAuth();
+  const { isUnified, companyIds, queryKeySuffix, getCompanyName } = useUnifiedMode();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeView = searchParams.get('view') || 'projects';
   const currentTab = searchParams.get('tab');
@@ -283,17 +286,27 @@ export default function Production() {
   const [statusChangeNewStatus, setStatusChangeNewStatus] = useState<string>("");
   const [pendingDepositsSheetOpen, setPendingDepositsSheetOpen] = useState(false);
   const [mergeProjectsDialogOpen, setMergeProjectsDialogOpen] = useState(false);
+  // Helper to apply company filter - uses .in() for unified mode, .eq() otherwise
+  const applyCompanyFilter = useCallback((query: any) => {
+    if (isUnified && companyIds.length > 1) {
+      return query.in("company_id", companyIds);
+    }
+    return query.eq("company_id", companyId);
+  }, [isUnified, companyIds, companyId]);
+
   const { data: projects = [], isLoading, refetch } = useQuery({
-    queryKey: ["projects", companyId],
+    queryKey: ["projects", queryKeySuffix],
     queryFn: async () => {
       return fetchAllPages(async (from, to) => {
-        const { data, error } = await supabase
+        let query = supabase
           .from("projects")
           .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number, agreement_signed_date, lead_source")
-          .eq("company_id", companyId)
           .is("deleted_at", null)
           .order("project_number", { ascending: false })
           .range(from, to);
+        
+        query = applyCompanyFilter(query);
+        const { data, error } = await query;
         
         if (error) throw error;
         return data as (Project & { 
@@ -313,19 +326,21 @@ export default function Production() {
         })[];
       });
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   // Fetch archived projects (for admins)
   const { data: archivedProjects = [], refetch: refetchArchived } = useQuery({
-    queryKey: ["archived-projects", companyId],
+    queryKey: ["archived-projects", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("projects")
         .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number")
-        .eq("company_id", companyId)
         .not("deleted_at", "is", null)
         .order("deleted_at", { ascending: false });
+      
+      query = applyCompanyFilter(query);
+      const { data, error } = await query;
       
       if (error) throw error;
       return data as (Project & { 
@@ -340,113 +355,105 @@ export default function Production() {
         sold_dispatch_value: number | null;
       })[];
     },
-    enabled: isAdmin && showArchived && !!companyId,
+    enabled: isAdmin && showArchived && (!!companyId || (isUnified && companyIds.length > 0)),
   });
 
   // Fetch all financial data for projects
   const { data: allAgreements = [] } = useQuery({
-    queryKey: ["all-project-agreements", companyId],
+    queryKey: ["all-project-agreements", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_agreements")
-        .select("id, project_id, total_price, agreement_type, agreement_number, description_of_work, agreement_signed_date")
-        .eq("company_id", companyId);
+      let query = supabase.from("project_agreements").select("id, project_id, total_price, agreement_type, agreement_number, description_of_work, agreement_signed_date");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   const { data: allPhases = [] } = useQuery({
-    queryKey: ["all-project-phases", companyId],
+    queryKey: ["all-project-phases", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_payment_phases")
-        .select("id, project_id, agreement_id, amount, phase_name, due_date")
-        .eq("company_id", companyId);
+      let query = supabase.from("project_payment_phases").select("id, project_id, agreement_id, amount, phase_name, due_date");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   const { data: allInvoices = [] } = useQuery({
-    queryKey: ["all-project-invoices", companyId],
+    queryKey: ["all-project-invoices", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_invoices")
-        .select("id, project_id, amount, payments_received, open_balance, invoice_number, invoice_date")
-        .eq("company_id", companyId);
+      let query = supabase.from("project_invoices").select("id, project_id, amount, payments_received, open_balance, invoice_number, invoice_date");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   const { data: allPayments = [] } = useQuery({
-    queryKey: ["all-project-payments", companyId],
+    queryKey: ["all-project-payments", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_payments")
-        .select("id, project_id, payment_amount, payment_status, projected_received_date, is_voided, bank_name, check_number, deposit_verified")
-        .eq("company_id", companyId);
+      let query = supabase.from("project_payments").select("id, project_id, payment_amount, payment_status, projected_received_date, is_voided, bank_name, check_number, deposit_verified");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   const { data: allBills = [] } = useQuery({
-    queryKey: ["all-project-bills", companyId],
+    queryKey: ["all-project-bills", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_bills")
-        .select("id, project_id, bill_amount, amount_paid, is_voided, installer_company, bill_ref, category")
-        .eq("company_id", companyId);
+      let query = supabase.from("project_bills").select("id, project_id, bill_amount, amount_paid, is_voided, installer_company, bill_ref, category");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   const { data: allBillPayments = [] } = useQuery({
-    queryKey: ["all-bill-payments", companyId],
+    queryKey: ["all-bill-payments", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bill_payments")
-        .select("id, bill_id, payment_amount, payment_date")
-        .eq("company_id", companyId);
+      let query = supabase.from("bill_payments").select("id, bill_id, payment_amount, payment_date");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   const { data: allCommissionPayments = [] } = useQuery({
-    queryKey: ["all-commission-payments", companyId],
+    queryKey: ["all-commission-payments", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("commission_payments")
-        .select("id, project_id, payment_amount, payment_date")
-        .eq("company_id", companyId);
+      let query = supabase.from("commission_payments").select("id, project_id, payment_amount, payment_date");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   // Fetch all checklist items to check for overdue
   const { data: allChecklists = [] } = useQuery({
-    queryKey: ["all-project-checklists", companyId],
+    queryKey: ["all-project-checklists", queryKeySuffix],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_checklists")
-        .select("id, project_id, item, completed, due_date")
-        .eq("company_id", companyId);
+      let query = supabase.from("project_checklists").select("id, project_id, item, completed, due_date");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   // Calculate financials for each project
@@ -1939,7 +1946,12 @@ export default function Production() {
                         <TableHead className="w-[5%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('project_number')}>
                           <div className="flex items-center"># <SortIcon column="project_number" /></div>
                         </TableHead>
-                        <TableHead className="w-[14%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('address')}>
+                        {isUnified && (
+                          <TableHead className="w-[7%] text-xs">
+                            <div className="flex items-center truncate">Co.</div>
+                          </TableHead>
+                        )}
+                        <TableHead className={cn(isUnified ? "w-[12%]" : "w-[14%]", "cursor-pointer hover:bg-muted/50 text-xs")} onClick={() => handleSort('address')}>
                           <div className="flex items-center truncate">Address <SortIcon column="address" /></div>
                         </TableHead>
                         <TableHead className="w-[9%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('status')}>
@@ -2053,6 +2065,13 @@ export default function Production() {
                                 )}
                               </div>
                             </TableCell>
+                            {isUnified && (
+                              <TableCell className="text-xs truncate">
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                                  {getCompanyName(project.company_id)}
+                                </Badge>
+                              </TableCell>
+                            )}
                             <TableCell className="text-xs truncate" title={project.project_address || project.project_name}>
                               <div className="flex flex-col min-w-0">
                                 {getCustomerName(project) && (

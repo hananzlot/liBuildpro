@@ -3,6 +3,7 @@ import { useSearchParams, useParams, useNavigate, useLocation } from "react-rout
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUnifiedMode } from "@/hooks/useUnifiedMode";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { fetchAllPages } from "@/lib/supabasePagination";
@@ -73,6 +74,7 @@ export default function Estimates() {
   const currentView = (searchParams.get("view") as ViewType) || "list";
   const { isAdmin } = useAuth();
   const { companyId } = useCompanyContext();
+  const { isUnified, companyIds, queryKeySuffix, getCompanyName } = useUnifiedMode();
   const { openTab } = useAppTabs();
   const queryClient = useQueryClient();
   
@@ -119,29 +121,32 @@ export default function Estimates() {
 
   // Fetch estimates - paginated to handle large datasets
   const { data: estimates, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["estimates", companyId],
+    queryKey: ["estimates", queryKeySuffix],
     queryFn: async () => {
-      if (!companyId) return [];
-      return fetchAllPages<Estimate>(async (from, to) => {
-        const { data, error } = await supabase
+      if (!companyId && !isUnified) return [];
+      return fetchAllPages<Estimate & { company_id?: string | null }>(async (from, to) => {
+        let query = supabase
           .from("estimates")
           .select("*")
-          .eq("company_id", companyId)
           .order("created_at", { ascending: false })
           .range(from, to);
 
+        if (isUnified && companyIds.length > 1) {
+          query = query.in("company_id", companyIds);
+        } else if (companyId) {
+          query = query.eq("company_id", companyId);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
-        return data as Estimate[];
+        return data as (Estimate & { company_id?: string | null })[];
       });
     },
-    enabled: !!companyId,
-    // IMPORTANT: We persist React Query cache across reloads.
-    // If totals change (e.g. discount updates), a "fresh" cached list can still show old totals.
-    // Always refetch on mount so Proposals view reflects the database immediately.
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
     staleTime: 2 * 60 * 1000,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 30 * 60 * 1000,
   });
 
   // Refetch when page becomes visible (catches updates from portal)
