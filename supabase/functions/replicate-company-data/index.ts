@@ -97,12 +97,49 @@ serve(async (req) => {
       return allRows;
     }
 
-    // Helper to batch insert
+    // Schema cache: fetch valid columns for a table to strip unknowns
+    const schemaCache = new Map<string, Set<string>>();
+    async function getTableColumns(table: string): Promise<Set<string>> {
+      if (schemaCache.has(table)) return schemaCache.get(table)!;
+      // Insert an empty row to discover columns via error, or use a select trick
+      const { data } = await supabase.from(table).select("*").limit(0);
+      // Fallback: just try inserting and let it fail gracefully
+      // Instead, we'll use the RPC approach - but simplest is to query information_schema
+      const { data: cols } = await supabase.rpc("get_table_columns_list", { p_table: table }).single();
+      // Not available as RPC, so let's just track known problematic fields
+      return new Set<string>();
+    }
+
+    // Known fields that don't exist on certain tables - strip them during insert
+    const stripFields: Record<string, string[]> = {
+      opportunities: ["edited_by", "edited_at"],
+      project_invoices: ["created_by"],
+      project_documents: ["uploaded_by"],
+      portal_chat_messages: ["sent_by"],
+      magazine_sales: ["created_by", "opportunity_id"],
+      short_links: ["created_by"],
+      project_costs: ["project_id"],
+      scope_submissions: ["project_id"],
+      tasks: ["contact_uuid", "project_id"],
+    };
+
+    function cleanRow(table: string, row: any): any {
+      const fieldsToStrip = stripFields[table];
+      if (!fieldsToStrip) return row;
+      const cleaned = { ...row };
+      for (const f of fieldsToStrip) {
+        delete cleaned[f];
+      }
+      return cleaned;
+    }
+
+    // Helper to batch insert with column cleaning
     async function batchInsert(table: string, rows: any[]) {
       if (rows.length === 0) return;
+      const cleanedRows = rows.map(r => cleanRow(table, r));
       const batchSize = 500;
-      for (let i = 0; i < rows.length; i += batchSize) {
-        const batch = rows.slice(i, i + batchSize);
+      for (let i = 0; i < cleanedRows.length; i += batchSize) {
+        const batch = cleanedRows.slice(i, i + batchSize);
         const { error } = await supabase.from(table).insert(batch);
         if (error) throw new Error(`Insert ${table} batch ${i}: ${error.message}`);
       }
@@ -216,7 +253,7 @@ serve(async (req) => {
       const newId = crypto.randomUUID();
       contactMap.set(c.id, newId);
       const { id, ...rest } = c;
-      return { id: newId, ...rest, company_id: TARGET_COMPANY_ID, entered_by: null };
+      return { id: newId, ...rest, company_id: TARGET_COMPANY_ID, entered_by: null, ghl_id: null, external_id: null };
     });
     await batchInsert("contacts", newContacts);
     log(`  Copied ${newContacts.length} contacts`);
@@ -226,12 +263,14 @@ serve(async (req) => {
     const newOpps = opps.map(o => {
       const newId = crypto.randomUUID();
       opportunityMap.set(o.id, newId);
-      const { id, ...rest } = o;
+      const { id, edited_by, edited_at, ...rest } = o;
       return {
         id: newId, ...rest,
         company_id: TARGET_COMPANY_ID,
         contact_uuid: o.contact_uuid ? (contactMap.get(o.contact_uuid) || null) : null,
-        entered_by: null, edited_by: null,
+        entered_by: null,
+        ghl_id: null, external_id: null,
+        salesperson_id: o.salesperson_id ? (salespersonMap.get(o.salesperson_id) || null) : null,
       };
     });
     await batchInsert("opportunities", newOpps);
@@ -248,6 +287,7 @@ serve(async (req) => {
         contact_uuid: a.contact_uuid ? (contactMap.get(a.contact_uuid) || null) : null,
         salesperson_id: a.salesperson_id ? (salespersonMap.get(a.salesperson_id) || null) : null,
         entered_by: null, edited_by: null,
+        ghl_id: null, external_id: null,
       };
     });
     await batchInsert("appointments", newAppts);
@@ -280,7 +320,6 @@ serve(async (req) => {
         ...rest,
         company_id: TARGET_COMPANY_ID,
         project_id: n.project_id ? (projectMap.get(n.project_id) || n.project_id) : null,
-        created_by: null,
       };
     });
     await batchInsert("project_notes", newPNotes);
@@ -307,7 +346,6 @@ serve(async (req) => {
         ...rest,
         company_id: TARGET_COMPANY_ID,
         project_id: d.project_id ? (projectMap.get(d.project_id) || d.project_id) : null,
-        uploaded_by: null,
       };
     });
     await batchInsert("project_documents", newPDocs);
@@ -323,7 +361,6 @@ serve(async (req) => {
         id: newId, ...rest,
         company_id: TARGET_COMPANY_ID,
         project_id: inv.project_id ? (projectMap.get(inv.project_id) || inv.project_id) : null,
-        created_by: null,
       };
     });
     await batchInsert("project_invoices", newInvoices);
@@ -380,7 +417,7 @@ serve(async (req) => {
       return {
         ...rest,
         company_id: TARGET_COMPANY_ID,
-        project_id: c.project_id ? (projectMap.get(c.project_id) || c.project_id) : null,
+        opportunity_id: c.opportunity_id ? (opportunityMap.get(c.opportunity_id) || null) : null,
       };
     });
     await batchInsert("project_costs", newCosts);
@@ -473,6 +510,7 @@ serve(async (req) => {
         company_id: TARGET_COMPANY_ID,
         contact_uuid: n.contact_uuid ? (contactMap.get(n.contact_uuid) || null) : null,
         entered_by: null, edited_by: null,
+        ghl_id: null, external_id: null,
       };
     });
     await batchInsert("contact_notes", newCNotes);
