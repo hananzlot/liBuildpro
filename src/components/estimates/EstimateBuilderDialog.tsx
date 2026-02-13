@@ -3112,10 +3112,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                       <DollarSign className="h-4 w-4" />
                       Phases
                     </TabsTrigger>
-                    <TabsTrigger value="terms" className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      T&C
-                    </TabsTrigger>
                   </>
                 )}
                 {/* Photos tab - always visible, triggers save+project creation if needed */}
@@ -3188,6 +3184,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     Upload Files
                   </Button>
                 )}
+                <TabsTrigger value="terms" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  T&C
+                </TabsTrigger>
                 {/* Next button in tab bar */}
                 <TabBarNextButton />
               </TabsList>
