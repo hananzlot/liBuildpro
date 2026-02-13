@@ -4662,41 +4662,45 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           }}
                         />
                       </div>
-                      <div className="flex items-center justify-between gap-4 pt-2 border-t">
-                        <div className="space-y-0.5 flex-1">
-                          <Label className="text-xs">Show AI Generated Line Items</Label>
-                          <p className="text-[10px] text-muted-foreground leading-tight">
-                            Show itemized scope breakdown (titles only)
-                          </p>
-                        </div>
-                        <Switch
-                          checked={formData.show_line_items_to_customer}
-                          onCheckedChange={(checked) => {
-                            setFormData({ ...formData, show_line_items_to_customer: checked });
-                            autoSaveVisibilityToggle('show_line_items_to_customer', checked);
-                            if (!checked && formData.show_details_to_customer) {
-                              setFormData(prev => ({ ...prev, show_line_items_to_customer: checked, show_details_to_customer: false }));
-                              autoSaveVisibilityToggle('show_details_to_customer', false);
-                            }
-                          }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between gap-4 pt-2 border-t">
-                        <div className="space-y-0.5 flex-1">
-                          <Label className="text-xs">Show AI Driven Line Item Details</Label>
-                          <p className="text-[10px] text-muted-foreground leading-tight">
-                            Show qty, unit, and unit price per item
-                          </p>
-                        </div>
-                        <Switch
-                          checked={formData.show_details_to_customer}
-                          onCheckedChange={(checked) => {
-                            setFormData({ ...formData, show_details_to_customer: checked });
-                            autoSaveVisibilityToggle('show_details_to_customer', checked);
-                          }}
-                          disabled={!formData.show_line_items_to_customer}
-                        />
-                      </div>
+                      {estimateMode === 'ai' && (
+                        <>
+                          <div className="flex items-center justify-between gap-4 pt-2 border-t">
+                            <div className="space-y-0.5 flex-1">
+                              <Label className="text-xs">Show AI Generated Line Items</Label>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Show itemized scope breakdown (titles only)
+                              </p>
+                            </div>
+                            <Switch
+                              checked={formData.show_line_items_to_customer}
+                              onCheckedChange={(checked) => {
+                                setFormData({ ...formData, show_line_items_to_customer: checked });
+                                autoSaveVisibilityToggle('show_line_items_to_customer', checked);
+                                if (!checked && formData.show_details_to_customer) {
+                                  setFormData(prev => ({ ...prev, show_line_items_to_customer: checked, show_details_to_customer: false }));
+                                  autoSaveVisibilityToggle('show_details_to_customer', false);
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-4 pt-2 border-t">
+                            <div className="space-y-0.5 flex-1">
+                              <Label className="text-xs">Show AI Driven Line Item Details</Label>
+                              <p className="text-[10px] text-muted-foreground leading-tight">
+                                Show qty, unit, and unit price per item
+                              </p>
+                            </div>
+                            <Switch
+                              checked={formData.show_details_to_customer}
+                              onCheckedChange={(checked) => {
+                                setFormData({ ...formData, show_details_to_customer: checked });
+                                autoSaveVisibilityToggle('show_details_to_customer', checked);
+                              }}
+                              disabled={!formData.show_line_items_to_customer}
+                            />
+                          </div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
 
