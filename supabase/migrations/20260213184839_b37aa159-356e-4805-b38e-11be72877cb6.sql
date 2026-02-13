@@ -1,0 +1,1 @@
+UPDATE public.opportunities SET stage_name = 'Hold (Close to Sale)' WHERE stage_name = 'Hold (Close to sale)';
