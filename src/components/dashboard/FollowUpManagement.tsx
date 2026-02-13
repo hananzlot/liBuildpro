@@ -17,6 +17,7 @@ import { stripHtml, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS,
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useUnifiedMode } from "@/hooks/useUnifiedMode";
 interface DBOpportunity {
   id: string;
   ghl_id: string;
@@ -127,6 +128,7 @@ export function FollowUpManagement({
     user
   } = useAuth();
   const { companyId } = useCompanyContext();
+  const { companyIds, isUnified } = useUnifiedMode();
   const queryClient = useQueryClient();
   const [staleNotesOpen, setStaleNotesOpen] = useState(false);
   const [noTasksOpen, setNoTasksOpen] = useState(false);
@@ -471,21 +473,28 @@ export function FollowUpManagement({
     })).sort((a, b) => a.name.localeCompare(b.name));
   }, [appointments, users]);
 
-  // Fetch GHL Tasks (scoped to current company)
+  // Fetch GHL Tasks (scoped to current or unified companies)
   const fetchGhlTasks = async () => {
-    if (!companyId) {
+    if (companyIds.length === 0) {
       setGhlTasks([]);
       return;
     }
 
     setIsLoadingTasks(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("ghl_tasks")
         .select("*")
-        .eq("company_id", companyId)
         .eq("completed", false)
         .order("due_date", { ascending: true });
+
+      if (companyIds.length === 1) {
+        query = query.eq("company_id", companyIds[0]);
+      } else {
+        query = query.in("company_id", companyIds);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("Error fetching tasks:", error);
@@ -504,8 +513,8 @@ export function FollowUpManagement({
 
   useEffect(() => {
     fetchGhlTasks();
-    // Re-fetch when switching/simulating companies
-  }, [companyId]);
+    // Re-fetch when switching/simulating companies or toggling unified mode
+  }, [companyIds.join(",")]);
 
   // Get unique assignees from GHL tasks
   const uniqueTaskAssignees = useMemo(() => {
