@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Check, ChevronsUpDown, Building2, X } from "lucide-react";
+import { Check, ChevronsUpDown, Building2, X, Layers } from "lucide-react";
 import { useAuth, Company } from "@/contexts/AuthContext";
+import { useUnifiedMode } from "@/hooks/useUnifiedMode";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export function CompanySwitcher() {
   const { 
@@ -29,6 +32,8 @@ export function CompanySwitcher() {
     setViewingCompanyId, 
     isViewingOtherCompany 
   } = useAuth();
+  
+  const { canUnify, isUnified, toggleUnified } = useUnifiedMode();
   
   const [open, setOpen] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -170,6 +175,24 @@ export function CompanySwitcher() {
           </Command>
         </PopoverContent>
       </Popover>
+
+      {/* Unified View Toggle for Corp Admins */}
+      {canUnify && (
+        <div className="flex items-center justify-between gap-2 px-1 pt-1.5">
+          <div className="flex items-center gap-1.5">
+            <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+            <Label htmlFor="unified-toggle" className="text-xs text-muted-foreground cursor-pointer">
+              Unified View
+            </Label>
+          </div>
+          <Switch
+            id="unified-toggle"
+            checked={isUnified}
+            onCheckedChange={toggleUnified}
+            className="scale-75"
+          />
+        </div>
+      )}
     </div>
   );
 }
