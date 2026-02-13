@@ -882,11 +882,6 @@ export function SalespeopleManagement() {
                               Archived
                             </span>
                           )}
-                          {person.ghl_user_id && !isArchived && (
-                            <span className="block text-xs text-muted-foreground lg:hidden">
-                              Linked to calendar
-                            </span>
-                          )}
                         </div>
                       </TableCell>
                       {isUnified && (
@@ -1082,9 +1077,6 @@ export function SalespeopleManagement() {
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{person.name}</p>
-                      {person.ghl_user_id && (
-                        <p className="text-xs text-muted-foreground">Linked to calendar</p>
-                      )}
                     </div>
                     {isSelected && (
                       <Button
