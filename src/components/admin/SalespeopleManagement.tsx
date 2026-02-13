@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useShortLinks } from '@/hooks/useShortLinks';
+import { useUnifiedMode } from '@/hooks/useUnifiedMode';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +44,7 @@ interface Salesperson {
   email: string | null;
   is_active: boolean;
   ghl_user_id: string | null;
+  company_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +61,15 @@ export function SalespeopleManagement() {
   const { companyId } = useCompanyContext();
   const { user } = useAuth();
   const { createSalespersonCalendarShortLink, isShortLinksEnabled } = useShortLinks();
+  const { isUnified, companyIds, queryKeySuffix, getCompanyName } = useUnifiedMode();
+
+  // Helper to apply company filter - uses .in() for unified mode, .eq() otherwise
+  const applyCompanyFilter = useCallback((query: any) => {
+    if (isUnified && companyIds.length > 1) {
+      return query.in("company_id", companyIds);
+    }
+    return query.eq("company_id", companyId);
+  }, [isUnified, companyIds, companyId]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [editingSalesperson, setEditingSalesperson] = useState<Salesperson | null>(null);
@@ -73,14 +85,15 @@ export function SalespeopleManagement() {
   const [reassignToId, setReassignToId] = useState<string>('');
 
   const { data: salespeople = [], isLoading } = useQuery({
-    queryKey: ['salespeople', companyId, showArchived],
+    queryKey: ['salespeople', queryKeySuffix, showArchived],
     queryFn: async () => {
       let query = supabase
         .from('salespeople')
         .select('*')
-        .eq('company_id', companyId)
         .order('is_active', { ascending: false })
         .order('name');
+      
+      query = applyCompanyFilter(query);
       
       if (!showArchived) {
         query = query.eq('is_active', true);
@@ -90,22 +103,25 @@ export function SalespeopleManagement() {
       if (error) throw error;
       return data as Salesperson[];
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   // Count archived salespeople
   const { data: archivedCount = 0 } = useQuery({
-    queryKey: ['salespeople-archived-count', companyId],
+    queryKey: ['salespeople-archived-count', queryKeySuffix],
     queryFn: async () => {
-      const { count, error } = await supabase
+      let query = supabase
         .from('salespeople')
         .select('*', { count: 'exact', head: true })
-        .eq('company_id', companyId)
         .eq('is_active', false);
+      
+      query = applyCompanyFilter(query);
+      
+      const { count, error } = await query;
       if (error) throw error;
       return count || 0;
     },
-    enabled: !!companyId,
+    enabled: !!companyId || (isUnified && companyIds.length > 0),
   });
 
   // Restore archived salesperson mutation
@@ -796,6 +812,7 @@ export function SalespeopleManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
+                  {isUnified && <TableHead className="w-[80px]">Co.</TableHead>}
                   <TableHead className="hidden sm:table-cell">Phone</TableHead>
                   <TableHead className="hidden md:table-cell">Email</TableHead>
                   
@@ -828,6 +845,13 @@ export function SalespeopleManagement() {
                           )}
                         </div>
                       </TableCell>
+                      {isUnified && (
+                        <TableCell className="text-xs">
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                            {getCompanyName(person.company_id)}
+                          </Badge>
+                        </TableCell>
+                      )}
                       <TableCell className="hidden sm:table-cell">
                         {person.phone ? (
                           <span className="flex items-center gap-1 text-sm">
