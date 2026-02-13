@@ -261,13 +261,12 @@ export function GlobalAdminSearch() {
   const refSearchQuery = useMemo(() => {
     const trimmed = searchQuery.trim();
     if (!trimmed || trimmed.length < 2) return null;
-    // If it's a dollar amount, skip ref search
-    if (parsedAmount !== null) return null;
     // Strip common prefixes: "ref#", "ref #", "ref:", "check#", "check ", "chk#", "inv#", leading "#"
     let cleaned = trimmed.replace(/^(ref\s*#?\s*|check\s*#?\s*|chk\s*#?\s*|inv\s*#?\s*|#)/i, '').trim();
     if (!cleaned || cleaned.length < 1) return null;
+    // Allow pure numbers too — they could be reference/check numbers
     return cleaned;
-  }, [searchQuery, parsedAmount]);
+  }, [searchQuery]);
 
   const { data: financialMatches = [] } = useQuery({
     queryKey: ["global-search-financials", queryKeySuffix, parsedAmount],
