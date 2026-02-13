@@ -33,9 +33,40 @@ interface NewProjectDialogProps {
 const DEFAULT_LOCATION_ID = "mMXD49n5UApITSmKlWdr";
 
 export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) {
-  const { user } = useAuth();
-  const { companyId } = useCompanyContext();
+  const { user, isCorpAdmin, company } = useAuth();
+  const { companyId: contextCompanyId, corporationId } = useCompanyContext();
   const queryClient = useQueryClient();
+
+  // For corp admins, allow selecting which company to create under
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+
+  // Fetch corporation companies for corp admins
+  const { data: corpCompanies } = useQuery({
+    queryKey: ["corp-companies-for-new-project", corporationId],
+    queryFn: async () => {
+      if (!corporationId) return [];
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id, name")
+        .eq("corporation_id", corporationId)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!isCorpAdmin && !!corporationId,
+    staleTime: 30 * 60 * 1000,
+  });
+
+  // The effective company ID for creating the project
+  const companyId = selectedCompanyId || contextCompanyId;
+
+  // Reset selected company when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSelectedCompanyId(contextCompanyId);
+    }
+  }, [open, contextCompanyId]);
 
   // Fetch default lead cost percent from company settings
   const { data: defaultLeadCostPercent } = useQuery({
@@ -184,6 +215,28 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Company Selector for Corp Admins */}
+          {isCorpAdmin && corpCompanies && corpCompanies.length > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="company_select">Create Under Company</Label>
+              <Select
+                value={selectedCompanyId || ""}
+                onValueChange={(value) => setSelectedCompanyId(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {corpCompanies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Project Info */}
           <div className="space-y-4">
             <h3 className="text-sm font-medium text-muted-foreground">Project Information</h3>
