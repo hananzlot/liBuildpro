@@ -619,7 +619,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
   // Fetch QB sync status for bill payments (only when QB is connected)
   const { data: billPaymentSyncStatuses = {} } = useQuery({
-    queryKey: ["bill-payment-sync-statuses", projectId, companyId],
+    queryKey: ["bill-payment-sync-statuses", projectId, companyId, allBillPayments.map((p: any) => p.id).join(",")],
     queryFn: async () => {
       if (!companyId) return {};
       const billIds = allBillPayments.map((p: any) => p.id);
@@ -1468,6 +1468,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       }
       queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["project-bill-payments", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["bill-payment-sync-statuses"] });
       setQuickPayDialogOpen(false);
       setPayingBill(null);
     },
