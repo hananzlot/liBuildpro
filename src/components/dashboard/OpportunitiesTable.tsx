@@ -1013,7 +1013,7 @@ export function OpportunitiesTable({
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[14%]"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[12%]"
                   onClick={() => handleSort("name")}
                 >
                   <div className="flex items-center">
@@ -1022,7 +1022,7 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[12%]"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[10%]"
                   onClick={() => handleSort("stage")}
                 >
                   <div className="flex items-center truncate">
@@ -1031,7 +1031,7 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[10%]"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[9%]"
                   onClick={() => handleSort("source")}
                 >
                   <div className="flex items-center truncate">
@@ -1040,19 +1040,19 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
 
-                <TableHead className="text-muted-foreground w-[12%]">
+                <TableHead className="text-muted-foreground w-[11%]">
                   <div className="flex items-center gap-1 truncate">
                     <User className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="truncate">Rep / Dates</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-muted-foreground w-[10%]">
+                <TableHead className="text-muted-foreground w-[13%]">
                   <div className="flex items-center gap-1 truncate">
                     <StickyNote className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="truncate">Note</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-muted-foreground w-[9%]">
+                <TableHead className="text-muted-foreground w-[12%]">
                   <div className="flex items-center gap-1 truncate">
                     <ListChecks className="h-3.5 w-3.5 flex-shrink-0" />
                     <span className="truncate">Task</span>
