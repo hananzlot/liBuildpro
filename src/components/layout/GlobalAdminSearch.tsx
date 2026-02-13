@@ -252,8 +252,9 @@ export function GlobalAdminSearch() {
     project_id: string;
     record_id: string;
     amount: number;
-    type: 'bill' | 'invoice' | 'payment';
+    type: 'bill' | 'invoice' | 'payment' | 'bill_payment';
     description: string;
+    trx_date: string | null;
   }
 
   const { data: financialMatches = [] } = useQuery({
@@ -264,23 +265,29 @@ export function GlobalAdminSearch() {
       
       let billsQuery = supabase
         .from("project_bills")
-        .select("id, project_id, bill_amount, installer_company, bill_ref");
+        .select("id, project_id, bill_amount, installer_company, bill_ref, created_at");
       billsQuery = applyCompanyFilter(billsQuery);
       
       let invoicesQuery = supabase
         .from("project_invoices")
-        .select("id, project_id, amount, invoice_number");
+        .select("id, project_id, amount, invoice_number, invoice_date");
       invoicesQuery = applyCompanyFilter(invoicesQuery);
       
       let paymentsQuery = supabase
         .from("project_payments")
-        .select("id, project_id, payment_amount, check_number");
+        .select("id, project_id, payment_amount, check_number, created_at");
       paymentsQuery = applyCompanyFilter(paymentsQuery);
 
-      const [billsRes, invoicesRes, paymentsRes] = await Promise.all([
+      let billPaymentsQuery = supabase
+        .from("bill_payments")
+        .select("id, bill_id, payment_amount, payment_date, payment_reference");
+      billPaymentsQuery = applyCompanyFilter(billPaymentsQuery);
+
+      const [billsRes, invoicesRes, paymentsRes, billPaymentsRes] = await Promise.all([
         billsQuery.eq("is_voided", false).eq("bill_amount", parsedAmount).limit(20),
         invoicesQuery.eq("amount", parsedAmount).limit(20),
         paymentsQuery.eq("is_voided", false).eq("payment_amount", parsedAmount).limit(20),
+        billPaymentsQuery.eq("payment_amount", parsedAmount).limit(20),
       ]);
 
       billsRes.data?.forEach(b => {
@@ -290,6 +297,7 @@ export function GlobalAdminSearch() {
           amount: b.bill_amount!,
           type: 'bill',
           description: [b.installer_company, b.bill_ref].filter(Boolean).join(' • ') || 'Bill',
+          trx_date: b.created_at,
         });
       });
       invoicesRes.data?.forEach(i => {
@@ -299,6 +307,7 @@ export function GlobalAdminSearch() {
           amount: i.amount!,
           type: 'invoice',
           description: i.invoice_number ? `Invoice #${i.invoice_number}` : 'Invoice',
+          trx_date: i.invoice_date,
         });
       });
       paymentsRes.data?.forEach(p => {
@@ -308,8 +317,31 @@ export function GlobalAdminSearch() {
           amount: p.payment_amount!,
           type: 'payment',
           description: p.check_number ? `Check #${p.check_number}` : 'Payment',
+          trx_date: p.created_at,
         });
       });
+
+      // For bill payments, we need to resolve the project_id via the bill
+      if (billPaymentsRes.data?.length) {
+        const billIds = [...new Set(billPaymentsRes.data.map(bp => bp.bill_id))];
+        const { data: bills } = await supabase
+          .from("project_bills")
+          .select("id, project_id")
+          .in("id", billIds);
+        const billProjectMap = new Map(bills?.map(b => [b.id, b.project_id]) || []);
+        
+        billPaymentsRes.data.forEach(bp => {
+          const projectId = billProjectMap.get(bp.bill_id);
+          if (projectId) results.push({
+            project_id: projectId,
+            record_id: bp.id,
+            amount: bp.payment_amount!,
+            type: 'bill_payment',
+            description: bp.payment_reference ? `Bill Pmt Ref #${bp.payment_reference}` : 'Bill Payment',
+            trx_date: bp.payment_date,
+          });
+        });
+      }
       
       return results;
     },
@@ -583,6 +615,8 @@ export function GlobalAdminSearch() {
         url = `/project/${proj.id}?tab=finance&financeTab=invoices&highlightInvoice=${financialMatch.record_id}`;
       } else if (financialMatch.type === 'payment') {
         url = `/project/${proj.id}?tab=finance&financeTab=payments&highlightPaymentId=${financialMatch.record_id}`;
+      } else if (financialMatch.type === 'bill_payment') {
+        url = `/project/${proj.id}?tab=finance&financeTab=bills&highlightBillId=${financialMatch.record_id}`;
       }
     }
     
@@ -762,8 +796,13 @@ export function GlobalAdminSearch() {
                                       {formatCurrencyUtil(fm.amount)}
                                     </span>
                                     <span className="text-muted-foreground">
-                                      — {fm.type === 'bill' ? 'Bill' : fm.type === 'invoice' ? 'Invoice' : 'Payment'}: {fm.description}
+                                      — {fm.type === 'bill' ? 'Bill' : fm.type === 'invoice' ? 'Invoice' : fm.type === 'bill_payment' ? 'Bill Pmt' : 'Payment'}: {fm.description}
                                     </span>
+                                    {fm.trx_date && (
+                                      <span className="text-muted-foreground ml-1">
+                                        ({new Date(fm.trx_date).toLocaleDateString()})
+                                      </span>
+                                    )}
                                   </div>
                                 ))}
                               </div>
