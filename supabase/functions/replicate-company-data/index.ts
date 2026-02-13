@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +8,7 @@ const corsHeaders = {
 const SOURCE_COMPANY_ID = "00000000-0000-0000-0000-000000000002"; // CA Pro Builders
 const TARGET_COMPANY_ID = "d95f6df1-ef3c-4e12-8743-69c6bfb280bc"; // Demo Co #1
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -95,19 +94,6 @@ serve(async (req) => {
         from += pageSize;
       }
       return allRows;
-    }
-
-    // Schema cache: fetch valid columns for a table to strip unknowns
-    const schemaCache = new Map<string, Set<string>>();
-    async function getTableColumns(table: string): Promise<Set<string>> {
-      if (schemaCache.has(table)) return schemaCache.get(table)!;
-      // Insert an empty row to discover columns via error, or use a select trick
-      const { data } = await supabase.from(table).select("*").limit(0);
-      // Fallback: just try inserting and let it fail gracefully
-      // Instead, we'll use the RPC approach - but simplest is to query information_schema
-      const { data: cols } = await supabase.rpc("get_table_columns_list", { p_table: table }).single();
-      // Not available as RPC, so let's just track known problematic fields
-      return new Set<string>();
     }
 
     // Known fields that don't exist on certain tables - strip them during insert
