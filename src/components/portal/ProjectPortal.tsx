@@ -20,7 +20,8 @@ import {
   MessageSquare,
   ClipboardList,
   CheckCircle2,
-  Briefcase
+  Briefcase,
+  ShieldCheck
 } from 'lucide-react';
 import { PortalProjectInfo } from './tabs/PortalProjectInfo';
 import { PortalProposals } from './tabs/PortalProposals';
@@ -30,6 +31,7 @@ import { PortalPhotos } from './tabs/PortalPhotos';
 import { PortalDocuments } from './tabs/PortalDocuments';
 import { PortalChat } from './tabs/PortalChat';
 import { PortalSignedDocuments } from './tabs/PortalSignedDocuments';
+import { PortalCredentials } from './tabs/PortalCredentials';
 
 interface ProjectPortalProps {
   token: string;
@@ -41,6 +43,26 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
 
   // Fetch company settings - will be populated after we get the project's company_id
   const [projectCompanyId, setProjectCompanyId] = useState<string | null>(null);
+
+  // Fetch social links for the company
+  const { data: socialLinks = [] } = useQuery({
+    queryKey: ['portal-social-links', projectCompanyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('setting_key, setting_value')
+        .eq('company_id', projectCompanyId!)
+        .like('setting_key', 'social_%');
+      if (error) return [];
+      return (data || [])
+        .filter((s) => s.setting_value?.trim())
+        .map((s) => ({
+          key: s.setting_key.replace('social_', ''),
+          url: s.setting_value!,
+        }));
+    },
+    enabled: !!projectCompanyId,
+  });
 
   const { data: companySettings } = useQuery({
     queryKey: ['portal-company-settings', projectCompanyId],
@@ -278,6 +300,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
     { value: 'invoices', label: 'Invoices', icon: Receipt },
     { value: 'photos', label: 'Photos', icon: Camera, badge: documents.filter(d => d.file_type?.startsWith('image/')).length },
     { value: 'documents', label: 'Docs', icon: FolderOpen },
+    { value: 'credentials', label: 'Credentials', icon: ShieldCheck },
     { value: 'chat', label: 'Chat', icon: MessageSquare },
   ];
 
@@ -524,6 +547,12 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
             />
           </TabsContent>
 
+          <TabsContent value="credentials" className="mt-0 animate-fade-in">
+            <PortalCredentials 
+              companyId={portalData?.token?.company_id || project.company_id}
+            />
+          </TabsContent>
+
           <TabsContent value="chat" className="mt-0 animate-fade-in">
             <PortalChat 
               projectId={project.id}
@@ -605,6 +634,46 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                   <MessageSquare className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
                   <span className="text-sm">Send Us a Message</span>
                 </button>
+                {socialLinks.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {socialLinks.map((link) => {
+                      const platformNames: Record<string, string> = {
+                        facebook: 'Facebook', instagram: 'Instagram', twitter: 'X',
+                        linkedin: 'LinkedIn', youtube: 'YouTube', google: 'Google',
+                        tiktok: 'TikTok', pinterest: 'Pinterest', yelp: 'Yelp', nextdoor: 'Nextdoor',
+                      };
+                      const iconUrls: Record<string, string> = {
+                        facebook: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/facebook.svg',
+                        instagram: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/instagram.svg',
+                        twitter: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/x.svg',
+                        linkedin: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/linkedin.svg',
+                        youtube: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/youtube.svg',
+                        google: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/google.svg',
+                        tiktok: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/tiktok.svg',
+                        pinterest: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/pinterest.svg',
+                        yelp: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/yelp.svg',
+                        nextdoor: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/nextdoor.svg',
+                      };
+                      return (
+                        <a
+                          key={link.key}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={platformNames[link.key] || link.key}
+                          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:scale-110"
+                        >
+                          <img
+                            src={iconUrls[link.key] || ''}
+                            alt={platformNames[link.key] || link.key}
+                            className="h-4 w-4"
+                            style={{ filter: 'invert(1)' }}
+                          />
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
