@@ -938,7 +938,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           footerContent={footerContent}
         />
 
-        {/* Save as PDF Button */}
+        {/* View PDF Button */}
         <div className="mt-6 flex justify-end">
           <Button
             variant="outline"
@@ -947,7 +947,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             className="gap-2"
           >
             <FileDown className="h-4 w-4" />
-            Save as PDF
+            View PDF
           </Button>
         </div>
       </div>

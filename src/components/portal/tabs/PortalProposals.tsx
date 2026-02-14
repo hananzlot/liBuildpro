@@ -93,9 +93,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     font?: string;
   } | null>(null);
 
-  // PDF viewer state
-  const [generatingPdf, setGeneratingPdf] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  // PDF state removed - now using proposal-print route directly
 
   const handlePrintPdf = () => {
     if (!selectedEstimateId) return;
@@ -583,36 +581,6 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     const photos = estimateDetails?.photos || [];
     const files = estimateDetails?.files || [];
 
-    // Check if a saved proposal PDF exists
-    const savedPdfUrl = (selectedEstimate as any).proposal_pdf_url as string | null;
-
-    const handleGeneratePdf = async () => {
-      if (!selectedEstimateId) return;
-      // If a saved PDF exists, open it directly
-      if (savedPdfUrl) {
-        setPdfUrl(savedPdfUrl);
-        return;
-      }
-      // Otherwise generate on-demand (fallback for older proposals)
-      setGeneratingPdf(true);
-      try {
-        const { data: pdfData, error } = await supabase.functions.invoke('generate-contract-pdf', {
-          body: { estimateId: selectedEstimateId },
-        });
-        if (error) throw error;
-        if (pdfData?.url) {
-          setPdfUrl(pdfData.url);
-          toast.success('PDF generated successfully');
-        } else {
-          throw new Error('Failed to generate PDF');
-        }
-      } catch (error) {
-        console.error('Error generating PDF:', error);
-        toast.error('Failed to generate PDF');
-      } finally {
-        setGeneratingPdf(false);
-      }
-    };
 
     const groupedItems = groups.reduce((acc: Record<string, LineItem[]>, group: Group) => {
       acc[group.id] = lineItems.filter((item: LineItem) => item.group_id === group.id);
@@ -643,20 +611,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
             onClick={handlePrintPdf}
           >
             <FileDown className="h-4 w-4 mr-2" />
-            Save as PDF
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGeneratePdf}
-            disabled={generatingPdf}
-          >
-            {generatingPdf ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <FileDown className="h-4 w-4 mr-2" />
-            )}
-            {savedPdfUrl ? 'View PDF' : 'Generate PDF'}
+            View PDF
           </Button>
         </div>
       </div>
@@ -1327,13 +1282,6 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           />
         )}
 
-        {/* PDF Viewer Dialog */}
-        <PdfViewerDialog
-          open={!!pdfUrl}
-          onOpenChange={(isOpen) => !isOpen && setPdfUrl(null)}
-          fileUrl={pdfUrl || ''}
-          fileName={`Proposal-${selectedEstimate.estimate_number || 'Preview'}.pdf`}
-        />
       </div>
     );
   }
