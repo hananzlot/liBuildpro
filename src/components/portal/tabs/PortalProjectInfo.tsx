@@ -178,12 +178,6 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
                     <p className="font-semibold text-slate-900">{project.project_type}</p>
                   </div>
                 )}
-                {project.lead_source && (
-                  <div className="bg-slate-50 rounded-xl p-4">
-                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Source</p>
-                    <p className="font-semibold text-slate-900">{project.lead_source}</p>
-                  </div>
-                )}
               </div>
               
               {/* Key Dates */}
