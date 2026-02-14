@@ -26,29 +26,39 @@ export function PortalCredentials({ companyId }: PortalCredentialsProps) {
     queryKey: ['portal-credentials', companyId],
     queryFn: async () => {
       const settingKeys = [
-        // Insurance docs
-        'insurance_general_liability_url',
-        'insurance_general_liability_label',
-        'insurance_workers_comp_url',
-        'insurance_workers_comp_label',
-        'insurance_custom_1_url',
-        'insurance_custom_1_label',
-        'insurance_custom_2_url',
-        'insurance_custom_2_label',
-        'insurance_custom_3_url',
-        'insurance_custom_3_label',
+        // Insurance docs (admin stores as insurance_doc_*)
+        'insurance_doc_general_liability_url',
+        'insurance_doc_general_liability_name',
+        'insurance_doc_workers_comp_url',
+        'insurance_doc_workers_comp_name',
+        'insurance_doc_custom_count',
+        'insurance_doc_custom_1_url',
+        'insurance_doc_custom_1_name',
+        'insurance_doc_custom_1_label',
+        'insurance_doc_custom_2_url',
+        'insurance_doc_custom_2_name',
+        'insurance_doc_custom_2_label',
+        'insurance_doc_custom_3_url',
+        'insurance_doc_custom_3_name',
+        'insurance_doc_custom_3_label',
         // License/cert docs
         'license_cert_gc_license_url',
-        'license_cert_gc_license_label',
+        'license_cert_gc_license_name',
+        'license_cert_custom_count',
         'license_cert_custom_1_url',
+        'license_cert_custom_1_name',
         'license_cert_custom_1_label',
         'license_cert_custom_2_url',
+        'license_cert_custom_2_name',
         'license_cert_custom_2_label',
         'license_cert_custom_3_url',
+        'license_cert_custom_3_name',
         'license_cert_custom_3_label',
         'license_cert_custom_4_url',
+        'license_cert_custom_4_name',
         'license_cert_custom_4_label',
         'license_cert_custom_5_url',
+        'license_cert_custom_5_name',
         'license_cert_custom_5_label',
         // License info
         'license_type',
@@ -71,18 +81,19 @@ export function PortalCredentials({ companyId }: PortalCredentialsProps) {
       const gcUrl = map.get('license_cert_gc_license_url');
       if (gcUrl) {
         licenses.push({
-          label: map.get('license_cert_gc_license_label') || 'General Contractor License',
+          label: map.get('license_cert_gc_license_name') || 'General Contractor License',
           url: gcUrl,
           type: 'license',
         });
       }
 
       // Custom licenses
-      for (let i = 1; i <= 5; i++) {
+      const licenseCustomCount = parseInt(map.get('license_cert_custom_count') || '0', 10) || 0;
+      for (let i = 1; i <= Math.max(licenseCustomCount, 5); i++) {
         const url = map.get(`license_cert_custom_${i}_url`);
         if (url) {
           licenses.push({
-            label: map.get(`license_cert_custom_${i}_label`) || `Certificate ${i}`,
+            label: map.get(`license_cert_custom_${i}_label`) || map.get(`license_cert_custom_${i}_name`) || `Certificate ${i}`,
             url,
             type: 'license',
           });
@@ -90,31 +101,32 @@ export function PortalCredentials({ companyId }: PortalCredentialsProps) {
       }
 
       // General Liability
-      const glUrl = map.get('insurance_general_liability_url');
+      const glUrl = map.get('insurance_doc_general_liability_url');
       if (glUrl) {
         insurance.push({
-          label: map.get('insurance_general_liability_label') || 'General Liability',
+          label: map.get('insurance_doc_general_liability_name') || 'General Liability',
           url: glUrl,
           type: 'insurance',
         });
       }
 
       // Workers Comp
-      const wcUrl = map.get('insurance_workers_comp_url');
+      const wcUrl = map.get('insurance_doc_workers_comp_url');
       if (wcUrl) {
         insurance.push({
-          label: map.get('insurance_workers_comp_label') || 'Workers Compensation',
+          label: map.get('insurance_doc_workers_comp_name') || 'Workers Compensation',
           url: wcUrl,
           type: 'insurance',
         });
       }
 
       // Custom insurance
-      for (let i = 1; i <= 3; i++) {
-        const url = map.get(`insurance_custom_${i}_url`);
+      const insuranceCustomCount = parseInt(map.get('insurance_doc_custom_count') || '0', 10) || 0;
+      for (let i = 1; i <= Math.max(insuranceCustomCount, 3); i++) {
+        const url = map.get(`insurance_doc_custom_${i}_url`);
         if (url) {
           insurance.push({
-            label: map.get(`insurance_custom_${i}_label`) || `Insurance Policy ${i}`,
+            label: map.get(`insurance_doc_custom_${i}_label`) || map.get(`insurance_doc_custom_${i}_name`) || `Insurance Policy ${i}`,
             url,
             type: 'insurance',
           });
