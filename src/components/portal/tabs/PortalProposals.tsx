@@ -636,19 +636,29 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           <ArrowLeft className="h-4 w-4" />
           Back to Proposals
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleGeneratePdf}
-          disabled={generatingPdf}
-        >
-          {generatingPdf ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrintPdf}
+          >
             <FileDown className="h-4 w-4 mr-2" />
-          )}
-          {savedPdfUrl ? 'View PDF' : 'Generate PDF'}
-        </Button>
+            Save as PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGeneratePdf}
+            disabled={generatingPdf}
+          >
+            {generatingPdf ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <FileDown className="h-4 w-4 mr-2" />
+            )}
+            {savedPdfUrl ? 'View PDF' : 'Generate PDF'}
+          </Button>
+        </div>
       </div>
 
         {/* Status Banner */}

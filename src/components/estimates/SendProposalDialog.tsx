@@ -666,6 +666,15 @@ export function SendProposalDialog({
             // Don't fail the send for this
           }
         }
+
+        // Update project status to "Proposal" if linked
+        if (estimateData?.project_id) {
+          await supabase
+            .from('projects')
+            .update({ project_status: 'Proposal' })
+            .eq('id', estimateData.project_id);
+          console.log("Updated project status to 'Proposal'");
+        }
       }
     },
     onSuccess: () => {
@@ -726,6 +735,14 @@ export function SendProposalDialog({
       })
       .eq('id', estimateId);
     
+    // Also update project status if linked
+    if (estimateData?.project_id) {
+      await supabase
+        .from('projects')
+        .update({ project_status: 'Proposal' })
+        .eq('id', estimateData.project_id);
+    }
+
     queryClient.invalidateQueries({ queryKey: ['estimates'] });
     toast.success('Proposal marked as sent');
     onOpenChange(false);
