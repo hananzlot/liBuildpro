@@ -63,6 +63,13 @@ export interface ProposalPhoto {
   file_name: string | null;
 }
 
+export interface ProposalAttachedDocument {
+  id: string;
+  file_url: string;
+  file_name: string;
+  file_type: string | null;
+}
+
 export interface ProposalAIAnalysis {
   project_understanding?: string[];
   assumptions?: string[];
@@ -113,6 +120,7 @@ export interface ProposalContentProps {
   paymentSchedule: ProposalPaymentPhase[];
   signatures: ProposalSignature[];
   photos: ProposalPhoto[];
+  attachedDocuments?: ProposalAttachedDocument[];
   // Optional customization
   showStatusBanner?: boolean;
   showSalesperson?: boolean;
@@ -182,6 +190,7 @@ export function ProposalContent({
   paymentSchedule,
   signatures,
   photos,
+  attachedDocuments = [],
   showStatusBanner = true,
   showSalesperson = false,
   showNotes = false,
@@ -584,6 +593,34 @@ export function ProposalContent({
           <CardContent>
             <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">
               {estimate.terms_and_conditions}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Attached Documents */}
+      {attachedDocuments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Attached Documents
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {attachedDocuments.map((doc) => (
+                <a
+                  key={doc.id}
+                  href={doc.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+                >
+                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium truncate">{doc.file_name}</span>
+                </a>
+              ))}
             </div>
           </CardContent>
         </Card>

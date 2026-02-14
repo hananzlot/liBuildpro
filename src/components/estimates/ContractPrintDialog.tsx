@@ -69,7 +69,7 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
       ];
 
       // Fetch remaining data in parallel
-      const [groupsRes, itemsRes, scheduleRes, signatureRes, companySettingsRes, appSettingsRes] = await Promise.all([
+      const [groupsRes, itemsRes, scheduleRes, signatureRes, companySettingsRes, appSettingsRes, filesRes] = await Promise.all([
         supabase.from("estimate_groups").select("*").eq("estimate_id", estimateId).order("sort_order"),
         supabase.from("estimate_line_items").select("*").eq("estimate_id", estimateId).order("sort_order"),
         supabase.from("estimate_payment_schedule").select("*").eq("estimate_id", estimateId).order("sort_order"),
@@ -81,6 +81,12 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
           : Promise.resolve({ data: [] }),
         // Fall back to app_settings
         supabase.from("app_settings").select("setting_key, setting_value").in("setting_key", settingKeys),
+        // Fetch estimate files
+        estimate.project_id
+          ? supabase.from("project_documents").select("id, file_name, file_url")
+              .eq("project_id", estimate.project_id).eq("category", "Estimate File")
+              .eq("estimate_id", estimateId).order("created_at", { ascending: false })
+          : Promise.resolve({ data: [] }),
       ]);
 
       // Merge settings: company_settings override app_settings
@@ -100,6 +106,7 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
         lineItems: itemsRes.data as LineItem[],
         paymentSchedule: scheduleRes.data as PaymentSchedule[],
         signature: signatureRes.data as Signature | null,
+        attachedFiles: (filesRes.data || []) as { id: string; file_name: string; file_url: string }[],
         companyName: getSetting("company_name") || "Company",
         companyAddress: getSetting("company_address"),
         companyPhone: getSetting("company_phone"),
@@ -281,6 +288,19 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
           </div>
         `;
       })() : ""}
+
+      ${data.attachedFiles && data.attachedFiles.length > 0 ? `
+        <div class="terms">
+          <div class="terms-title">Attached Documents</div>
+          <ul style="list-style: none; padding: 0; margin-top: 8px;">
+            ${data.attachedFiles.map(f => `
+              <li style="padding: 6px 0; border-bottom: 1px solid #eee;">
+                <a href="${f.file_url}" target="_blank" style="color: #333; text-decoration: underline;">${f.file_name}</a>
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      ` : ""}
 
       ${signatureHtml}
     `;
