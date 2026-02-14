@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { formatUnit } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +18,8 @@ import {
   Building,
   Users,
   Image as ImageIcon,
+  Shield,
+  ExternalLink,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -176,6 +180,87 @@ function renderBullets(items?: string[]) {
         </li>
       ))}
     </ul>
+  );
+}
+
+// Insurance documents section - fetches from company_settings
+function InsuranceDocsSection({ companyId }: { companyId: string | null }) {
+  const { data: insuranceDocs = [] } = useQuery({
+    queryKey: ['insurance-docs-proposal', companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('setting_key, setting_value')
+        .eq('company_id', companyId)
+        .like('setting_key', 'insurance_doc_%');
+      if (error) return [];
+
+      const map = new Map<string, string>();
+      (data || []).forEach((s) => map.set(s.setting_key, s.setting_value || ''));
+
+      const docs: { label: string; file_url: string; file_name: string }[] = [];
+
+      // Default slots
+      const defaults = [
+        { key: 'general_liability', label: 'General Liability' },
+        { key: 'workers_comp', label: 'Workers Compensation' },
+      ];
+      for (const slot of defaults) {
+        const url = map.get(`insurance_doc_${slot.key}_url`);
+        const name = map.get(`insurance_doc_${slot.key}_name`);
+        if (url && url.trim()) {
+          docs.push({ label: slot.label, file_url: url, file_name: name || slot.label });
+        }
+      }
+
+      // Custom slots
+      const customCount = parseInt(map.get('insurance_doc_custom_count') || '0', 10) || 0;
+      for (let i = 1; i <= customCount; i++) {
+        const url = map.get(`insurance_doc_custom_${i}_url`);
+        const name = map.get(`insurance_doc_custom_${i}_name`);
+        const label = map.get(`insurance_doc_custom_${i}_label`) || `Insurance Document ${i}`;
+        if (url && url.trim()) {
+          docs.push({ label, file_url: url, file_name: name || label });
+        }
+      }
+
+      return docs;
+    },
+    enabled: !!companyId,
+  });
+
+  if (insuranceDocs.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Shield className="h-5 w-5" />
+          Insurance Documents
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {insuranceDocs.map((doc, idx) => (
+            <a
+              key={idx}
+              href={doc.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+            >
+              <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium">{doc.label}</span>
+                <span className="text-xs text-muted-foreground ml-2">({doc.file_name})</span>
+              </div>
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </a>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -599,6 +684,9 @@ export function ProposalContent({
           </CardContent>
         </Card>
       )}
+
+      {/* Insurance Documents */}
+      <InsuranceDocsSection companyId={estimate.company_id} />
 
       {/* Notes to Customer */}
       {estimate.notes_to_customer && (
