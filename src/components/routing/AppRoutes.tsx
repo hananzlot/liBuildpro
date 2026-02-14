@@ -42,6 +42,7 @@ import PendingDeposits from "@/pages/PendingDeposits";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import QuickBooksHelp from "@/pages/QuickBooksHelp";
+import ProposalPrint from "@/pages/ProposalPrint";
 import { ProtectedRoute, DefaultPageRedirect } from "./RouteGuards";
 
 /**
@@ -408,6 +409,16 @@ export function AppRoutes() {
         
         {/* Short link redirect - public */}
         <Route path="/r/:code" element={<ShortLinkRedirect />} />
+        
+        {/* Proposal print view - authenticated */}
+        <Route
+          path="/proposal-print/:estimateId"
+          element={
+            <ProtectedRoute>
+              <ProposalPrint />
+            </ProtectedRoute>
+          }
+        />
         
         {/* Legal pages - public */}
         <Route path="/terms" element={<Terms />} />
