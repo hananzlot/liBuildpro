@@ -976,6 +976,12 @@ serve(async (req) => {
       }
     }
 
+    // Save the PDF URL to the estimate for instant portal access
+    await supabase
+      .from('estimates')
+      .update({ proposal_pdf_url: publicUrl })
+      .eq('id', estimateId);
+
     return new Response(
       JSON.stringify({ 
         success: true, 
