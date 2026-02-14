@@ -217,10 +217,15 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
               </span>
             )}
             {companyInfo.company_website && (
-              <span className="flex items-center gap-1.5">
+              <a
+                href={companyInfo.company_website.startsWith('http') ? companyInfo.company_website : `https://${companyInfo.company_website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 hover:underline"
+              >
                 <Globe className="h-4 w-4" />
                 {companyInfo.company_website}
-              </span>
+              </a>
             )}
           </div>
 
