@@ -51,6 +51,7 @@ import {
   Sparkles,
   Link2,
   Shield,
+  Award,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -316,6 +317,7 @@ const ADMIN_SUB_ITEMS: { label: string; items: AdminMenuItem[] }[] = [
       { title: "Emails", icon: Mail, tab: "emails" },
       { title: "Compliance", icon: FileSignature, tab: "compliance" },
       { title: "Insurance", icon: Shield, tab: "insurance" },
+      { title: "Licenses", icon: Award, tab: "licenses" },
       { title: "Chat", icon: MessageSquare, tab: "chat" },
     ],
   },

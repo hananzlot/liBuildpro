@@ -19,6 +19,7 @@ import {
   Users,
   Image as ImageIcon,
   Shield,
+  Award,
   ExternalLink,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -251,6 +252,81 @@ function InsuranceDocsSection({ companyId }: { companyId: string | null }) {
               className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
             >
               <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium">{doc.label}</span>
+                <span className="text-xs text-muted-foreground ml-2">({doc.file_name})</span>
+              </div>
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </a>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// License / Certificate documents section - fetches from company_settings
+function LicenseCertsSection({ companyId }: { companyId: string | null }) {
+  const { data: licenseDocs = [] } = useQuery({
+    queryKey: ['license-certs-proposal', companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('setting_key, setting_value')
+        .eq('company_id', companyId)
+        .like('setting_key', 'license_cert_%');
+      if (error) return [];
+
+      const map = new Map<string, string>();
+      (data || []).forEach((s) => map.set(s.setting_key, s.setting_value || ''));
+
+      const docs: { label: string; file_url: string; file_name: string }[] = [];
+
+      // Default slot
+      const gcUrl = map.get('license_cert_gc_license_url');
+      const gcName = map.get('license_cert_gc_license_name');
+      if (gcUrl && gcUrl.trim()) {
+        docs.push({ label: 'GC License', file_url: gcUrl, file_name: gcName || 'GC License' });
+      }
+
+      // Custom slots
+      const customCount = parseInt(map.get('license_cert_custom_count') || '0', 10) || 0;
+      for (let i = 1; i <= customCount; i++) {
+        const url = map.get(`license_cert_custom_${i}_url`);
+        const name = map.get(`license_cert_custom_${i}_name`);
+        const label = map.get(`license_cert_custom_${i}_label`) || `Certificate ${i}`;
+        if (url && url.trim()) {
+          docs.push({ label, file_url: url, file_name: name || label });
+        }
+      }
+
+      return docs;
+    },
+    enabled: !!companyId,
+  });
+
+  if (licenseDocs.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Award className="h-5 w-5" />
+          License / Certificate Files
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {licenseDocs.map((doc, idx) => (
+            <a
+              key={idx}
+              href={doc.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+            >
+              <Award className="h-4 w-4 text-muted-foreground shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-medium">{doc.label}</span>
                 <span className="text-xs text-muted-foreground ml-2">({doc.file_name})</span>
@@ -687,6 +763,9 @@ export function ProposalContent({
 
       {/* Insurance Documents */}
       <InsuranceDocsSection companyId={estimate.company_id} />
+
+      {/* License / Certificate Files */}
+      <LicenseCertsSection companyId={estimate.company_id} />
 
       {/* Notes to Customer */}
       {estimate.notes_to_customer && (
