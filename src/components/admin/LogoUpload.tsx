@@ -72,6 +72,8 @@ export function LogoUpload() {
   const [hasColorChanges, setHasColorChanges] = useState(false);
   const [customFontColor, setCustomFontColor] = useState("");
   const [hasFontColorChanges, setHasFontColorChanges] = useState(false);
+  const [customSubtextColor, setCustomSubtextColor] = useState("");
+  const [hasSubtextColorChanges, setHasSubtextColorChanges] = useState(false);
 
   // Fetch current logo URL from company_settings first, fallback to app_settings
   const { data: logoSetting, isLoading } = useQuery({
@@ -157,8 +159,36 @@ export function LogoUpload() {
     },
   });
 
+  // Fetch header subtext color setting
+  const { data: subtextColorSetting } = useQuery({
+    queryKey: ["company-header-subtext-color", companyId],
+    queryFn: async () => {
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from("company_settings")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("setting_key", "company_header_subtext_color")
+          .maybeSingle();
+
+        if (companyData) {
+          return companyData.setting_value || "";
+        }
+      }
+
+      const { data } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("setting_key", "company_header_subtext_color")
+        .maybeSingle();
+
+      return data?.setting_value || "";
+    },
+  });
+
   const currentBgColor = bgColorSetting || "";
   const currentFontColor = fontColorSetting || "";
+  const currentSubtextColor = subtextColorSetting || "";
 
   const currentLogoUrl = logoSetting?.setting_value || "";
 
@@ -319,6 +349,11 @@ export function LogoUpload() {
     setCustomFontColor(currentFontColor);
   }
 
+  // Initialize subtext color input when data loads
+  if (subtextColorSetting !== undefined && customSubtextColor === "" && currentSubtextColor && !hasSubtextColorChanges) {
+    setCustomSubtextColor(currentSubtextColor);
+  }
+
   const updateBgColor = useMutation({
     mutationFn: async (color: string) => {
       if (companyId) {
@@ -450,6 +485,62 @@ export function LogoUpload() {
   const handleFontColorReset = () => {
     setCustomFontColor("");
     updateFontColor.mutate("");
+  };
+
+  // Subtext color mutation
+  const updateSubtextColor = useMutation({
+    mutationFn: async (color: string) => {
+      if (companyId) {
+        const { data: existing } = await supabase
+          .from("company_settings")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("setting_key", "company_header_subtext_color")
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("company_settings")
+            .update({ setting_value: color, updated_at: new Date().toISOString() })
+            .eq("company_id", companyId)
+            .eq("setting_key", "company_header_subtext_color");
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("company_settings")
+            .insert({ company_id: companyId, setting_key: "company_header_subtext_color", setting_value: color });
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await supabase
+          .from("app_settings")
+          .upsert({ setting_key: "company_header_subtext_color", setting_value: color, updated_at: new Date().toISOString() }, { onConflict: 'setting_key' });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-header-subtext-color"] });
+      queryClient.invalidateQueries({ queryKey: ["company-info-header"] });
+      toast.success("Header subtext color updated");
+      setHasSubtextColorChanges(false);
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update subtext color: ${error.message}`);
+    },
+  });
+
+  const handleSubtextColorChange = (value: string) => {
+    setCustomSubtextColor(value);
+    setHasSubtextColorChanges(value !== currentSubtextColor);
+  };
+
+  const handleSubtextColorSave = () => {
+    updateSubtextColor.mutate(customSubtextColor);
+  };
+
+  const handleSubtextColorReset = () => {
+    setCustomSubtextColor("");
+    updateSubtextColor.mutate("");
   };
 
   return (
@@ -694,6 +785,58 @@ export function LogoUpload() {
             </div>
           </div>
 
+          {/* Header Subtext Color */}
+          <div className="space-y-3 pt-4 border-t">
+            <div className="flex items-center gap-2">
+              <Palette className="h-4 w-4 text-muted-foreground" />
+              <Label>Header Subtext Color</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Choose a custom color for license info, contact details, and social links. Leave empty to derive from header font color.
+            </p>
+            
+            <div className="flex items-center gap-2">
+              <Input
+                type="color"
+                value={customSubtextColor || "#666666"}
+                onChange={(e) => handleSubtextColorChange(e.target.value)}
+                className="w-12 h-10 p-1 cursor-pointer"
+              />
+              <Input
+                type="text"
+                value={customSubtextColor}
+                onChange={(e) => handleSubtextColorChange(e.target.value)}
+                placeholder="Auto (from header font color)"
+                className="flex-1"
+              />
+              {currentSubtextColor && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSubtextColorReset}
+                  disabled={updateSubtextColor.isPending}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Reset
+                </Button>
+              )}
+              {hasSubtextColorChanges && (
+                <Button
+                  size="sm"
+                  onClick={handleSubtextColorSave}
+                  disabled={updateSubtextColor.isPending}
+                >
+                  {updateSubtextColor.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Save className="h-3 w-3 mr-1" />
+                  )}
+                  Save
+                </Button>
+              )}
+            </div>
+          </div>
+
           {/* Live Preview */}
           {(currentLogoUrl || currentBgColor) && (
             <div className="mt-4">
@@ -702,22 +845,32 @@ export function LogoUpload() {
                 className="mt-2 p-4 rounded-lg border"
                 style={{ backgroundColor: currentBgColor || undefined }}
               >
-                <div className="flex items-center gap-3">
-                  {currentLogoUrl && (
-                    <img 
-                      src={currentLogoUrl} 
-                      alt="Logo preview" 
-                      className="h-12 w-auto object-contain"
-                    />
-                  )}
-                  <span 
-                    className="font-semibold"
-                    style={{ 
-                      color: currentFontColor || (currentBgColor && isColorDark(currentBgColor) ? '#ffffff' : undefined)
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    {currentLogoUrl && (
+                      <img 
+                        src={currentLogoUrl} 
+                        alt="Logo preview" 
+                        className="h-12 w-auto object-contain"
+                      />
+                    )}
+                    <span 
+                      className="font-semibold"
+                      style={{ 
+                        color: currentFontColor || (currentBgColor && isColorDark(currentBgColor) ? '#ffffff' : undefined)
+                      }}
+                    >
+                      {company?.name || "Company Name"}
+                    </span>
+                  </div>
+                  <p
+                    className="text-sm"
+                    style={{
+                      color: currentSubtextColor || (currentFontColor ? undefined : (currentBgColor && isColorDark(currentBgColor) ? 'rgba(255,255,255,0.7)' : undefined))
                     }}
                   >
-                    {company?.name || "Company Name"}
-                  </span>
+                    License info, address, phone, website
+                  </p>
                 </div>
               </div>
             </div>
