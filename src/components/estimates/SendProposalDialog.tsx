@@ -678,6 +678,28 @@ export function SendProposalDialog({
       queryClient.invalidateQueries({ queryKey: ['estimates'] });
       queryClient.invalidateQueries({ queryKey: ['estimate-signers', estimateId] });
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+
+      // Auto-generate and save proposal PDF in the background
+      (async () => {
+        try {
+          const { data: pdfResult, error: pdfError } = await supabase.functions.invoke('generate-contract-pdf', {
+            body: { estimateId, projectId: estimateData?.project_id },
+          });
+          if (!pdfError && pdfResult?.url) {
+            await supabase
+              .from('estimates')
+              .update({ proposal_pdf_url: pdfResult.url } as any)
+              .eq('id', estimateId);
+            console.log('Proposal PDF saved:', pdfResult.url);
+            queryClient.invalidateQueries({ queryKey: ['estimates'] });
+          } else {
+            console.error('Failed to generate proposal PDF:', pdfError);
+          }
+        } catch (err) {
+          console.error('Background PDF generation failed:', err);
+        }
+      })();
+
       // Call the external onSuccess callback if provided
       onSuccess?.();
       onOpenChange(false);

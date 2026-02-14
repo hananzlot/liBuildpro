@@ -1,0 +1,1 @@
+ALTER TABLE public.estimates ADD COLUMN proposal_pdf_url TEXT;

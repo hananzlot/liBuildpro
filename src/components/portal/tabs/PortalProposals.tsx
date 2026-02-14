@@ -578,8 +578,17 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     const photos = estimateDetails?.photos || [];
     const files = estimateDetails?.files || [];
 
+    // Check if a saved proposal PDF exists
+    const savedPdfUrl = (selectedEstimate as any).proposal_pdf_url as string | null;
+
     const handleGeneratePdf = async () => {
       if (!selectedEstimateId) return;
+      // If a saved PDF exists, open it directly
+      if (savedPdfUrl) {
+        setPdfUrl(savedPdfUrl);
+        return;
+      }
+      // Otherwise generate on-demand (fallback for older proposals)
       setGeneratingPdf(true);
       try {
         const { data: pdfData, error } = await supabase.functions.invoke('generate-contract-pdf', {
@@ -633,7 +642,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           ) : (
             <FileDown className="h-4 w-4 mr-2" />
           )}
-          View PDF
+          {savedPdfUrl ? 'View PDF' : 'Generate PDF'}
         </Button>
       </div>
 
