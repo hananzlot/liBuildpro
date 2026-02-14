@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
@@ -16,6 +16,8 @@ import {
 
 export default function ProposalPrint() {
   const { estimateId } = useParams<{ estimateId: string }>();
+  const [searchParams] = useSearchParams();
+  const noPrint = searchParams.get('noprint') === '1';
 
   const { data, isLoading } = useQuery({
     queryKey: ['proposal-print', estimateId],
@@ -78,16 +80,15 @@ export default function ProposalPrint() {
     enabled: !!estimateId,
   });
 
-  // Auto-trigger print once data is loaded
+  // Auto-trigger print once data is loaded (skip if noprint query param is set)
   useEffect(() => {
-    if (data?.estimate) {
-      // Small delay to let the DOM render fully
+    if (data?.estimate && !noPrint) {
       const timeout = setTimeout(() => {
         window.print();
       }, 800);
       return () => clearTimeout(timeout);
     }
-  }, [data]);
+  }, [data, noPrint]);
 
   if (isLoading) {
     return (
