@@ -185,7 +185,7 @@ function renderBullets(items?: string[]) {
 }
 
 // Insurance documents section - fetches from company_settings
-function InsuranceDocsSection({ companyId }: { companyId: string | null }) {
+export function InsuranceDocsSection({ companyId }: { companyId: string | null }) {
   const { data: insuranceDocs = [] } = useQuery({
     queryKey: ['insurance-docs-proposal', companyId],
     queryFn: async () => {
@@ -266,7 +266,7 @@ function InsuranceDocsSection({ companyId }: { companyId: string | null }) {
 }
 
 // License / Certificate documents section - fetches from company_settings
-function LicenseCertsSection({ companyId }: { companyId: string | null }) {
+export function LicenseCertsSection({ companyId }: { companyId: string | null }) {
   const { data: licenseDocs = [] } = useQuery({
     queryKey: ['license-certs-proposal', companyId],
     queryFn: async () => {

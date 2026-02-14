@@ -15,6 +15,8 @@ import { Separator } from '@/components/ui/separator';
 import { SignatureCanvas } from '../SignatureCanvas';
 import { ComplianceSigningFlow } from '../ComplianceSigningFlow';
 import { updateOpportunityValueFromEstimates } from '@/lib/estimateValueUtils';
+import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
+import { InsuranceDocsSection, LicenseCertsSection } from '@/components/proposals/ProposalContent';
 import { 
   FileText, 
   CheckCircle2, 
@@ -32,6 +34,9 @@ import {
   Loader2,
   FileSignature,
   Image as ImageIcon,
+  FileDown,
+  Award,
+  ExternalLink,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -87,6 +92,10 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     data: string;
     font?: string;
   } | null>(null);
+
+  // PDF viewer state
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   // Compliance flow state
   const [complianceFlowOpen, setComplianceFlowOpen] = useState(false);
@@ -260,7 +269,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       const estimateForPhotos = estimates.find(e => e.id === selectedEstimateId);
       const estimateProjectId = estimateForPhotos?.project_id || projectId;
 
-      const [groupsRes, itemsRes, scheduleRes, signaturesRes, photosRes] = await Promise.all([
+      const [groupsRes, itemsRes, scheduleRes, signaturesRes, photosRes, filesRes] = await Promise.all([
         supabase.from('estimate_groups').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
         supabase.from('estimate_line_items').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
         supabase.from('estimate_payment_schedule').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
@@ -268,6 +277,10 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         // Fetch estimate photos scoped to this specific estimate
         estimateProjectId 
           ? supabase.from('project_documents').select('id, file_url, file_name').eq('project_id', estimateProjectId).eq('category', 'Estimate Photo').eq('estimate_id', selectedEstimateId).order('created_at', { ascending: false })
+          : Promise.resolve({ data: [] }),
+        // Fetch estimate files (attached documents) scoped to this specific estimate
+        estimateProjectId
+          ? supabase.from('project_documents').select('id, file_url, file_name, file_type').eq('project_id', estimateProjectId).eq('category', 'Estimate File').eq('estimate_id', selectedEstimateId).order('created_at', { ascending: false })
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -277,6 +290,12 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         paymentSchedule: scheduleRes.data || [],
         signatures: signaturesRes.data || [],
         photos: photosRes.data || [],
+        files: (filesRes.data || []).map((f: any) => ({
+          id: f.id,
+          file_url: f.file_url,
+          file_name: f.file_name || 'Document',
+          file_type: f.file_type,
+        })),
       };
     },
     enabled: !!selectedEstimateId && viewingProposal,
@@ -557,7 +576,29 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     const paymentSchedule = estimateDetails?.paymentSchedule || [];
     const signatures = estimateDetails?.signatures || [];
     const photos = estimateDetails?.photos || [];
-    
+    const files = estimateDetails?.files || [];
+
+    const handleGeneratePdf = async () => {
+      if (!selectedEstimateId) return;
+      setGeneratingPdf(true);
+      try {
+        const { data: pdfData, error } = await supabase.functions.invoke('generate-contract-pdf', {
+          body: { estimateId: selectedEstimateId },
+        });
+        if (error) throw error;
+        if (pdfData?.url) {
+          setPdfUrl(pdfData.url);
+          toast.success('PDF generated successfully');
+        } else {
+          throw new Error('Failed to generate PDF');
+        }
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        toast.error('Failed to generate PDF');
+      } finally {
+        setGeneratingPdf(false);
+      }
+    };
 
     const groupedItems = groups.reduce((acc: Record<string, LineItem[]>, group: Group) => {
       acc[group.id] = lineItems.filter((item: LineItem) => item.group_id === group.id);
@@ -568,6 +609,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
 
     return (
       <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <Button 
           variant="ghost" 
           onClick={() => {
@@ -580,6 +622,20 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           <ArrowLeft className="h-4 w-4" />
           Back to Proposals
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleGeneratePdf}
+          disabled={generatingPdf}
+        >
+          {generatingPdf ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <FileDown className="h-4 w-4 mr-2" />
+          )}
+          View PDF
+        </Button>
+      </div>
 
         {/* Status Banner */}
         {isSigned && signatures.length > 0 && (
@@ -941,7 +997,41 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
               </Card>
             )}
 
-            {/* Notes to Customer */}
+            {/* Attached Documents (Estimate Files) */}
+            {files.length > 0 && (
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Attached Documents
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {files.map((file: { id: string; file_url: string; file_name: string; file_type: string | null }) => (
+                      <a
+                        key={file.id}
+                        href={file.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+                      >
+                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-sm font-medium flex-1 min-w-0 truncate">{file.file_name}</span>
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      </a>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Insurance Documents */}
+            <InsuranceDocsSection companyId={selectedEstimate.company_id} />
+
+            {/* License / Certificate Files */}
+            <LicenseCertsSection companyId={selectedEstimate.company_id} />
+
             {selectedEstimate.notes_to_customer && (
               <Card className="border-0 shadow-lg">
                 <CardHeader>
@@ -1212,6 +1302,14 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
             }}
           />
         )}
+
+        {/* PDF Viewer Dialog */}
+        <PdfViewerDialog
+          open={!!pdfUrl}
+          onOpenChange={(isOpen) => !isOpen && setPdfUrl(null)}
+          fileUrl={pdfUrl || ''}
+          fileName={`Proposal-${selectedEstimate.estimate_number || 'Preview'}.pdf`}
+        />
       </div>
     );
   }
