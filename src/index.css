@@ -324,3 +324,42 @@
 .appointment-detail-page [data-radix-dialog-content] {
   position: static !important;
 }
+
+/* Print styles for proposal print page */
+@media print {
+  .proposal-print-page {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide browser chrome, navigation, sidebars */
+  nav, header, footer, aside,
+  [data-sidebar], .sidebar,
+  button, .no-print {
+    display: none !important;
+  }
+
+  /* Ensure good page breaks */
+  .proposal-print-page * {
+    break-inside: avoid-page;
+  }
+
+  /* Reset shadows and borders for clean print */
+  .proposal-print-page .border,
+  .proposal-print-page [class*="shadow"] {
+    box-shadow: none !important;
+  }
+
+  /* Ensure images print */
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+
+  /* Size the page properly */
+  @page {
+    size: letter;
+    margin: 0.5in;
+  }
+}

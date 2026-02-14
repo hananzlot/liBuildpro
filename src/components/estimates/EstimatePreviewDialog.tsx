@@ -38,6 +38,11 @@ export function EstimatePreviewDialog({
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
+  const handlePrintPdf = () => {
+    if (!estimateId) return;
+    window.open(`/proposal-print/${estimateId}`, '_blank');
+  };
+
   const { data, isLoading } = useQuery({
     queryKey: ['estimate-preview', estimateId],
     queryFn: async () => {
@@ -156,15 +161,11 @@ export function EstimatePreviewDialog({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleGeneratePdf}
-                disabled={generatingPdf || !data?.estimate}
+                onClick={handlePrintPdf}
+                disabled={!data?.estimate}
               >
-                {generatingPdf ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <FileDown className="h-4 w-4 mr-2" />
-                )}
-                View PDF
+                <FileDown className="h-4 w-4 mr-2" />
+                Save as PDF
               </Button>
               {data?.estimate && getStatusBadge(data.estimate.status)}
             </div>
