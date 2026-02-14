@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAppVersion } from "@/hooks/useAppVersion";
@@ -43,7 +43,14 @@ import {
   BrainCircuit,
   Landmark,
   Pin,
-  PinOff
+  PinOff,
+  Mail,
+  MessageSquare,
+  Link,
+  DollarSign,
+  Sparkles,
+  Link2,
+  Shield,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -298,11 +305,45 @@ const navSections: NavSection[] = [
 interface AdminMenuItem {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
-  action: string;
+  tab: string;
 }
 
-const adminMenuItems: AdminMenuItem[] = [
-  { title: "Admin Settings", icon: Settings, action: "settings" },
+const ADMIN_SUB_ITEMS: { label: string; items: AdminMenuItem[] }[] = [
+  {
+    label: "Core Settings",
+    items: [
+      { title: "General", icon: Settings, tab: "settings" },
+      { title: "Emails", icon: Mail, tab: "emails" },
+      { title: "Compliance", icon: FileSignature, tab: "compliance" },
+      { title: "Insurance", icon: Shield, tab: "insurance" },
+      { title: "Chat", icon: MessageSquare, tab: "chat" },
+    ],
+  },
+  {
+    label: "Integrations",
+    items: [
+      { title: "GoHighLevel", icon: Link, tab: "integrations" },
+      { title: "QuickBooks", icon: DollarSign, tab: "quickbooks" },
+      { title: "APIs & AI", icon: Sparkles, tab: "custom" },
+    ],
+  },
+  {
+    label: "Sales & Operations",
+    items: [
+      { title: "Lead Sources", icon: Pencil, tab: "sources" },
+      { title: "Short Links", icon: Link2, tab: "shortlinks" },
+      { title: "Accounting", icon: DollarSign, tab: "payables" },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { title: "Users", icon: Users, tab: "users" },
+      { title: "Reports", icon: Eye, tab: "reports" },
+      { title: "Data Cleanup", icon: Wrench, tab: "cleanup" },
+      { title: "Audit Log", icon: FileText, tab: "audit" },
+    ],
+  },
 ];
 
 interface AppSidebarProps {
@@ -950,20 +991,66 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                     </SidebarMenuButton>
                   </SidebarMenuItem>
 
-                  {adminMenuItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        tooltip={item.title}
-                        onClick={() => {
-                          closeSidebar();
-                          openTab('/admin/settings', 'Admin Settings');
-                        }}
-                      >
-                        <item.icon className="h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
-                      </SidebarMenuButton>
+                  {/* Admin Settings with sub-menus */}
+                  <Collapsible
+                    open={openMenus['Admin Settings'] || location.pathname === '/admin/settings'}
+                    onOpenChange={() => toggleMenu('Admin Settings')}
+                    className="group/collapsible"
+                  >
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton 
+                          tooltip="Admin Settings"
+                          isActive={location.pathname === '/admin/settings'}
+                        >
+                          <Settings className="h-4 w-4" />
+                          {!collapsed && (
+                            <>
+                              <span className="flex-1">Admin Settings</span>
+                              <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${openMenus['Admin Settings'] || location.pathname === '/admin/settings' ? 'rotate-90' : ''}`} />
+                            </>
+                          )}
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {ADMIN_SUB_ITEMS.map((group) => (
+                            <React.Fragment key={group.label}>
+                              <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-1 first:mt-0">
+                                {group.label}
+                              </div>
+                              {group.items.map((item) => {
+                                const searchParams = new URLSearchParams(location.search);
+                                const currentTab = searchParams.get('tab') || 'settings';
+                                const isSubActive = location.pathname === '/admin/settings' && currentTab === item.tab;
+                                return (
+                                  <SidebarMenuSubItem key={item.tab}>
+                                    <SidebarMenuSubButton 
+                                      asChild 
+                                      isActive={isSubActive}
+                                    >
+                                      <a 
+                                        href={`/admin/settings?tab=${item.tab}`}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          openTab(`/admin/settings?tab=${item.tab}`, item.title);
+                                          closeSidebar();
+                                        }}
+                                        className={`flex items-center gap-2 ${isSubActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}`}
+                                      >
+                                        <item.icon className="h-3 w-3" />
+                                        <span>{item.title}</span>
+                                      </a>
+                                    </SidebarMenuSubButton>
+                                  </SidebarMenuSubItem>
+                                );
+                              })}
+                            </React.Fragment>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
                     </SidebarMenuItem>
-                  ))}
+                  </Collapsible>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

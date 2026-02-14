@@ -32,6 +32,7 @@ import { useGHLMode } from "@/hooks/useGHLMode";
 import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
 import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsEditor";
 import { ComplianceTemplatesManager } from "@/components/admin/ComplianceTemplatesManager";
+import { InsuranceDocuments } from "@/components/admin/InsuranceDocuments";
 import { BankManagement } from "@/components/admin/BankManagement";
 import { RoleAnalyticsDefaults } from "@/components/admin/RoleAnalyticsDefaults";
 import { OnboardingPromptBanner } from "@/components/onboarding/OnboardingPromptBanner";
@@ -77,42 +78,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Grouped tab configuration for the dropdown menu
-const TAB_GROUPS = [
-  {
-    label: "Core Settings",
-    tabs: [
-      { value: "settings", label: "General", icon: Settings },
-      { value: "emails", label: "Emails", icon: Mail },
-      { value: "compliance", label: "Compliance", icon: FileSignature },
-      { value: "chat", label: "Chat", icon: MessageSquare },
-    ],
-  },
-  {
-    label: "Integrations",
-    tabs: [
-      { value: "integrations", label: "GoHighLevel", icon: Link },
-      { value: "quickbooks", label: "QuickBooks", icon: DollarSign },
-      { value: "custom", label: "APIs & AI", icon: Sparkles },
-    ],
-  },
-  {
-    label: "Sales & Operations",
-    tabs: [
-      { value: "sources", label: "Lead Sources", icon: Pencil },
-      { value: "shortlinks", label: "Short Links", icon: Link2 },
-      { value: "payables", label: "Accounting", icon: DollarSign },
-    ],
-  },
-  {
-    label: "System",
-    tabs: [
-      { value: "users", label: "Users", icon: Users },
-      { value: "reports", label: "Reports", icon: Eye },
-      { value: "cleanup", label: "Data Cleanup", icon: Wrench },
-      { value: "audit", label: "Audit Log", icon: FileText },
-    ],
-  },
+// Tab values used for routing - tab bar removed, navigation via sidebar sub-menu
+const ALL_TAB_VALUES = [
+  "settings", "emails", "compliance", "insurance", "chat",
+  "integrations", "quickbooks", "custom",
+  "sources", "shortlinks", "payables",
+  "users", "reports", "cleanup", "audit",
 ];
 
 interface AppSetting {
@@ -852,39 +823,6 @@ export default function AdminSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          {/* Grouped Tab Navigation */}
-          <div className="flex flex-wrap items-center gap-2 mb-6 p-3 bg-muted/30 rounded-lg border">
-            {TAB_GROUPS.map((group, groupIndex) => (
-              <React.Fragment key={group.label}>
-                {groupIndex > 0 && <Separator orientation="vertical" className="h-8 hidden md:block" />}
-                <div className="flex items-center gap-1">
-                  <span className="text-xs font-medium text-muted-foreground mr-1 hidden lg:inline">
-                    {group.label}:
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    {group.tabs.map((tab) => {
-                      const Icon = tab.icon;
-                      const isActive = activeTab === tab.value;
-                      return (
-                        <Button
-                          key={tab.value}
-                          variant={isActive ? "default" : "ghost"}
-                          size="sm"
-                          onClick={() => handleTabChange(tab.value)}
-                          className={`flex items-center gap-1.5 h-8 ${
-                            isActive ? "" : "text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline text-xs">{tab.label}</span>
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </React.Fragment>
-            ))}
-          </div>
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="mt-6">
@@ -1793,6 +1731,11 @@ export default function AdminSettings() {
           {/* Compliance Templates Tab */}
           <TabsContent value="compliance" className="mt-6">
             <ComplianceTemplatesManager />
+          </TabsContent>
+
+          {/* Insurance Documents Tab */}
+          <TabsContent value="insurance" className="mt-6">
+            <InsuranceDocuments />
           </TabsContent>
 
           {/* Chat Management Tab */}
