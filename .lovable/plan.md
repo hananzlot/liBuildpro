@@ -1,54 +1,73 @@
 
 
-# Fix Data Replication: Handle Dependencies and Clean Up Duplicates
+# Auto-Save Proposal PDF on Send
 
-## Current Problems
+## Overview
+When a proposal is sent, automatically generate and save a full PDF snapshot. The customer portal then simply displays the saved PDF instead of dynamically rendering the proposal. This ensures the customer always sees the exact version that was sent, and eliminates the need for the portal to assemble data from multiple tables.
 
-1. **Doubled data**: Demo Co #1 has 2x the records it should (2,953 contacts vs 1,475 source) because the function ran multiple times without properly clearing first.
-2. **Missing tables**: `lead_sources` (2 records) was never included in the replication script.
-3. **Global unique constraints**: `project_statuses` (UNIQUE on `name`) and `project_types` (UNIQUE on `name`) have global uniqueness, not per-company. Since CA Pro Builders already has records with those names, copying them for Demo Co #1 would fail.
+## How It Works Today
+1. The "Send Proposal" flow emails a portal link to the customer
+2. The portal dynamically fetches estimate data from ~6 tables and renders it using `ProposalContent`
+3. PDF generation only happens on-demand when someone clicks "View PDF"
+4. The PDF edge function (`generate-contract-pdf`) already builds a complete PDF and uploads it to the `contracts` storage bucket
 
-## Fix Plan
+## What Changes
 
-### Step 1: Database Migration -- Fix Global Unique Constraints
+### 1. Database: Add `proposal_pdf_url` column to `estimates`
+- Add a nullable TEXT column `proposal_pdf_url` to the `estimates` table
+- This stores the public URL of the saved PDF snapshot
 
-Change `project_statuses` and `project_types` to use company-scoped unique constraints (same pattern we already applied to `salespeople`, `trades`, `banks`):
+### 2. Send Proposal Flow: Auto-generate PDF on send
+- In `SendProposalDialog.tsx`, after successfully sending the proposal email, call `generate-contract-pdf` in the background
+- Save the returned URL to `estimates.proposal_pdf_url`
+- This happens silently -- the user doesn't need to wait for it
 
+### 3. Customer Portal: Show saved PDF
+- In `PortalProposals.tsx`, check if `proposal_pdf_url` exists on the estimate
+- If it does, show a prominent "View Proposal PDF" button that opens the saved PDF directly (no generation delay)
+- Keep the existing dynamic detail view as a fallback for older proposals that don't have a saved PDF
+- Remove the on-demand "View PDF" generation button when a saved PDF already exists
+
+### 4. Edge Function: Add missing sections to PDF
+- Update `generate-contract-pdf` to include the Insurance Docs, License/Certificate files, and Attached Documents sections that are currently missing from the PDF output
+- This ensures the saved PDF is a complete representation matching the web view
+
+## Technical Details
+
+### Database Migration
 ```sql
-ALTER TABLE public.project_statuses DROP CONSTRAINT project_statuses_name_key;
-ALTER TABLE public.project_statuses ADD CONSTRAINT project_statuses_name_company_key UNIQUE (name, company_id);
-
-ALTER TABLE public.project_types DROP CONSTRAINT project_types_name_key;
-ALTER TABLE public.project_types ADD CONSTRAINT project_types_name_company_key UNIQUE (name, company_id);
+ALTER TABLE public.estimates
+ADD COLUMN proposal_pdf_url TEXT;
 ```
 
-### Step 2: Update Edge Function
+### Files Modified
+- `supabase/migrations/` -- new migration for `proposal_pdf_url` column
+- `src/components/estimates/SendProposalDialog.tsx` -- trigger PDF generation after send
+- `src/components/portal/tabs/PortalProposals.tsx` -- use saved PDF URL when available
+- `supabase/functions/generate-contract-pdf/index.ts` -- add insurance/license/attached docs sections
 
-Add the following missing tables to the replication script:
+### Flow Diagram
 
-| Table | Records | Notes |
-|-------|---------|-------|
-| `lead_sources` | 2 | Company-scoped unique already |
-| `project_statuses` | 8 | After constraint fix |
-| `project_types` | 21 | After constraint fix |
+```text
+Send Proposal clicked
+       |
+       v
+  Email sent to customer
+       |
+       v
+  generate-contract-pdf called (background)
+       |
+       v
+  PDF saved to contracts bucket
+       |
+       v
+  estimates.proposal_pdf_url updated
+       |
+       v
+  Customer opens portal --> sees "View PDF" button --> instant PDF load
+```
 
-Also add these to the delete order so they get cleared properly.
-
-### Step 3: Re-run with Clean Slate
-
-The updated function will:
-1. Clear ALL Demo Co #1 data (including the doubled records)
-2. Copy `lead_sources`, `project_statuses`, `project_types` in Step 2 (config tables) before CRM core
-3. Copy all other tables as before
-
-### Expected Result
-
-Demo Co #1 will have an exact replica with correct counts matching CA Pro Builders:
-- 1,475 contacts, 1,174 opportunities, 44 projects, 28 estimates
-- Plus all config: 46 settings, 10 pipeline stages, 15 salespeople, 2 lead sources, 8 project statuses, 21 project types
-
-### Technical Details -- Files to Modify
-
-1. **`supabase/functions/replicate-company-data/index.ts`** -- Add `lead_sources`, `project_statuses`, `project_types` to both delete and copy steps
-2. **Database migration** -- Fix unique constraints on `project_statuses` and `project_types`
-
+### Edge Cases
+- **Older proposals**: No `proposal_pdf_url` set -- portal falls back to dynamic rendering + on-demand PDF generation (current behavior)
+- **Estimate edited after send**: If admin edits and resends, a new PDF is generated and the URL is updated
+- **PDF generation failure**: Logged but does not block the send flow; portal falls back to dynamic view
