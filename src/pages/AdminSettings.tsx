@@ -417,6 +417,18 @@ export default function AdminSettings() {
   const handleSave = (key: string) => {
     const value = editedSettings[key];
     if (value !== undefined) {
+      // Enforce max 35 MB upload limit
+      if (key === "portal_upload_limit_mb") {
+        const num = parseInt(value, 10);
+        if (isNaN(num) || num <= 0) {
+          toast.error("Upload limit must be a positive number");
+          return;
+        }
+        if (num > 35) {
+          toast.error("Upload limit cannot exceed 35 MB");
+          return;
+        }
+      }
       updateSetting.mutate({ key, value });
       setEditedSettings((prev) => {
         const newState = { ...prev };
