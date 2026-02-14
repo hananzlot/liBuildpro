@@ -177,7 +177,7 @@ export function PortalChat({ projectId, tokenId, customerName, customerEmail, co
   };
 
   return (
-    <Card className="border-0 shadow-xl overflow-hidden">
+    <Card className="border-0 shadow-xl overflow-hidden max-w-full">
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-5 text-white">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
