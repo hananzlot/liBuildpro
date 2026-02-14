@@ -97,6 +97,11 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
+  const handlePrintPdf = () => {
+    if (!selectedEstimateId) return;
+    window.open(`/proposal-print/${selectedEstimateId}`, '_blank');
+  };
+
   // Compliance flow state
   const [complianceFlowOpen, setComplianceFlowOpen] = useState(false);
   const [complianceComplete, setComplianceComplete] = useState(false);
