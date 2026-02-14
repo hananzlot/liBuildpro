@@ -33,6 +33,7 @@ import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
 import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsEditor";
 import { ComplianceTemplatesManager } from "@/components/admin/ComplianceTemplatesManager";
 import { InsuranceDocuments } from "@/components/admin/InsuranceDocuments";
+import { LicenseCertificates } from "@/components/admin/LicenseCertificates";
 import { SocialMediaLinks } from "@/components/admin/SocialMediaLinks";
 import { BankManagement } from "@/components/admin/BankManagement";
 import { RoleAnalyticsDefaults } from "@/components/admin/RoleAnalyticsDefaults";
@@ -1740,6 +1741,11 @@ export default function AdminSettings() {
           {/* Insurance Documents Tab */}
           <TabsContent value="insurance" className="mt-6">
             <InsuranceDocuments />
+          </TabsContent>
+
+          {/* Licenses & Certificates Tab */}
+          <TabsContent value="licenses" className="mt-6">
+            <LicenseCertificates />
           </TabsContent>
 
           {/* Chat Management Tab */}
