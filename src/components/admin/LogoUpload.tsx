@@ -70,6 +70,8 @@ export function LogoUpload() {
   const [hasUrlChanges, setHasUrlChanges] = useState(false);
   const [customColor, setCustomColor] = useState("");
   const [hasColorChanges, setHasColorChanges] = useState(false);
+  const [customFontColor, setCustomFontColor] = useState("");
+  const [hasFontColorChanges, setHasFontColorChanges] = useState(false);
 
   // Fetch current logo URL from company_settings first, fallback to app_settings
   const { data: logoSetting, isLoading } = useQuery({
@@ -128,7 +130,35 @@ export function LogoUpload() {
     },
   });
 
+  // Fetch header font color setting
+  const { data: fontColorSetting } = useQuery({
+    queryKey: ["company-header-font-color", companyId],
+    queryFn: async () => {
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from("company_settings")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("setting_key", "company_header_font_color")
+          .maybeSingle();
+
+        if (companyData) {
+          return companyData.setting_value || "";
+        }
+      }
+
+      const { data } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("setting_key", "company_header_font_color")
+        .maybeSingle();
+
+      return data?.setting_value || "";
+    },
+  });
+
   const currentBgColor = bgColorSetting || "";
+  const currentFontColor = fontColorSetting || "";
 
   const currentLogoUrl = logoSetting?.setting_value || "";
 
@@ -284,6 +314,11 @@ export function LogoUpload() {
     setCustomColor(currentBgColor);
   }
 
+  // Initialize font color input when data loads
+  if (fontColorSetting !== undefined && customFontColor === "" && currentFontColor && !hasFontColorChanges) {
+    setCustomFontColor(currentFontColor);
+  }
+
   const updateBgColor = useMutation({
     mutationFn: async (color: string) => {
       if (companyId) {
@@ -348,6 +383,73 @@ export function LogoUpload() {
 
   const handleCustomColorSave = () => {
     updateBgColor.mutate(customColor);
+  };
+
+  // Font color mutation
+  const updateFontColor = useMutation({
+    mutationFn: async (color: string) => {
+      if (companyId) {
+        const { data: existing } = await supabase
+          .from("company_settings")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("setting_key", "company_header_font_color")
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from("company_settings")
+            .update({ 
+              setting_value: color, 
+              updated_at: new Date().toISOString() 
+            })
+            .eq("company_id", companyId)
+            .eq("setting_key", "company_header_font_color");
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("company_settings")
+            .insert({ 
+              company_id: companyId,
+              setting_key: "company_header_font_color",
+              setting_value: color
+            });
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await supabase
+          .from("app_settings")
+          .upsert({ 
+            setting_key: "company_header_font_color",
+            setting_value: color, 
+            updated_at: new Date().toISOString() 
+          }, { onConflict: 'setting_key' });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-header-font-color"] });
+      queryClient.invalidateQueries({ queryKey: ["company-info-header"] });
+      toast.success("Header font color updated");
+      setHasFontColorChanges(false);
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update font color: ${error.message}`);
+    },
+  });
+
+  const handleFontColorChange = (value: string) => {
+    setCustomFontColor(value);
+    setHasFontColorChanges(value !== currentFontColor);
+  };
+
+  const handleFontColorSave = () => {
+    updateFontColor.mutate(customFontColor);
+  };
+
+  const handleFontColorReset = () => {
+    setCustomFontColor("");
+    updateFontColor.mutate("");
   };
 
   return (
@@ -540,6 +642,58 @@ export function LogoUpload() {
             )}
           </div>
 
+          {/* Header Font Color */}
+          <div className="space-y-3 pt-4 border-t">
+            <div className="flex items-center gap-2">
+              <Palette className="h-4 w-4 text-muted-foreground" />
+              <Label>Header Font Color</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Choose a custom font color for the header text. Leave empty to auto-detect based on background.
+            </p>
+            
+            <div className="flex items-center gap-2">
+              <Input
+                type="color"
+                value={customFontColor || "#000000"}
+                onChange={(e) => handleFontColorChange(e.target.value)}
+                className="w-12 h-10 p-1 cursor-pointer"
+              />
+              <Input
+                type="text"
+                value={customFontColor}
+                onChange={(e) => handleFontColorChange(e.target.value)}
+                placeholder="Auto (based on background)"
+                className="flex-1"
+              />
+              {currentFontColor && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleFontColorReset}
+                  disabled={updateFontColor.isPending}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Reset
+                </Button>
+              )}
+              {hasFontColorChanges && (
+                <Button
+                  size="sm"
+                  onClick={handleFontColorSave}
+                  disabled={updateFontColor.isPending}
+                >
+                  {updateFontColor.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Save className="h-3 w-3 mr-1" />
+                  )}
+                  Save
+                </Button>
+              )}
+            </div>
+          </div>
+
           {/* Live Preview */}
           {(currentLogoUrl || currentBgColor) && (
             <div className="mt-4">
@@ -556,7 +710,12 @@ export function LogoUpload() {
                       className="h-12 w-auto object-contain"
                     />
                   )}
-                  <span className={`font-semibold ${currentBgColor && isColorDark(currentBgColor) ? 'text-white' : 'text-foreground'}`}>
+                  <span 
+                    className="font-semibold"
+                    style={{ 
+                      color: currentFontColor || (currentBgColor && isColorDark(currentBgColor) ? '#ffffff' : undefined)
+                    }}
+                  >
                     {company?.name || "Company Name"}
                   </span>
                 </div>
