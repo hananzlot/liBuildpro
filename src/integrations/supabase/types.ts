@@ -2531,6 +2531,7 @@ export type Database = {
           opportunity_uuid: string | null
           plans_file_url: string | null
           project_id: string | null
+          proposal_pdf_url: string | null
           salesperson_id: string | null
           salesperson_name: string | null
           sent_at: string | null
@@ -2588,6 +2589,7 @@ export type Database = {
           opportunity_uuid?: string | null
           plans_file_url?: string | null
           project_id?: string | null
+          proposal_pdf_url?: string | null
           salesperson_id?: string | null
           salesperson_name?: string | null
           sent_at?: string | null
@@ -2645,6 +2647,7 @@ export type Database = {
           opportunity_uuid?: string | null
           plans_file_url?: string | null
           project_id?: string | null
+          proposal_pdf_url?: string | null
           salesperson_id?: string | null
           salesperson_name?: string | null
           sent_at?: string | null

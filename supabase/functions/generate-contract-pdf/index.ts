@@ -41,7 +41,7 @@ serve(async (req) => {
     // Fetch related data
     const settingKeys = ['company_name', 'company_address', 'company_phone', 'license_number', 'license_type', 'license_holder_name', 'app_base_url'];
     
-    const [groupsRes, itemsRes, scheduleRes, signaturesRes, companySettingsRes, appSettingsRes, photosRes] = await Promise.all([
+    const [groupsRes, itemsRes, scheduleRes, signaturesRes, companySettingsRes, appSettingsRes, photosRes, estimateFilesRes, insuranceSettingsRes, licenseSettingsRes] = await Promise.all([
       supabase.from('estimate_groups').select('*').eq('estimate_id', estimateId).order('sort_order'),
       supabase.from('estimate_line_items').select('*').eq('estimate_id', estimateId).order('sort_order'),
       supabase.from('estimate_payment_schedule').select('*').eq('estimate_id', estimateId).order('sort_order'),
@@ -58,8 +58,29 @@ serve(async (req) => {
         ? supabase.from('project_documents').select('*')
             .eq('project_id', estimate.project_id)
             .eq('category', 'Estimate Photo')
+            .eq('estimate_id', estimateId)
             .order('created_at', { ascending: false })
-            .limit(8)  // Limit to 8 photos to prevent PDF bloat
+            .limit(8)
+        : Promise.resolve({ data: [] }),
+      // Fetch attached estimate files
+      estimate.project_id
+        ? supabase.from('project_documents').select('id, file_url, file_name, file_type')
+            .eq('project_id', estimate.project_id)
+            .eq('category', 'Estimate File')
+            .eq('estimate_id', estimateId)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [] }),
+      // Fetch insurance document settings
+      estimate.company_id
+        ? supabase.from('company_settings').select('setting_key, setting_value')
+            .eq('company_id', estimate.company_id)
+            .like('setting_key', 'insurance_%')
+        : Promise.resolve({ data: [] }),
+      // Fetch license/certificate file settings
+      estimate.company_id
+        ? supabase.from('company_settings').select('setting_key, setting_value')
+            .eq('company_id', estimate.company_id)
+            .like('setting_key', 'license_cert_%')
         : Promise.resolve({ data: [] }),
     ]);
 
@@ -68,6 +89,40 @@ serve(async (req) => {
     const paymentSchedule = scheduleRes.data || [];
     const signatures = signaturesRes.data || [];
     const estimatePhotos = photosRes.data || [];
+    const estimateFiles = estimateFilesRes.data || [];
+
+    // Build insurance docs list
+    const insuranceSettings = insuranceSettingsRes.data || [];
+    const insuranceDocs: { label: string; url: string }[] = [];
+    const insSettingsMap: Record<string, string> = {};
+    insuranceSettings.forEach((s: any) => { if (s.setting_value) insSettingsMap[s.setting_key] = s.setting_value; });
+    
+    // Check dedicated slots
+    if (insSettingsMap['insurance_general_liability_url']) {
+      insuranceDocs.push({ label: insSettingsMap['insurance_general_liability_label'] || 'General Liability', url: insSettingsMap['insurance_general_liability_url'] });
+    }
+    if (insSettingsMap['insurance_workers_comp_url']) {
+      insuranceDocs.push({ label: insSettingsMap['insurance_workers_comp_label'] || 'Workers Compensation', url: insSettingsMap['insurance_workers_comp_url'] });
+    }
+    // Check custom slots (1-3)
+    for (let i = 1; i <= 3; i++) {
+      const url = insSettingsMap[`insurance_custom_${i}_url`];
+      if (url) {
+        insuranceDocs.push({ label: insSettingsMap[`insurance_custom_${i}_label`] || `Insurance Policy ${i}`, url });
+      }
+    }
+
+    // Build license/cert files list
+    const licenseSettings = licenseSettingsRes.data || [];
+    const licenseDocs: { label: string; url: string }[] = [];
+    const licSettingsMap: Record<string, string> = {};
+    licenseSettings.forEach((s: any) => { if (s.setting_value) licSettingsMap[s.setting_key] = s.setting_value; });
+    for (let i = 1; i <= 5; i++) {
+      const url = licSettingsMap[`license_cert_file_${i}_url`];
+      if (url) {
+        licenseDocs.push({ label: licSettingsMap[`license_cert_file_${i}_label`] || `License/Certificate ${i}`, url });
+      }
+    }
     
     // Merge settings: company_settings override app_settings
     const settingsMap: Record<string, string> = {};
@@ -665,6 +720,52 @@ serve(async (req) => {
       // If we ended mid-row, move down
       if (photosInRow > 0) {
         yPos -= photoHeight + 10;
+      }
+      yPos -= 20;
+    }
+
+    // ATTACHED DOCUMENTS
+    if (estimateFiles.length > 0) {
+      checkNewPage(60);
+      page.drawText('ATTACHED DOCUMENTS', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+      yPos -= 5;
+      page.drawLine({ start: { x: margin, y: yPos }, end: { x: width - margin, y: yPos }, thickness: 1, color: lightGray });
+      yPos -= 15;
+      for (const file of estimateFiles) {
+        checkNewPage(16);
+        const fileName = sanitizeLine(file.file_name || 'Document');
+        drawWrappedParagraph(`• ${fileName}`, margin + 5, contentWidth - 10, 10, helvetica, gray);
+        yPos -= 2;
+      }
+      yPos -= 20;
+    }
+
+    // INSURANCE DOCUMENTS
+    if (insuranceDocs.length > 0) {
+      checkNewPage(60);
+      page.drawText('INSURANCE DOCUMENTS', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+      yPos -= 5;
+      page.drawLine({ start: { x: margin, y: yPos }, end: { x: width - margin, y: yPos }, thickness: 1, color: lightGray });
+      yPos -= 15;
+      for (const doc of insuranceDocs) {
+        checkNewPage(16);
+        drawWrappedParagraph(`• ${sanitizeLine(doc.label)}`, margin + 5, contentWidth - 10, 10, helvetica, gray);
+        yPos -= 2;
+      }
+      yPos -= 20;
+    }
+
+    // LICENSE / CERTIFICATE FILES
+    if (licenseDocs.length > 0) {
+      checkNewPage(60);
+      page.drawText('LICENSE / CERTIFICATE FILES', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+      yPos -= 5;
+      page.drawLine({ start: { x: margin, y: yPos }, end: { x: width - margin, y: yPos }, thickness: 1, color: lightGray });
+      yPos -= 15;
+      for (const doc of licenseDocs) {
+        checkNewPage(16);
+        drawWrappedParagraph(`• ${sanitizeLine(doc.label)}`, margin + 5, contentWidth - 10, 10, helvetica, gray);
+        yPos -= 2;
       }
       yPos -= 20;
     }
