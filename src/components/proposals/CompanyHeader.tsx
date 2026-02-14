@@ -12,6 +12,7 @@ interface CompanyInfo {
   license_number?: string;
   license_holder_name?: string;
   header_bg_color?: string;
+  gc_license_url?: string;
 }
 
 interface SocialLink {
@@ -81,6 +82,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
         'license_number',
         'license_holder_name',
         'company_header_bg_color',
+        'license_cert_gc_license_url',
       ];
 
       // Try company_settings first if we have a companyId
@@ -103,6 +105,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
             if (item.setting_key === 'license_number') settings.license_number = item.setting_value || undefined;
             if (item.setting_key === 'license_holder_name') settings.license_holder_name = item.setting_value || undefined;
             if (item.setting_key === 'company_header_bg_color') settings.header_bg_color = item.setting_value || undefined;
+            if (item.setting_key === 'license_cert_gc_license_url') settings.gc_license_url = item.setting_value || undefined;
           });
           return settings;
         }
@@ -127,6 +130,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
         if (item.setting_key === 'license_number') settings.license_number = item.setting_value || undefined;
         if (item.setting_key === 'license_holder_name') settings.license_holder_name = item.setting_value || undefined;
         if (item.setting_key === 'company_header_bg_color') settings.header_bg_color = item.setting_value || undefined;
+        if (item.setting_key === 'license_cert_gc_license_url') settings.gc_license_url = item.setting_value || undefined;
       });
 
       return settings;
@@ -196,7 +200,18 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
                 <p>
                   {companyInfo.license_type && <span>{companyInfo.license_type}</span>}
                   {companyInfo.license_type && companyInfo.license_number && <span> • </span>}
-                  {companyInfo.license_number && <span>License #{companyInfo.license_number}</span>}
+                  {companyInfo.license_number && companyInfo.gc_license_url ? (
+                    <a
+                      href={companyInfo.gc_license_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline decoration-dotted underline-offset-2 hover:decoration-solid cursor-pointer"
+                    >
+                      License #{companyInfo.license_number}
+                    </a>
+                  ) : companyInfo.license_number ? (
+                    <span>License #{companyInfo.license_number}</span>
+                  ) : null}
                 </p>
               )}
             </div>
@@ -243,15 +258,19 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
                     target="_blank"
                     rel="noopener noreferrer"
                     title={icon.alt}
-                    className="rounded-full p-1.5 transition-all hover:scale-110 hover:opacity-80"
-                    style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)' }}
+                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all hover:scale-105 hover:shadow-sm cursor-pointer"
+                    style={{
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.06)',
+                      color: isDark ? 'rgba(255,255,255,0.9)' : undefined,
+                    }}
                   >
                     <img
                       src={icon.src}
                       alt={icon.alt}
-                      className="h-4 w-4"
+                      className="h-3.5 w-3.5"
                       style={{ filter: isDark ? 'invert(1)' : undefined }}
                     />
+                    <span className="underline decoration-dotted underline-offset-2">{icon.alt}</span>
                   </a>
                 );
               })}
