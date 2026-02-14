@@ -14,6 +14,24 @@ interface CompanyInfo {
   header_bg_color?: string;
 }
 
+interface SocialLink {
+  key: string;
+  url: string;
+}
+
+const SOCIAL_ICONS: Record<string, { src: string; alt: string }> = {
+  facebook: { src: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/facebook.svg', alt: 'Facebook' },
+  instagram: { src: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/instagram.svg', alt: 'Instagram' },
+  twitter: { src: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/x.svg', alt: 'X' },
+  linkedin: { src: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/linkedin.svg', alt: 'LinkedIn' },
+  youtube: { src: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/youtube.svg', alt: 'YouTube' },
+  google: { src: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/google.svg', alt: 'Google' },
+  tiktok: { src: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/tiktok.svg', alt: 'TikTok' },
+  pinterest: { src: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/pinterest.svg', alt: 'Pinterest' },
+  yelp: { src: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/yelp.svg', alt: 'Yelp' },
+  nextdoor: { src: 'https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/nextdoor.svg', alt: 'Nextdoor' },
+};
+
 // Helper to determine if a color is dark (for text contrast)
 function isColorDark(color: string): boolean {
   if (!color) return false;
@@ -115,6 +133,27 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
     },
   });
 
+  // Fetch social media links
+  const { data: socialLinks = [] } = useQuery({
+    queryKey: ['social-links-header', companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('setting_key, setting_value')
+        .eq('company_id', companyId)
+        .like('setting_key', 'social_%');
+      if (error) return [];
+      return (data || [])
+        .filter((s) => s.setting_value?.trim())
+        .map((s) => ({
+          key: s.setting_key.replace('social_', ''),
+          url: s.setting_value!,
+        })) as SocialLink[];
+    },
+    enabled: !!companyId,
+  });
+
   // Don't render if no company info at all
   if (!companyInfo || (!companyInfo.logo_url && !companyInfo.company_name && !companyInfo.license_type)) {
     return null;
@@ -184,6 +223,33 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
               </span>
             )}
           </div>
+
+          {/* Social Media Icons */}
+          {socialLinks.length > 0 && (
+            <div className="flex flex-wrap gap-3 pt-2">
+              {socialLinks.map((link) => {
+                const icon = SOCIAL_ICONS[link.key];
+                if (!icon) return null;
+                return (
+                  <a
+                    key={link.key}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={icon.alt}
+                    className="transition-opacity hover:opacity-70"
+                  >
+                    <img
+                      src={icon.src}
+                      alt={icon.alt}
+                      className="h-5 w-5"
+                      style={{ filter: isDark ? 'invert(1)' : undefined }}
+                    />
+                  </a>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
