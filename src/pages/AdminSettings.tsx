@@ -1744,9 +1744,11 @@ export default function AdminSettings() {
           </TabsContent>
 
           {/* Licenses & Certificates Tab */}
-          <TabsContent value="licenses" className="mt-6">
-            <LicenseCertificates />
-          </TabsContent>
+          {activeTab === "licenses" && (
+            <div className="mt-6">
+              <LicenseCertificates />
+            </div>
+          )}
 
           {/* Chat Management Tab */}
           <TabsContent value="chat" className="mt-6">
