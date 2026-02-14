@@ -305,7 +305,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex flex-col overflow-x-hidden">
       {/* Premium Hero Header */}
       <header className="relative overflow-hidden">
         {/* Background Gradient */}
@@ -485,7 +485,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 overflow-x-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsContent value="project" className="mt-0 animate-fade-in">
             <PortalProjectInfo 
