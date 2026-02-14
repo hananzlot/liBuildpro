@@ -13,6 +13,7 @@ interface CompanyInfo {
   license_holder_name?: string;
   header_bg_color?: string;
   header_font_color?: string;
+  header_subtext_color?: string;
   gc_license_url?: string;
 }
 
@@ -84,6 +85,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
         'license_holder_name',
         'company_header_bg_color',
         'company_header_font_color',
+        'company_header_subtext_color',
         'license_cert_gc_license_url',
       ];
 
@@ -108,6 +110,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
             if (item.setting_key === 'license_holder_name') settings.license_holder_name = item.setting_value || undefined;
             if (item.setting_key === 'company_header_bg_color') settings.header_bg_color = item.setting_value || undefined;
             if (item.setting_key === 'company_header_font_color') settings.header_font_color = item.setting_value || undefined;
+            if (item.setting_key === 'company_header_subtext_color') settings.header_subtext_color = item.setting_value || undefined;
             if (item.setting_key === 'license_cert_gc_license_url') settings.gc_license_url = item.setting_value || undefined;
           });
           return settings;
@@ -134,6 +137,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
         if (item.setting_key === 'license_holder_name') settings.license_holder_name = item.setting_value || undefined;
         if (item.setting_key === 'company_header_bg_color') settings.header_bg_color = item.setting_value || undefined;
         if (item.setting_key === 'company_header_font_color') settings.header_font_color = item.setting_value || undefined;
+        if (item.setting_key === 'company_header_subtext_color') settings.header_subtext_color = item.setting_value || undefined;
         if (item.setting_key === 'license_cert_gc_license_url') settings.gc_license_url = item.setting_value || undefined;
       });
 
@@ -169,10 +173,13 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
 
   const isDark = companyInfo.header_bg_color ? isColorDark(companyInfo.header_bg_color) : false;
   const hasCustomFontColor = !!companyInfo.header_font_color;
+  const hasCustomSubtextColor = !!companyInfo.header_subtext_color;
   const textColorClass = hasCustomFontColor ? '' : (isDark ? 'text-white' : 'text-foreground');
-  const mutedTextColorClass = hasCustomFontColor ? '' : (isDark ? 'text-white/70' : 'text-muted-foreground');
+  const mutedTextColorClass = (hasCustomSubtextColor || hasCustomFontColor) ? '' : (isDark ? 'text-white/70' : 'text-muted-foreground');
   const customFontStyle = hasCustomFontColor ? { color: companyInfo.header_font_color } : {};
-  const customMutedFontStyle = hasCustomFontColor ? { color: companyInfo.header_font_color, opacity: 0.7 } : {};
+  const customMutedFontStyle = hasCustomSubtextColor 
+    ? { color: companyInfo.header_subtext_color } 
+    : (hasCustomFontColor ? { color: companyInfo.header_font_color, opacity: 0.7 } : {});
 
   return (
     <div 
