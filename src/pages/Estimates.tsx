@@ -384,6 +384,7 @@ export default function Estimates() {
         .select("token")
         .eq("project_id", estimate.project_id)
         .eq("is_active", true)
+        .limit(1)
         .maybeSingle();
 
       if (projectToken) {
