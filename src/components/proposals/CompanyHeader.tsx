@@ -226,7 +226,8 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
 
           {/* Social Media Icons */}
           {socialLinks.length > 0 && (
-            <div className="flex flex-wrap gap-3 pt-2">
+            <div className="flex items-center gap-2 pt-3 border-t border-border/30 mt-3">
+              <span className={`text-xs font-medium uppercase tracking-wider mr-1 ${mutedTextColorClass}`}>Follow us</span>
               {socialLinks.map((link) => {
                 const icon = SOCIAL_ICONS[link.key];
                 if (!icon) return null;
@@ -237,12 +238,13 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
                     target="_blank"
                     rel="noopener noreferrer"
                     title={icon.alt}
-                    className="transition-opacity hover:opacity-70"
+                    className="rounded-full p-1.5 transition-all hover:scale-110 hover:opacity-80"
+                    style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)' }}
                   >
                     <img
                       src={icon.src}
                       alt={icon.alt}
-                      className="h-5 w-5"
+                      className="h-4 w-4"
                       style={{ filter: isDark ? 'invert(1)' : undefined }}
                     />
                   </a>
