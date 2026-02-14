@@ -973,8 +973,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                     </DropdownMenu>
                   </SidebarMenuItem>
 
-                  
-
                   {/* AI Queue Management */}
                   <SidebarMenuItem>
                     <SidebarMenuButton 
@@ -993,6 +991,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                         </span>
                       )}
                     </SidebarMenuButton>
+                  </SidebarMenuItem>
+
+                  {/* Admin Settings with sub-menus */}
                   <Collapsible
                     open={openMenus['Admin Settings'] || location.pathname === '/admin/settings'}
                     onOpenChange={() => toggleMenu('Admin Settings')}
