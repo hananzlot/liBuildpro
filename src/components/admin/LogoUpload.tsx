@@ -198,9 +198,9 @@ export function LogoUpload() {
       return;
     }
 
-    // Validate file size (max 2MB for logos)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Logo must be less than 2MB");
+    // Validate file size (max 5MB for logos)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo must be less than 5MB");
       return;
     }
 
@@ -437,7 +437,7 @@ export function LogoUpload() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Recommended: Square image, PNG or SVG format, max 2MB. Ideal size: 512x512px.
+                Recommended: Square image, PNG or SVG format, max 5MB. Ideal size: 512x512px.
               </p>
             </div>
           </TabsContent>
