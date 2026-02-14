@@ -21,6 +21,7 @@ import {
   type ProposalPaymentPhase,
   type ProposalSignature,
   type ProposalPhoto,
+  type ProposalAttachedDocument,
 } from '@/components/proposals/ProposalContent';
 
 interface EstimatePreviewDialogProps {
@@ -73,17 +74,33 @@ export function EstimatePreviewDialog({
         .select('*')
         .eq('estimate_id', estimateId);
 
-      // Fetch estimate photos scoped to this specific estimate
+      // Fetch estimate photos and files scoped to this specific estimate
       let estimatePhotos: ProposalPhoto[] = [];
+      let estimateFiles: ProposalAttachedDocument[] = [];
       if (estimate.project_id) {
-        const { data: photos } = await supabase
-          .from('project_documents')
-          .select('id, file_url, file_name')
-          .eq('project_id', estimate.project_id)
-          .eq('category', 'Estimate Photo')
-          .eq('estimate_id', estimateId) // Only photos for this specific estimate
-          .order('created_at', { ascending: false });
-        estimatePhotos = (photos || []) as ProposalPhoto[];
+        const [photosRes, filesRes] = await Promise.all([
+          supabase
+            .from('project_documents')
+            .select('id, file_url, file_name')
+            .eq('project_id', estimate.project_id)
+            .eq('category', 'Estimate Photo')
+            .eq('estimate_id', estimateId)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('project_documents')
+            .select('id, file_url, file_name, file_type')
+            .eq('project_id', estimate.project_id)
+            .eq('category', 'Estimate File')
+            .eq('estimate_id', estimateId)
+            .order('created_at', { ascending: false }),
+        ]);
+        estimatePhotos = (photosRes.data || []) as ProposalPhoto[];
+        estimateFiles = (filesRes.data || []).map(f => ({
+          id: f.id,
+          file_url: f.file_url,
+          file_name: f.file_name || 'Document',
+          file_type: f.file_type,
+        })) as ProposalAttachedDocument[];
       }
 
       return {
@@ -93,6 +110,7 @@ export function EstimatePreviewDialog({
         paymentSchedule: (paymentSchedule || []) as ProposalPaymentPhase[],
         signatures: (signatures || []) as ProposalSignature[],
         estimatePhotos,
+        estimateFiles,
       };
     },
     enabled: !!estimateId && open,
@@ -170,6 +188,7 @@ export function EstimatePreviewDialog({
               paymentSchedule={data.paymentSchedule}
               signatures={data.signatures}
               photos={data.estimatePhotos}
+              attachedDocuments={data.estimateFiles}
               showStatusBanner={true}
               showSalesperson={false}
               showNotes={true}

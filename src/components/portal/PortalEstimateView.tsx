@@ -22,6 +22,7 @@ import {
   type ProposalPaymentPhase,
   type ProposalSignature,
   type ProposalPhoto,
+  type ProposalAttachedDocument,
 } from '@/components/proposals/ProposalContent';
 import {
   CheckCircle2,
@@ -181,17 +182,33 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             .eq('id', estimate.id);
         }
 
-        // Fetch estimate photos scoped to this specific estimate
+        // Fetch estimate photos and files scoped to this specific estimate
         let estimatePhotos: ProposalPhoto[] = [];
+        let estimateFiles: ProposalAttachedDocument[] = [];
         if (estimate.project_id) {
-          const { data: photos } = await supabase
-            .from('project_documents')
-            .select('id, file_url, file_name')
-            .eq('project_id', estimate.project_id)
-            .eq('category', 'Estimate Photo')
-            .eq('estimate_id', estimate.id) // Only photos for this specific estimate
-            .order('created_at', { ascending: false });
-          estimatePhotos = (photos || []) as ProposalPhoto[];
+          const [photosRes, filesRes] = await Promise.all([
+            supabase
+              .from('project_documents')
+              .select('id, file_url, file_name')
+              .eq('project_id', estimate.project_id)
+              .eq('category', 'Estimate Photo')
+              .eq('estimate_id', estimate.id)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('project_documents')
+              .select('id, file_url, file_name, file_type')
+              .eq('project_id', estimate.project_id)
+              .eq('category', 'Estimate File')
+              .eq('estimate_id', estimate.id)
+              .order('created_at', { ascending: false }),
+          ]);
+          estimatePhotos = (photosRes.data || []) as ProposalPhoto[];
+          estimateFiles = (filesRes.data || []).map(f => ({
+            id: f.id,
+            file_url: f.file_url,
+            file_name: f.file_name || 'Document',
+            file_type: f.file_type,
+          })) as ProposalAttachedDocument[];
         }
 
         return {
@@ -205,6 +222,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           allSigners: allSigners || [],
           isMultiSigner: true,
           estimatePhotos,
+          estimateFiles,
         };
       } else {
         // Legacy single signer flow
@@ -287,18 +305,33 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             .eq('id', estimate.id);
         }
 
-        // Fetch estimate photos if estimate has a linked project
-        // Fetch estimate photos scoped to this specific estimate
+        // Fetch estimate photos and files scoped to this specific estimate
         let estimatePhotos: ProposalPhoto[] = [];
+        let estimateFiles: ProposalAttachedDocument[] = [];
         if (estimate.project_id) {
-          const { data: photos } = await supabase
-            .from('project_documents')
-            .select('id, file_url, file_name')
-            .eq('project_id', estimate.project_id)
-            .eq('category', 'Estimate Photo')
-            .eq('estimate_id', estimate.id) // Only photos for this specific estimate
-            .order('created_at', { ascending: false });
-          estimatePhotos = (photos || []) as ProposalPhoto[];
+          const [photosRes, filesRes] = await Promise.all([
+            supabase
+              .from('project_documents')
+              .select('id, file_url, file_name')
+              .eq('project_id', estimate.project_id)
+              .eq('category', 'Estimate Photo')
+              .eq('estimate_id', estimate.id)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('project_documents')
+              .select('id, file_url, file_name, file_type')
+              .eq('project_id', estimate.project_id)
+              .eq('category', 'Estimate File')
+              .eq('estimate_id', estimate.id)
+              .order('created_at', { ascending: false }),
+          ]);
+          estimatePhotos = (photosRes.data || []) as ProposalPhoto[];
+          estimateFiles = (filesRes.data || []).map(f => ({
+            id: f.id,
+            file_url: f.file_url,
+            file_name: f.file_name || 'Document',
+            file_type: f.file_type,
+          })) as ProposalAttachedDocument[];
         }
 
         return {
@@ -311,6 +344,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           signature: signatures?.[0] || null,
           isMultiSigner: false,
           estimatePhotos,
+          estimateFiles,
         };
       }
     },
@@ -703,7 +737,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
 
   if (!portalData) return null;
 
-  const { estimate, groups, lineItems, paymentSchedule, signatures, estimatePhotos } = portalData;
+  const { estimate, groups, lineItems, paymentSchedule, signatures, estimatePhotos, estimateFiles } = portalData;
   const currentSigner = portalData.currentSigner;
   const allSigners: EstimateSigner[] = portalData.allSigners || [];
 
@@ -890,7 +924,8 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           paymentSchedule={paymentSchedule}
           signatures={signatures}
           photos={estimatePhotos}
-          showStatusBanner={!portalData.isMultiSigner} // Multi-signer has custom status UI
+          attachedDocuments={estimateFiles}
+          showStatusBanner={!portalData.isMultiSigner}
           showSalesperson={true}
           showNotes={false}
           headerContent={multiSignerProgress}
