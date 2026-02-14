@@ -12,6 +12,7 @@ interface CompanyInfo {
   license_number?: string;
   license_holder_name?: string;
   header_bg_color?: string;
+  header_font_color?: string;
   gc_license_url?: string;
 }
 
@@ -82,6 +83,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
         'license_number',
         'license_holder_name',
         'company_header_bg_color',
+        'company_header_font_color',
         'license_cert_gc_license_url',
       ];
 
@@ -105,6 +107,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
             if (item.setting_key === 'license_number') settings.license_number = item.setting_value || undefined;
             if (item.setting_key === 'license_holder_name') settings.license_holder_name = item.setting_value || undefined;
             if (item.setting_key === 'company_header_bg_color') settings.header_bg_color = item.setting_value || undefined;
+            if (item.setting_key === 'company_header_font_color') settings.header_font_color = item.setting_value || undefined;
             if (item.setting_key === 'license_cert_gc_license_url') settings.gc_license_url = item.setting_value || undefined;
           });
           return settings;
@@ -130,6 +133,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
         if (item.setting_key === 'license_number') settings.license_number = item.setting_value || undefined;
         if (item.setting_key === 'license_holder_name') settings.license_holder_name = item.setting_value || undefined;
         if (item.setting_key === 'company_header_bg_color') settings.header_bg_color = item.setting_value || undefined;
+        if (item.setting_key === 'company_header_font_color') settings.header_font_color = item.setting_value || undefined;
         if (item.setting_key === 'license_cert_gc_license_url') settings.gc_license_url = item.setting_value || undefined;
       });
 
@@ -164,8 +168,11 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
   }
 
   const isDark = companyInfo.header_bg_color ? isColorDark(companyInfo.header_bg_color) : false;
-  const textColorClass = isDark ? 'text-white' : 'text-foreground';
-  const mutedTextColorClass = isDark ? 'text-white/70' : 'text-muted-foreground';
+  const hasCustomFontColor = !!companyInfo.header_font_color;
+  const textColorClass = hasCustomFontColor ? '' : (isDark ? 'text-white' : 'text-foreground');
+  const mutedTextColorClass = hasCustomFontColor ? '' : (isDark ? 'text-white/70' : 'text-muted-foreground');
+  const customFontStyle = hasCustomFontColor ? { color: companyInfo.header_font_color } : {};
+  const customMutedFontStyle = hasCustomFontColor ? { color: companyInfo.header_font_color, opacity: 0.7 } : {};
 
   return (
     <div 
@@ -187,14 +194,14 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
         {/* Company Info */}
         <div className="flex-1 space-y-2">
           {companyInfo.company_name && (
-            <h2 className={`text-xl font-bold ${textColorClass}`}>{companyInfo.company_name}</h2>
+            <h2 className={`text-xl font-bold ${textColorClass}`} style={customFontStyle}>{companyInfo.company_name}</h2>
           )}
 
           {/* License Info */}
           {(companyInfo.license_type || companyInfo.license_number || companyInfo.license_holder_name) && (
-            <div className={`text-sm ${mutedTextColorClass} space-y-0.5`}>
+             <div className={`text-sm ${mutedTextColorClass} space-y-0.5`} style={customMutedFontStyle}>
               {companyInfo.license_holder_name && (
-                <p className={`font-medium ${textColorClass}`}>{companyInfo.license_holder_name}</p>
+                <p className={`font-medium ${textColorClass}`} style={customFontStyle}>{companyInfo.license_holder_name}</p>
               )}
               {(companyInfo.license_type || companyInfo.license_number) && (
                 <p>
@@ -218,7 +225,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
           )}
 
           {/* Contact Info */}
-          <div className={`flex flex-wrap gap-x-6 gap-y-2 text-sm ${mutedTextColorClass} pt-1`}>
+          <div className={`flex flex-wrap gap-x-6 gap-y-2 text-sm ${mutedTextColorClass} pt-1`} style={customMutedFontStyle}>
             {companyInfo.company_address && (
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" />
@@ -247,7 +254,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
           {/* Social Media Icons */}
           {socialLinks.length > 0 && (
             <div className="flex items-center gap-2 pt-3 border-t border-border/30 mt-3">
-              <span className={`text-xs font-medium uppercase tracking-wider mr-1 ${mutedTextColorClass}`}>Follow us</span>
+              <span className={`text-xs font-medium uppercase tracking-wider mr-1 ${mutedTextColorClass}`} style={customMutedFontStyle}>Follow us</span>
               {socialLinks.map((link) => {
                 const icon = SOCIAL_ICONS[link.key];
                 if (!icon) return null;
@@ -261,7 +268,7 @@ export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
                     className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all hover:scale-105 hover:shadow-sm cursor-pointer"
                     style={{
                       backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.06)',
-                      color: isDark ? 'rgba(255,255,255,0.9)' : undefined,
+                      color: hasCustomFontColor ? companyInfo.header_font_color : (isDark ? 'rgba(255,255,255,0.9)' : undefined),
                     }}
                   >
                     <img
