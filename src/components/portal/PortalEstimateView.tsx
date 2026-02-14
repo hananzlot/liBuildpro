@@ -82,7 +82,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
 
   const handlePrintPdf = () => {
     if (!portalData?.estimate?.id) return;
-    window.open(`/proposal-print/${portalData.estimate.id}`, '_blank');
+    window.open(`/proposal-print/${portalData.estimate.id}?noprint=1`, '_blank');
   };
 
   // Fetch token and estimate data

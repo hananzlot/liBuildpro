@@ -99,7 +99,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
 
   const handlePrintPdf = () => {
     if (!selectedEstimateId) return;
-    window.open(`/proposal-print/${selectedEstimateId}`, '_blank');
+    window.open(`/proposal-print/${selectedEstimateId}?noprint=1`, '_blank');
   };
 
   // Compliance flow state
