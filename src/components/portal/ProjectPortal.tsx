@@ -299,7 +299,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
     { value: 'signed-docs', label: 'Signed Docs', icon: Briefcase },
     { value: 'invoices', label: 'Invoices', icon: Receipt },
     { value: 'photos', label: 'Photos', icon: Camera, badge: documents.filter(d => d.file_type?.startsWith('image/')).length },
-    { value: 'documents', label: 'Docs', icon: FolderOpen },
+    { value: 'documents', label: 'Docs', icon: FolderOpen, badge: documents.filter(d => !d.file_type?.startsWith('image/') && !/\.(jpg|jpeg|png|gif|webp|heic|heif)$/i.test(d.file_name)).length + (agreements?.filter((a: any) => a.attachment_url)?.length || 0) },
     { value: 'credentials', label: 'Credentials', icon: ShieldCheck },
     { value: 'chat', label: 'Chat', icon: MessageSquare },
   ];
