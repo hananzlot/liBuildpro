@@ -572,33 +572,7 @@ export function ProposalContent({
         </Card>
       )}
 
-      {/* Notes to Customer - Visible before T&C so customers see it prominently */}
-      {estimate.notes_to_customer && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground whitespace-pre-wrap">{estimate.notes_to_customer}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Terms & Conditions */}
-      {estimate.terms_and_conditions && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Terms & Conditions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">
-              {estimate.terms_and_conditions}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Attached Documents */}
+      {/* Attached Documents - shown before Notes & T&C for visibility */}
       {attachedDocuments.length > 0 && (
         <Card>
           <CardHeader>
@@ -621,6 +595,32 @@ export function ProposalContent({
                   <span className="text-sm font-medium truncate">{doc.file_name}</span>
                 </a>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Notes to Customer */}
+      {estimate.notes_to_customer && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground whitespace-pre-wrap">{estimate.notes_to_customer}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Terms & Conditions */}
+      {estimate.terms_and_conditions && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Terms & Conditions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">
+              {estimate.terms_and_conditions}
             </div>
           </CardContent>
         </Card>
