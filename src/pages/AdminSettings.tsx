@@ -33,6 +33,7 @@ import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
 import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsEditor";
 import { ComplianceTemplatesManager } from "@/components/admin/ComplianceTemplatesManager";
 import { InsuranceDocuments } from "@/components/admin/InsuranceDocuments";
+import { SocialMediaLinks } from "@/components/admin/SocialMediaLinks";
 import { BankManagement } from "@/components/admin/BankManagement";
 import { RoleAnalyticsDefaults } from "@/components/admin/RoleAnalyticsDefaults";
 import { OnboardingPromptBanner } from "@/components/onboarding/OnboardingPromptBanner";
@@ -860,6 +861,9 @@ export default function AdminSettings() {
                     </CollapsibleContent>
                   </Card>
                 </Collapsible>
+
+                {/* Social Media Links - Collapsible */}
+                <SocialMediaLinks />
 
                 {/* Portal Settings - Collapsible */}
                 <Collapsible defaultOpen={false} className="group">
