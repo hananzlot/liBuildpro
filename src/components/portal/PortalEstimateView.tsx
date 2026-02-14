@@ -32,6 +32,7 @@ import {
   Loader2,
   Users,
   FileSignature,
+  FileDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -78,6 +79,11 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
   // Fetch compliance package enabled setting for the company
   const [compliancePackageEnabled, setCompliancePackageEnabled] = useState(false);
   const [complianceSettingLoaded, setComplianceSettingLoaded] = useState(false);
+
+  const handlePrintPdf = () => {
+    if (!portalData?.estimate?.id) return;
+    window.open(`/proposal-print/${portalData.estimate.id}`, '_blank');
+  };
 
   // Fetch token and estimate data
   const { data: portalData, isLoading, error, refetch } = useQuery({
@@ -931,6 +937,19 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           headerContent={multiSignerProgress}
           footerContent={footerContent}
         />
+
+        {/* Save as PDF Button */}
+        <div className="mt-6 flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrintPdf}
+            className="gap-2"
+          >
+            <FileDown className="h-4 w-4" />
+            Save as PDF
+          </Button>
+        </div>
       </div>
 
       {/* Signature Dialog */}
