@@ -249,7 +249,7 @@ export default function SuperAdminTenants() {
       queryClient.invalidateQueries({ queryKey: ['corporations'] });
     }
 
-    // Update corporation_id on the company and cascade to users
+    // Update corporation_id on the company (trigger auto-syncs profiles.corporation_id)
     if (newCorpId !== (selectedCompany.corporation_id || null)) {
       const { error: corpError } = await supabase
         .from('companies')
@@ -258,15 +258,6 @@ export default function SuperAdminTenants() {
       if (corpError) {
         toast.error('Failed to update corporation');
         return;
-      }
-
-      const { error: usersError } = await supabase
-        .from('profiles')
-        .update({ corporation_id: newCorpId })
-        .eq('company_id', selectedCompany.id);
-      if (usersError) {
-        console.error('Failed to update user corporation_ids:', usersError);
-        toast.error('Corporation updated on company but failed to update users');
       }
     }
 
