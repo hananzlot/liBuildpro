@@ -3396,6 +3396,24 @@ export type Database = {
           },
         ]
       }
+      map_contacts: {
+        Row: {
+          created_at: string
+          new_contact_id: string
+          old_contact_id: string
+        }
+        Insert: {
+          created_at?: string
+          new_contact_id: string
+          old_contact_id: string
+        }
+        Update: {
+          created_at?: string
+          new_contact_id?: string
+          old_contact_id?: string
+        }
+        Relationships: []
+      }
       note_edits: {
         Row: {
           company_id: string | null
