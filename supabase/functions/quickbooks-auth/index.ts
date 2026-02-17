@@ -172,10 +172,11 @@ Deno.serve(async (req) => {
         const errorText = await refreshResponse.text();
         console.error("Token refresh failed:", errorText);
         
-        // Mark connection as inactive
+        // Keep connection active but flag the error so the user sees they need to reconnect.
+        // Setting is_active = false would make the connection "disappear" from the UI.
         await supabase
           .from("quickbooks_connections")
-          .update({ is_active: false, sync_error: "Token refresh failed - reconnection required" })
+          .update({ sync_error: "Token refresh failed — please reconnect QuickBooks" })
           .eq("company_id", companyId);
 
         return new Response(
