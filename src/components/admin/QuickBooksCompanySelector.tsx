@@ -154,9 +154,9 @@ export function QuickBooksCompanySelector() {
           <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm flex items-start gap-2">
             <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
             <div className="space-y-1">
-              <p className="font-medium">QuickBooks token revoked.</p>
+              <p className="font-medium">Your QuickBooks session has expired</p>
               <p className="text-destructive/80">
-                Disconnect and reconnect QuickBooks to select the correct company again.
+                This happens periodically for security. Simply disconnect and reconnect QuickBooks above to resume syncing.
               </p>
             </div>
           </div>

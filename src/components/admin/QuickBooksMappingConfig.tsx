@@ -75,7 +75,7 @@ export function QuickBooksMappingConfig() {
     setNeedsReauth(true);
     if (!hasShownReauthToast.current) {
       hasShownReauthToast.current = true;
-      toast.error("QuickBooks authorization expired. Please reconnect QuickBooks.");
+      toast.error("Your QuickBooks session has expired. Please disconnect and reconnect QuickBooks to continue syncing.", { duration: 8000 });
     }
   };
 
