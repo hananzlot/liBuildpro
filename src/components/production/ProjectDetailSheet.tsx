@@ -372,6 +372,22 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const [tertiarySearch, setTertiarySearch] = useState("");
   const [quaternarySearch, setQuaternarySearch] = useState("");
 
+  // Check if company has an active QuickBooks connection
+  const { data: hasQbConnection } = useQuery({
+    queryKey: ["quickbooks-connection-exists", companyId],
+    queryFn: async () => {
+      if (!companyId) return false;
+      const { count, error } = await supabase
+        .from("quickbooks_connections")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("is_active", true);
+      if (error) return false;
+      return (count ?? 0) > 0;
+    },
+    enabled: open && !!companyId,
+  });
+
   // Auto-sync to QuickBooks mutation
   const toggleAutoSyncMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -860,7 +876,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
             ) : (
               <div />
             )}
-            {activeTab === "finance" && (
+            {activeTab === "finance" && hasQbConnection && (
               <div className="flex items-center gap-1.5">
                 <Label 
                   htmlFor="auto-sync-qb-header" 
