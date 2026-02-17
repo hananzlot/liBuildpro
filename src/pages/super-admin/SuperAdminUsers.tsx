@@ -277,7 +277,9 @@ export default function SuperAdminUsers() {
     const NO_COMPANY = "__no_company__";
 
     filtered.forEach((user) => {
-      const corpId = user.corporation_id || NO_CORP;
+      // Derive corporation from the user's company, not from profiles.corporation_id
+      const userCompany = user.company_id ? companyMap.get(user.company_id) : null;
+      const corpId = userCompany?.corporation_id || NO_CORP;
       const companyId = user.company_id || NO_COMPANY;
 
       if (!tree.has(corpId)) {
