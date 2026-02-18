@@ -332,6 +332,7 @@ export function OpportunityDetailSheet({
   const [isInlineEditingPipeline, setIsInlineEditingPipeline] = useState(false);
   const [isInlineEditingStage, setIsInlineEditingStage] = useState(false);
   const [isInlineEditingStatus, setIsInlineEditingStatus] = useState(false);
+  const [isHeaderEditingStatus, setIsHeaderEditingStatus] = useState(false);
   const [isInlineEditingAssignedTo, setIsInlineEditingAssignedTo] = useState(false);
   const [isSavingInline, setIsSavingInline] = useState(false);
 
@@ -2661,8 +2662,8 @@ export function OpportunityDetailSheet({
                   >
                     {savedOppName || opportunity.name || "Untitled Opportunity"}
                   </button>
-                  {!isInlineEditingStatus ? (
-                    <button className="cursor-pointer" onClick={() => setIsInlineEditingStatus(true)}>
+                  {!isHeaderEditingStatus ? (
+                    <button className="cursor-pointer" onClick={() => setIsHeaderEditingStatus(true)}>
                       <Badge variant="outline" className={`text-xs hover:underline ${getStatusColor(savedValues.status ?? opportunity.status)}`}>
                         {savedValues.status ?? opportunity.status ?? "Unknown"}
                       </Badge>
@@ -2670,15 +2671,18 @@ export function OpportunityDetailSheet({
                   ) : (
                     <Select
                       value={savedValues.status ?? opportunity.status ?? ""}
-                      onValueChange={handleInlineStatusChange}
+                      onValueChange={(val) => {
+                        setIsHeaderEditingStatus(false);
+                        handleInlineStatusChange(val);
+                      }}
                       disabled={isSavingInline}
-                      onOpenChange={open => { if (!open && !isSavingInline) setIsInlineEditingStatus(false); }}
+                      onOpenChange={open => { if (!open && !isSavingInline) setIsHeaderEditingStatus(false); }}
                       defaultOpen
                     >
                       <SelectTrigger className="h-6 text-xs w-32">
                         {isSavingInline ? <Loader2 className="h-3 w-3 animate-spin" /> : <SelectValue placeholder="Select status" />}
                       </SelectTrigger>
-                      <SelectContent className="bg-popover z-50">
+                      <SelectContent className="bg-popover z-[200]">
                         {OPPORTUNITY_STATUSES.map(status => (
                           <SelectItem key={status} value={status} className="text-xs capitalize">{status}</SelectItem>
                         ))}
@@ -3223,35 +3227,6 @@ export function OpportunityDetailSheet({
                 </button>}
             </div>
 
-            {/* Status */}
-            <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[90px]">
-              <div className="text-muted-foreground text-xs mb-[1px]">Status</div>
-              {isEditing ? <Select value={editedStatus} onValueChange={setEditedStatus}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
-                    {OPPORTUNITY_STATUSES.map(status => <SelectItem key={status} value={status} className="text-xs capitalize">
-                        {status}
-                      </SelectItem>)}
-                  </SelectContent>
-                </Select> : isInlineEditingStatus ? <Select value={savedValues.status ?? opportunity.status ?? ""} onValueChange={handleInlineStatusChange} disabled={isSavingInline} onOpenChange={open => {
-              if (!open && !isSavingInline) setIsInlineEditingStatus(false);
-            }} defaultOpen>
-                  <SelectTrigger className="h-7 text-xs">
-                    {isSavingInline ? <Loader2 className="h-3 w-3 animate-spin" /> : <SelectValue placeholder="Select status" />}
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
-                    {OPPORTUNITY_STATUSES.map(status => <SelectItem key={status} value={status} className="text-xs capitalize">
-                        {status}
-                      </SelectItem>)}
-                  </SelectContent>
-                </Select> : <button className="cursor-pointer" onClick={() => setIsInlineEditingStatus(true)}>
-                  <Badge variant="outline" className={`text-xs hover:underline ${getStatusColor(savedValues.status ?? opportunity.status)}`}>
-                    {savedValues.status ?? opportunity.status ?? "Unknown"}
-                  </Badge>
-                </button>}
-            </div>
 
             {/* Won Date - Only show when status is 'won' */}
             {(savedValues.status ?? opportunity.status)?.toLowerCase() === "won" && (
