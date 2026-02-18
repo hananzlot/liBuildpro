@@ -14,6 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -26,6 +29,8 @@ import {
   DollarSign,
   CheckCircle,
   Pencil,
+  Tag,
+  LayoutList,
 } from "lucide-react";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
@@ -80,6 +85,15 @@ export function PortalEstimateDetailSheet({
   const [isSaving, setIsSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
+
+  // Discount state
+  const [discountType, setDiscountType] = useState<string | null>(null);
+  const [discountValue, setDiscountValue] = useState<number | null>(null);
+
+  // Visibility toggles state (null = not changed by user yet)
+  const [showDetails, setShowDetails] = useState<boolean | null>(null);
+  const [showScope, setShowScope] = useState<boolean | null>(null);
+  const [showLineItems, setShowLineItems] = useState<boolean | null>(null);
 
   // Fetch estimate details
   const { data: estimate, isLoading: loadingEstimate } = useQuery({
@@ -163,7 +177,9 @@ export function PortalEstimateDetailSheet({
 
   const hasItemChanges = Object.keys(editedItems).length > 0;
   const hasCustomerChanges = Object.keys(editedCustomerInfo).length > 0;
-  const hasChanges = hasItemChanges || hasCustomerChanges;
+  const hasDiscountChanges = discountType !== null || discountValue !== null;
+  const hasVisibilityChanges = showDetails !== null || showScope !== null || showLineItems !== null;
+  const hasChanges = hasItemChanges || hasCustomerChanges || hasDiscountChanges || hasVisibilityChanges;
 
   const handleSave = async () => {
     if (!hasChanges || !estimateId) return;
@@ -199,9 +215,25 @@ export function PortalEstimateDetailSheet({
         updated_at: new Date().toISOString(),
       };
 
-      // Add recalculated total if line items changed
-      if (hasItemChanges) {
-        estimateUpdate.total = calculateTotal();
+      // Compute discount amount
+      const effectiveDiscountType = discountType ?? estimate?.discount_type ?? "percent";
+      const effectiveDiscountValue = discountValue ?? estimate?.discount_value ?? 0;
+      const subtotalForDiscount = hasItemChanges ? calculateTotal() : (estimate?.subtotal ?? 0);
+      let discountAmount = 0;
+      if (effectiveDiscountType === "percent") {
+        discountAmount = Math.round((subtotalForDiscount * effectiveDiscountValue) / 100 * 100) / 100;
+      } else {
+        discountAmount = Number(effectiveDiscountValue);
+      }
+
+      // Add recalculated total if line items or discount changed
+      if (hasItemChanges || hasDiscountChanges) {
+        const rawSubtotal = hasItemChanges ? calculateTotal() : (estimate?.subtotal ?? 0);
+        estimateUpdate.subtotal = rawSubtotal;
+        estimateUpdate.discount_type = effectiveDiscountType;
+        estimateUpdate.discount_value = effectiveDiscountValue;
+        estimateUpdate.discount_amount = discountAmount;
+        estimateUpdate.total = Math.max(0, rawSubtotal - discountAmount);
       }
 
       // Add customer info changes
@@ -215,6 +247,11 @@ export function PortalEstimateDetailSheet({
         estimateUpdate.estimate_title = editedCustomerInfo.estimate_title;
       }
 
+      // Add visibility changes
+      if (showDetails !== null) estimateUpdate.show_details_to_customer = showDetails;
+      if (showScope !== null) estimateUpdate.show_scope_to_customer = showScope;
+      if (showLineItems !== null) estimateUpdate.show_line_items_to_customer = showLineItems;
+
       const { error: updateError } = await supabase
         .from("estimates")
         .update(estimateUpdate)
@@ -224,6 +261,11 @@ export function PortalEstimateDetailSheet({
 
       setEditedItems({});
       setEditedCustomerInfo({});
+      setDiscountType(null);
+      setDiscountValue(null);
+      setShowDetails(null);
+      setShowScope(null);
+      setShowLineItems(null);
       toast.success("Estimate saved successfully!");
       // Invalidate portal queries
       queryClient.invalidateQueries({ queryKey: ["portal-estimate-detail", estimateId] });
@@ -484,6 +526,105 @@ export function PortalEstimateDetailSheet({
                   )}
                 </div>
 
+                {/* Discount Editor */}
+                <Separator className="my-4" />
+                <Card className="mb-4">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Tag className="h-4 w-4" />
+                      Discount
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={discountType ?? estimate.discount_type ?? "percent"}
+                        onValueChange={(v) => setDiscountType(v)}
+                      >
+                        <SelectTrigger className="w-28 h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percent">Percent (%)</SelectItem>
+                          <SelectItem value="fixed">Fixed ($)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="h-8 text-sm flex-1"
+                        placeholder={(discountType ?? estimate.discount_type ?? "percent") === "percent" ? "e.g. 5" : "e.g. 500"}
+                        value={discountValue !== null ? discountValue : (estimate.discount_value ?? 0)}
+                        onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                      />
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">
+                        {(discountType ?? estimate.discount_type ?? "percent") === "percent" ? "%" : "$"}
+                      </span>
+                    </div>
+                    {/* Live preview of discount */}
+                    {(() => {
+                      const effType = discountType ?? estimate.discount_type ?? "percent";
+                      const effValue = discountValue !== null ? discountValue : (estimate.discount_value ?? 0);
+                      const subtotal = hasItemChanges ? calculateTotal() : (estimate.subtotal ?? 0);
+                      const da = effType === "percent"
+                        ? Math.round(subtotal * effValue / 100 * 100) / 100
+                        : Number(effValue);
+                      if (da <= 0) return null;
+                      return (
+                        <p className="text-xs text-green-600">
+                          Discount: -${da.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* Visibility Toggles */}
+                <Card className="mb-4">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <LayoutList className="h-4 w-4" />
+                      Customer PDF / Preview Visibility
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="toggle-details" className="text-sm cursor-pointer">
+                        Show scope / project details
+                      </Label>
+                      <Switch
+                        id="toggle-details"
+                        checked={showDetails !== null ? showDetails : (estimate.show_details_to_customer ?? false)}
+                        onCheckedChange={(v) => setShowDetails(v)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="toggle-scope" className="text-sm cursor-pointer">
+                        Show scope of work text
+                      </Label>
+                      <Switch
+                        id="toggle-scope"
+                        checked={showScope !== null ? showScope : (estimate.show_scope_to_customer ?? false)}
+                        onCheckedChange={(v) => setShowScope(v)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="toggle-lineitems" className="text-sm cursor-pointer">
+                        Show line item breakdown
+                      </Label>
+                      <Switch
+                        id="toggle-lineitems"
+                        checked={showLineItems !== null ? showLineItems : (estimate.show_line_items_to_customer ?? false)}
+                        onCheckedChange={(v) => setShowLineItems(v)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      These control what the customer sees in the PDF and Review &amp; Sign page.
+                    </p>
+                  </CardContent>
+                </Card>
+
                 {/* Pricing Summary */}
                 <Separator className="my-4" />
                 <div className="p-4 bg-primary/5 rounded-lg space-y-2">
@@ -496,17 +637,23 @@ export function PortalEstimateDetailSheet({
                       })}
                     </span>
                   </div>
-                  {(estimate.discount_amount || 0) > 0 && (
-                    <div className="flex items-center justify-between text-green-600">
-                      <span className="text-sm">Discount</span>
-                      <span className="font-medium">
-                        -${(estimate.discount_amount || 0).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                    </div>
-                  )}
+                  {(() => {
+                    const effType = discountType ?? estimate.discount_type ?? "percent";
+                    const effValue = discountValue !== null ? discountValue : (estimate.discount_value ?? 0);
+                    const subtotal = hasItemChanges ? calculateTotal() : (estimate.subtotal ?? 0);
+                    const da = effType === "percent"
+                      ? Math.round(subtotal * effValue / 100 * 100) / 100
+                      : Number(effValue);
+                    if (da <= 0) return null;
+                    return (
+                      <div className="flex items-center justify-between text-green-700">
+                        <span className="text-sm">Discount</span>
+                        <span className="font-medium">
+                          -${da.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <Separator className="my-2" />
                   <div className="flex items-center justify-between">
                     <span className="font-semibold flex items-center gap-2">
@@ -514,13 +661,18 @@ export function PortalEstimateDetailSheet({
                       Total
                     </span>
                     <span className="text-xl font-bold text-primary">
-                      ${(hasItemChanges 
-                        ? calculateTotal() - (estimate.discount_amount || 0)
-                        : (estimate.total ?? 0)
-                      ).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      ${(() => {
+                        const effType = discountType ?? estimate.discount_type ?? "percent";
+                        const effValue = discountValue !== null ? discountValue : (estimate.discount_value ?? 0);
+                        const subtotal = hasItemChanges ? calculateTotal() : (estimate.subtotal ?? 0);
+                        const da = effType === "percent"
+                          ? Math.round(subtotal * effValue / 100 * 100) / 100
+                          : Number(effValue);
+                        return Math.max(0, subtotal - da).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        });
+                      })()}
                     </span>
                   </div>
                 </div>
