@@ -2636,67 +2636,148 @@ export function OpportunityDetailSheet({
         <div className="sticky top-0 bg-background border-b p-4">
           <SheetHeader>
             <SheetTitle className="text-sm font-medium text-muted-foreground">Opportunity Details</SheetTitle>
-            {/* Opportunity Name - Editable */}
-            <div className="mt-1">
-              {isEditingOppName ? (
-                <div className="flex items-center gap-1">
-                  <Input
-                    value={editedOppName}
-                    onChange={e => setEditedOppName(e.target.value)}
-                    placeholder="Opportunity name"
-                    className="h-8 text-base font-semibold"
-                    autoFocus
-                  />
-                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={handleSaveOppName} disabled={isSavingOppName || !editedOppName.trim()}>
-                    {isSavingOppName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setIsEditingOppName(false)}>
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    onClick={() => {
-                      setEditedOppName(savedOppName || opportunity.name || "");
-                      setIsEditingOppName(true);
-                    }}
-                    className="text-base font-semibold text-foreground hover:underline text-left"
-                  >
-                    {savedOppName || opportunity.name || "Untitled Opportunity"}
-                  </button>
-                  {!isHeaderEditingStatus ? (
-                    <button className="cursor-pointer" onClick={() => setIsHeaderEditingStatus(true)}>
-                      <Badge variant="outline" className={`text-xs hover:underline ${getStatusColor(savedValues.status ?? opportunity.status)}`}>
-                        {savedValues.status ?? opportunity.status ?? "Unknown"}
-                      </Badge>
-                    </button>
-                  ) : (
-                    <Select
-                      value={savedValues.status ?? opportunity.status ?? ""}
-                      onValueChange={(val) => {
-                        setIsHeaderEditingStatus(false);
-                        handleInlineStatusChange(val);
+            {/* Opportunity Name + right-side value strip */}
+            <div className="mt-1 flex items-start justify-between gap-4">
+              {/* Left: name + status */}
+              <div className="min-w-0 flex-1">
+                {isEditingOppName ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={editedOppName}
+                      onChange={e => setEditedOppName(e.target.value)}
+                      placeholder="Opportunity name"
+                      className="h-8 text-base font-semibold"
+                      autoFocus
+                    />
+                    <Button variant="ghost" size="sm" className="h-8 px-2" onClick={handleSaveOppName} disabled={isSavingOppName || !editedOppName.trim()}>
+                      {isSavingOppName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setIsEditingOppName(false)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => {
+                        setEditedOppName(savedOppName || opportunity.name || "");
+                        setIsEditingOppName(true);
                       }}
-                      disabled={isSavingInline}
-                      onOpenChange={open => { if (!open && !isSavingInline) setIsHeaderEditingStatus(false); }}
-                      defaultOpen
+                      className="text-base font-semibold text-foreground hover:underline text-left"
                     >
-                      <SelectTrigger className="h-6 text-xs w-32">
-                        {isSavingInline ? <Loader2 className="h-3 w-3 animate-spin" /> : <SelectValue placeholder="Select status" />}
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover z-[200]">
-                        {OPPORTUNITY_STATUSES.map(status => (
-                          <SelectItem key={status} value={status} className="text-xs capitalize">{status}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      {savedOppName || opportunity.name || "Untitled Opportunity"}
+                    </button>
+                    {!isHeaderEditingStatus ? (
+                      <button className="cursor-pointer" onClick={() => setIsHeaderEditingStatus(true)}>
+                        <Badge variant="outline" className={`text-xs hover:underline ${getStatusColor(savedValues.status ?? opportunity.status)}`}>
+                          {savedValues.status ?? opportunity.status ?? "Unknown"}
+                        </Badge>
+                      </button>
+                    ) : (
+                      <Select
+                        value={savedValues.status ?? opportunity.status ?? ""}
+                        onValueChange={(val) => {
+                          setIsHeaderEditingStatus(false);
+                          handleInlineStatusChange(val);
+                        }}
+                        disabled={isSavingInline}
+                        onOpenChange={open => { if (!open && !isSavingInline) setIsHeaderEditingStatus(false); }}
+                        defaultOpen
+                      >
+                        <SelectTrigger className="h-6 text-xs w-32">
+                          {isSavingInline ? <Loader2 className="h-3 w-3 animate-spin" /> : <SelectValue placeholder="Select status" />}
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover z-[200]">
+                          {OPPORTUNITY_STATUSES.map(status => (
+                            <SelectItem key={status} value={status} className="text-xs capitalize">{status}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Right: Debug (super admin) + Opp Value + Est Cost */}
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <div className="flex items-center gap-2">
+                  {/* Debug button — super admin only, placed left of opp value */}
+                  {isSuperAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-muted-foreground"
+                      onClick={() => {
+                        const debugInfo = `UUID: ${opportunity.id}\nGHL ID: ${opportunity.ghl_id}\nContact ID: ${opportunity.contact_id}\nContact UUID: ${opportunity.contact_uuid}`;
+                        navigator.clipboard.writeText(debugInfo);
+                        toast.success("Debug info copied to clipboard");
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-1" />
+                      Debug
+                    </Button>
+                  )}
+                  {/* Opp Value */}
+                  {isEditingOppValue ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Opp Value:</span>
+                      <span className="text-lg font-bold text-emerald-400">$</span>
+                      <Input type="text" inputMode="decimal" value={editedOppValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedOppValue(val); }} className="text-lg font-bold h-8 w-28" autoFocus />
+                      <Button size="sm" className="h-7 px-2 text-xs" onClick={handleSaveOppValue} disabled={isSavingOppValue}>
+                        {isSavingOppValue ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" onClick={() => setIsEditingOppValue(false)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : isEditing ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Opp Value:</span>
+                      <span className="text-lg font-bold text-emerald-400">$</span>
+                      <Input type="text" inputMode="decimal" value={editedMonetaryValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedMonetaryValue(val); }} className="text-lg font-bold h-8 w-28" />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Opp Value:</span>
+                      <button onClick={() => { setEditedOppValue(((savedValues.monetary_value ?? opportunity.monetary_value) || 0).toString()); setIsEditingOppValue(true); }} className="text-lg font-bold text-emerald-400 hover:underline cursor-pointer">
+                        {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
+                      </button>
+                    </div>
                   )}
                 </div>
-              )}
+                {/* Est. Cost */}
+                <div className="flex flex-col items-end gap-0.5">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted-foreground">Est. Cost:</span>
+                    {isEditingCost ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-destructive">$</span>
+                        <Input type="text" inputMode="decimal" value={estimatedCost} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setEstimatedCost(val); setCostError(null); } }} className={`h-6 w-20 text-xs ${costError ? 'border-destructive' : ''}`} />
+                        <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
+                          {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setIsEditingCost(false); setCostError(null); }}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setIsEditingCost(true)} className="text-destructive font-medium hover:underline">
+                        {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
+                      </button>
+                    )}
+                  </div>
+                  {costError && (
+                    <span className="text-[10px] text-destructive max-w-[220px] text-right">{costError}</span>
+                  )}
+                </div>
+              </div>
             </div>
           </SheetHeader>
           <div className="mt-2 flex flex-wrap items-center gap-2">
+            {/* +Task — first button */}
+            <Button variant="outline" size="sm" className="h-7" onClick={openTaskDialog}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Task
+            </Button>
             {!isEditing ? <Button variant="outline" size="sm" className="h-7" onClick={handleEditClick}>
                 <Pencil className="h-3.5 w-3.5 mr-1" />
                 Edit
@@ -2761,21 +2842,7 @@ export function OpportunityDetailSheet({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {isSuperAdmin && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-7 text-muted-foreground" 
-                onClick={() => {
-                  const debugInfo = `UUID: ${opportunity.id}\nGHL ID: ${opportunity.ghl_id}\nContact ID: ${opportunity.contact_id}\nContact UUID: ${opportunity.contact_uuid}`;
-                  navigator.clipboard.writeText(debugInfo);
-                  toast.success("Debug info copied to clipboard");
-                }}
-              >
-                <Copy className="h-3.5 w-3.5 mr-1" />
-                Debug
-              </Button>
-            )}
+            {/* Debug removed from here — now in header next to opp value */}
             {/* Customer Portal inline buttons */}
             {portalLink ? (
               <>
@@ -2969,61 +3036,6 @@ export function OpportunityDetailSheet({
                   <User className="h-3 w-3" />
                   {userName}
                 </span>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-2">
-                  {isEditingOppValue ? (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">Opp Value:</span>
-                      <span className="text-lg font-bold text-emerald-400">$</span>
-                      <Input type="text" inputMode="decimal" value={editedOppValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedOppValue(val); }} className="text-lg font-bold h-8 w-28" autoFocus />
-                      <Button size="sm" className="h-7 px-2 text-xs" onClick={handleSaveOppValue} disabled={isSavingOppValue}>
-                        {isSavingOppValue ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" onClick={() => setIsEditingOppValue(false)}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : isEditing ? (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">Opp Value:</span>
-                      <span className="text-lg font-bold text-emerald-400">$</span>
-                      <Input type="text" inputMode="decimal" value={editedMonetaryValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedMonetaryValue(val); }} className="text-lg font-bold h-8 w-28" />
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">Opp Value:</span>
-                      <button onClick={() => { setEditedOppValue(((savedValues.monetary_value ?? opportunity.monetary_value) || 0).toString()); setIsEditingOppValue(true); }} className="text-lg font-bold text-emerald-400 hover:underline cursor-pointer">
-                        {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
-                      </button>
-                    </div>
-                  )}
-                  {/* Est. Cost after Opp Value */}
-                  <div className="flex flex-col items-end gap-0.5">
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span className="text-muted-foreground">Est. Cost:</span>
-                      {isEditingCost ? <div className="flex items-center gap-1">
-                          <span className="text-destructive">$</span>
-                          <Input type="text" inputMode="decimal" value={estimatedCost} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setEstimatedCost(val); setCostError(null); } }} className={`h-6 w-20 text-xs ${costError ? 'border-destructive' : ''}`} />
-                          <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
-                            {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setIsEditingCost(false); setCostError(null); }}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div> : <button onClick={() => setIsEditingCost(true)} className="text-destructive font-medium hover:underline">
-                          {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
-                        </button>}
-                    </div>
-                    {costError && (
-                      <span className="text-[10px] text-destructive max-w-[220px] text-right">{costError}</span>
-                    )}
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={openTaskDialog}>
-                  <Plus className="h-3 w-3 mr-1" />
-                  Task
-                </Button>
               </div>
             </div>
             <div className="p-3 space-y-2">
