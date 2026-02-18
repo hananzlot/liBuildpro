@@ -414,6 +414,7 @@ export function OpportunityDetailSheet({
         .from("projects")
         .select("id, project_name")
         .eq("opportunity_id", opportunity.ghl_id)
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       
       setAssociatedProjects(projectsData || []);
