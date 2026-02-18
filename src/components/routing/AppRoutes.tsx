@@ -410,15 +410,8 @@ export function AppRoutes() {
         {/* Short link redirect - public */}
         <Route path="/r/:code" element={<ShortLinkRedirect />} />
         
-        {/* Proposal print view - authenticated */}
-        <Route
-          path="/proposal-print/:estimateId"
-          element={
-            <ProtectedRoute>
-              <ProposalPrint />
-            </ProtectedRoute>
-          }
-        />
+        {/* Proposal print view - public (customers access from portal) */}
+        <Route path="/proposal-print/:estimateId" element={<ProposalPrint />} />
         
         {/* Legal pages - public */}
         <Route path="/terms" element={<Terms />} />
