@@ -2925,28 +2925,6 @@ export function OpportunityDetailSheet({
             </AlertDialog>
           </div>
             </div>
-            {/* Compact key-info strip directly under the opp name */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1 text-xs text-muted-foreground">
-              {(savedValues.pipeline_name ?? opportunity.pipeline_name) && (
-                <span className="flex items-center gap-1">
-                  <span className="font-medium text-foreground">
-                    {hasAdminPipelineConfig ? (adminPipelineName || "Main") : (savedValues.pipeline_name ?? opportunity.pipeline_name)}
-                  </span>
-                  {(savedValues.stage_name ?? opportunity.stage_name) && (
-                    <><span>›</span><span>{savedValues.stage_name ?? opportunity.stage_name}</span></>
-                  )}
-                </span>
-              )}
-              {opportunity.ghl_date_added && (
-                <span>Created: <span className="text-foreground">{new Date(opportunity.ghl_date_added).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
-              )}
-              {(savedValues.assigned_to ?? opportunity.assigned_to) && (
-                <span>Assigned: <span className="text-foreground">{savedValues.assigned_to ?? opportunity.assigned_to}</span></span>
-              )}
-              {(savedValues.source) && (
-                <span>Source: <span className="text-foreground">{savedValues.source}</span></span>
-              )}
-            </div>
 
         <div className="p-4 space-y-4">
           {/* Thank-You Email Preview Dialog */}
