@@ -85,6 +85,9 @@ export function SalespeopleManagement() {
   const [deleteAction, setDeleteAction] = useState<'archive' | 'reassign'>('archive');
   const [showArchived, setShowArchived] = useState(false);
   const [reassignToId, setReassignToId] = useState<string>('');
+  const [syncPreviewOpen, setSyncPreviewOpen] = useState(false);
+  const [syncPreviewData, setSyncPreviewData] = useState<{ name: string; projects: { address: string; name: string }[] }[]>([]);
+  const [isFetchingPreview, setIsFetchingPreview] = useState(false);
 
   const { data: salespeople = [], isLoading } = useQuery({
     queryKey: ['salespeople', queryKeySuffix, showArchived],
@@ -195,14 +198,15 @@ export function SalespeopleManagement() {
     enabled: !!companyId,
   });
 
-  // Fetch existing salesperson names from projects for sync
+  // Fetch existing salesperson names + project addresses from projects for sync
   const { data: projectSalespeople = [] } = useQuery({
     queryKey: ['project-salespeople-names', companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('projects')
-        .select('primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson, project_manager')
-        .eq('company_id', companyId);
+        .select('primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson, project_manager, project_address, project_name')
+        .eq('company_id', companyId)
+        .is('deleted_at', null);
       if (error) throw error;
       
       const names = new Set<string>();
@@ -215,6 +219,37 @@ export function SalespeopleManagement() {
       });
       
       return Array.from(names);
+    },
+    enabled: !!companyId,
+  });
+
+  // Build a mapping of salesperson name -> projects with addresses
+  const { data: projectsByName = {} } = useQuery({
+    queryKey: ['project-salespeople-with-addresses', companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson, project_manager, project_address, project_name')
+        .eq('company_id', companyId)
+        .is('deleted_at', null);
+      if (error) throw error;
+
+      const map: Record<string, { address: string; name: string }[]> = {};
+      const addEntry = (spName: string | null, project: { project_address: string | null; project_name: string | null }) => {
+        if (!spName) return;
+        if (!map[spName]) map[spName] = [];
+        if (project.project_address || project.project_name) {
+          map[spName].push({ address: project.project_address || '', name: project.project_name || '' });
+        }
+      };
+      data.forEach(p => {
+        addEntry(p.primary_salesperson, p);
+        addEntry(p.secondary_salesperson, p);
+        addEntry(p.tertiary_salesperson, p);
+        addEntry(p.quaternary_salesperson, p);
+        addEntry(p.project_manager, p);
+      });
+      return map;
     },
     enabled: !!companyId,
   });
@@ -788,7 +823,14 @@ export function SalespeopleManagement() {
           {missingSalespeople.length > 0 && (
             <Button 
               variant="outline" 
-              onClick={() => syncFromProjects.mutate()}
+              onClick={() => {
+                const preview = missingSalespeople.map(name => ({
+                  name,
+                  projects: (projectsByName[name] || []).slice(0, 5),
+                }));
+                setSyncPreviewData(preview);
+                setSyncPreviewOpen(true);
+              }}
               disabled={syncFromProjects.isPending}
             >
               {syncFromProjects.isPending ? (
@@ -1225,6 +1267,56 @@ export function SalespeopleManagement() {
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 )}
                 {deleteAction === 'archive' ? 'Archive' : 'Reassign & Delete'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Sync from Projects Preview Dialog */}
+        <Dialog open={syncPreviewOpen} onOpenChange={setSyncPreviewOpen}>
+          <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Sync Salespeople from Projects</DialogTitle>
+              <DialogDescription>
+                The following {syncPreviewData.length} name(s) appear in projects but are not yet in your salespeople directory. Click "Add All" to add them.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="overflow-y-auto flex-1 space-y-3 py-2 pr-1">
+              {syncPreviewData.map(({ name, projects }) => (
+                <div key={name} className="border rounded-md p-3 space-y-1">
+                  <p className="font-semibold text-sm">{name}</p>
+                  {projects.length > 0 ? (
+                    <ul className="space-y-0.5">
+                      {projects.map((p, i) => (
+                        <li key={i} className="text-xs text-muted-foreground flex gap-1">
+                          <span className="shrink-0">•</span>
+                          <span>
+                            {p.name && <span className="font-medium text-foreground/80">{p.name}</span>}
+                            {p.name && p.address && <span> — </span>}
+                            {p.address}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No project address on file</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSyncPreviewOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setSyncPreviewOpen(false);
+                  syncFromProjects.mutate();
+                }}
+                disabled={syncFromProjects.isPending}
+              >
+                {syncFromProjects.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Add All ({syncPreviewData.length})
               </Button>
             </DialogFooter>
           </DialogContent>
