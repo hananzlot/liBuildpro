@@ -12,27 +12,35 @@ serve(async (req) => {
   }
 
   try {
-    const { opportunityGhlId, scopeOfWork, editedBy, companyId } = await req.json();
+    const { opportunityGhlId, opportunityId, scopeOfWork, editedBy, companyId } = await req.json();
 
-    if (!opportunityGhlId) {
+    if (!opportunityGhlId && !opportunityId) {
       return new Response(
-        JSON.stringify({ error: "opportunityGhlId is required" }),
+        JSON.stringify({ error: "opportunityGhlId or opportunityId is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Updating scope of work for opportunity ${opportunityGhlId}`);
+    // Determine lookup strategy: prefer UUID when ghl_id is missing or a local ID
+    const useUuid = !opportunityGhlId || opportunityGhlId.startsWith("local_");
+    console.log(`Updating scope of work for opportunity ${useUuid ? `UUID:${opportunityId}` : `GHL:${opportunityGhlId}`}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Fetch opportunity with current scope_of_work
-    const { data: opportunity, error: oppError } = await supabase
+    let oppQuery = supabase
       .from("opportunities")
-      .select("scope_of_work, location_id, contact_id")
-      .eq("ghl_id", opportunityGhlId)
-      .single();
+      .select("scope_of_work, location_id, contact_id");
+
+    if (useUuid && opportunityId) {
+      oppQuery = oppQuery.eq("id", opportunityId);
+    } else {
+      oppQuery = oppQuery.eq("ghl_id", opportunityGhlId);
+    }
+
+    const { data: opportunity, error: oppError } = await oppQuery.single();
 
     if (oppError || !opportunity) {
       console.error("Opportunity lookup error:", oppError);
@@ -46,13 +54,20 @@ serve(async (req) => {
     const newScope = scopeOfWork || "";
 
     // Update opportunity in Supabase
-    const { error: updateError } = await supabase
+    let updateQuery = supabase
       .from("opportunities")
       .update({ 
         scope_of_work: newScope, 
         updated_at: new Date().toISOString() 
-      })
-      .eq("ghl_id", opportunityGhlId);
+      });
+
+    if (useUuid && opportunityId) {
+      updateQuery = updateQuery.eq("id", opportunityId);
+    } else {
+      updateQuery = updateQuery.eq("ghl_id", opportunityGhlId);
+    }
+
+    const { error: updateError } = await updateQuery;
 
     if (updateError) {
       console.error("Error updating opportunity:", updateError);
