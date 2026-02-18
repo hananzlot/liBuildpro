@@ -276,6 +276,11 @@ export function OpportunityDetailSheet({
   // Sales dialog state
   const [salesDialogOpen, setSalesDialogOpen] = useState(false);
 
+  // Decline proposals dialog (shown when opp is marked lost)
+  const [declineProposalsDialogOpen, setDeclineProposalsDialogOpen] = useState(false);
+  const [proposalsToDecline, setProposalsToDecline] = useState<{ id: string; estimate_number: number | null; estimate_title: string | null; customer_name: string | null }[]>([]);
+  const [isDecliningProposals, setIsDecliningProposals] = useState(false);
+
   // Scope of Work editing
   const [isEditingScope, setIsEditingScope] = useState(false);
   const [editedScope, setEditedScope] = useState("");
@@ -1690,6 +1695,55 @@ export function OpportunityDetailSheet({
     }
   };
 
+  // After marking an opportunity as lost, check for sent proposals on the contact
+  const checkAndOfferDeclineProposals = async (contactId: string | null, contactUuid: string | null) => {
+    if (!contactId && !contactUuid) return;
+    try {
+      let query = supabase
+        .from("estimates")
+        .select("id, estimate_number, estimate_title, customer_name")
+        .eq("company_id", companyId)
+        .in("status", ["sent", "viewed"]);
+      
+      if (contactUuid) {
+        query = query.eq("contact_uuid", contactUuid);
+      } else if (contactId) {
+        query = query.eq("contact_id", contactId);
+      }
+
+      const { data } = await query;
+      if (data && data.length > 0) {
+        setProposalsToDecline(data);
+        setDeclineProposalsDialogOpen(true);
+      }
+    } catch (err) {
+      console.error("Error checking proposals:", err);
+    }
+  };
+
+  const handleDeclineProposals = async () => {
+    if (proposalsToDecline.length === 0) return;
+    setIsDecliningProposals(true);
+    try {
+      const ids = proposalsToDecline.map(p => p.id);
+      const { error } = await supabase
+        .from("estimates")
+        .update({ status: "declined" })
+        .in("id", ids);
+      if (error) throw error;
+      toast.success(`${ids.length} proposal${ids.length > 1 ? "s" : ""} marked as declined`);
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
+      queryClient.invalidateQueries({ queryKey: ["salesperson-portal-proposals"] });
+    } catch (err) {
+      console.error("Error declining proposals:", err);
+      toast.error("Failed to decline proposals");
+    } finally {
+      setIsDecliningProposals(false);
+      setDeclineProposalsDialogOpen(false);
+      setProposalsToDecline([]);
+    }
+  };
+
   const handleInlineStatusChange = async (newStatus: string) => {
     if (!opportunity) return;
     setIsSavingInline(true);
@@ -1723,6 +1777,10 @@ export function OpportunityDetailSheet({
       // Create project if status changed to "won"
       if (newStatus.toLowerCase() === "won") {
         await createProjectForWonOpportunity(opportunity.ghl_id);
+      }
+      // Check for proposals to decline if status changed to "lost"
+      if (newStatus.toLowerCase() === "lost") {
+        await checkAndOfferDeclineProposals(opportunity.contact_id, opportunity.contact_uuid);
       }
     } catch (error) {
       console.error("Error updating status:", error);
@@ -1819,6 +1877,10 @@ export function OpportunityDetailSheet({
       // Create project if status changed to "won"
       if (editedStatus.toLowerCase() === "won") {
         await createProjectForWonOpportunity(opportunity.ghl_id);
+      }
+      // Check for proposals to decline if status changed to "lost"
+      if (editedStatus.toLowerCase() === "lost") {
+        await checkAndOfferDeclineProposals(opportunity.contact_id, opportunity.contact_uuid);
       }
     } catch (error) {
       console.error("Error updating opportunity:", error);
@@ -3949,6 +4011,49 @@ export function OpportunityDetailSheet({
         onSyncConfirmed={handleEmailSyncConfirmed}
         onUpdateLocalOnly={handleEmailUpdateLocalOnly}
       />
+
+      {/* Decline Proposals Dialog */}
+      <AlertDialog open={declineProposalsDialogOpen} onOpenChange={setDeclineProposalsDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-destructive" />
+              Mark Proposals as Declined?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This opportunity was marked as <strong>Lost</strong>. The following pending proposal{proposalsToDecline.length > 1 ? "s" : ""} from this contact will be removed from the sales rep portal and pending proposals:
+                </p>
+                <ul className="space-y-1.5 border rounded-md p-3 bg-muted/50">
+                  {proposalsToDecline.map(p => (
+                    <li key={p.id} className="text-sm flex items-start gap-2">
+                      <FileText className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        <span className="font-medium">{p.estimate_title || `Estimate #${p.estimate_number}`}</span>
+                        {p.customer_name && <span className="text-muted-foreground"> — {p.customer_name}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDecliningProposals}>
+              Keep as Is
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeclineProposals}
+              disabled={isDecliningProposals}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDecliningProposals && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Mark as Declined
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
