@@ -13,6 +13,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -140,6 +150,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const [leadSourceSearch, setLeadSourceSearch] = useState("");
   const [portalLinkCopied, setPortalLinkCopied] = useState(false);
   const [headerPortalLink, setHeaderPortalLink] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
 
   // Helper to sync the app tab path with inner tab state (only in page mode)
   const syncTabPath = useCallback((tab: string, finSubTab?: string, finBillsSubTab?: 'bills' | 'history') => {
@@ -779,9 +791,32 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
     sendChatReplyMutation.mutate(portalChatReply);
   };
 
+  const handleDeleteProject = async () => {
+    if (!project?.id) return;
+    setIsDeletingProject(true);
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", project.id);
+      if (error) throw error;
+      toast.success("Project deleted successfully");
+      onUpdate();
+      if (onClose) onClose();
+      else onOpenChange(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to delete project";
+      toast.error(msg);
+    } finally {
+      setIsDeletingProject(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   const isPageMode = mode === 'page';
 
   return (
+    <>
     <Sheet open={open} modal={!isPageMode} onOpenChange={isPageMode ? undefined : onOpenChange}>
       <SheetContent 
         className={isPageMode ? "w-full h-full overflow-y-auto" : "w-full sm:max-w-6xl overflow-y-auto"}
@@ -837,6 +872,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 {project.customer_first_name} {project.customer_last_name}
               </SheetDescription>
             </div>
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto shrink-0"
+                onClick={() => setShowDeleteConfirm(true)}
+                title="Delete project"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           {/* Portal Link & Auto-Sync Toggle Row */}
           <div className="flex items-center justify-between mt-1">
@@ -2332,5 +2378,27 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
         )}
       </SheetContent>
     </Sheet>
+
+    <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Project</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete project <strong>#{project.project_number} – {project.project_name}</strong>? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeletingProject}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDeleteProject}
+            disabled={isDeletingProject}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isDeletingProject ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Deleting…</> : "Delete Project"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
