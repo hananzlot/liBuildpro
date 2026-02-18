@@ -26,6 +26,7 @@ import { AppointmentEditDialog } from "./AppointmentEditDialog";
 // EstimateBuilderDialog removed - now opens as a tab via navigation
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 import { useAppTabs } from "@/contexts/AppTabsContext";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -348,6 +349,7 @@ export function OpportunityDetailSheet({
 
   // Associated project for production link
   const [associatedProjectId, setAssociatedProjectId] = useState<string | null>(null);
+  const [associatedProjects, setAssociatedProjects] = useState<{ id: string; project_name: string | null }[]>([]);
 
   // Portal link for same contact
   const [portalLink, setPortalLink] = useState<string | null>(null);
@@ -383,6 +385,7 @@ export function OpportunityDetailSheet({
       setSavedPhone(null);
       setSavedEmail(null);
       setAssociatedProjectId(null);
+      setAssociatedProjects([]);
       setPortalLink(null);
       setSavedWonAt(null);
       setIsEditingWonAt(false);
@@ -400,19 +403,21 @@ export function OpportunityDetailSheet({
   useEffect(() => {
     if (!open || !opportunity?.ghl_id) {
       setAssociatedProjectId(null);
+      setAssociatedProjects([]);
       setPortalLink(null);
       setLinkedEstimates([]);
       return;
     }
     
     const fetchProjectAndEstimates = async () => {
-      const { data: projectData } = await supabase
+      const { data: projectsData } = await supabase
         .from("projects")
-        .select("id")
+        .select("id, project_name")
         .eq("opportunity_id", opportunity.ghl_id)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
       
-      setAssociatedProjectId(projectData?.id ?? null);
+      setAssociatedProjects(projectsData || []);
+      setAssociatedProjectId(projectsData?.[0]?.id ?? null);
 
       // Fetch linked estimates (by opportunity_id or opportunity_uuid)
       const { data: estimatesData } = await supabase
@@ -2685,19 +2690,40 @@ export function OpportunityDetailSheet({
               <Receipt className="h-3.5 w-3.5 mr-1" />
               Sales
             </Button>
-            {(isAdmin || isProduction) && associatedProjectId && (
+            {(isAdmin || isProduction) && associatedProjects.length === 1 && (
               <Button 
                 variant="outline" 
                 size="sm" 
                 className="h-7" 
                 onClick={() => {
                   onOpenChange(false);
-                  navigate(`/production/${associatedProjectId}`);
+                  navigate(`/production/${associatedProjects[0].id}`);
                 }}
               >
                 <FolderOpen className="h-3.5 w-3.5 mr-1" />
                 Project
               </Button>
+            )}
+            {(isAdmin || isProduction) && associatedProjects.length > 1 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7">
+                    <FolderOpen className="h-3.5 w-3.5 mr-1" />
+                    Project
+                    <ChevronDown className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="z-[200] bg-popover">
+                  {associatedProjects.map((proj) => (
+                    <DropdownMenuItem
+                      key={proj.id}
+                      onClick={() => { onOpenChange(false); navigate(`/production/${proj.id}`); }}
+                    >
+                      {proj.project_name || `Project ${proj.id.slice(0, 8)}`}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             {isSuperAdmin && (
               <Button 
