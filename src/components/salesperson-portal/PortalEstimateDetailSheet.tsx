@@ -457,16 +457,6 @@ export function PortalEstimateDetailSheet({
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="toggle-details" className="text-sm cursor-pointer">
-                        Show scope / project details
-                      </Label>
-                      <Switch
-                        id="toggle-details"
-                        checked={showDetails !== null ? showDetails : (estimate.show_details_to_customer ?? false)}
-                        onCheckedChange={(v) => setShowDetails(v)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
                       <Label htmlFor="toggle-scope" className="text-sm cursor-pointer">
                         Show scope of work text
                       </Label>
@@ -484,6 +474,16 @@ export function PortalEstimateDetailSheet({
                         id="toggle-lineitems"
                         checked={showLineItems !== null ? showLineItems : (estimate.show_line_items_to_customer ?? false)}
                         onCheckedChange={(v) => setShowLineItems(v)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="toggle-details" className="text-sm cursor-pointer">
+                        Show scope / project details
+                      </Label>
+                      <Switch
+                        id="toggle-details"
+                        checked={showDetails !== null ? showDetails : (estimate.show_details_to_customer ?? false)}
+                        onCheckedChange={(v) => setShowDetails(v)}
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">
