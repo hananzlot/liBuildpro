@@ -2109,15 +2109,17 @@ export function OpportunityDetailSheet({
     }
   };
   const handleSaveAddress = async () => {
-    if (!opportunity?.ghl_id) return;
+    if (!opportunity?.ghl_id && !opportunity?.id) return;
     setIsSavingAddress(true);
     try {
       // Save to opportunity (primary)
       const { data: oppData, error: oppError } = await supabase.functions.invoke("update-opportunity-address", {
         body: {
-          opportunityGhlId: opportunity.ghl_id,
+          opportunityGhlId: opportunity.ghl_id || null,
+          opportunityId: opportunity.id,
           address: editedAddress.trim(),
           editedBy: user?.id || null,
+          companyId: opportunity.company_id || companyId || null,
         }
       });
       if (oppError) throw oppError;
@@ -2397,7 +2399,8 @@ export function OpportunityDetailSheet({
         error
       } = await supabase.functions.invoke("delete-ghl-opportunity", {
         body: {
-          opportunityId: opportunity.ghl_id
+          opportunityId: opportunity.ghl_id || null,
+          opportunityUuid: opportunity.id || null,
         }
       });
       if (error) throw error;

@@ -21,24 +21,33 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { opportunityId, excludeFromSync = true } = await req.json();
+    // Accept either ghl_id (legacy) or opportunityUuid (UUID fallback for local opps)
+    const { opportunityId, opportunityUuid, excludeFromSync = true } = await req.json();
 
-    if (!opportunityId) {
-      throw new Error('Missing opportunityId');
+    if (!opportunityId && !opportunityUuid) {
+      throw new Error('Missing identifier: provide opportunityId (ghl_id) or opportunityUuid');
     }
 
-    console.log(`Deleting opportunity: ${opportunityId} (local-only, excludeFromSync: ${excludeFromSync})`);
+    // Determine lookup strategy: prefer UUID when ghl_id is missing or a local ID
+    const useUuid = opportunityUuid || !opportunityId || opportunityId.startsWith('local_');
+    console.log(`Deleting opportunity via ${useUuid ? `UUID:${opportunityUuid}` : `GHL:${opportunityId}`} (excludeFromSync: ${excludeFromSync})`);
 
     // Fetch opportunity details before deleting
-    const { data: opportunity } = await supabase
+    let fetchQuery = supabase
       .from('opportunities')
-      .select('id, ghl_id, location_id, company_id, name')
-      .eq('ghl_id', opportunityId)
-      .maybeSingle();
+      .select('id, ghl_id, location_id, company_id, name');
+
+    if (useUuid && opportunityUuid) {
+      fetchQuery = fetchQuery.eq('id', opportunityUuid);
+    } else {
+      fetchQuery = fetchQuery.eq('ghl_id', opportunityId);
+    }
+
+    const { data: opportunity } = await fetchQuery.maybeSingle();
 
     if (!opportunity) {
       console.log('Opportunity not found in database');
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         success: true,
         message: 'Opportunity not found or already deleted'
       }), {
@@ -46,8 +55,9 @@ serve(async (req) => {
       });
     }
 
-    // Add to sync exclusions if requested (prevents re-sync from GHL)
-    if (excludeFromSync && opportunity.ghl_id && opportunity.location_id) {
+    // Add to sync exclusions only if it has a real GHL ID (not local)
+    const isLocalOpp = !opportunity.ghl_id || opportunity.ghl_id.startsWith('local_');
+    if (excludeFromSync && !isLocalOpp && opportunity.location_id) {
       const { error: exclusionError } = await supabase
         .from('ghl_sync_exclusions')
         .upsert({
@@ -65,23 +75,23 @@ serve(async (req) => {
       }
     }
 
-    // Delete from Supabase
+    // Delete by UUID (most reliable — works for both local and GHL opportunities)
     const { error: deleteError } = await supabase
       .from('opportunities')
       .delete()
-      .eq('ghl_id', opportunityId);
+      .eq('id', opportunity.id);
 
     if (deleteError) {
       console.error('Supabase delete error:', deleteError);
       throw new Error(`Failed to delete opportunity: ${deleteError.message}`);
     }
-    
+
     console.log('Opportunity deleted from Supabase');
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: true,
       message: 'Opportunity deleted',
-      excludedFromSync: excludeFromSync
+      excludedFromSync: excludeFromSync && !isLocalOpp,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
