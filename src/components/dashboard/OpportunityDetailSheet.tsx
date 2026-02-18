@@ -2987,26 +2987,7 @@ export function OpportunityDetailSheet({
           {/* Contact Section */}
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted/30 px-3 py-2 border-b">
-              {isEditingName ? (
-                <div className="flex items-center gap-1">
-                  <Input value={editedFirstName} onChange={e => setEditedFirstName(e.target.value)} placeholder="First name" className="h-7 text-sm w-24" />
-                  <Input value={editedLastName} onChange={e => setEditedLastName(e.target.value)} placeholder="Last name" className="h-7 text-sm w-24" />
-                  <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handleSaveName} disabled={isSavingName}>
-                    {isSavingName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setIsEditingName(false)}>
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : (
-                <button onClick={() => {
-                  setEditedFirstName(contact?.first_name || "");
-                  setEditedLastName(contact?.last_name || "");
-                  setIsEditingName(true);
-                }} className="text-xs text-muted-foreground hover:underline text-left">
-                  Contact: {contactName || "Unnamed Contact"}
-                </button>
-              )}
+              <span className="text-xs font-medium text-muted-foreground">Contact Address, Phone and Email</span>
             </div>
             <div className="p-3 space-y-2">
               <div className="grid gap-1.5 text-sm text-muted-foreground">
