@@ -288,6 +288,12 @@ export function OpportunityDetailSheet({
   const [projectsToDelete, setProjectsToDelete] = useState<{ id: string; project_name: string | null; project_address: string | null; status: string | null }[]>([]);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
 
+  // Won project dialog — prompt user before auto-creating a project
+  const [wonProjectDialogOpen, setWonProjectDialogOpen] = useState(false);
+  const [wonProjectExisting, setWonProjectExisting] = useState<{ id: string; project_name: string | null; project_address: string | null; project_status: string | null }[]>([]);
+  const [pendingWonOppGhlId, setPendingWonOppGhlId] = useState<string | null>(null);
+  const [isCreatingWonProject, setIsCreatingWonProject] = useState(false);
+
   // Scope of Work editing
   const [isEditingScope, setIsEditingScope] = useState(false);
   const [editedScope, setEditedScope] = useState("");
@@ -1652,39 +1658,62 @@ export function OpportunityDetailSheet({
   };
 
   // Inline save for status change (without entering full edit mode)
-  // Helper function to create a project when opportunity is won
-  const createProjectForWonOpportunity = async (oppGhlId: string) => {
+  // Check for existing contact projects and prompt user before creating a new one
+  const checkAndOfferCreateProject = async (oppGhlId: string) => {
     try {
-      // Check if project already exists for this opportunity
-      const { data: existingProject } = await supabase
+      const opp = opportunity;
+      if (!opp) return;
+
+      // Fetch all non-deleted projects for this contact
+      let projectsQuery = supabase
         .from("projects")
-        .select("id")
-        .eq("opportunity_id", oppGhlId)
-        .maybeSingle();
-      
-      if (existingProject) {
-        console.log("Project already exists for this opportunity, skipping creation");
-        return;
+        .select("id, project_name, project_address, project_status")
+        .eq("company_id", companyId)
+        .is("deleted_at", null);
+
+      if (opp.contact_uuid) {
+        projectsQuery = projectsQuery.eq("contact_uuid", opp.contact_uuid);
+      } else if (opp.contact_id) {
+        projectsQuery = projectsQuery.eq("contact_id", opp.contact_id);
       }
 
-      // Get opportunity and contact details
+      const { data: existingProjects } = await projectsQuery;
+
+      // Store pending opp and show dialog regardless (0 or more existing projects)
+      setPendingWonOppGhlId(oppGhlId);
+      setWonProjectExisting((existingProjects || []).map(p => ({
+        id: p.id,
+        project_name: p.project_name,
+        project_address: p.project_address,
+        project_status: p.project_status,
+      })));
+      setWonProjectDialogOpen(true);
+    } catch (err) {
+      console.error("Error in checkAndOfferCreateProject:", err);
+    }
+  };
+
+  // Actually create the project after user confirms
+  const handleCreateWonProject = async () => {
+    if (!pendingWonOppGhlId) return;
+    setIsCreatingWonProject(true);
+    try {
       const { data: oppData } = await supabase
         .from("opportunities")
         .select("*, contact_id, location_id, name, monetary_value, assigned_to")
-        .eq("ghl_id", oppGhlId)
+        .eq("ghl_id", pendingWonOppGhlId)
         .single();
-      
-      if (!oppData) return;
+
+      if (!oppData) throw new Error("Opportunity not found");
 
       const contact = findContactByIdOrGhlId(contacts, undefined, oppData.contact_id);
       const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
       const assignedUser = findUserByIdOrGhlId(users, undefined, oppData.assigned_to);
 
-      // Create the project
       const { error: createError } = await supabase
         .from("projects")
         .insert({
-          opportunity_id: oppGhlId,
+          opportunity_id: pendingWonOppGhlId,
           location_id: oppData.location_id || "pVeFrqvtYWNIPRIi0Fmr",
           project_name: oppData.name || "Untitled Project",
           customer_first_name: contact?.first_name || null,
@@ -1701,14 +1730,19 @@ export function OpportunityDetailSheet({
           company_id: companyId,
         });
 
-      if (createError) {
-        console.error("Error creating project:", createError);
-      } else {
-        toast.success("Project created from won opportunity!");
-        queryClient.invalidateQueries({ queryKey: ["projects"] });
-      }
+      if (createError) throw createError;
+      toast.success("Project created from won opportunity!");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["production-projects"] });
+      setProjectsRefreshTick(t => t + 1);
     } catch (err) {
-      console.error("Error in createProjectForWonOpportunity:", err);
+      console.error("Error creating project:", err);
+      toast.error("Failed to create project");
+    } finally {
+      setIsCreatingWonProject(false);
+      setWonProjectDialogOpen(false);
+      setPendingWonOppGhlId(null);
+      setWonProjectExisting([]);
     }
   };
 
@@ -1857,9 +1891,9 @@ export function OpportunityDetailSheet({
         queryKey: ["opportunity_edits"]
       });
 
-      // Create project if status changed to "won"
+      // Prompt user before creating project if status changed to "won"
       if (newStatus.toLowerCase() === "won") {
-        await createProjectForWonOpportunity(opportunity.ghl_id);
+        await checkAndOfferCreateProject(opportunity.ghl_id);
       }
       // Check for proposals to decline if status changed to "lost"
       if (newStatus.toLowerCase() === "lost") {
@@ -1957,9 +1991,9 @@ export function OpportunityDetailSheet({
         queryKey: ["opportunity_edits"]
       });
 
-      // Create project if status changed to "won"
+      // Prompt user before creating project if status changed to "won"
       if (editedStatus.toLowerCase() === "won") {
-        await createProjectForWonOpportunity(opportunity.ghl_id);
+        await checkAndOfferCreateProject(opportunity.ghl_id);
       }
       // Check for proposals to decline if status changed to "lost"
       if (editedStatus.toLowerCase() === "lost") {
@@ -4250,6 +4284,59 @@ export function OpportunityDetailSheet({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Won — Create Project Dialog */}
+      <Dialog open={wonProjectDialogOpen} onOpenChange={open => { if (!open && !isCreatingWonProject) { setWonProjectDialogOpen(false); setPendingWonOppGhlId(null); setWonProjectExisting([]); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-emerald-500" />
+              Opportunity Marked as Won
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            {wonProjectExisting.length > 0 ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  This contact already has {wonProjectExisting.length} existing project{wonProjectExisting.length > 1 ? "s" : ""}. Do you want to create a new project for this won opportunity, or skip?
+                </p>
+                <ul className="space-y-1.5 border rounded-md p-3 bg-muted/50">
+                  {wonProjectExisting.map(p => (
+                    <li key={p.id} className="text-sm flex items-start gap-2">
+                      <FolderOpen className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        <span className="font-medium">{p.project_name || "Unnamed Project"}</span>
+                        {p.project_address && <span className="text-muted-foreground"> — {p.project_address}</span>}
+                        {p.project_status && <span className="ml-1 text-xs text-muted-foreground">({p.project_status})</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Would you like to create a new project for this won opportunity?
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setWonProjectDialogOpen(false); setPendingWonOppGhlId(null); setWonProjectExisting([]); }}
+              disabled={isCreatingWonProject}
+            >
+              Skip — No New Project
+            </Button>
+            <Button
+              onClick={handleCreateWonProject}
+              disabled={isCreatingWonProject}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {isCreatingWonProject ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+              Create New Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }
