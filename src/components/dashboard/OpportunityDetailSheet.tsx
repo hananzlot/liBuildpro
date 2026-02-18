@@ -3225,9 +3225,9 @@ export function OpportunityDetailSheet({
                   <SelectTrigger className="h-7 text-xs">
                     {isSavingInline ? <Loader2 className="h-3 w-3 animate-spin" /> : <SelectValue placeholder="Select stage" />}
                   </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
-                    {Array.from(stageMap.entries()).map(([name]) => <SelectItem key={name} value={name} className="text-xs">
-                        {name}
+                   <SelectContent className="bg-popover z-50">
+                    {availableStages.map(stage => <SelectItem key={stage} value={stage} className="text-xs">
+                        {stage}
                       </SelectItem>)}
                   </SelectContent>
                 </Select> : <span className="flex items-center gap-1 flex-wrap">
