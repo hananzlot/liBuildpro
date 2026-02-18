@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { FileText, ExternalLink, Loader2, ChevronDown, ChevronUp, Eye, Globe } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
@@ -31,6 +33,7 @@ interface Estimate {
 
 export function PortalProposalsSection({ salespersonName, salespersonId, companyId }: PortalProposalsSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showDeclined, setShowDeclined] = useState(false);
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
 
   // Fetch app base URL for portal links
@@ -111,6 +114,14 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
     refetchOnWindowFocus: true, // Refetch when user returns to tab
   });
 
+  // Filter out declined by default; show them only when toggled on
+  const visibleEstimates = useMemo(() => {
+    if (showDeclined) return estimates.filter(e => e.status === "declined");
+    return estimates.filter(e => e.status !== "declined");
+  }, [estimates, showDeclined]);
+
+  const declinedCount = useMemo(() => estimates.filter(e => e.status === "declined").length, [estimates]);
+
   const handleOpenProposalPreview = (estimate: Estimate) => {
     // Open the preview dialog
     setSelectedEstimateId(estimate.id);
@@ -168,7 +179,7 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
           className="pb-3 pt-4 px-4 cursor-pointer bg-gradient-to-r from-primary/5 to-transparent" 
           onClick={() => setIsExpanded(!isExpanded)}
         >
-          <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                 <FileText className="h-5 w-5 text-primary" />
@@ -176,13 +187,17 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
               <div>
                 <CardTitle className="text-base font-semibold">My Proposals</CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  {estimates.length > 0 ? `${estimates.length} sent` : "View sent proposals"}
+                  {visibleEstimates.length > 0
+                    ? `${visibleEstimates.length} ${showDeclined ? "declined" : "active"}`
+                    : showDeclined ? "No declined proposals" : "View sent proposals"}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {estimates.length > 0 && (
-                <Badge variant="secondary" className="font-medium">{estimates.length}</Badge>
+              {visibleEstimates.length > 0 && (
+                <Badge variant={showDeclined ? "destructive" : "secondary"} className="font-medium">
+                  {visibleEstimates.length}
+                </Badge>
               )}
               {isExpanded ? (
                 <ChevronUp className="h-5 w-5 text-muted-foreground" />
@@ -195,19 +210,35 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
         
         {isExpanded && (
           <CardContent className="pt-0">
+            {/* Declined toggle */}
+            {declinedCount > 0 && (
+              <div className="flex items-center gap-2 pb-3 pt-1" onClick={e => e.stopPropagation()}>
+                <Switch
+                  id="show-declined"
+                  checked={showDeclined}
+                  onCheckedChange={setShowDeclined}
+                  className="scale-90"
+                />
+                <Label htmlFor="show-declined" className="text-xs text-muted-foreground cursor-pointer">
+                  Show declined ({declinedCount})
+                </Label>
+              </div>
+            )}
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : estimates.length === 0 ? (
+            ) : visibleEstimates.length === 0 ? (
               <div className="text-center py-8">
                 <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No proposals sent yet</p>
+                <p className="text-sm text-muted-foreground">
+                  {showDeclined ? "No declined proposals" : "No proposals sent yet"}
+                </p>
               </div>
             ) : (
               <ScrollArea className="h-[300px] pr-2">
                 <div className="space-y-2 pr-2">
-                  {estimates.map((estimate) => (
+                  {visibleEstimates.map((estimate) => (
                     <div
                       key={estimate.id}
                       className="p-3 rounded-lg border bg-card"
