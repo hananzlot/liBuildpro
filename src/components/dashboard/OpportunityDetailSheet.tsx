@@ -2838,12 +2838,12 @@ export function OpportunityDetailSheet({
         <div className="p-4 space-y-4">
           {/* Customer Portal Link - Show at top if portal exists, or Create Portal button */}
           {portalLink ? (
-            <div className="space-y-2">
+            <div className="flex items-stretch gap-2">
               <a
                 href={portalLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+                className="flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <ExternalLink className="h-4 w-4" />
@@ -2855,19 +2855,17 @@ export function OpportunityDetailSheet({
               {isAdmin && (
                 <Button
                   variant="outline"
-                  className="w-full justify-start gap-2"
+                  className="gap-2 shrink-0"
                   onClick={() => setShowThankYouPreview(true)}
                   disabled={isSendingThankYou || !contact?.email}
+                  title={!contact?.email ? "No email on file" : "Send Thank-You Email"}
                 >
                   {isSendingThankYou ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Mail className="h-4 w-4" />
                   )}
-                  <span>Send Thank-You Email</span>
-                  {!contact?.email && (
-                    <span className="text-xs text-muted-foreground ml-auto">No email</span>
-                  )}
+                  <span className="text-sm">Thank-You Email</span>
                 </Button>
               )}
               {/* Thank-You Email Preview Dialog */}
