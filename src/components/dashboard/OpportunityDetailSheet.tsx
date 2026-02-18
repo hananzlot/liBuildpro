@@ -2808,7 +2808,29 @@ export function OpportunityDetailSheet({
               </AlertDialogContent>
             </AlertDialog>
           </div>
-        </div>
+            </div>
+            {/* Compact key-info strip directly under the opp name */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1 text-xs text-muted-foreground">
+              {(savedValues.pipeline_name ?? opportunity.pipeline_name) && (
+                <span className="flex items-center gap-1">
+                  <span className="font-medium text-foreground">
+                    {hasAdminPipelineConfig ? (adminPipelineName || "Main") : (savedValues.pipeline_name ?? opportunity.pipeline_name)}
+                  </span>
+                  {(savedValues.stage_name ?? opportunity.stage_name) && (
+                    <><span>›</span><span>{savedValues.stage_name ?? opportunity.stage_name}</span></>
+                  )}
+                </span>
+              )}
+              {opportunity.ghl_date_added && (
+                <span>Created: <span className="text-foreground">{new Date(opportunity.ghl_date_added).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span></span>
+              )}
+              {(savedValues.assigned_to ?? opportunity.assigned_to) && (
+                <span>Assigned: <span className="text-foreground">{savedValues.assigned_to ?? opportunity.assigned_to}</span></span>
+              )}
+              {(savedValues.source) && (
+                <span>Source: <span className="text-foreground">{savedValues.source}</span></span>
+              )}
+            </div>
 
         <div className="p-4 space-y-4">
           {/* Customer Portal Link - Show at top if portal exists, or Create Portal button */}
@@ -3199,7 +3221,7 @@ export function OpportunityDetailSheet({
 
           {/* Key Info - Compact Two-Line Wrap */}
           <div className="flex flex-wrap gap-2 text-sm">
-            {/* Pipeline */}
+            {/* Pipeline + Stage */}
             <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[100px] flex-1">
               <div className="text-muted-foreground text-xs mb-[1px]">Pipeline</div>
               {isEditing ? <Select value={hasAdminPipelineConfig && adminPipelineId ? adminPipelineId : editedPipeline} onValueChange={handlePipelineChange}>
@@ -3223,7 +3245,15 @@ export function OpportunityDetailSheet({
                       </SelectItem>)}
                   </SelectContent>
                 </Select> : <button className="font-medium truncate hover:underline text-left w-full cursor-pointer" onClick={() => setIsInlineEditingPipeline(true)}>
-                  {hasAdminPipelineConfig ? (adminPipelineName || "Main") : (savedValues.pipeline_name ?? opportunity.pipeline_name ?? "-")}
+                  <span className="flex items-center gap-1 flex-wrap">
+                    <span>{hasAdminPipelineConfig ? (adminPipelineName || "Main") : (savedValues.pipeline_name ?? opportunity.pipeline_name ?? "-")}</span>
+                    {(savedValues.stage_name ?? opportunity.stage_name) && (
+                      <>
+                        <span className="text-muted-foreground">›</span>
+                        <span className="text-muted-foreground font-normal">{savedValues.stage_name ?? opportunity.stage_name}</span>
+                      </>
+                    )}
+                  </span>
                 </button>}
             </div>
 
