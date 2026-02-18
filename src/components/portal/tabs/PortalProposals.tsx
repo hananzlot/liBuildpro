@@ -936,9 +936,11 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium">{phase.percent}%</p>
+                          {phase.percent > 0 && <p className="font-medium">{phase.percent}%</p>}
                           <p className="text-sm text-muted-foreground">
-                            {formatCurrency((selectedEstimate.total || 0) * (phase.percent / 100))}
+                            {phase.amount > 0
+                              ? formatCurrency(phase.amount)
+                              : formatCurrency((selectedEstimate.total || 0) * (phase.percent / 100))}
                           </p>
                         </div>
                       </div>
