@@ -1,52 +1,62 @@
 
-# Fix: Opp 1131 Showing Two Projects from Different Companies
+## Fix Pipeline Source Priority: Admin Config Always Wins Over GHL
 
-## Root Cause
+### Problem
 
-The database query at line 413-417 of `OpportunityDetailSheet.tsx` fetches projects by `opportunity_id` only, without filtering by `company_id`:
+Two components currently resolve pipeline stages in different ways:
 
-```typescript
-const { data: projectsData } = await supabase
-  .from("projects")
-  .select("id, project_name")
-  .eq("opportunity_id", opportunity.ghl_id)  // <-- missing company_id filter!
-  .order("created_at", { ascending: false });
+| Component | Current Behavior | Desired Behavior |
+|---|---|---|
+| `OpportunityDetailSheet.tsx` | Correctly skips GHL when admin config exists (line 575) | Already correct |
+| `NewEntryDialog.tsx` | Checks `ghl_pipelines` FIRST, falls back to `company_settings` | Must be reversed |
+
+The `NewEntryDialog.tsx` pipeline resolution order is inverted. It currently tries GHL first, then admin settings. The user wants: **if admin pipeline stages are configured (either in `pipeline_stages` table OR `company_settings`), skip GHL entirely.**
+
+### Root Cause
+
+In `src/components/dashboard/NewEntryDialog.tsx`, lines 119–230, the fetch order is:
+1. `ghl_pipelines` table → if found, use and return early
+2. `company_settings` pipeline_stages → fallback
+3. Derived from `opportunities` → last fallback
+
+This must be reversed so admin config is always checked first.
+
+### Fix
+
+**`src/components/dashboard/NewEntryDialog.tsx`** — Rewrite `fetchPipelineStages` function to use the correct priority:
+
+```text
+Priority 1 (highest): pipeline_stages table (UUID-based, new system)
+Priority 2: company_settings "pipeline_stages" key (legacy admin config)
+Priority 3: ghl_pipelines table (GHL data, only if NO admin config)
+Priority 4: derive from opportunities records (last resort)
 ```
 
-The database has two projects with the same `opportunity_id = local_opp_1769448001459_4kfq3x2`:
+The key rule: **if Priority 1 or Priority 2 yields any stages, stop immediately and never touch GHL data.**
 
-- `089e0993...` — belongs to **CA Pro Builders** (the correct company)
-- `7f307630...` — belongs to **Demo Co #1** (a different company, likely created when data was replicated)
+### Technical Details
 
-Without the `company_id` filter, both projects are returned and the dropdown shows two entries even though only one belongs to the current company.
+**File to change:** `src/components/dashboard/NewEntryDialog.tsx`
 
-## The Fix
+The `fetchPipelineStages` async function (inside `useEffect`) will be restructured:
 
-One line added to `src/components/dashboard/OpportunityDetailSheet.tsx` at line 416:
+1. **Step 1** — Query `pipeline_stages` table for this `companyId`, ordered by `position`.
+   - If rows exist → build stage list from them, set state, return early (do not check GHL).
 
-```typescript
-// Before
-const { data: projectsData } = await supabase
-  .from("projects")
-  .select("id, project_name")
-  .eq("opportunity_id", opportunity.ghl_id)
-  .order("created_at", { ascending: false });
+2. **Step 2** — Query `company_settings` for `pipeline_stages` and `default_pipeline_name` keys.
+   - If `pipeline_stages` setting has a value → parse it, build stage list, return early (do not check GHL).
 
-// After
-const { data: projectsData } = await supabase
-  .from("projects")
-  .select("id, project_name")
-  .eq("opportunity_id", opportunity.ghl_id)
-  .eq("company_id", companyId)              // <-- add this
-  .order("created_at", { ascending: false });
-```
+3. **Step 3** — Only if both steps above returned nothing → query `ghl_pipelines` table.
+   - Build stages from GHL data as before.
 
-This ensures only projects belonging to the currently selected company are shown, so opp 1131 will correctly show just one "Project" button (not a dropdown).
+4. **Step 4** — Final fallback → derive stages from existing `opportunities` records (unchanged).
 
-## Files Changed
+This exactly mirrors the logic already in `useCompanyPipelineSettings` hook and in `OpportunityDetailSheet.tsx`, making behavior consistent across both entry points.
 
-- `src/components/dashboard/OpportunityDetailSheet.tsx` — add `.eq("company_id", companyId)` to the project fetch query only
+### No Database Changes
 
-## No Database Changes Required
+No migrations needed. This is purely a frontend logic reorder within one component.
 
-This is a pure frontend query fix.
+### Files to Edit
+
+- `src/components/dashboard/NewEntryDialog.tsx` — Restructure `fetchPipelineStages` function priority order
