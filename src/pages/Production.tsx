@@ -225,6 +225,8 @@ export default function Production() {
   const activeView = searchParams.get('view') || 'projects';
   const currentTab = searchParams.get('tab');
   const returnToProjectId = searchParams.get('returnToProject');
+  const returnToParam = searchParams.get('returnTo');
+  const returnToOppId = searchParams.get('oppId');
   const openBillDialog = searchParams.get('openBill') === 'true';
   
   // Redirect non-admin users away from analytics view if they don't have a specific tab
@@ -2392,7 +2394,9 @@ export default function Production() {
           onOpenChange={(open) => {
             if (!open) {
               // Handle return-to behavior - navigate back to the source sheet
-              if (returnToAfterProjectClose === 'payables') {
+              if (returnToParam === 'opportunity' && returnToOppId) {
+                navigate(`/opportunities/${returnToOppId}`, { replace: true });
+              } else if (returnToAfterProjectClose === 'payables') {
                 setReopenPayablesSheet(true);
                 // Navigate back to analytics cashflow with payables section
                 navigate('/production?view=analytics&tab=cashflow&section=payables', { replace: true });

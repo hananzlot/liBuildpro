@@ -2698,7 +2698,7 @@ export function OpportunityDetailSheet({
                 className="h-7" 
                 onClick={() => {
                   onOpenChange(false);
-                  navigate(`/production/${associatedProjects[0].id}`);
+                  navigate(`/production/${associatedProjects[0].id}?returnTo=opportunity&oppId=${opportunity.id}`);
                 }}
               >
                 <FolderOpen className="h-3.5 w-3.5 mr-1" />
@@ -2718,7 +2718,7 @@ export function OpportunityDetailSheet({
                   {associatedProjects.map((proj) => (
                     <DropdownMenuItem
                       key={proj.id}
-                      onClick={() => { onOpenChange(false); navigate(`/production/${proj.id}`); }}
+                      onClick={() => { onOpenChange(false); navigate(`/production/${proj.id}?returnTo=opportunity&oppId=${opportunity.id}`); }}
                     >
                       {proj.project_name || `Project ${proj.id.slice(0, 8)}`}
                     </DropdownMenuItem>
