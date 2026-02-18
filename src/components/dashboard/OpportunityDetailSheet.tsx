@@ -2696,7 +2696,7 @@ export function OpportunityDetailSheet({
               )}
             </div>
           </SheetHeader>
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             {!isEditing ? <Button variant="outline" size="sm" className="h-7" onClick={handleEditClick}>
                 <Pencil className="h-3.5 w-3.5 mr-1" />
                 Edit
@@ -2776,6 +2776,52 @@ export function OpportunityDetailSheet({
                 Debug
               </Button>
             )}
+            {/* Customer Portal inline buttons */}
+            {portalLink ? (
+              <>
+                <a
+                  href={portalLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-medium"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Portal
+                </a>
+                {isAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1"
+                    onClick={() => setShowThankYouPreview(true)}
+                    disabled={isSendingThankYou || !contact?.email}
+                    title={!contact?.email ? "No email on file" : "Send Thank-You Email"}
+                  >
+                    {isSendingThankYou ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Mail className="h-3.5 w-3.5" />
+                    )}
+                    Thank-You
+                  </Button>
+                )}
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1"
+                onClick={handleCreatePortal}
+                disabled={isCreatingPortal}
+              >
+                {isCreatingPortal ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" />
+                )}
+                Portal
+              </Button>
+            )}
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Opportunity</AlertDialogTitle>
@@ -2836,119 +2882,68 @@ export function OpportunityDetailSheet({
             </div>
 
         <div className="p-4 space-y-4">
-          {/* Customer Portal Link - Show at top if portal exists, or Create Portal button */}
-          {portalLink ? (
-            <div className="flex items-stretch gap-2">
-              <a
-                href={portalLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <ExternalLink className="h-4 w-4" />
-                  <span className="text-sm font-medium">Open Customer Portal</span>
+          {/* Thank-You Email Preview Dialog */}
+          <Dialog open={showThankYouPreview} onOpenChange={setShowThankYouPreview}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Preview Thank-You Email</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="rounded-lg border bg-muted/40 p-3 space-y-1 text-sm">
+                  <div className="flex gap-2">
+                    <span className="font-medium w-14 shrink-0 text-muted-foreground">To:</span>
+                    <span>{contact?.email}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="font-medium w-14 shrink-0 text-muted-foreground">Subject:</span>
+                    <span>Thank You for Meeting With Us</span>
+                  </div>
                 </div>
-                <span className="text-xs text-muted-foreground">Opens in new tab</span>
-              </a>
-              {/* Send Thank You Email Button - Admin only */}
-              {isAdmin && (
+                <div className="rounded-lg border bg-background p-4 space-y-4 text-sm">
+                  <p>Dear {contactName || "Customer"},</p>
+                  <p>
+                    Thank you so much for taking the time to meet with us and considering our services!
+                    We truly appreciate the opportunity to learn about your project and discuss how we can help.
+                  </p>
+                  <p>We've set up a personalized customer portal for you where you can:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Upload any documents</strong> we discussed (plans, photos, permits, etc.)</li>
+                    <li><strong>Ask questions</strong> directly to our team</li>
+                    <li><strong>Track progress</strong> as we prepare your proposal</li>
+                  </ul>
+                  <div className="text-center py-2">
+                    <span className="inline-block bg-foreground text-background px-5 py-2 rounded-lg font-semibold text-sm">
+                      Access Your Portal
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground text-xs break-all">
+                    Portal link: {portalLink}
+                  </p>
+                  <p>If you have any questions or need anything at all, please don't hesitate to reach out.</p>
+                  <p>We look forward to working with you.</p>
+                  <p className="font-medium">Best regards,<br />Your Team</p>
+                </div>
+              </div>
+              <DialogFooter className="mt-4">
+                <Button variant="outline" onClick={() => setShowThankYouPreview(false)}>
+                  Cancel
+                </Button>
                 <Button
-                  variant="outline"
-                  className="gap-2 shrink-0"
-                  onClick={() => setShowThankYouPreview(true)}
-                  disabled={isSendingThankYou || !contact?.email}
-                  title={!contact?.email ? "No email on file" : "Send Thank-You Email"}
+                  onClick={() => {
+                    setShowThankYouPreview(false);
+                    handleSendThankYouEmail();
+                  }}
+                  disabled={isSendingThankYou}
                 >
                   {isSendingThankYou ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" />Sending…</>
                   ) : (
-                    <Mail className="h-4 w-4" />
+                    <><Mail className="h-4 w-4 mr-2" />Send Email</>
                   )}
-                  <span className="text-sm">Thank-You Email</span>
                 </Button>
-              )}
-              {/* Thank-You Email Preview Dialog */}
-              <Dialog open={showThankYouPreview} onOpenChange={setShowThankYouPreview}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Preview Thank-You Email</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    {/* To / Subject meta */}
-                    <div className="rounded-lg border bg-muted/40 p-3 space-y-1 text-sm">
-                      <div className="flex gap-2">
-                        <span className="font-medium w-14 shrink-0 text-muted-foreground">To:</span>
-                        <span>{contact?.email}</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <span className="font-medium w-14 shrink-0 text-muted-foreground">Subject:</span>
-                        <span>Thank You for Meeting With Us</span>
-                      </div>
-                    </div>
-                    {/* Email body preview */}
-                    <div className="rounded-lg border bg-background p-4 space-y-4 text-sm">
-                      <p>Dear {contactName || "Customer"},</p>
-                      <p>
-                        Thank you so much for taking the time to meet with us and considering our services!
-                        We truly appreciate the opportunity to learn about your project and discuss how we can help.
-                      </p>
-                      <p>We've set up a personalized customer portal for you where you can:</p>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li><strong>Upload any documents</strong> we discussed (plans, photos, permits, etc.)</li>
-                        <li><strong>Ask questions</strong> directly to our team</li>
-                        <li><strong>Track progress</strong> as we prepare your proposal</li>
-                      </ul>
-                      <div className="text-center py-2">
-                        <span className="inline-block bg-foreground text-background px-5 py-2 rounded-lg font-semibold text-sm">
-                          Access Your Portal
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground text-xs break-all">
-                        Portal link: {portalLink}
-                      </p>
-                      <p>If you have any questions or need anything at all, please don't hesitate to reach out.</p>
-                      <p>We look forward to working with you.</p>
-                      <p className="font-medium">Best regards,<br />Your Team</p>
-                    </div>
-                  </div>
-                  <DialogFooter className="mt-4">
-                    <Button variant="outline" onClick={() => setShowThankYouPreview(false)}>
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setShowThankYouPreview(false);
-                        handleSendThankYouEmail();
-                      }}
-                      disabled={isSendingThankYou}
-                    >
-                      {isSendingThankYou ? (
-                        <><Loader2 className="h-4 w-4 animate-spin mr-2" />Sending…</>
-                      ) : (
-                        <><Mail className="h-4 w-4 mr-2" />Send Email</>
-                      )}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2"
-              onClick={handleCreatePortal}
-              disabled={isCreatingPortal}
-            >
-              {isCreatingPortal ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              <span>Create Customer Portal</span>
-              <span className="text-xs text-muted-foreground ml-auto">Pre-Estimate Project</span>
-            </Button>
-          )}
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Contact Section - Now at the top with opportunity value */}
           <div className="border rounded-lg overflow-hidden">
