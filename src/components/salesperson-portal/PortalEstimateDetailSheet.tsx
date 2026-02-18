@@ -394,6 +394,104 @@ export function PortalEstimateDetailSheet({
                   </CardContent>
                 </Card>
 
+                {/* Discount Editor */}
+                <Card className="mb-4">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Tag className="h-4 w-4" />
+                      Discount
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={discountType ?? estimate.discount_type ?? "percent"}
+                        onValueChange={(v) => setDiscountType(v)}
+                      >
+                        <SelectTrigger className="w-28 h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percent">Percent (%)</SelectItem>
+                          <SelectItem value="fixed">Fixed ($)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="h-8 text-sm flex-1"
+                        placeholder={(discountType ?? estimate.discount_type ?? "percent") === "percent" ? "e.g. 5" : "e.g. 500"}
+                        value={discountValue !== null ? discountValue : (estimate.discount_value ?? 0)}
+                        onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                      />
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">
+                        {(discountType ?? estimate.discount_type ?? "percent") === "percent" ? "%" : "$"}
+                      </span>
+                    </div>
+                    {/* Live preview of discount */}
+                    {(() => {
+                      const effType = discountType ?? estimate.discount_type ?? "percent";
+                      const effValue = discountValue !== null ? discountValue : (estimate.discount_value ?? 0);
+                      const subtotal = hasItemChanges ? calculateTotal() : (estimate.subtotal ?? 0);
+                      const da = effType === "percent"
+                        ? Math.round(subtotal * effValue / 100 * 100) / 100
+                        : Number(effValue);
+                      if (da <= 0) return null;
+                      return (
+                        <p className="text-xs text-green-600">
+                          Discount: -${da.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* Visibility Toggles */}
+                <Card className="mb-4">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <LayoutList className="h-4 w-4" />
+                      Customer PDF / Preview Visibility
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="toggle-details" className="text-sm cursor-pointer">
+                        Show scope / project details
+                      </Label>
+                      <Switch
+                        id="toggle-details"
+                        checked={showDetails !== null ? showDetails : (estimate.show_details_to_customer ?? false)}
+                        onCheckedChange={(v) => setShowDetails(v)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="toggle-scope" className="text-sm cursor-pointer">
+                        Show scope of work text
+                      </Label>
+                      <Switch
+                        id="toggle-scope"
+                        checked={showScope !== null ? showScope : (estimate.show_scope_to_customer ?? false)}
+                        onCheckedChange={(v) => setShowScope(v)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="toggle-lineitems" className="text-sm cursor-pointer">
+                        Show line item breakdown
+                      </Label>
+                      <Switch
+                        id="toggle-lineitems"
+                        checked={showLineItems !== null ? showLineItems : (estimate.show_line_items_to_customer ?? false)}
+                        onCheckedChange={(v) => setShowLineItems(v)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      These control what the customer sees in the PDF and Review &amp; Sign page.
+                    </p>
+                  </CardContent>
+                </Card>
+
                 {/* Line Items */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -525,105 +623,6 @@ export function PortalEstimateDetailSheet({
                     </Card>
                   )}
                 </div>
-
-                {/* Discount Editor */}
-                <Separator className="my-4" />
-                <Card className="mb-4">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Tag className="h-4 w-4" />
-                      Discount
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={discountType ?? estimate.discount_type ?? "percent"}
-                        onValueChange={(v) => setDiscountType(v)}
-                      >
-                        <SelectTrigger className="w-28 h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="percent">Percent (%)</SelectItem>
-                          <SelectItem value="fixed">Fixed ($)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="h-8 text-sm flex-1"
-                        placeholder={(discountType ?? estimate.discount_type ?? "percent") === "percent" ? "e.g. 5" : "e.g. 500"}
-                        value={discountValue !== null ? discountValue : (estimate.discount_value ?? 0)}
-                        onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
-                      />
-                      <span className="text-sm text-muted-foreground whitespace-nowrap">
-                        {(discountType ?? estimate.discount_type ?? "percent") === "percent" ? "%" : "$"}
-                      </span>
-                    </div>
-                    {/* Live preview of discount */}
-                    {(() => {
-                      const effType = discountType ?? estimate.discount_type ?? "percent";
-                      const effValue = discountValue !== null ? discountValue : (estimate.discount_value ?? 0);
-                      const subtotal = hasItemChanges ? calculateTotal() : (estimate.subtotal ?? 0);
-                      const da = effType === "percent"
-                        ? Math.round(subtotal * effValue / 100 * 100) / 100
-                        : Number(effValue);
-                      if (da <= 0) return null;
-                      return (
-                        <p className="text-xs text-green-600">
-                          Discount: -${da.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                      );
-                    })()}
-                  </CardContent>
-                </Card>
-
-                {/* Visibility Toggles */}
-                <Card className="mb-4">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <LayoutList className="h-4 w-4" />
-                      Customer PDF / Preview Visibility
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="toggle-details" className="text-sm cursor-pointer">
-                        Show scope / project details
-                      </Label>
-                      <Switch
-                        id="toggle-details"
-                        checked={showDetails !== null ? showDetails : (estimate.show_details_to_customer ?? false)}
-                        onCheckedChange={(v) => setShowDetails(v)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="toggle-scope" className="text-sm cursor-pointer">
-                        Show scope of work text
-                      </Label>
-                      <Switch
-                        id="toggle-scope"
-                        checked={showScope !== null ? showScope : (estimate.show_scope_to_customer ?? false)}
-                        onCheckedChange={(v) => setShowScope(v)}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="toggle-lineitems" className="text-sm cursor-pointer">
-                        Show line item breakdown
-                      </Label>
-                      <Switch
-                        id="toggle-lineitems"
-                        checked={showLineItems !== null ? showLineItems : (estimate.show_line_items_to_customer ?? false)}
-                        onCheckedChange={(v) => setShowLineItems(v)}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      These control what the customer sees in the PDF and Review &amp; Sign page.
-                    </p>
-                  </CardContent>
-                </Card>
 
                 {/* Pricing Summary */}
                 <Separator className="my-4" />
