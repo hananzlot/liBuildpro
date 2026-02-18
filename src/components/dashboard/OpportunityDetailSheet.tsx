@@ -2651,15 +2651,41 @@ export function OpportunityDetailSheet({
                   </Button>
                 </div>
               ) : (
-                <button
-                  onClick={() => {
-                    setEditedOppName(savedOppName || opportunity.name || "");
-                    setIsEditingOppName(true);
-                  }}
-                  className="text-base font-semibold text-foreground hover:underline text-left"
-                >
-                  {savedOppName || opportunity.name || "Untitled Opportunity"}
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => {
+                      setEditedOppName(savedOppName || opportunity.name || "");
+                      setIsEditingOppName(true);
+                    }}
+                    className="text-base font-semibold text-foreground hover:underline text-left"
+                  >
+                    {savedOppName || opportunity.name || "Untitled Opportunity"}
+                  </button>
+                  {!isInlineEditingStatus ? (
+                    <button className="cursor-pointer" onClick={() => setIsInlineEditingStatus(true)}>
+                      <Badge variant="outline" className={`text-xs hover:underline ${getStatusColor(savedValues.status ?? opportunity.status)}`}>
+                        {savedValues.status ?? opportunity.status ?? "Unknown"}
+                      </Badge>
+                    </button>
+                  ) : (
+                    <Select
+                      value={savedValues.status ?? opportunity.status ?? ""}
+                      onValueChange={handleInlineStatusChange}
+                      disabled={isSavingInline}
+                      onOpenChange={open => { if (!open && !isSavingInline) setIsInlineEditingStatus(false); }}
+                      defaultOpen
+                    >
+                      <SelectTrigger className="h-6 text-xs w-32">
+                        {isSavingInline ? <Loader2 className="h-3 w-3 animate-spin" /> : <SelectValue placeholder="Select status" />}
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover z-50">
+                        {OPPORTUNITY_STATUSES.map(status => (
+                          <SelectItem key={status} value={status} className="text-xs capitalize">{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               )}
             </div>
           </SheetHeader>
