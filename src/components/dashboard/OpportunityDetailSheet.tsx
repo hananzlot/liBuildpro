@@ -2785,19 +2785,6 @@ export function OpportunityDetailSheet({
               <Plus className="h-3.5 w-3.5 mr-1" />
               Task
             </Button>
-            {!isEditing ? <Button variant="outline" size="sm" className="h-7" onClick={handleEditClick}>
-                <Pencil className="h-3.5 w-3.5 mr-1" />
-                Edit
-              </Button> : <>
-                <Button variant="outline" size="sm" className="h-7" onClick={handleCancelEdit} disabled={isSaving}>
-                  <X className="h-3.5 w-3.5 mr-1" />
-                  Cancel
-                </Button>
-                <Button variant="default" size="sm" className="h-7" onClick={handleSave} disabled={isSaving}>
-                  {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                  Save
-                </Button>
-              </>}
             <AlertDialog onOpenChange={isOpen => {
             if (!isOpen) {
               setDeletePassword("");
