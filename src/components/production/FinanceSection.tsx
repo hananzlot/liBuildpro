@@ -767,7 +767,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
   // Helper to check if QB sync will create new entities (customer/vendor)
   const checkQbSyncEntities = async (recordType: "invoice" | "payment" | "bill" | "bill_payment", recordId: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[] }> => {
-    if (!companyId) return { requiresConfirmation: false, pendingEntities: [] };
+    if (!companyId || !isQBConnectedMain) return { requiresConfirmation: false, pendingEntities: [] };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
@@ -796,7 +796,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
   // Pre-save check for vendor existence (before bill is created)
   const checkVendorBeforeSave = async (vendorName: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[] }> => {
-    if (!companyId || !vendorName) return { requiresConfirmation: false, pendingEntities: [] };
+    if (!companyId || !vendorName || !isQBConnectedMain) return { requiresConfirmation: false, pendingEntities: [] };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
@@ -825,7 +825,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
   // Helper to sync a record to QuickBooks after create/update - returns true if synced successfully
   const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill" | "bill_payment", recordId: string): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
-    if (!companyId) return { synced: false };
+    if (!companyId || !isQBConnectedMain) return { synced: false };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
@@ -5527,7 +5527,7 @@ function BillPaymentHistoryDialog({
 
   // Helper to sync bill payment to QuickBooks
   const syncBillPaymentToQB = async (paymentId: string): Promise<{ synced: boolean }> => {
-    if (!companyId) return { synced: false };
+    if (!companyId || !isQBConnected) return { synced: false };
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
         body: {
@@ -6452,7 +6452,7 @@ function CommissionTab({
 
   // Helper to sync commission payment to QuickBooks
   const syncCommissionToQuickBooks = async (paymentId: string): Promise<{ synced: boolean; message?: string }> => {
-    if (!companyId) return { synced: false };
+    if (!companyId || !isQBConnected) return { synced: false };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
