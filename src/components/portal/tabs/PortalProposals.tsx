@@ -1408,18 +1408,29 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                         {formatCurrency(estimate.total)}
                       </p>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="shadow-sm"
-                      onClick={() => {
-                        setSelectedEstimateId(estimate.id);
-                        setViewingProposal(true);
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="shadow-sm"
+                        onClick={() => window.open(`/proposal-print/${estimate.id}?noprint=1`, '_blank')}
+                      >
+                        <FileDown className="h-4 w-4 mr-2" />
+                        View PDF
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="shadow-sm"
+                        onClick={() => {
+                          setSelectedEstimateId(estimate.id);
+                          setViewingProposal(true);
+                        }}
+                      >
+                        <FileSignature className="h-4 w-4 mr-2" />
+                        Review & Sign
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
