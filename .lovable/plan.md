@@ -1,62 +1,68 @@
 
-## Fix Pipeline Source Priority: Admin Config Always Wins Over GHL
+## Duplicate Contact Detection Before Creating a New Opportunity
 
-### Problem
+### Overview
 
-Two components currently resolve pipeline stages in different ways:
+When the user clicks "New Entry" and fills in a phone number or email, the app will query the `contacts` table for any existing contacts with a matching phone or email (scoped to the company). If duplicates are found, a warning panel will appear inside the dialog listing them — the user can then choose to proceed anyway or cancel.
 
-| Component | Current Behavior | Desired Behavior |
-|---|---|---|
-| `OpportunityDetailSheet.tsx` | Correctly skips GHL when admin config exists (line 575) | Already correct |
-| `NewEntryDialog.tsx` | Checks `ghl_pipelines` FIRST, falls back to `company_settings` | Must be reversed |
+### How It Will Work (User Flow)
 
-The `NewEntryDialog.tsx` pipeline resolution order is inverted. It currently tries GHL first, then admin settings. The user wants: **if admin pipeline stages are configured (either in `pipeline_stages` table OR `company_settings`), skip GHL entirely.**
-
-### Root Cause
-
-In `src/components/dashboard/NewEntryDialog.tsx`, lines 119–230, the fetch order is:
-1. `ghl_pipelines` table → if found, use and return early
-2. `company_settings` pipeline_stages → fallback
-3. Derived from `opportunities` → last fallback
-
-This must be reversed so admin config is always checked first.
-
-### Fix
-
-**`src/components/dashboard/NewEntryDialog.tsx`** — Rewrite `fetchPipelineStages` function to use the correct priority:
-
-```text
-Priority 1 (highest): pipeline_stages table (UUID-based, new system)
-Priority 2: company_settings "pipeline_stages" key (legacy admin config)
-Priority 3: ghl_pipelines table (GHL data, only if NO admin config)
-Priority 4: derive from opportunities records (last resort)
-```
-
-The key rule: **if Priority 1 or Priority 2 yields any stages, stop immediately and never touch GHL data.**
+1. User opens the New Entry dialog and types a phone number or email.
+2. After leaving the phone/email field (on blur), the app quietly queries the database for matching contacts in the background.
+3. If a match is found, a yellow warning banner appears below the phone/email fields listing the duplicate contacts (name, phone, email, source).
+4. Two clear action buttons appear: **"Proceed Anyway"** (continues to submit as normal) and **"Cancel"** (closes the warning so the user can reconsider).
+5. The submit button remains active — the warning is advisory, not a hard block. The user can still create the entry if it's intentional (e.g. same household, different opportunity).
 
 ### Technical Details
 
-**File to change:** `src/components/dashboard/NewEntryDialog.tsx`
+**New state variables** added to `NewEntryDialog.tsx`:
+```
+duplicateContacts: Contact[]  — list of matching contacts found
+isDuplicateCheckPending: boolean  — shows a subtle spinner while checking
+duplicateWarningDismissed: boolean  — tracks if user already acknowledged and chose to proceed
+```
 
-The `fetchPipelineStages` async function (inside `useEffect`) will be restructured:
+**Duplicate check logic** — a new async function `checkForDuplicates()`:
+- Triggered `onBlur` on both the Phone and Email fields (not on every keystroke, to avoid excessive queries).
+- Only runs if the field has a valid, non-empty value and passes format validation.
+- Queries `contacts` table:
+  ```sql
+  SELECT id, contact_name, first_name, last_name, phone, email, source
+  FROM contacts
+  WHERE company_id = :companyId
+    AND (
+      (phone IS NOT NULL AND phone = :phone)
+      OR (email IS NOT NULL AND LOWER(email) = LOWER(:email))
+    )
+  LIMIT 5
+  ```
+- Resets `duplicateWarningDismissed` to `false` whenever phone or email changes, so the warning reappears if the user edits those fields after dismissing.
 
-1. **Step 1** — Query `pipeline_stages` table for this `companyId`, ordered by `position`.
-   - If rows exist → build stage list from them, set state, return early (do not check GHL).
+**Warning UI** — inserted between the phone/email row and the address field:
+- A styled amber/yellow alert box using the existing `Alert` component from `src/components/ui/alert.tsx`.
+- Lists each matching contact as a row: name + phone + email + source badge.
+- Two buttons: **Dismiss** (sets `duplicateWarningDismissed = true` and hides the banner) and the banner fades away.
+- The submit button also shows a secondary note if duplicates exist but haven't been dismissed: "Duplicate found — review above before submitting."
 
-2. **Step 2** — Query `company_settings` for `pipeline_stages` and `default_pipeline_name` keys.
-   - If `pipeline_stages` setting has a value → parse it, build stage list, return early (do not check GHL).
+**Submit guard** — `handleSubmitSingle()`:
+- If `duplicateContacts.length > 0` and `!duplicateWarningDismissed`, the form will NOT submit immediately.
+- Instead, it will scroll the warning into view and show a toast: "Potential duplicate found — please review before proceeding."
+- Once the user clicks "Proceed Anyway" (sets `duplicateWarningDismissed = true`), the submit will go through on the next click.
 
-3. **Step 3** — Only if both steps above returned nothing → query `ghl_pipelines` table.
-   - Build stages from GHL data as before.
-
-4. **Step 4** — Final fallback → derive stages from existing `opportunities` records (unchanged).
-
-This exactly mirrors the logic already in `useCompanyPipelineSettings` hook and in `OpportunityDetailSheet.tsx`, making behavior consistent across both entry points.
-
-### No Database Changes
-
-No migrations needed. This is purely a frontend logic reorder within one component.
+**Reset behavior:**
+- `resetForm()` also clears `duplicateContacts` and `duplicateWarningDismissed`.
+- Changing phone or email after a check clears `duplicateWarningDismissed` and re-runs the check on blur.
 
 ### Files to Edit
 
-- `src/components/dashboard/NewEntryDialog.tsx` — Restructure `fetchPipelineStages` function priority order
+- **`src/components/dashboard/NewEntryDialog.tsx`** — the only file that needs changes:
+  - Add 3 new state variables.
+  - Add `checkForDuplicates()` async function.
+  - Add `onBlur` handlers to Phone and Email inputs.
+  - Add duplicate warning UI block between the phone/email row and address field.
+  - Update `handleSubmitSingle()` to guard against unreviewed duplicates.
+  - Update `resetForm()` to clear duplicate state.
+
+### No Database Changes
+
+No migrations or schema changes needed. The duplicate check is a read-only query against the existing `contacts` table using existing columns (`phone`, `email`, `company_id`).
