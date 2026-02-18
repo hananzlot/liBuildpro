@@ -807,7 +807,7 @@ export function GlobalAdminSearch() {
           <span className="text-muted-foreground truncate">Search for Anything</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[420px] p-0" align="start">
+      <PopoverContent className="w-[580px] p-0" align="start">
         <div className="p-3 border-b">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
