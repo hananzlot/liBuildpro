@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { Plus, Upload, Loader2, X, FileSpreadsheet, Download, AlertTriangle } from "lucide-react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { Plus, Upload, Loader2, X, FileSpreadsheet, Download, AlertTriangle, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -27,6 +28,16 @@ interface User {
   name: string | null;
   first_name: string | null;
   last_name: string | null;
+}
+
+interface DuplicateContact {
+  id: string;
+  contact_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  email: string | null;
+  source: string | null;
 }
 
 interface NewEntryDialogProps {
@@ -115,6 +126,12 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   const [csvEntries, setCsvEntries] = useState<CSVEntry[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Duplicate detection state
+  const [duplicateContacts, setDuplicateContacts] = useState<DuplicateContact[]>([]);
+  const [isDuplicateCheckPending, setIsDuplicateCheckPending] = useState(false);
+  const [duplicateWarningDismissed, setDuplicateWarningDismissed] = useState(false);
+  const duplicateWarningRef = useRef<HTMLDivElement>(null);
 
   // Fetch pipelines/stages when dialog opens - admin config always wins over GHL
   // Priority: pipeline_stages table > company_settings > ghl_pipelines > opportunities > hardcoded defaults
@@ -398,6 +415,8 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     setSelectedCalendar("");
     setPhoneError("");
     setEmailError("");
+    setDuplicateContacts([]);
+    setDuplicateWarningDismissed(false);
     // Reset to default pipeline/stage
     const defaultStage = pipelineStages.find((s) => s.stage_name === "New Lead (No Contacted Yet)");
     if (defaultStage) {
@@ -425,8 +444,40 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     return emailRegex.test(value);
   };
 
+  const checkForDuplicates = useCallback(async (phoneValue: string, emailValue: string) => {
+    if (!companyId) return;
+    const trimmedPhone = phoneValue.trim();
+    const trimmedEmail = emailValue.trim();
+    if (!trimmedPhone && !trimmedEmail) return;
+
+    setIsDuplicateCheckPending(true);
+    try {
+      let query = supabase
+        .from("contacts")
+        .select("id, contact_name, first_name, last_name, phone, email, source")
+        .eq("company_id", companyId)
+        .limit(5);
+
+      if (trimmedPhone && trimmedEmail) {
+        query = query.or(`phone.eq.${trimmedPhone},email.ilike.${trimmedEmail}`);
+      } else if (trimmedPhone) {
+        query = query.eq("phone", trimmedPhone);
+      } else {
+        query = query.ilike("email", trimmedEmail);
+      }
+
+      const { data } = await query;
+      setDuplicateContacts(data || []);
+    } catch (e) {
+      console.error("Duplicate check failed:", e);
+    } finally {
+      setIsDuplicateCheckPending(false);
+    }
+  }, [companyId]);
+
   const handlePhoneChange = (value: string) => {
     setPhone(value);
+    setDuplicateWarningDismissed(false);
     if (value.trim() && !validatePhone(value)) {
       setPhoneError("Please enter a valid phone number");
     } else {
@@ -436,10 +487,25 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
+    setDuplicateWarningDismissed(false);
     if (value.trim() && !validateEmail(value)) {
       setEmailError("Please enter a valid email address");
     } else {
       setEmailError("");
+    }
+  };
+
+  const handlePhoneBlur = () => {
+    if (phone.trim() && validatePhone(phone)) {
+      setDuplicateContacts([]);
+      checkForDuplicates(phone, email);
+    }
+  };
+
+  const handleEmailBlur = () => {
+    if (email.trim() && validateEmail(email)) {
+      setDuplicateContacts([]);
+      checkForDuplicates(phone, email);
     }
   };
 
@@ -466,6 +532,13 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     }
     if (email.trim() && !validateEmail(email)) {
       toast.error("Please enter a valid email address");
+      return;
+    }
+
+    // Guard: unreviewed duplicates must be acknowledged first
+    if (duplicateContacts.length > 0 && !duplicateWarningDismissed) {
+      duplicateWarningRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast.warning("Potential duplicate found — please review before proceeding.");
       return;
     }
 
@@ -821,10 +894,11 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                     type="tel"
                     value={phone}
                     onChange={(e) => handlePhoneChange(e.target.value)}
+                    onBlur={handlePhoneBlur}
                     placeholder="(555) 123-4567"
-                    className={phoneError ? "border-red-500" : ""}
+                    className={phoneError ? "border-destructive" : ""}
                   />
-                  {phoneError && <p className="text-xs text-red-500">{phoneError}</p>}
+                  {phoneError && <p className="text-xs text-destructive">{phoneError}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -833,12 +907,71 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                     type="email"
                     value={email}
                     onChange={(e) => handleEmailChange(e.target.value)}
+                    onBlur={handleEmailBlur}
                     placeholder="john@example.com"
-                    className={emailError ? "border-red-500" : ""}
+                    className={emailError ? "border-destructive" : ""}
                   />
-                  {emailError && <p className="text-xs text-red-500">{emailError}</p>}
+                  {emailError && <p className="text-xs text-destructive">{emailError}</p>}
                 </div>
               </div>
+
+              {/* Duplicate contact warning */}
+              {isDuplicateCheckPending && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Checking for duplicate contacts…
+                </div>
+              )}
+              {!isDuplicateCheckPending && duplicateContacts.length > 0 && !duplicateWarningDismissed && (
+                <Alert ref={duplicateWarningRef} className="border-warning/50 bg-warning/10">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  <AlertDescription>
+                    <div className="font-medium text-warning mb-2">
+                      Potential duplicate{duplicateContacts.length > 1 ? "s" : ""} found
+                    </div>
+                    <div className="space-y-2 mb-3">
+                      {duplicateContacts.map((c) => (
+                        <div key={c.id} className="flex items-start gap-2 text-sm">
+                          <UserCheck className="h-4 w-4 mt-0.5 text-warning flex-shrink-0" />
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-foreground">
+                            <span className="font-medium">
+                              {c.contact_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Unknown"}
+                            </span>
+                            {c.phone && <span className="text-muted-foreground">{c.phone}</span>}
+                            {c.email && <span className="text-muted-foreground">{c.email}</span>}
+                            {c.source && (
+                              <Badge variant="outline" className="text-xs h-5">
+                                {c.source}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs border-warning/50 hover:bg-warning/10"
+                        onClick={() => setDuplicateWarningDismissed(true)}
+                      >
+                        Proceed Anyway
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setDuplicateContacts([]);
+                          setDuplicateWarningDismissed(false);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="address">Address</Label>
@@ -950,7 +1083,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                       </span>
                     </div>
                   ) : !hasActiveCalendars ? (
-                    <div className="flex items-center gap-2 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400">
+                    <div className="flex items-center gap-2 p-3 rounded-md bg-warning/10 border border-warning/30 text-warning">
                       <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                       <span className="text-sm">
                         No active calendars available. Connect a Google Calendar in Admin Settings.
@@ -1017,17 +1150,24 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
               </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmitSingle}
-                disabled={isSubmitting || !firstName.trim() || !lastName.trim() || !!phoneError || !!emailError}
-              >
-                {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Create Entry
-              </Button>
+            <DialogFooter className="flex-col items-stretch sm:items-center gap-2">
+              {duplicateContacts.length > 0 && !duplicateWarningDismissed && (
+                <p className="text-xs text-warning text-center sm:text-left">
+                  ⚠ Duplicate found — review above before submitting.
+                </p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitSingle}
+                  disabled={isSubmitting || !firstName.trim() || !lastName.trim() || !!phoneError || !!emailError}
+                >
+                  {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Create Entry
+                </Button>
+              </div>
             </DialogFooter>
           </TabsContent>
 
@@ -1057,10 +1197,10 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{csvEntries.length} entries</Badge>
-                      <Badge variant="outline" className="text-green-600">
+                      <Badge variant="outline" className="text-primary">
                         {csvEntries.filter((e) => e.status === "success").length} success
                       </Badge>
-                      <Badge variant="outline" className="text-red-600">
+                      <Badge variant="outline" className="text-destructive">
                         {csvEntries.filter((e) => e.status === "error").length} errors
                       </Badge>
                     </div>
@@ -1107,7 +1247,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                             <TableCell>
                               {entry.status === "pending" && <Badge variant="secondary">Pending</Badge>}
                               {entry.status === "success" && (
-                                <Badge variant="default" className="bg-green-600">
+                                <Badge variant="default" className="bg-primary">
                                   Success
                                 </Badge>
                               )}
