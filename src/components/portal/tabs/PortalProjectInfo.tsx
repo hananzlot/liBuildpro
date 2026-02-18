@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { formatUnit } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { 
   MapPin, 
   Phone, 
@@ -17,7 +18,9 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -315,18 +318,49 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
               {agreements
                 .filter(a => a.description_of_work)
                 .map((agreement: any) => (
-                  <div key={agreement.id} className="bg-slate-50 rounded-xl p-5 border border-slate-100">
-                    {agreement.agreement_number && (
-                      <Badge variant="outline" className="mb-3">
-                        Agreement #{agreement.agreement_number}
-                      </Badge>
-                    )}
-                    <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{agreement.description_of_work}</p>
-                  </div>
+                  <CollapsibleScopeBlock key={agreement.id} agreement={agreement} />
                 ))}
             </div>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+// Collapsible scope block for each agreement
+function CollapsibleScopeBlock({ agreement }: { agreement: any }) {
+  const [expanded, setExpanded] = useState(false);
+  const text: string = agreement.description_of_work || '';
+  // Estimate whether the text exceeds 4 lines (rough heuristic: > 300 chars or contains 4+ newlines)
+  const lineCount = (text.match(/\n/g) || []).length;
+  const needsCollapse = text.length > 300 || lineCount >= 4;
+
+  return (
+    <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
+      {agreement.agreement_number && (
+        <Badge variant="outline" className="mb-3">
+          Agreement #{agreement.agreement_number}
+        </Badge>
+      )}
+      <p
+        className={`text-slate-700 whitespace-pre-wrap leading-relaxed transition-all${!expanded && needsCollapse ? ' line-clamp-4' : ''}`}
+      >
+        {text}
+      </p>
+      {needsCollapse && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setExpanded(e => !e)}
+          className="mt-2 h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+        >
+          {expanded ? (
+            <><ChevronUp className="h-3.5 w-3.5" /> Show less</>
+          ) : (
+            <><ChevronDown className="h-3.5 w-3.5" /> Show more</>
+          )}
+        </Button>
       )}
     </div>
   );
