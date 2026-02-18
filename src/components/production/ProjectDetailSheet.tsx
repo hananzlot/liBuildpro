@@ -795,17 +795,53 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
     if (!project?.id) return;
     setIsDeletingProject(true);
     try {
+      const pid = project.id;
+
+      // Delete all child records first (split into batches to avoid TS depth limits)
+      const deleteChild = (table: string) =>
+        (supabase.from(table as "project_notes") as ReturnType<typeof supabase.from>)
+          .delete()
+          .eq("project_id", pid);
+
+      await Promise.all([
+        deleteChild("project_notes"),
+        deleteChild("project_documents"),
+        deleteChild("project_invoices"),
+        deleteChild("project_payments"),
+        deleteChild("project_bills"),
+        deleteChild("project_payment_phases"),
+        deleteChild("project_agreements"),
+        deleteChild("project_checklists"),
+        deleteChild("project_costs"),
+        deleteChild("project_commissions"),
+      ]);
+      await Promise.all([
+        deleteChild("project_feedback"),
+        deleteChild("project_messages"),
+        deleteChild("project_finance"),
+        deleteChild("project_notification_log"),
+        deleteChild("portal_chat_messages"),
+        deleteChild("portal_chat_messages_archived"),
+        deleteChild("portal_view_logs"),
+        deleteChild("client_comments"),
+        deleteChild("client_portal_tokens"),
+        deleteChild("commission_payments"),
+        deleteChild("scope_submissions"),
+      ]);
+
+      // Soft-delete the project itself
       const { error } = await supabase
         .from("projects")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", project.id);
+        .eq("id", pid);
       if (error) throw error;
+
       toast.success("Project deleted successfully");
       // Invalidate all caches that may contain this project so search & lists update instantly
       queryClient.invalidateQueries({ queryKey: ["global-search-projects"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["production-projects"] });
-      queryClient.invalidateQueries({ queryKey: ["project-detail", project.id] });
+      queryClient.invalidateQueries({ queryKey: ["project-detail", pid] });
       onUpdate();
       if (onClose) onClose();
       else onOpenChange(false);
