@@ -2638,7 +2638,7 @@ export function OpportunityDetailSheet({
             <SheetTitle className="text-sm font-medium text-muted-foreground">Opportunity Details</SheetTitle>
             {/* Opportunity Name + right-side value strip */}
             <div className="mt-1 flex items-start justify-between gap-4">
-              {/* Left: name + status */}
+              {/* Left: name + status + sales rep */}
               <div className="min-w-0 flex-1">
                 {isEditingOppName ? (
                   <div className="flex items-center gap-1">
@@ -2696,14 +2696,14 @@ export function OpportunityDetailSheet({
                     )}
                   </div>
                 )}
+                {/* Sales rep directly below opp name */}
+                {userName && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <User className="h-3 w-3" />
+                    {userName}
+                  </p>
+                )}
               </div>
-              {/* Sales rep under the opp name */}
-              {userName && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <User className="h-3 w-3" />
-                  {userName}
-                </p>
-              )}
               {/* Right: Debug (super admin) + Opp Value + Est Cost */}
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <div className="flex items-center gap-2">
