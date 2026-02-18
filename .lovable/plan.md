@@ -1,68 +1,87 @@
 
-## Duplicate Contact Detection Before Creating a New Opportunity
+## Fix: Annabella Cannot Add Scope, Appointments, or Tasks
 
-### Overview
+### Root Cause Summary
 
-When the user clicks "New Entry" and fills in a phone number or email, the app will query the `contacts` table for any existing contacts with a matching phone or email (scoped to the company). If duplicates are found, a warning panel will appear inside the dialog listing them — the user can then choose to proceed anyway or cancel.
+Three separate bugs affect non-admin users like Annabella (roles: dispatch, production, sales, contract_manager):
 
-### How It Will Work (User Flow)
+---
 
-1. User opens the New Entry dialog and types a phone number or email.
-2. After leaving the phone/email field (on blur), the app quietly queries the database for matching contacts in the background.
-3. If a match is found, a yellow warning banner appears below the phone/email fields listing the duplicate contacts (name, phone, email, source).
-4. Two clear action buttons appear: **"Proceed Anyway"** (continues to submit as normal) and **"Cancel"** (closes the warning so the user can reconsider).
-5. The submit button remains active — the warning is advisory, not a hard block. The user can still create the entry if it's intentional (e.g. same household, different opportunity).
+### Bug 1: Scope of Work silently fails for locally-created opportunities
+
+**File:** `src/components/dashboard/OpportunityDetailSheet.tsx` — `handleSaveScope()` at line 2072
+
+```typescript
+const handleSaveScope = async () => {
+  if (!opportunity?.ghl_id) return;  // ← SILENT RETURN if ghl_id is null
+```
+
+Locally created opportunities (via "Create Opp" button) have `ghl_id: null`. The save button appears and clicks, but nothing happens. The fix is to fall back to `opportunity?.id` (the UUID) when `ghl_id` is null, and pass both to the edge function. The `update-opportunity-scope` edge function should then query by UUID when the ghl_id is a local ID or null.
+
+**Fix approach:**
+- In `handleSaveScope`, use `opportunity.id` as fallback identifier when `ghl_id` is null
+- Pass `opportunityId` (UUID) alongside `opportunityGhlId` to the edge function
+- In `update-opportunity-scope/index.ts`, if `opportunityGhlId` is null or missing, use `opportunityId` to look up and update the record by UUID
+
+---
+
+### Bug 2: Task creation fails silently for locally-created opportunities
+
+**File:** `src/components/dashboard/OpportunityDetailSheet.tsx` — `handleCreateTask()` at line 880
+
+```typescript
+contactId: opportunity.contact_id,  // ← passes "local_contact_..." string
+```
+
+The `create-ghl-task` edge function tries to look up the contact using `ghl_id = 'local_contact_...'` to resolve `company_id`, but finds nothing since local contacts use their UUID as `id`, not `ghl_id`. The insert proceeds without a `company_id`, which means Annabella's company RLS filter won't show it.
+
+**Fix approach:**
+- Pass `companyId` explicitly in the task creation body (already available via `useCompanyContext`)
+- Also pass `contactUuid: opportunity.contact_uuid` alongside `contactId` in the body
+- In the edge function, prefer UUID-based lookup when resolving company context
+
+---
+
+### Bug 3: Appointment creation missing companyId
+
+**File:** `src/components/dashboard/OpportunityDetailSheet.tsx` — `handleCreateAppointment()` at line 1211
+
+The `create-ghl-appointment` edge function is called without `companyId` in the body. Same issue as tasks — when it tries to auto-resolve the company from `contacts.ghl_id = 'local_contact_...'`, it gets nothing, and the appointment record is created with `company_id = null`. Annabella then can't see it due to RLS.
+
+**Fix approach:**
+- Pass `companyId` explicitly in the appointment creation body
+
+---
+
+### What is NOT broken
+
+- Notes work because `create-contact-note` resolves by `contact_id` differently and the `contact_notes` table has an open INSERT policy for all company users
+- The UI buttons all show for Annabella — no role guards block the buttons
+- Annabella's roles are correctly set — this is purely a data/logic bug
+
+---
 
 ### Technical Details
 
-**New state variables** added to `NewEntryDialog.tsx`:
-```
-duplicateContacts: Contact[]  — list of matching contacts found
-isDuplicateCheckPending: boolean  — shows a subtle spinner while checking
-duplicateWarningDismissed: boolean  — tracks if user already acknowledged and chose to proceed
-```
+**Files to edit:**
+1. `src/components/dashboard/OpportunityDetailSheet.tsx`
+   - `handleSaveScope`: add fallback to `opportunity.id` when `opportunity.ghl_id` is null
+   - `handleCreateTask`: add `companyId` and `contactUuid` to the invocation body
+   - `handleCreateAppointment`: add `companyId` to the invocation body
 
-**Duplicate check logic** — a new async function `checkForDuplicates()`:
-- Triggered `onBlur` on both the Phone and Email fields (not on every keystroke, to avoid excessive queries).
-- Only runs if the field has a valid, non-empty value and passes format validation.
-- Queries `contacts` table:
-  ```sql
-  SELECT id, contact_name, first_name, last_name, phone, email, source
-  FROM contacts
-  WHERE company_id = :companyId
-    AND (
-      (phone IS NOT NULL AND phone = :phone)
-      OR (email IS NOT NULL AND LOWER(email) = LOWER(:email))
-    )
-  LIMIT 5
-  ```
-- Resets `duplicateWarningDismissed` to `false` whenever phone or email changes, so the warning reappears if the user edits those fields after dismissing.
+2. `supabase/functions/update-opportunity-scope/index.ts`
+   - Accept `opportunityId` (UUID) as a fallback when `opportunityGhlId` is null
+   - Query by `id` (UUID) when `opportunityGhlId` is null or a local ID
 
-**Warning UI** — inserted between the phone/email row and the address field:
-- A styled amber/yellow alert box using the existing `Alert` component from `src/components/ui/alert.tsx`.
-- Lists each matching contact as a row: name + phone + email + source badge.
-- Two buttons: **Dismiss** (sets `duplicateWarningDismissed = true` and hides the banner) and the banner fades away.
-- The submit button also shows a secondary note if duplicates exist but haven't been dismissed: "Duplicate found — review above before submitting."
+3. `supabase/functions/create-ghl-task/index.ts`
+   - Accept and use `companyId` directly from the request body when provided (skip the lookup)
+   - Accept `contactUuid` and use it for UUID-based contact lookup when `contactId` is a local ID
 
-**Submit guard** — `handleSubmitSingle()`:
-- If `duplicateContacts.length > 0` and `!duplicateWarningDismissed`, the form will NOT submit immediately.
-- Instead, it will scroll the warning into view and show a toast: "Potential duplicate found — please review before proceeding."
-- Once the user clicks "Proceed Anyway" (sets `duplicateWarningDismissed = true`), the submit will go through on the next click.
+4. `supabase/functions/create-ghl-appointment/index.ts`
+   - Accept and use `companyId` directly from the request body when provided
 
-**Reset behavior:**
-- `resetForm()` also clears `duplicateContacts` and `duplicateWarningDismissed`.
-- Changing phone or email after a check clears `duplicateWarningDismissed` and re-runs the check on blur.
+---
 
-### Files to Edit
+### No Database / Migration Changes Required
 
-- **`src/components/dashboard/NewEntryDialog.tsx`** — the only file that needs changes:
-  - Add 3 new state variables.
-  - Add `checkForDuplicates()` async function.
-  - Add `onBlur` handlers to Phone and Email inputs.
-  - Add duplicate warning UI block between the phone/email row and address field.
-  - Update `handleSubmitSingle()` to guard against unreviewed duplicates.
-  - Update `resetForm()` to clear duplicate state.
-
-### No Database Changes
-
-No migrations or schema changes needed. The duplicate check is a read-only query against the existing `contacts` table using existing columns (`phone`, `email`, `company_id`).
+All fixes are in frontend component logic and edge function logic only.
