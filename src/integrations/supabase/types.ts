@@ -6737,6 +6737,10 @@ export type Database = {
         Args: { p_project_id: string }
         Returns: boolean
       }
+      soft_delete_early_stage_project: {
+        Args: { p_project_id: string }
+        Returns: boolean
+      }
       store_ghl_api_key_encrypted: {
         Args: { p_api_key: string; p_integration_id: string }
         Returns: boolean

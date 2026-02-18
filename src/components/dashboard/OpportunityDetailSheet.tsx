@@ -1793,13 +1793,16 @@ export function OpportunityDetailSheet({
     if (projectsToDelete.length === 0) return;
     setIsDeletingProject(true);
     try {
-      const ids = projectsToDelete.map(p => p.id);
-      const { error } = await supabase
-        .from("projects")
-        .update({ deleted_at: new Date().toISOString() })
-        .in("id", ids);
-      if (error) throw error;
-      toast.success(`${ids.length} project${ids.length > 1 ? "s" : ""} deleted`);
+      // Use a SECURITY DEFINER function so any authenticated user (any role) can
+      // soft-delete early-stage projects from the "mark as lost" workflow.
+      const results = await Promise.all(
+        projectsToDelete.map(p =>
+          supabase.rpc("soft_delete_early_stage_project", { p_project_id: p.id })
+        )
+      );
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) throw errors[0].error;
+      toast.success(`${projectsToDelete.length} project${projectsToDelete.length > 1 ? "s" : ""} deleted`);
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["production-projects"] });
     } catch (err) {
