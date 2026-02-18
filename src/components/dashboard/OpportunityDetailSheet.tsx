@@ -281,6 +281,11 @@ export function OpportunityDetailSheet({
   const [proposalsToDecline, setProposalsToDecline] = useState<{ id: string; estimate_number: number | null; estimate_title: string | null; customer_name: string | null }[]>([]);
   const [isDecliningProposals, setIsDecliningProposals] = useState(false);
 
+  // Delete project dialog (shown when opp is marked lost and project is in early status)
+  const [deleteProjectDialogOpen, setDeleteProjectDialogOpen] = useState(false);
+  const [projectsToDelete, setProjectsToDelete] = useState<{ id: string; project_name: string | null; project_address: string | null; status: string | null }[]>([]);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+
   // Scope of Work editing
   const [isEditingScope, setIsEditingScope] = useState(false);
   const [editedScope, setEditedScope] = useState("");
@@ -1695,7 +1700,7 @@ export function OpportunityDetailSheet({
     }
   };
 
-  // After marking an opportunity as lost, check for sent proposals on the contact
+  // After marking an opportunity as lost, check for sent proposals and early-stage projects
   const checkAndOfferDeclineProposals = async (contactId: string | null, contactUuid: string | null) => {
     if (!contactId && !contactUuid) return;
     try {
@@ -1715,9 +1720,47 @@ export function OpportunityDetailSheet({
       if (data && data.length > 0) {
         setProposalsToDecline(data);
         setDeclineProposalsDialogOpen(true);
+      } else {
+        // No proposals — go straight to project check
+        await checkAndOfferDeleteProject(contactId, contactUuid);
       }
     } catch (err) {
       console.error("Error checking proposals:", err);
+    }
+  };
+
+  // Check for related projects in early statuses
+  const checkAndOfferDeleteProject = async (contactId: string | null, contactUuid: string | null) => {
+    if (!contactId && !contactUuid) return;
+    try {
+      let query = supabase
+        .from("projects")
+        .select("id, project_name, project_address, project_status")
+        .eq("company_id", companyId)
+        .is("deleted_at", null);
+      
+      if (contactUuid) {
+        query = query.eq("contact_uuid", contactUuid);
+      } else if (contactId) {
+        query = query.eq("contact_id", contactId);
+      }
+
+      const { data } = await query;
+      const earlyStatusKeywords = ["pre-estimate", "estimate", "proposal"];
+      const filtered = (data || []).filter(p =>
+        p.project_status && earlyStatusKeywords.some(k => p.project_status!.toLowerCase().includes(k))
+      );
+      if (filtered.length > 0) {
+        setProjectsToDelete(filtered.map(p => ({
+          id: p.id,
+          project_name: p.project_name,
+          project_address: p.project_address,
+          status: p.project_status,
+        })));
+        setDeleteProjectDialogOpen(true);
+      }
+    } catch (err) {
+      console.error("Error checking projects:", err);
     }
   };
 
@@ -1741,6 +1784,31 @@ export function OpportunityDetailSheet({
       setIsDecliningProposals(false);
       setDeclineProposalsDialogOpen(false);
       setProposalsToDecline([]);
+      // After handling proposals, check for projects
+      await checkAndOfferDeleteProject(opportunity?.contact_id ?? null, opportunity?.contact_uuid ?? null);
+    }
+  };
+
+  const handleDeleteProjects = async () => {
+    if (projectsToDelete.length === 0) return;
+    setIsDeletingProject(true);
+    try {
+      const ids = projectsToDelete.map(p => p.id);
+      const { error } = await supabase
+        .from("projects")
+        .update({ deleted_at: new Date().toISOString() })
+        .in("id", ids);
+      if (error) throw error;
+      toast.success(`${ids.length} project${ids.length > 1 ? "s" : ""} deleted`);
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["production-projects"] });
+    } catch (err) {
+      console.error("Error deleting projects:", err);
+      toast.error("Failed to delete project");
+    } finally {
+      setIsDeletingProject(false);
+      setDeleteProjectDialogOpen(false);
+      setProjectsToDelete([]);
     }
   };
 
@@ -4050,6 +4118,47 @@ export function OpportunityDetailSheet({
             >
               {isDecliningProposals && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Mark as Declined
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Delete Project Dialog */}
+      <AlertDialog open={deleteProjectDialogOpen} onOpenChange={setDeleteProjectDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5 text-destructive" />
+              Delete Related Project{projectsToDelete.length > 1 ? "s" : ""}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This opportunity was marked as <strong>Lost</strong>. The following project{projectsToDelete.length > 1 ? "s" : ""} linked to this contact {projectsToDelete.length > 1 ? "are" : "is"} in an early stage and can be removed:
+                </p>
+                <ul className="space-y-1.5 border rounded-md p-3 bg-muted/50">
+                  {projectsToDelete.map(p => (
+                    <li key={p.id} className="text-sm flex items-start gap-2">
+                      <FolderOpen className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                      <span>
+                        <span className="font-medium">{p.project_name || "Unnamed Project"}</span>
+                        {p.project_address && <span className="text-muted-foreground"> — {p.project_address}</span>}
+                        {p.status && <span className="ml-1 text-xs text-muted-foreground">({p.status})</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingProject}>Keep Project</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProjects}
+              disabled={isDeletingProject}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingProject && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Delete Project{projectsToDelete.length > 1 ? "s" : ""}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
