@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { 
   Calculator, ChevronDown, ChevronRight, Loader2, Save, Wand2, 
@@ -82,6 +83,7 @@ export function PortalEstimateCreator({
   const [missingZipCode, setMissingZipCode] = useState(false);
   const [manualZipCode, setManualZipCode] = useState("");
   const [currentJobAddress, setCurrentJobAddress] = useState("");
+  const [showDeclinedEstimates, setShowDeclinedEstimates] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch opportunities assigned to this salesperson (by internal ID or GHL user ID)
@@ -260,7 +262,14 @@ export function PortalEstimateCreator({
     refetchInterval: 30 * 1000, // Auto-refresh every 30s
   });
 
-  // When selection changes, pre-fill with existing scope if available
+  // Filter estimates: hide declined by default, show only declined when toggled
+  const declinedEstimatesCount = useMemo(() => myEstimates.filter(e => e.status === "declined").length, [myEstimates]);
+  const visibleEstimates = useMemo(() => {
+    if (showDeclinedEstimates) return myEstimates.filter(e => e.status === "declined");
+    return myEstimates.filter(e => e.status !== "declined");
+  }, [myEstimates, showDeclinedEstimates]);
+
+
   const handleSelectionChange = (id: string) => {
     setSelectedId(id);
     setScopeSaved(false);
@@ -723,7 +732,7 @@ export function PortalEstimateCreator({
         <div className="flex items-center justify-between gap-2">
           <Label className="text-sm font-medium flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            My Estimates ({myEstimates.length})
+            My Estimates ({visibleEstimates.length})
           </Label>
           <Button
             type="button"
@@ -742,24 +751,39 @@ export function PortalEstimateCreator({
           </Button>
         </div>
 
+        {/* Declined toggle */}
+        {declinedEstimatesCount > 0 && (
+          <div className="flex items-center gap-2 pb-1">
+            <Switch
+              id="show-declined-estimates"
+              checked={showDeclinedEstimates}
+              onCheckedChange={setShowDeclinedEstimates}
+              className="scale-90"
+            />
+            <Label htmlFor="show-declined-estimates" className="text-xs text-muted-foreground cursor-pointer">
+              Show declined ({declinedEstimatesCount})
+            </Label>
+          </div>
+        )}
+
         {estimatesError ? (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="ml-2">
-              Couldn’t load your estimates. Tap Refresh to try again.
+              Couldn't load your estimates. Tap Refresh to try again.
             </AlertDescription>
           </Alert>
         ) : estimatesLoading ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : myEstimates.length === 0 ? (
+        ) : visibleEstimates.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No estimates found yet.
+            {showDeclinedEstimates ? "No declined estimates." : "No estimates found yet."}
           </p>
         ) : (
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {myEstimates.map((estimate) => {
+            {visibleEstimates.map((estimate) => {
               const canOpen = !estimate.is_generating;
               return (
                 <button
