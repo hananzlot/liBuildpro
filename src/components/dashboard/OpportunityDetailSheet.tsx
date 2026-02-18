@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt, AlertTriangle, FolderOpen, Trophy, Eye } from "lucide-react";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, ChevronUp, Copy, Receipt, AlertTriangle, FolderOpen, Trophy, Eye } from "lucide-react";
 import { EmailSyncDialog } from "@/components/shared/EmailSyncDialog";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -291,6 +291,7 @@ export function OpportunityDetailSheet({
   // Scope of Work editing
   const [isEditingScope, setIsEditingScope] = useState(false);
   const [editedScope, setEditedScope] = useState("");
+  const [isScopeExpanded, setIsScopeExpanded] = useState(false);
   const [isSavingScope, setIsSavingScope] = useState(false);
 
   // Address editing
@@ -3214,7 +3215,23 @@ export function OpportunityDetailSheet({
                             Save
                           </Button>
                         </div>
-                      </div> : scopeOfWork ? <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p> : <p className="text-sm text-muted-foreground/60 italic">No scope of work defined</p>}
+                      </div> : scopeOfWork ? (
+                        <div>
+                          <p className={`text-sm whitespace-pre-wrap${!isScopeExpanded ? ' line-clamp-4' : ''}`}>{scopeOfWork}</p>
+                          {(() => {
+                            const lineCount = (scopeOfWork.match(/\n/g) || []).length;
+                            const needsToggle = scopeOfWork.length > 300 || lineCount >= 4;
+                            return needsToggle ? (
+                              <button
+                                onClick={() => setIsScopeExpanded(e => !e)}
+                                className="mt-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                {isScopeExpanded ? <><ChevronUp className="h-3 w-3" /> Show less</> : <><ChevronDown className="h-3 w-3" /> Show more</>}
+                              </button>
+                            ) : null;
+                          })()}
+                        </div>
+                      ) : <p className="text-sm text-muted-foreground/60 italic">No scope of work defined</p>}
                   </div>
                 </div>
               </div>
