@@ -116,6 +116,7 @@ export function GlobalAdminSearch() {
   const canSeeOpportunities = isAdmin || (!isProduction && !isContractManager); // Dispatch or Admin
   const canSeeProjects = isAdmin || isProduction;
   const canSeeEstimates = isAdmin || isContractManager;
+  const canSeeProposals = isAdmin || isContractManager;
   const canSeeContacts = isAdmin;
   
   // Determine default tab based on role
@@ -126,7 +127,7 @@ export function GlobalAdminSearch() {
     return "opportunities";
   };
   
-  const [activeTab, setActiveTab] = useState<"opportunities" | "projects" | "estimates" | "contacts">(getDefaultTab());
+  const [activeTab, setActiveTab] = useState<"opportunities" | "projects" | "estimates" | "proposals" | "contacts">(getDefaultTab());
   
   // Update active tab if current tab becomes invisible due to role
   useEffect(() => {
@@ -134,11 +135,12 @@ export function GlobalAdminSearch() {
       (activeTab === "opportunities" && !canSeeOpportunities) ||
       (activeTab === "projects" && !canSeeProjects) ||
       (activeTab === "estimates" && !canSeeEstimates) ||
+      (activeTab === "proposals" && !canSeeProposals) ||
       (activeTab === "contacts" && !canSeeContacts)
     ) {
       setActiveTab(getDefaultTab());
     }
-  }, [activeTab, canSeeOpportunities, canSeeProjects, canSeeEstimates, canSeeContacts]);
+  }, [activeTab, canSeeOpportunities, canSeeProjects, canSeeEstimates, canSeeProposals, canSeeContacts]);
 
   // Fetch opportunities for search
   const { data: opportunities = [] } = useQuery({
@@ -591,14 +593,44 @@ export function GlobalAdminSearch() {
     if (!searchQuery.trim()) return [];
     
     const queryLower = searchQuery.toLowerCase().trim();
+    const PROPOSAL_STATUSES = ["sent", "signed", "accepted", "declined", "expired", "viewed"];
     
     return estimates
       .filter((est) => {
+        // Only show draft/non-proposal statuses here
+        const status = est.status?.toLowerCase() || "";
+        if (PROPOSAL_STATUSES.includes(status)) return false;
+
         const customerName = est.customer_name?.toLowerCase() || "";
         const address = est.job_address?.toLowerCase() || "";
         const estimateNum = est.estimate_number?.toString() || "";
+        const amountMatch = parsedAmount !== null && est.total !== null && Math.abs(est.total - parsedAmount) < 0.05;
         
-        // Check if search matches estimate/proposal total (within rounding tolerance)
+        return (
+          customerName.includes(queryLower) ||
+          address.includes(queryLower) ||
+          estimateNum.includes(searchQuery.trim()) ||
+          amountMatch
+        );
+      })
+      .slice(0, 8);
+  }, [searchQuery, estimates, parsedAmount]);
+
+  const filteredProposals = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    
+    const queryLower = searchQuery.toLowerCase().trim();
+    const PROPOSAL_STATUSES = ["sent", "signed", "accepted", "declined", "expired", "viewed"];
+    
+    return estimates
+      .filter((est) => {
+        // Only show proposal statuses here
+        const status = est.status?.toLowerCase() || "";
+        if (!PROPOSAL_STATUSES.includes(status)) return false;
+
+        const customerName = est.customer_name?.toLowerCase() || "";
+        const address = est.job_address?.toLowerCase() || "";
+        const estimateNum = est.estimate_number?.toString() || "";
         const amountMatch = parsedAmount !== null && est.total !== null && Math.abs(est.total - parsedAmount) < 0.05;
         
         return (
@@ -765,7 +797,7 @@ export function GlobalAdminSearch() {
         : contact.first_name || contact.last_name || "Unknown");
   };
 
-  const totalResults = filteredOpportunities.length + filteredProjects.length + filteredEstimates.length + filteredContacts.length;
+  const totalResults = filteredOpportunities.length + filteredProjects.length + filteredEstimates.length + filteredProposals.length + filteredContacts.length;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -800,10 +832,10 @@ export function GlobalAdminSearch() {
         </div>
 
         {searchQuery.trim() ? (
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "opportunities" | "projects" | "estimates" | "contacts")}>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "opportunities" | "projects" | "estimates" | "proposals" | "contacts")}>
             <div className="border-b px-3 py-2">
               <TabsList className="grid w-full h-8" style={{ 
-                gridTemplateColumns: `repeat(${[canSeeOpportunities, canSeeProjects, canSeeEstimates, canSeeContacts].filter(Boolean).length}, 1fr)` 
+                gridTemplateColumns: `repeat(${[canSeeOpportunities, canSeeProjects, canSeeEstimates, canSeeProposals, canSeeContacts].filter(Boolean).length}, 1fr)` 
               }}>
                 {canSeeOpportunities && (
                   <TabsTrigger value="opportunities" className="text-xs gap-1">
@@ -821,6 +853,12 @@ export function GlobalAdminSearch() {
                   <TabsTrigger value="estimates" className="text-xs gap-1">
                     <FileText className="h-3 w-3" />
                     Est ({filteredEstimates.length})
+                  </TabsTrigger>
+                )}
+                {canSeeProposals && (
+                  <TabsTrigger value="proposals" className="text-xs gap-1">
+                    <FileText className="h-3 w-3" />
+                    Props ({filteredProposals.length})
                   </TabsTrigger>
                 )}
                 {canSeeContacts && (
@@ -977,6 +1015,48 @@ export function GlobalAdminSearch() {
                   ) : (
                     <div className="p-6 text-center text-muted-foreground text-sm">
                       No estimates found
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            )}
+
+            {canSeeProposals && (
+              <TabsContent value="proposals" className="m-0">
+                <div className="max-h-[280px] overflow-y-auto">
+                  {filteredProposals.length > 0 ? (
+                    <div className="p-2">
+                      {filteredProposals.map((est) => (
+                        <button
+                          key={est.id}
+                          className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                          onClick={() => handleSelectEstimate(est)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate text-sm">
+                                {est.job_address || est.customer_name || "No address"}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {est.estimate_number && `#${est.estimate_number} • `}
+                                {est.customer_name}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
+                                {formatCurrency(est.total)}
+                              </span>
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getEstimateStatusColor(est.status)}`}>
+                                {est.status || "Sent"}
+                              </Badge>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-muted-foreground text-sm">
+                      No proposals found
                     </div>
                   )}
                 </div>
