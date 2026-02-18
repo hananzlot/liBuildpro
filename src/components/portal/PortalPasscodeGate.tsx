@@ -14,16 +14,29 @@ interface PortalPasscodeGateProps {
 }
 
 // Extract house number from address (first numeric portion)
+// Returns null if address is only a zip code or no valid street number found
 function extractHouseNumber(address: string | null): string | null {
   if (!address) return null;
   
+  const trimmed = address.trim();
+
+  // If the entire address is just a zip code (5 digits, optionally with zip+4), skip passcode
+  if (/^\d{5}(-\d{4})?$/.test(trimmed)) return null;
+
   // Match the first sequence of digits at the start of the address
   // Handles: "123 Main St", "123A Main St", "Unit 5, 123 Main St", etc.
-  const match = address.match(/^(?:Unit\s*\d+[,\s]*)?(\d+)/i);
-  if (match) return match[1];
+  const match = trimmed.match(/^(?:Unit\s*\d+[,\s]*)?(\d+)/i);
+  if (match) {
+    // Make sure the matched number isn't a lone 5-digit zip at the start (unlikely but safe)
+    const candidate = match[1];
+    if (candidate.length === 5 && /^\d{5}$/.test(candidate) && !trimmed.match(/^\d{5}\s+\S/)) {
+      return null;
+    }
+    return candidate;
+  }
   
-  // Fallback: find any leading number sequence
-  const fallbackMatch = address.match(/(\d+)/);
+  // Fallback: find any number sequence that looks like a house number (not 5-digit zip)
+  const fallbackMatch = trimmed.match(/\b(\d{1,4}[A-Za-z]?)\b/);
   return fallbackMatch ? fallbackMatch[1] : null;
 }
 
