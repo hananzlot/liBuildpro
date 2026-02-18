@@ -2697,6 +2697,13 @@ export function OpportunityDetailSheet({
                   </div>
                 )}
               </div>
+              {/* Sales rep under the opp name */}
+              {userName && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <User className="h-3 w-3" />
+                  {userName}
+                </p>
+              )}
               {/* Right: Debug (super admin) + Opp Value + Est Cost */}
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <div className="flex items-center gap-2">
@@ -2990,31 +2997,29 @@ export function OpportunityDetailSheet({
             </DialogContent>
           </Dialog>
 
-          {/* Contact Section - Now at the top with opportunity value */}
+          {/* Contact Section */}
           <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-              <div className="flex flex-col gap-0.5">
-                {isEditingName ? <div className="flex items-center gap-1">
-                    <Input value={editedFirstName} onChange={e => setEditedFirstName(e.target.value)} placeholder="First name" className="h-7 text-sm w-24" />
-                    <Input value={editedLastName} onChange={e => setEditedLastName(e.target.value)} placeholder="Last name" className="h-7 text-sm w-24" />
-                    <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handleSaveName} disabled={isSavingName}>
-                      {isSavingName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setIsEditingName(false)}>
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div> : <button onClick={() => {
-                setEditedFirstName(contact?.first_name || "");
-                setEditedLastName(contact?.last_name || "");
-                setIsEditingName(true);
-              }} className="font-bold capitalize text-left hover:underline">
-                    {contactName?.toLowerCase() || "Unnamed Contact"}
-                  </button>}
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <User className="h-3 w-3" />
-                  {userName}
-                </span>
-              </div>
+            <div className="bg-muted/30 px-3 py-2 border-b">
+              {isEditingName ? (
+                <div className="flex items-center gap-1">
+                  <Input value={editedFirstName} onChange={e => setEditedFirstName(e.target.value)} placeholder="First name" className="h-7 text-sm w-24" />
+                  <Input value={editedLastName} onChange={e => setEditedLastName(e.target.value)} placeholder="Last name" className="h-7 text-sm w-24" />
+                  <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handleSaveName} disabled={isSavingName}>
+                    {isSavingName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setIsEditingName(false)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <button onClick={() => {
+                  setEditedFirstName(contact?.first_name || "");
+                  setEditedLastName(contact?.last_name || "");
+                  setIsEditingName(true);
+                }} className="text-xs text-muted-foreground hover:underline text-left">
+                  Contact: {contactName || "Unnamed Contact"}
+                </button>
+              )}
             </div>
             <div className="p-3 space-y-2">
               <div className="grid gap-1.5 text-sm text-muted-foreground">
