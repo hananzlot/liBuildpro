@@ -3557,13 +3557,31 @@ function InvoiceDialog({
   payments: Payment[];
   existingInvoices: Invoice[];
 }) {
-  const [formData, setFormData] = useState({
-    invoice_number: "",
-    invoice_date: "",
-    amount: "",
-    agreement_id: "",
-    payment_phase_id: "",
-  });
+  const getInitialFormData = () => {
+    if (invoice) {
+      let agreementId = invoice.agreement_id || "";
+      if (!agreementId && invoice.payment_phase_id) {
+        const phase = paymentPhases.find(p => p.id === invoice.payment_phase_id);
+        if (phase) agreementId = phase.agreement_id || "";
+      }
+      return {
+        invoice_number: invoice.invoice_number || "",
+        invoice_date: invoice.invoice_date || "",
+        amount: invoice.amount?.toString() || "",
+        agreement_id: agreementId,
+        payment_phase_id: invoice.payment_phase_id || "",
+      };
+    }
+    return {
+      invoice_number: "",
+      invoice_date: "",
+      amount: "",
+      agreement_id: "",
+      payment_phase_id: "",
+    };
+  };
+
+  const [formData, setFormData] = useState(getInitialFormData);
   const [amountError, setAmountError] = useState("");
   const [phaseError, setPhaseError] = useState("");
   const { companyId: dialogCompanyId } = useCompanyContext();
