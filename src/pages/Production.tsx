@@ -2394,7 +2394,10 @@ export default function Production() {
           onOpenChange={(open) => {
             if (!open) {
               // Handle return-to behavior - navigate back to the source sheet
-              if (returnToParam === 'opportunity' && returnToOppId) {
+              if (returnToParam && returnToParam !== 'opportunity') {
+                // returnToParam is an encoded pathname — navigate back to it exactly
+                navigate(decodeURIComponent(returnToParam), { replace: true });
+              } else if (returnToParam === 'opportunity' && returnToOppId) {
                 navigate(`/opportunities/${returnToOppId}`, { replace: true });
               } else if (returnToAfterProjectClose === 'payables') {
                 setReopenPayablesSheet(true);
