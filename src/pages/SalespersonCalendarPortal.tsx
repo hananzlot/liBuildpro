@@ -102,7 +102,7 @@ function formatTimeShort(dateStr: string | null): string {
 
 export default function SalespersonCalendarPortal() {
   const { token } = useParams<{ token: string }>();
-  const [activeTab, setActiveTab] = useState<"calendar" | "tools">("calendar");
+  const [activeTab, setActiveTab] = useState<"calendar" | "tools">("tools");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -369,43 +369,13 @@ export default function SalespersonCalendarPortal() {
               )}
             </div>
           </div>
-          {activeTab === "calendar" && (
-            <Button variant="outline" size="sm" onClick={handleGoToToday} className="shrink-0">
-              Today
-            </Button>
-          )}
+          <Button variant="outline" size="sm" onClick={handleGoToToday} className="shrink-0">
+            Today
+          </Button>
         </div>
       </header>
 
-      {/* Main Tabs */}
-      <div className="bg-card border-b border-border">
-        <div className="max-w-4xl mx-auto">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "calendar" | "tools")}>
-            <TabsList className="w-full grid grid-cols-2 h-12 bg-transparent rounded-none">
-              <TabsTrigger 
-                value="calendar" 
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Calendar
-              </TabsTrigger>
-              <TabsTrigger 
-                value="tools" 
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
-              >
-                <FolderOpen className="h-4 w-4 mr-2" />
-                Tools
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      </div>
-
-      {/* Calendar Tab Content */}
-      {activeTab === "calendar" && (
-        <>
-
-      {/* Navigation Bar */}
+      {/* Calendar Section - Navigation Bar */}
       <div className="bg-card border-b border-border px-4 py-2">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           <Button variant="ghost" size="icon" onClick={() => handleNavigate("prev")}>
@@ -615,11 +585,9 @@ export default function SalespersonCalendarPortal() {
           </div>
         </div>
       )}
-        </>
-      )}
 
-      {/* Tools Tab Content */}
-      {activeTab === "tools" && salesperson && (
+      {/* Tools Content */}
+      {salesperson && (
         <div className="p-4 pb-8">
           <div className="max-w-2xl mx-auto">
             {/* Quick access title */}
