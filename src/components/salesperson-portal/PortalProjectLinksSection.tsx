@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Link, ExternalLink, Loader2, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,6 +24,7 @@ interface ProjectWithPortal {
   project_address: string | null;
   customer_first_name: string | null;
   customer_last_name: string | null;
+  project_status: string | null;
   portal_token: string | null;
 }
 
@@ -33,12 +36,12 @@ export function PortalProjectLinksSection({
 }: PortalProjectLinksSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Fetch app base URL setting
   const { data: appBaseUrl } = useQuery({
     queryKey: ["app-base-url-setting", companyId],
     queryFn: async () => {
-      // First try company settings
       const { data: companySettings } = await supabase
         .from("company_settings")
         .select("setting_value")
@@ -50,7 +53,6 @@ export function PortalProjectLinksSection({
         return companySettings.setting_value;
       }
 
-      // Fallback to app settings
       const { data: appSettings } = await supabase
         .from("app_settings")
         .select("setting_value")
@@ -62,7 +64,7 @@ export function PortalProjectLinksSection({
     staleTime: 30 * 60 * 1000,
   });
 
-  // Fetch projects with their portal tokens - now includes opportunity-linked projects
+  // Fetch projects with their portal tokens
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["salesperson-portal-project-links", salespersonName, salespersonId, salespersonGhlUserId, companyId],
     queryFn: async () => {
@@ -71,7 +73,7 @@ export function PortalProjectLinksSection({
       // Step 1: Get projects directly assigned to salesperson by name
       const { data: directProjects, error: directError } = await supabase
         .from("projects")
-        .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name")
+        .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, project_status")
         .eq("company_id", companyId)
         .or(`primary_salesperson.eq.${salespersonName},secondary_salesperson.eq.${salespersonName},tertiary_salesperson.eq.${salespersonName},quaternary_salesperson.eq.${salespersonName}`)
         .is("deleted_at", null);
@@ -82,7 +84,6 @@ export function PortalProjectLinksSection({
       let opportunityProjects: typeof directProjects = [];
       
       if (salespersonGhlUserId) {
-        // Get opportunities assigned to this salesperson
         const { data: opportunities } = await supabase
           .from("opportunities")
           .select("id, ghl_id")
@@ -93,20 +94,17 @@ export function PortalProjectLinksSection({
           const oppUuids = opportunities.map(o => o.id);
           const oppGhlIds = opportunities.map(o => o.ghl_id).filter(Boolean) as string[];
 
-          // Build OR filter for projects linked to these opportunities
           const uuidFilters = oppUuids.map(id => `opportunity_uuid.eq.${id}`).join(',');
           const ghlIdFilters = oppGhlIds.length ? oppGhlIds.map(id => `opportunity_id.eq.${id}`).join(',') : '';
           const combinedFilter = ghlIdFilters ? `${uuidFilters},${ghlIdFilters}` : uuidFilters;
 
-          // Only include projects with NO salesperson assigned
           const { data: linkedProjects } = await supabase
             .from("projects")
-            .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson")
+            .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, project_status, primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson")
             .eq("company_id", companyId)
             .is("deleted_at", null)
             .or(combinedFilter);
 
-          // Filter to only include projects without any salesperson assigned
           opportunityProjects = (linkedProjects || [])
             .filter(p => 
               !p.primary_salesperson && 
@@ -129,9 +127,9 @@ export function PortalProjectLinksSection({
       const allProjects = Array.from(projectMap.values())
         .sort((a, b) => (b.project_number || 0) - (a.project_number || 0));
 
-      // Step 4: Get portal tokens for all projects
       if (!allProjects.length) return [];
 
+      // Step 4: Get portal tokens for all projects
       const projectIds = allProjects.map((p) => p.id);
       const { data: tokensData } = await supabase
         .from("client_portal_tokens")
@@ -154,6 +152,19 @@ export function PortalProjectLinksSection({
   });
 
   const projectsWithPortals = projects.filter((p) => p.portal_token);
+
+  // Separate completed vs active
+  const completedProjects = useMemo(
+    () => projectsWithPortals.filter(p => p.project_status?.toLowerCase() === "completed"),
+    [projectsWithPortals]
+  );
+  const activeProjects = useMemo(
+    () => projectsWithPortals.filter(p => p.project_status?.toLowerCase() !== "completed"),
+    [projectsWithPortals]
+  );
+
+  // Visible list based on toggle
+  const visibleProjects = showCompleted ? completedProjects : activeProjects;
 
   const getPortalUrl = (token: string) => {
     const baseUrl = appBaseUrl || window.location.origin;
@@ -194,15 +205,15 @@ export function PortalProjectLinksSection({
               <Link className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-base font-semibold">Customer Portals</CardTitle>
+              <CardTitle className="text-base font-semibold">Projects & Customer Portals</CardTitle>
               <p className="text-xs text-muted-foreground">
-                {projectsWithPortals.length > 0 ? `${projectsWithPortals.length} active` : "Share project portals"}
+                {activeProjects.length > 0 ? `${activeProjects.length} active` : "Share project portals"}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {projectsWithPortals.length > 0 && (
-              <Badge variant="secondary" className="font-medium">{projectsWithPortals.length}</Badge>
+            {activeProjects.length > 0 && (
+              <Badge variant="secondary" className="font-medium">{activeProjects.length}</Badge>
             )}
             {isExpanded ? (
               <ChevronUp className="h-5 w-5 text-muted-foreground" />
@@ -215,22 +226,41 @@ export function PortalProjectLinksSection({
 
       {isExpanded && (
         <CardContent className="pt-0">
+          {/* Completed toggle */}
+          {completedProjects.length > 0 && (
+            <div className="flex items-center gap-2 pb-3 pt-1" onClick={e => e.stopPropagation()}>
+              <Switch
+                id="show-completed-projects"
+                checked={showCompleted}
+                onCheckedChange={setShowCompleted}
+                className="scale-90"
+              />
+              <Label htmlFor="show-completed-projects" className="text-xs text-muted-foreground cursor-pointer">
+                Show completed ({completedProjects.length})
+              </Label>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : projectsWithPortals.length === 0 ? (
+          ) : visibleProjects.length === 0 ? (
             <div className="text-center py-8">
               <Link className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No customer portals available</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Portals are created when proposals are sent
+              <p className="text-sm text-muted-foreground">
+                {showCompleted ? "No completed projects" : "No active customer portals available"}
               </p>
+              {!showCompleted && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Portals are created when proposals are sent
+                </p>
+              )}
             </div>
           ) : (
             <ScrollArea className="max-h-[400px]">
               <div className="space-y-2">
-                {projectsWithPortals.map((project) => (
+                {visibleProjects.map((project) => (
                   <div
                     key={project.id}
                     className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
