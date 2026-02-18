@@ -3466,34 +3466,6 @@ export function OpportunityDetailSheet({
                   {savedValues.source ?? (contact?.source ? normalizeSourceName(contact.source) : "No source")}
                 </div>}
             </div>
-
-            {/* Stage */}
-            <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[100px] flex-1">
-              <div className="text-muted-foreground text-xs mb-[1px]">Stage</div>
-              {isEditing ? <Select value={editedStage} onValueChange={setEditedStage}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue placeholder="Select stage" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
-                    {availableStages.map(stage => <SelectItem key={stage} value={stage} className="text-xs">
-                        {stage}
-                      </SelectItem>)}
-                  </SelectContent>
-                </Select> : isInlineEditingStage ? <Select value={savedValues.stage_name ?? opportunity.stage_name ?? ""} onValueChange={handleInlineStageChange} disabled={isSavingInline} onOpenChange={open => {
-              if (!open && !isSavingInline) setIsInlineEditingStage(false);
-            }} defaultOpen>
-                  <SelectTrigger className="h-7 text-xs">
-                    {isSavingInline ? <Loader2 className="h-3 w-3 animate-spin" /> : <SelectValue placeholder="Select stage" />}
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
-                    {availableStages.map(stage => <SelectItem key={stage} value={stage} className="text-xs">
-                        {stage}
-                      </SelectItem>)}
-                  </SelectContent>
-                </Select> : <button className="font-medium truncate hover:underline text-left w-full cursor-pointer" onClick={() => setIsInlineEditingStage(true)}>
-                  {savedValues.stage_name ?? opportunity.stage_name ?? "-"}
-                </button>}
-            </div>
           </div>
 
           {/* Notes/Comments */}
