@@ -360,6 +360,7 @@ export function OpportunityDetailSheet({
   
   // Send thank you email state
   const [isSendingThankYou, setIsSendingThankYou] = useState(false);
+  const [showThankYouPreview, setShowThankYouPreview] = useState(false);
 
   // Linked estimates
   const [linkedEstimates, setLinkedEstimates] = useState<{
@@ -2800,7 +2801,7 @@ export function OpportunityDetailSheet({
                 <Button
                   variant="outline"
                   className="w-full justify-start gap-2"
-                  onClick={handleSendThankYouEmail}
+                  onClick={() => setShowThankYouPreview(true)}
                   disabled={isSendingThankYou || !contact?.email}
                 >
                   {isSendingThankYou ? (
@@ -2814,6 +2815,70 @@ export function OpportunityDetailSheet({
                   )}
                 </Button>
               )}
+              {/* Thank-You Email Preview Dialog */}
+              <Dialog open={showThankYouPreview} onOpenChange={setShowThankYouPreview}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Preview Thank-You Email</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    {/* To / Subject meta */}
+                    <div className="rounded-lg border bg-muted/40 p-3 space-y-1 text-sm">
+                      <div className="flex gap-2">
+                        <span className="font-medium w-14 shrink-0 text-muted-foreground">To:</span>
+                        <span>{contact?.email}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="font-medium w-14 shrink-0 text-muted-foreground">Subject:</span>
+                        <span>Thank You for Meeting With Us</span>
+                      </div>
+                    </div>
+                    {/* Email body preview */}
+                    <div className="rounded-lg border bg-background p-4 space-y-4 text-sm">
+                      <p>Dear {contactName || "Customer"},</p>
+                      <p>
+                        Thank you so much for taking the time to meet with us and considering our services!
+                        We truly appreciate the opportunity to learn about your project and discuss how we can help.
+                      </p>
+                      <p>We've set up a personalized customer portal for you where you can:</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li><strong>Upload any documents</strong> we discussed (plans, photos, permits, etc.)</li>
+                        <li><strong>Ask questions</strong> directly to our team</li>
+                        <li><strong>Track progress</strong> as we prepare your proposal</li>
+                      </ul>
+                      <div className="text-center py-2">
+                        <span className="inline-block bg-foreground text-background px-5 py-2 rounded-lg font-semibold text-sm">
+                          Access Your Portal
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground text-xs break-all">
+                        Portal link: {portalLink}
+                      </p>
+                      <p>If you have any questions or need anything at all, please don't hesitate to reach out.</p>
+                      <p>We look forward to working with you.</p>
+                      <p className="font-medium">Best regards,<br />Your Team</p>
+                    </div>
+                  </div>
+                  <DialogFooter className="mt-4">
+                    <Button variant="outline" onClick={() => setShowThankYouPreview(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setShowThankYouPreview(false);
+                        handleSendThankYouEmail();
+                      }}
+                      disabled={isSendingThankYou}
+                    >
+                      {isSendingThankYou ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-2" />Sending…</>
+                      ) : (
+                        <><Mail className="h-4 w-4 mr-2" />Send Email</>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           ) : (
             <Button
