@@ -801,6 +801,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
         .eq("id", project.id);
       if (error) throw error;
       toast.success("Project deleted successfully");
+      // Invalidate all caches that may contain this project so search & lists update instantly
+      queryClient.invalidateQueries({ queryKey: ["global-search-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["production-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["project-detail", project.id] });
       onUpdate();
       if (onClose) onClose();
       else onOpenChange(false);
