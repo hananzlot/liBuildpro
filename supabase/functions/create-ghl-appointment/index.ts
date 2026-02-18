@@ -30,6 +30,7 @@ serve(async (req) => {
 
     const {
       contactId,
+      contactUuid,
       locationId,
       title,
       startTime,  // ISO string in UTC
@@ -42,7 +43,7 @@ serve(async (req) => {
       companyId,   // Company ID for multi-tenancy
     } = await req.json();
 
-    if (!contactId || !title || !startTime) {
+    if ((!contactId && !contactUuid) || !title || !startTime) {
       return jsonResponse(
         { error: "contactId, title, and startTime are required" },
         400,
@@ -51,14 +52,23 @@ serve(async (req) => {
 
     // If locationId or companyId not provided, look them up from the contact
     let effectiveLocationId = locationId;
-    let effectiveCompanyId = companyId;
+    let effectiveCompanyId = companyId; // Use directly if provided (avoids local ID lookup issues)
     
     if (!effectiveLocationId || !effectiveCompanyId) {
-      const { data: contactData } = await supabase
-        .from('contacts')
-        .select('location_id, company_id')
-        .eq('ghl_id', contactId)
-        .single();
+      // Prefer UUID-based lookup; fall back to ghl_id for GHL contacts
+      const isLocalContact = contactId && contactId.startsWith('local_');
+      
+      let contactQuery = supabase.from('contacts').select('location_id, company_id');
+      
+      if (contactUuid) {
+        contactQuery = contactQuery.eq('id', contactUuid);
+      } else if (!isLocalContact && contactId) {
+        contactQuery = contactQuery.eq('ghl_id', contactId);
+      }
+
+      const { data: contactData } = contactUuid || (!isLocalContact && contactId)
+        ? await contactQuery.single()
+        : { data: null };
       
       if (!effectiveLocationId) {
         effectiveLocationId = contactData?.location_id || 'local';

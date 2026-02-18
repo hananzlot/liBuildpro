@@ -58,6 +58,7 @@ interface Opportunity {
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
   location_id?: string;
+  company_id?: string | null;
   won_at?: string | null;
   scope_of_work?: string | null;
   address?: string | null;
@@ -884,8 +885,10 @@ export function OpportunityDetailSheet({
           dueDate: dueDateValue,
           assignedTo: assignedToValue,
           contactId: opportunity.contact_id,
+          contactUuid: opportunity.contact_uuid || null,
           locationId: locationId,
-          enteredBy: user?.id || null
+          enteredBy: user?.id || null,
+          companyId: opportunity.company_id || companyId || null,
         }
       });
       if (ghlResponse.error) {
@@ -1211,6 +1214,7 @@ export function OpportunityDetailSheet({
       const response = await supabase.functions.invoke("create-ghl-appointment", {
         body: {
           contactId: opportunity.contact_id,
+          contactUuid: opportunity.contact_uuid || null,
           locationId,
           title: appointmentTitle.trim(),
           startTime: utcDate.toISOString(),
@@ -1220,6 +1224,7 @@ export function OpportunityDetailSheet({
           address: appointmentAddress.trim() || null,
           notes: appointmentNotes.trim() || null,
           enteredBy: user?.id || null,
+          companyId: opportunity.company_id || companyId || null,
           skipGHLSync: true // Always local-first
         }
       });
@@ -2070,7 +2075,7 @@ export function OpportunityDetailSheet({
     }
   };
   const handleSaveScope = async () => {
-    if (!opportunity?.ghl_id) return;
+    if (!opportunity?.ghl_id && !opportunity?.id) return;
     setIsSavingScope(true);
     try {
       const {
@@ -2078,9 +2083,11 @@ export function OpportunityDetailSheet({
         error
       } = await supabase.functions.invoke("update-opportunity-scope", {
         body: {
-          opportunityGhlId: opportunity.ghl_id,
+          opportunityGhlId: opportunity.ghl_id || null,
+          opportunityId: opportunity.id,
           scopeOfWork: editedScope.trim(),
-          editedBy: user?.id || null
+          editedBy: user?.id || null,
+          companyId: opportunity.company_id || companyId || null,
         }
       });
       if (error) throw error;
