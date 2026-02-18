@@ -3219,17 +3219,30 @@ export function OpportunityDetailSheet({
                         {p.name}
                       </SelectItem>)}
                   </SelectContent>
-                </Select> : <button className="font-medium truncate hover:underline text-left w-full cursor-pointer" onClick={() => setIsInlineEditingPipeline(true)}>
-                  <span className="flex items-center gap-1 flex-wrap">
-                    <span>{hasAdminPipelineConfig ? (adminPipelineName || "Main") : (savedValues.pipeline_name ?? opportunity.pipeline_name ?? "-")}</span>
-                    {(savedValues.stage_name ?? opportunity.stage_name) && (
-                      <>
-                        <span className="text-muted-foreground">›</span>
-                        <span className="text-muted-foreground font-normal">{savedValues.stage_name ?? opportunity.stage_name}</span>
-                      </>
-                    )}
-                  </span>
-                </button>}
+                 </Select> : isInlineEditingStage ? <Select value={savedValues.stage_name ?? opportunity.stage_name ?? ""} onValueChange={handleInlineStageChange} disabled={isSavingInline} onOpenChange={open => {
+              if (!open && !isSavingInline) setIsInlineEditingStage(false);
+            }} defaultOpen>
+                  <SelectTrigger className="h-7 text-xs">
+                    {isSavingInline ? <Loader2 className="h-3 w-3 animate-spin" /> : <SelectValue placeholder="Select stage" />}
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {Array.from(stageMap.entries()).map(([name]) => <SelectItem key={name} value={name} className="text-xs">
+                        {name}
+                      </SelectItem>)}
+                  </SelectContent>
+                </Select> : <span className="flex items-center gap-1 flex-wrap">
+                  <button className="font-medium hover:underline text-left cursor-pointer" onClick={() => setIsInlineEditingPipeline(true)}>
+                    {hasAdminPipelineConfig ? (adminPipelineName || "Main") : (savedValues.pipeline_name ?? opportunity.pipeline_name ?? "-")}
+                  </button>
+                  {(savedValues.stage_name ?? opportunity.stage_name) && (
+                    <>
+                      <span className="text-muted-foreground">›</span>
+                      <button className="text-muted-foreground font-normal hover:underline hover:text-foreground cursor-pointer" onClick={() => setIsInlineEditingStage(true)}>
+                        {savedValues.stage_name ?? opportunity.stage_name}
+                      </button>
+                    </>
+                  )}
+                </span>}
             </div>
 
 
