@@ -116,48 +116,34 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Fetch pipelines/stages when dialog opens - first from ghl_pipelines, then company_settings, then opportunities
+  // Fetch pipelines/stages when dialog opens - admin config always wins over GHL
+  // Priority: pipeline_stages table > company_settings > ghl_pipelines > opportunities > hardcoded defaults
   useEffect(() => {
     if (!open || !companyId) return;
     
     const fetchPipelineStages = async () => {
-      // First try to get from ghl_pipelines table scoped by company
-      const { data: pipelineData } = await supabase
-        .from("ghl_pipelines")
-        .select("ghl_id, name, stages")
-        .eq("company_id", companyId);
+      // Priority 1: pipeline_stages table (UUID-based, new system)
+      const { data: pipelineStagesData } = await supabase
+        .from("pipeline_stages")
+        .select("id, name, position")
+        .eq("company_id", companyId)
+        .order("position", { ascending: true });
 
-      console.log('NewEntryDialog fetched pipeline data:', pipelineData);
-
-      if (pipelineData && pipelineData.length > 0) {
-        // Build pipeline stages from ghl_pipelines, sorted by position
-        const stages: PipelineStage[] = [];
-        pipelineData.forEach((pipeline: any) => {
-          const pipelineStages = pipeline.stages || [];
-          // Sort stages by position to match GHL order
-          const sortedPipelineStages = [...pipelineStages].sort((a: any, b: any) => 
-            (a.position ?? 0) - (b.position ?? 0)
-          );
-          sortedPipelineStages.forEach((stage: any) => {
-            stages.push({
-              pipeline_id: pipeline.ghl_id,
-              pipeline_name: pipeline.name,
-              pipeline_stage_id: stage.id,
-              stage_name: stage.name,
-            });
-          });
-        });
+      if (pipelineStagesData && pipelineStagesData.length > 0) {
+        const pipelineId = `pipeline_${companyId}`;
+        const stages: PipelineStage[] = pipelineStagesData.map((s) => ({
+          pipeline_id: pipelineId,
+          pipeline_name: "Main",
+          pipeline_stage_id: s.id,
+          stage_name: s.name,
+        }));
         setPipelineStages(stages);
-
-        // Set default to first stage
-        if (stages.length > 0) {
-          setSelectedPipeline(stages[0].pipeline_id);
-          setSelectedStage(stages[0].pipeline_stage_id);
-        }
+        setSelectedPipeline(stages[0].pipeline_id);
+        setSelectedStage(stages[0].pipeline_stage_id);
         return;
       }
 
-      // Try to get from company_settings (admin-configured pipeline)
+      // Priority 2: company_settings "pipeline_stages" key (legacy admin config)
       const { data: settingsData } = await supabase
         .from("company_settings")
         .select("setting_key, setting_value")
@@ -181,8 +167,6 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
           }));
 
           setPipelineStages(stages);
-
-          // Set default to first stage (typically "Lead")
           if (stages.length > 0) {
             setSelectedPipeline(stages[0].pipeline_id);
             setSelectedStage(stages[0].pipeline_stage_id);
@@ -191,6 +175,35 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
         } catch (e) {
           console.error("Failed to parse pipeline_stages setting:", e);
         }
+      }
+
+      // Priority 3: ghl_pipelines table (only reached if NO admin config exists)
+      const { data: pipelineData } = await supabase
+        .from("ghl_pipelines")
+        .select("ghl_id, name, stages")
+        .eq("company_id", companyId);
+
+      if (pipelineData && pipelineData.length > 0) {
+        const stages: PipelineStage[] = [];
+        pipelineData.forEach((pipeline: any) => {
+          const sortedPipelineStages = [...(pipeline.stages || [])].sort((a: any, b: any) =>
+            (a.position ?? 0) - (b.position ?? 0)
+          );
+          sortedPipelineStages.forEach((stage: any) => {
+            stages.push({
+              pipeline_id: pipeline.ghl_id,
+              pipeline_name: pipeline.name,
+              pipeline_stage_id: stage.id,
+              stage_name: stage.name,
+            });
+          });
+        });
+        setPipelineStages(stages);
+        if (stages.length > 0) {
+          setSelectedPipeline(stages[0].pipeline_id);
+          setSelectedStage(stages[0].pipeline_stage_id);
+        }
+        return;
       }
 
       // Fall back to deriving from opportunities scoped by company
