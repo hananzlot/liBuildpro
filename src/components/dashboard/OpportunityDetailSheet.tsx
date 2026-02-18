@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt, AlertTriangle, FolderOpen, Trophy, Eye } from "lucide-react";
 import { EmailSyncDialog } from "@/components/shared/EmailSyncDialog";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -184,6 +184,7 @@ export function OpportunityDetailSheet({
 }: OpportunityDetailSheetProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     user,
     profile,
@@ -2698,7 +2699,7 @@ export function OpportunityDetailSheet({
                 className="h-7" 
                 onClick={() => {
                   onOpenChange(false);
-                  navigate(`/production/${associatedProjects[0].id}?returnTo=opportunity&oppId=${opportunity.id}`);
+                  navigate(`/production/${associatedProjects[0].id}?returnTo=${encodeURIComponent(location.pathname)}`);
                 }}
               >
                 <FolderOpen className="h-3.5 w-3.5 mr-1" />
@@ -2718,7 +2719,7 @@ export function OpportunityDetailSheet({
                   {associatedProjects.map((proj) => (
                     <DropdownMenuItem
                       key={proj.id}
-                      onClick={() => { onOpenChange(false); navigate(`/production/${proj.id}?returnTo=opportunity&oppId=${opportunity.id}`); }}
+                      onClick={() => { onOpenChange(false); navigate(`/production/${proj.id}?returnTo=${encodeURIComponent(location.pathname)}`); }}
                     >
                       {proj.project_name || `Project ${proj.id.slice(0, 8)}`}
                     </DropdownMenuItem>
