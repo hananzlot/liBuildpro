@@ -352,6 +352,7 @@ export function OpportunityDetailSheet({
   // Associated project for production link
   const [associatedProjectId, setAssociatedProjectId] = useState<string | null>(null);
   const [associatedProjects, setAssociatedProjects] = useState<{ id: string; project_name: string | null }[]>([]);
+  const [projectsRefreshTick, setProjectsRefreshTick] = useState(0);
 
   // Portal link for same contact
   const [portalLink, setPortalLink] = useState<string | null>(null);
@@ -418,6 +419,7 @@ export function OpportunityDetailSheet({
         .select("id, project_name")
         .eq("opportunity_id", opportunity.ghl_id)
         .eq("company_id", companyId)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       
       setAssociatedProjects(projectsData || []);
@@ -506,7 +508,7 @@ export function OpportunityDetailSheet({
     };
     
     fetchProjectAndEstimates();
-  }, [open, opportunity?.ghl_id, opportunity?.id, opportunity?.contact_id, opportunity?.contact_uuid, companyId]);
+  }, [open, opportunity?.ghl_id, opportunity?.id, opportunity?.contact_id, opportunity?.contact_uuid, companyId, projectsRefreshTick, location.pathname]);
 
   // Fetch active salespeople for the assignment dropdown
   const { data: activeSalespeople = [] } = useQuery({
