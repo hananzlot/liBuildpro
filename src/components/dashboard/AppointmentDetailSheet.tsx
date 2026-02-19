@@ -267,6 +267,7 @@ export function AppointmentDetailSheet({
   const [editContactPhone, setEditContactPhone] = useState("");
   const [editContactEmail, setEditContactEmail] = useState("");
   const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
+  const [phoneValidationError, setPhoneValidationError] = useState<string | null>(null);
   const [editContactAddress, setEditContactAddress] = useState("");
   const [isSavingContact, setIsSavingContact] = useState(false);
 
@@ -1050,6 +1051,7 @@ export function AppointmentDetailSheet({
     e.stopPropagation();
     setIsEditingContact(false);
     setEmailValidationError(null);
+    setPhoneValidationError(null);
   };
 
   // Save contact changes
@@ -1059,6 +1061,16 @@ export function AppointmentDetailSheet({
       toast.error("Cannot update contact: missing ID");
       return;
     }
+
+    // Validate phone format before saving
+    const trimmedPhone = editContactPhone.trim();
+    const phoneRegex = /^(\+1[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}$/;
+    if (trimmedPhone && !phoneRegex.test(trimmedPhone)) {
+      setPhoneValidationError("Please enter a valid US phone number");
+      toast.error("Please enter a valid US phone number");
+      return;
+    }
+    setPhoneValidationError(null);
 
     // Validate email format before saving
     const trimmedEmail = editContactEmail.trim();
@@ -1277,11 +1289,23 @@ export function AppointmentDetailSheet({
                       <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       <Input
                         value={editContactPhone}
-                        onChange={(e) => setEditContactPhone(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditContactPhone(val);
+                          const phoneRegex = /^(\+1[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}$/;
+                          if (val.trim() && !phoneRegex.test(val.trim())) {
+                            setPhoneValidationError("Please enter a valid US phone number");
+                          } else {
+                            setPhoneValidationError(null);
+                          }
+                        }}
                         placeholder="Phone number"
                         className="h-7 text-sm"
                         onClick={(e) => e.stopPropagation()}
                       />
+                      {phoneValidationError && (
+                        <p className="text-xs text-destructive mt-0.5 w-full">{phoneValidationError}</p>
+                      )}
                     </div>
                     {/* Edit Email */}
                     <div className="flex items-center gap-2">
