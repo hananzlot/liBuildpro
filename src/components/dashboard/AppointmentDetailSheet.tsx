@@ -302,8 +302,38 @@ export function AppointmentDetailSheet({
     enabled: !!companyId,
   });
 
-  const contact = appointment ? findContactByIdOrGhlId(contacts, appointment.contact_uuid, appointment.contact_id) : null;
-  const relatedOpportunities = appointment ? opportunities.filter((o) => o.contact_id === appointment.contact_id) : [];
+  const contactFromProps = appointment ? findContactByIdOrGhlId(contacts, appointment.contact_uuid, appointment.contact_id) : null;
+
+  // Fallback: fetch contact directly from DB if not found in props (e.g. page-mode or sparse contacts list)
+  const { data: contactFromDB } = useQuery({
+    queryKey: ["appointment-contact-fallback", appointment?.contact_uuid, appointment?.contact_id, companyId],
+    queryFn: async () => {
+      if (!appointment) return null;
+      const { data } = await supabase
+        .from("contacts")
+        .select("*")
+        .or(
+          [
+            appointment.contact_uuid ? `id.eq.${appointment.contact_uuid}` : null,
+            appointment.contact_id ? `ghl_id.eq.${appointment.contact_id}` : null,
+          ]
+            .filter(Boolean)
+            .join(",")
+        )
+        .maybeSingle();
+      return data || null;
+    },
+    enabled: !!appointment && !contactFromProps && !!(appointment.contact_uuid || appointment.contact_id),
+  });
+
+  const contact = contactFromProps || contactFromDB || null;
+
+  const relatedOpportunities = appointment
+    ? opportunities.filter(
+        (o) =>
+          (appointment.contact_id && o.contact_id === appointment.contact_id)
+      )
+    : [];
   const primaryOpportunity = relatedOpportunities[0];
 
   // Clear optimistic overrides once fresh props land (or when switching appointments)
@@ -1040,7 +1070,8 @@ export function AppointmentDetailSheet({
         
         const { error: nameError } = await supabase.functions.invoke("update-contact-name", {
           body: { 
-            contactId: contact.ghl_id, 
+            contactId: contact.ghl_id || null,
+            contactUuid: contact.id || null,
             firstName,
             lastName,
             editedBy: user?.id || null,
@@ -1055,8 +1086,12 @@ export function AppointmentDetailSheet({
       if (editContactPhone.trim() !== (contact?.phone || "")) {
         const { error: phoneError } = await supabase.functions.invoke("update-contact-phone", {
           body: { 
-            contactId: contact.ghl_id, 
-            phone: editContactPhone.trim() 
+            contactId: contact.ghl_id || null,
+            contactUuid: contact.id || null,
+            phone: editContactPhone.trim(),
+            editedBy: user?.id || null,
+            opportunityGhlId: primaryOpportunity?.ghl_id || null,
+            companyId: companyId,
           },
         });
         if (phoneError) throw phoneError;
