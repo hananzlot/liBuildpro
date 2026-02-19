@@ -412,20 +412,21 @@ export function AppointmentDetailSheet({
     if (!contact?.id) return;
     setLoadingEstimates(true);
     try {
-      const { data, error } = await supabase
+      const query = supabase
         .from("estimates")
         .select("id, estimate_number, status, total, created_at")
         .eq("contact_uuid", contact.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      // Deduplicate by estimate_number — the DB can have duplicate rows for the same estimate
-      const seen = new Map<string, typeof data[0]>();
-      for (const est of (data || [])) {
-        const key = String(est.estimate_number ?? est.id);
-        if (!seen.has(key)) seen.set(key, est);
+      // Always scope to the current company to avoid cross-tenant duplicates
+      if (companyId) {
+        query.eq("company_id", companyId);
       }
-      setEstimates(Array.from(seen.values()));
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setEstimates(data || []);
     } catch (error) {
       console.error("Error fetching estimates:", error);
     } finally {
