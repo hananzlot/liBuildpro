@@ -360,6 +360,7 @@ export function ContactDetailSheet({
       const { error } = await supabase.functions.invoke('update-contact-address', {
         body: {
           contactId: localContact.ghl_id,
+          contactUuid: localContact.id,
           address,
           editedBy: user?.id,
           companyId
@@ -381,6 +382,7 @@ export function ContactDetailSheet({
       const { error } = await supabase.functions.invoke('update-contact-source', {
         body: {
           contactId: localContact.ghl_id,
+          contactUuid: localContact.id,
           source,
           editedBy: user?.id,
           companyId

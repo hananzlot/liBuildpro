@@ -568,25 +568,37 @@ export function AppointmentDetailSheet({
 
   // Direct status update handler
   const handleUpdateStatusDirect = async (newStatus: string) => {
-    if (!appointment?.ghl_id) return;
+    const appointmentId = appointment?.id || appointment?.ghl_id;
+    if (!appointmentId) return;
     setIsUpdatingStatus(true);
     try {
       // Update appointment (saves to Supabase, syncs to GHL if connected)
       const { error: ghlError } = await supabase.functions.invoke('update-ghl-appointment', {
-        body: { ghl_id: appointment.ghl_id, appointment_status: newStatus }
+        body: { 
+          ghl_id: appointment?.ghl_id || null,
+          appointmentUuid: appointment?.id,
+          appointment_status: newStatus 
+        }
       });
-      if (ghlError) throw ghlError;
+      if (ghlError) console.warn("GHL sync failed, updating locally:", ghlError);
 
       // Update in Supabase with edit tracking
-      const { error: dbError } = await supabase
+      let query = supabase
         .from('appointments')
         .update({ 
           appointment_status: newStatus, 
           ghl_date_updated: new Date().toISOString(),
           edited_by: user?.id || null,
           edited_at: new Date().toISOString(),
-        })
-        .eq('ghl_id', appointment.ghl_id);
+        });
+
+      if (appointment?.id) {
+        query = query.eq('id', appointment.id);
+      } else if (appointment?.ghl_id) {
+        query = query.eq('ghl_id', appointment.ghl_id);
+      }
+
+      const { error: dbError } = await query;
       if (dbError) throw dbError;
 
       // Update local status immediately so UI reflects change
