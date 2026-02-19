@@ -220,7 +220,7 @@ export function AppointmentDetailSheet({
   const [loadingNotes, setLoadingNotes] = useState(false);
   
   // Estimates state
-  const [estimates, setEstimates] = useState<{ id: string; estimate_number: number | null; status: string | null; total: number | null; created_at: string }[]>([]);
+  const [estimates, setEstimates] = useState<{ id: string; estimate_number: number | null; status: string | null; total: number | null; created_at: string; sent_at: string | null }[]>([]);
   const [loadingEstimates, setLoadingEstimates] = useState(false);
   
   // Collapsible section states - all collapsed by default
@@ -456,7 +456,7 @@ export function AppointmentDetailSheet({
     try {
       let estimatesQuery = supabase
         .from("estimates")
-        .select("id, estimate_number, status, total, created_at")
+        .select("id, estimate_number, status, total, created_at, sent_at")
         .eq("contact_uuid", contact.id)
         .order("created_at", { ascending: false });
 
@@ -1724,7 +1724,7 @@ export function AppointmentDetailSheet({
                       <div key={est.id} className="flex items-center justify-between gap-2 p-2 rounded-md border bg-muted/30 hover:bg-muted/50 transition-colors">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium">
-                            Estimate #{est.estimate_number || "—"}
+                            {est.sent_at ? `Proposal #${est.estimate_number || "—"}` : `Estimate #${est.estimate_number || "—"}`}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {new Date(est.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
