@@ -1700,6 +1700,12 @@ export function AppointmentDetailSheet({
                     </>
                   )}
                 </div>
+                {/* Appointment Notes - inline below confirmation row */}
+                {appointment.notes && (
+                  <div className="px-3 pb-2 pt-0">
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">{appointment.notes}</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1753,32 +1759,6 @@ export function AppointmentDetailSheet({
                 )}
               </div>
 
-              {/* Appointment Notes - subsection */}
-              {appointment.notes && (
-                <Collapsible open={openSections.apptNotes} onOpenChange={() => toggleSection('apptNotes')}>
-                  <div className="border-t">
-                    <CollapsibleTrigger className="w-full bg-muted/30 px-3 py-2 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          Appointment Notes
-                        </span>
-                      </div>
-                      <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${openSections.apptNotes ? 'rotate-180' : ''}`} />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="px-3 py-2 bg-muted/10">
-                        <p className="text-sm whitespace-pre-wrap">{appointment.notes}</p>
-                      </div>
-                    </CollapsibleContent>
-                  </div>
-                </Collapsible>
-              )}
-            </div>
-        </div>
-
-        <div className="p-4 space-y-4">
-
           {/* Tasks Section - Collapsible */}
           <Collapsible open={openSections.tasks} onOpenChange={() => toggleSection('tasks')}>
             <div className="border rounded-lg overflow-hidden">
@@ -1792,9 +1772,6 @@ export function AppointmentDetailSheet({
                 </div>
                 <div className="flex items-center gap-1">
                   {loadingTasks && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openTaskDialog(); }}>
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
                   <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openSections.tasks ? 'rotate-180' : ''}`} />
                 </div>
               </CollapsibleTrigger>
@@ -1804,34 +1781,18 @@ export function AppointmentDetailSheet({
                     <div className="p-3 text-sm text-muted-foreground text-center">No tasks</div>
                   ) : (
                     tasks.map((task) => (
-                      <div key={task.id} className="p-3 flex items-start gap-2">
-                        <button
-                          onClick={() => handleToggleTask(task)}
-                          className={`mt-0.5 h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-                            task.completed || task.status === "completed"
-                              ? "bg-emerald-500 border-emerald-500 text-white"
-                              : "border-muted-foreground/40 hover:border-primary"
-                          }`}
-                        >
-                          {(task.completed || task.status === "completed") && (
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div
-                            className={`text-sm font-medium ${task.completed || task.status === "completed" ? "line-through text-muted-foreground" : ""}`}
-                          >
-                            {task.title}
+                      <div key={task.id} className="p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">{task.title}</p>
+                            {task.body && <p className="text-xs text-muted-foreground mt-0.5 truncate">{task.body}</p>}
                           </div>
                           {task.due_date && (
-                            <div className="text-xs text-muted-foreground">Due: {formatDateShort(task.due_date)}</div>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDateShort(task.due_date)}
+                            </span>
                           )}
                         </div>
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          GHL
-                        </Badge>
                       </div>
                     ))
                   )}
@@ -1846,84 +1807,60 @@ export function AppointmentDetailSheet({
               <CollapsibleTrigger className="w-full bg-muted/30 px-3 py-2 flex items-center justify-between border-b hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-2">
                   <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Activity Notes
-                  </span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Activity Notes</span>
                   <Badge variant="secondary" className="text-xs">
                     {contactNotes.length}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-1">
                   {loadingNotes && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setShowAddNote(!showAddNote); }}>
-                    <Plus className="h-3.5 w-3.5" />
-                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
-                    onClick={(e) => { e.stopPropagation(); fetchContactNotes(); }}
-                    disabled={loadingNotes}
+                    onClick={(e) => { e.stopPropagation(); setShowAddNote(!showAddNote); }}
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${loadingNotes ? "animate-spin" : ""}`} />
+                    <Plus className="h-3.5 w-3.5" />
                   </Button>
                   <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openSections.notes ? 'rotate-180' : ''}`} />
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                {/* Add Note Form */}
                 {showAddNote && (
-                  <div className="p-3 border-b bg-muted/20">
+                  <div className="p-3 border-b bg-muted/10">
                     <Textarea
-                      placeholder="Add a note..."
                       value={newNoteBody}
                       onChange={(e) => setNewNoteBody(e.target.value)}
-                      className="min-h-[60px] text-sm mb-2"
+                      placeholder="Write a note..."
+                      rows={3}
+                      className="text-sm mb-2"
                     />
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setShowAddNote(false);
-                          setNewNoteBody("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" size="sm" onClick={() => { setShowAddNote(false); setNewNoteBody(""); }}>Cancel</Button>
                       <Button size="sm" onClick={handleAddNote} disabled={isAddingNote || !newNoteBody.trim()}>
                         {isAddingNote ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-                        Save Note
+                        Save
                       </Button>
                     </div>
                   </div>
                 )}
-
                 <div className="divide-y max-h-48 overflow-y-auto">
                   {contactNotes.length === 0 && !loadingNotes ? (
                     <div className="p-3 text-sm text-muted-foreground text-center">No notes</div>
-                  ) : (
-                    contactNotes.map((note) => {
-                      // Prefer entered_by (app user) over user_id (GHL user)
-                      let noteUserName = note.creator?.full_name || null;
-                      if (!noteUserName && note.user_id) {
-                        const noteUser = users.find((u) => u.ghl_id === note.user_id);
-                        noteUserName = noteUser?.name || 
-                          (noteUser?.first_name && noteUser?.last_name
-                            ? `${noteUser.first_name} ${noteUser.last_name}`
-                            : null);
-                      }
-                      return (
-                        <div key={note.id} className="p-3">
-                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                            <span>{noteUserName || "GHL User"}</span>
-                            <span>{note.ghl_date_added ? formatDateShort(note.ghl_date_added) : "Unknown date"}</span>
-                          </div>
-                          <p className="text-sm whitespace-pre-wrap">{stripHtml(note.body || "No content")}</p>
+                  ) : contactNotes.map((note) => {
+                    const creatorName = note.creator?.full_name ?? null;
+                    const ghlUser = !creatorName && note.user_id ? users.find((u) => u.ghl_id === note.user_id) : null;
+                    const displayName = creatorName ?? ghlUser?.name ?? (ghlUser?.first_name ? `${ghlUser.first_name} ${ghlUser.last_name ?? ""}`.trim() : "GHL User");
+                    return (
+                      <div key={note.id} className="p-3">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                          <span>{displayName}</span>
+                          <span>{note.ghl_date_added ? formatDateShort(note.ghl_date_added) : "Unknown date"}</span>
                         </div>
-                      );
-                    })
-                  )}
+                        <p className="text-sm whitespace-pre-wrap">{stripHtml(note.body || "No content")}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </CollapsibleContent>
             </div>
