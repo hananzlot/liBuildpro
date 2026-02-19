@@ -140,16 +140,22 @@ const EditableField = ({ icon, value, placeholder, onSave, isAdmin, type = 'text
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   useEffect(() => {
     setEditValue(value || '');
   }, [value]);
 
   const handleSave = async () => {
+    if (type === 'email' && editValue.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editValue.trim())) {
+      setEmailError("Please enter a valid email address");
+      return;
+    }
     setIsSaving(true);
     try {
       await onSave(editValue.trim());
       setIsEditing(false);
+      setEmailError(null);
     } catch (error) {
       console.error('Save error:', error);
     } finally {
@@ -168,7 +174,15 @@ const EditableField = ({ icon, value, placeholder, onSave, isAdmin, type = 'text
         {icon}
         <Input
           value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setEditValue(val);
+            if (type === 'email' && val.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim())) {
+              setEmailError("Please enter a valid email address");
+            } else {
+              setEmailError(null);
+            }
+          }}
           className="h-7 text-sm flex-1"
           type={type}
           autoFocus
@@ -177,6 +191,9 @@ const EditableField = ({ icon, value, placeholder, onSave, isAdmin, type = 'text
             if (e.key === 'Escape') handleCancel();
           }}
         />
+        {emailError && (
+          <p className="text-xs text-destructive mt-0.5 w-full">{emailError}</p>
+        )}
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSave} disabled={isSaving}>
           {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-emerald-500" />}
         </Button>

@@ -317,6 +317,7 @@ export function OpportunityDetailSheet({
   const [editedEmail, setEditedEmail] = useState("");
   const [isSavingEmail, setIsSavingEmail] = useState(false);
   const [savedEmail, setSavedEmail] = useState<string | null>(null);
+  const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
   const [emailSyncDialogOpen, setEmailSyncDialogOpen] = useState(false);
   const [pendingEmailChange, setPendingEmailChange] = useState<{ oldEmail: string | null; newEmail: string } | null>(null);
 
@@ -2199,6 +2200,12 @@ export function OpportunityDetailSheet({
 
   const handleSaveEmail = async () => {
     if (!opportunity?.contact_id && !opportunity?.contact_uuid) return;
+    const trimmedEmailCheck = editedEmail.trim();
+    if (trimmedEmailCheck && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmailCheck)) {
+      setEmailValidationError("Please enter a valid email address");
+      return;
+    }
+    setEmailValidationError(null);
     
     const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
     const currentEmail = savedEmail ?? contact?.email ?? null;
@@ -3137,12 +3144,23 @@ export function OpportunityDetailSheet({
                     <div className="flex-1 flex items-center gap-2">
                       <Input
                         value={editedEmail}
-                        onChange={(e) => setEditedEmail(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditedEmail(val);
+                          if (val.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim())) {
+                            setEmailValidationError("Please enter a valid email address");
+                          } else {
+                            setEmailValidationError(null);
+                          }
+                        }}
                         placeholder="Enter email..."
                         className="h-7 text-sm flex-1"
                         autoFocus
                         type="email"
                       />
+                      {emailValidationError && (
+                        <p className="text-xs text-destructive mt-0.5 w-full">{emailValidationError}</p>
+                      )}
                       <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handleSaveEmail} disabled={isSavingEmail}>
                         {isSavingEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                       </Button>
