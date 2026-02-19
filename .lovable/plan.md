@@ -1,135 +1,89 @@
 
-# Plan: Fix contact_uuid on Estimates + Remove Duplicate Scope of Work Section
+# Plan: Email Format Validation When Updating Contact Email
 
-## Summary of Changes
+## What's Changing and Why
 
-Three distinct changes will be made:
+When a user edits the contact email in the Appointment Detail Sheet and clicks Save, there is currently **no validation** that the typed value is a properly formatted email address. If someone types a partial or malformed email, it gets sent straight to the edge function and stored in the DB.
 
-1. **Database trigger** on the `estimates` table to auto-populate `contact_uuid` from the linked opportunity when null.
-2. **Database backfill SQL** to fix all existing estimates that have `opportunity_uuid` but null `contact_uuid`.
-3. **Code fix** in `EstimateBuilderDialog.tsx` to always resolve `contact_uuid` from the opportunity before saving (even when `contact_uuid` is null on the opportunity object, fall back to fetching it from the DB via `opportunity_uuid`).
-4. **Remove the standalone Scope of Work collapsible section** in `AppointmentDetailSheet.tsx` (lines ~1681–1698), since that data already appears inside the linked Opportunity section.
+The fix adds two layers of protection:
 
----
-
-## Change 1: Database Migration — Trigger + Backfill
-
-### Backfill SQL
-Runs once to fix all existing estimates where `contact_uuid` is null but the linked opportunity has a valid `contact_uuid`:
-
-```sql
-UPDATE estimates e
-SET contact_uuid = o.contact_uuid
-FROM opportunities o
-WHERE e.opportunity_uuid = o.id
-  AND e.contact_uuid IS NULL
-  AND o.contact_uuid IS NOT NULL;
-```
-
-### Database Trigger
-A `BEFORE INSERT OR UPDATE` trigger on `estimates` that, when `contact_uuid` is null and `opportunity_uuid` is set, looks up the opportunity and copies over its `contact_uuid`:
-
-```sql
-CREATE OR REPLACE FUNCTION public.sync_estimate_contact_uuid()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-BEGIN
-  -- Only act when contact_uuid is missing but opportunity_uuid is present
-  IF NEW.contact_uuid IS NULL AND NEW.opportunity_uuid IS NOT NULL THEN
-    SELECT contact_uuid
-    INTO NEW.contact_uuid
-    FROM public.opportunities
-    WHERE id = NEW.opportunity_uuid
-      AND contact_uuid IS NOT NULL
-    LIMIT 1;
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_sync_estimate_contact_uuid
-BEFORE INSERT OR UPDATE ON public.estimates
-FOR EACH ROW
-EXECUTE FUNCTION public.sync_estimate_contact_uuid();
-```
+1. **Save-time guard** — before `setIsSavingContact(true)`, check the email string against a standard regex and bail out early with a toast error if it fails.
+2. **Inline field error** — while the user is typing, show a small red error message beneath the email input so they get instant feedback without needing to hit Save.
 
 ---
 
-## Change 2: Code Fix in EstimateBuilderDialog.tsx
+## Technical Details
 
-### Problem
-At line ~1074, `contact_uuid` is only copied from the `linkedOpportunity` prop if `linkedOpportunity.contact_uuid` is already non-null:
+### File: `src/components/dashboard/AppointmentDetailSheet.tsx`
+
+#### Part A — Validation state variable
+
+Add one new state variable near the other `editContact*` state declarations (~line 268):
 
 ```typescript
-if (linkedOpportunity.contact_uuid) {
-  setLinkedContactUuid(linkedOpportunity.contact_uuid);
-  setLinkedContactId(linkedOpportunity.contact_id);
-}
+const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
 ```
 
-If the opportunity object was fetched without `contact_uuid` being populated (race condition or missing backfill), the estimate is saved with a null `contact_uuid`.
+#### Part B — onChange handler for email input
 
-### Fix
-Inside the `saveMutation.mutationFn`, just before building `estimateData`, add a resolution step: if `linkedContactUuid` is still null but `linkedOpportunityUuid` is set, perform a quick Supabase query to fetch the opportunity's `contact_uuid` from the DB and use it:
-
-```typescript
-// Resolve contact_uuid from opportunity if still missing
-let resolvedContactUuid = linkedContactUuid;
-if (!resolvedContactUuid && linkedOpportunityUuid) {
-  const { data: oppData } = await supabase
-    .from("opportunities")
-    .select("contact_uuid")
-    .eq("id", linkedOpportunityUuid)
-    .maybeSingle();
-  if (oppData?.contact_uuid) {
-    resolvedContactUuid = oppData.contact_uuid;
-  }
-}
-```
-
-Then use `resolvedContactUuid` in `estimateData` instead of `linkedContactUuid`.
-
----
-
-## Change 3: Remove Standalone Scope of Work from AppointmentDetailSheet.tsx
-
-### Location
-Lines 1680–1698 in `src/components/dashboard/AppointmentDetailSheet.tsx`.
-
-### What to Remove
-The entire `{/* Scope of Work - Collapsible */}` block:
+At the email `<Input>` component (~line 1283), replace the plain `onChange` with one that clears the error when the field is empty or the format is valid, and sets it otherwise:
 
 ```tsx
-{scopeOfWork && (
-  <Collapsible open={openSections.scope} onOpenChange={() => toggleSection('scope')}>
-    <div className="border rounded-lg overflow-hidden">
-      <CollapsibleTrigger ...>
-        <Briefcase ... />
-        <span>Scope of Work</span>
-        ...
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
-      </CollapsibleContent>
-    </div>
-  </Collapsible>
+onChange={(e) => {
+  const val = e.target.value;
+  setEditContactEmail(val);
+  // Validate only when there's a non-empty value
+  if (val.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim())) {
+    setEmailValidationError("Please enter a valid email address");
+  } else {
+    setEmailValidationError(null);
+  }
+}}
+```
+
+Add a small error line directly below the `<Input>`:
+
+```tsx
+{emailValidationError && (
+  <p className="text-xs text-destructive mt-0.5">{emailValidationError}</p>
 )}
 ```
 
-### Why It's Safe
-The `scopeOfWork` value (derived from `contact.custom_fields` or `attributions`) is already rendered inside the **Opportunity section** of the same sheet — specifically, `primaryOpportunity.scope_of_work` is displayed and editable in the opportunity collapsible at lines ~1456–1463. Removing this standalone card eliminates the duplication without losing any data.
+#### Part C — Guard in `handleSaveContact` (~line 1055)
 
-The `scopeOfWork` variable and the `openSections.scope` key can be left in state (unused variables cause no runtime harm), or cleaned up too for completeness.
+Add the validation check right after the existing "missing ID" guard, before `setIsSavingContact(true)`:
+
+```typescript
+// Validate email format before saving
+const trimmedEmail = editContactEmail.trim();
+if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+  toast.error("Please enter a valid email address");
+  return;
+}
+```
+
+Also clear the validation error when the user cancels editing (in `cancelEditingContact`):
+
+```typescript
+setEmailValidationError(null);
+```
 
 ---
 
 ## Files Changed
 
-| File | Type of Change |
+| File | Change |
 |---|---|
-| Supabase migration (new) | Backfill SQL + trigger function + trigger |
-| `src/components/estimates/EstimateBuilderDialog.tsx` | Add contact_uuid resolution in saveMutation |
-| `src/components/dashboard/AppointmentDetailSheet.tsx` | Remove standalone Scope of Work collapsible block |
+| `src/components/dashboard/AppointmentDetailSheet.tsx` | Add `emailValidationError` state, inline error under email input, save-time guard, clear on cancel |
+
+---
+
+## Behaviour After the Fix
+
+| Scenario | Result |
+|---|---|
+| User types `john.doe@example.com` | No error shown; saves normally |
+| User types `notanemail` | Red error appears under field while typing; Save blocked with toast |
+| User types `test@` | Red error appears; Save blocked |
+| User clears the email field entirely | No error (empty email is allowed — contact may not have one) |
+| User cancels editing | Error cleared |
