@@ -661,13 +661,20 @@ export function OpportunityDetailSheet({
             }
           }
 
-          // Fetch from tasks table (ghl_tasks)
+          // Fetch from tasks table (ghl_tasks) - scoped to company
+          let tasksQuery = supabase.from("ghl_tasks").select("*");
+          if (opportunity.contact_uuid) {
+            tasksQuery = tasksQuery.eq("contact_uuid", opportunity.contact_uuid);
+          } else {
+            tasksQuery = tasksQuery.eq("contact_id", opportunity.contact_id);
+          }
+          if (companyId) {
+            tasksQuery = tasksQuery.eq("company_id", companyId);
+          }
           const {
             data,
             error
-          } = await supabase.from("ghl_tasks").select("*").eq("contact_id", opportunity.contact_id).order("due_date", {
-            ascending: true
-          });
+          } = await tasksQuery.order("due_date", { ascending: true });
           if (error) throw error;
           const tasks: DisplayTask[] = (data || []).map((t: GHLTask) => ({
             id: t.id,
@@ -687,14 +694,18 @@ export function OpportunityDetailSheet({
         }
       };
 
-      // Fetch estimated cost - use ghl_id if available, else uuid
+      // Fetch estimated cost - scoped to company
       const fetchEstimatedCost = async () => {
         try {
           const oppKey = opportunity.ghl_id || opportunity.id;
-          const {
-            data,
-            error
-          } = await supabase.from("project_costs").select("estimated_cost").eq("opportunity_id", oppKey).maybeSingle();
+          let costQuery = supabase
+            .from("project_costs")
+            .select("estimated_cost")
+            .eq("opportunity_id", oppKey);
+          if (companyId) {
+            costQuery = costQuery.eq("company_id", companyId);
+          }
+          const { data, error } = await costQuery.maybeSingle();
           if (error) throw error;
           if (data) {
             setEstimatedCost(data.estimated_cost?.toString() || "");
