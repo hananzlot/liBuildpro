@@ -266,6 +266,7 @@ export function AppointmentDetailSheet({
   const [editContactName, setEditContactName] = useState("");
   const [editContactPhone, setEditContactPhone] = useState("");
   const [editContactEmail, setEditContactEmail] = useState("");
+  const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
   const [editContactAddress, setEditContactAddress] = useState("");
   const [isSavingContact, setIsSavingContact] = useState(false);
 
@@ -1048,6 +1049,7 @@ export function AppointmentDetailSheet({
   const cancelEditingContact = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsEditingContact(false);
+    setEmailValidationError(null);
   };
 
   // Save contact changes
@@ -1055,6 +1057,13 @@ export function AppointmentDetailSheet({
     e.stopPropagation();
     if (!contact?.ghl_id && !contact?.id) {
       toast.error("Cannot update contact: missing ID");
+      return;
+    }
+
+    // Validate email format before saving
+    const trimmedEmail = editContactEmail.trim();
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      toast.error("Please enter a valid email address");
       return;
     }
 
@@ -1280,11 +1289,22 @@ export function AppointmentDetailSheet({
                       <Input
                         type="email"
                         value={editContactEmail}
-                        onChange={(e) => setEditContactEmail(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditContactEmail(val);
+                          if (val.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim())) {
+                            setEmailValidationError("Please enter a valid email address");
+                          } else {
+                            setEmailValidationError(null);
+                          }
+                        }}
                         placeholder="Email address"
                         className="h-7 text-sm"
                         onClick={(e) => e.stopPropagation()}
                       />
+                      {emailValidationError && (
+                        <p className="text-xs text-destructive mt-0.5">{emailValidationError}</p>
+                      )}
                     </div>
                   </>
                 ) : (
