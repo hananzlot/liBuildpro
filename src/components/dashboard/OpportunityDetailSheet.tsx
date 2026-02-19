@@ -687,13 +687,14 @@ export function OpportunityDetailSheet({
         }
       };
 
-      // Fetch estimated cost
+      // Fetch estimated cost - use ghl_id if available, else uuid
       const fetchEstimatedCost = async () => {
         try {
+          const oppKey = opportunity.ghl_id || opportunity.id;
           const {
             data,
             error
-          } = await supabase.from("project_costs").select("estimated_cost").eq("opportunity_id", opportunity.ghl_id).maybeSingle();
+          } = await supabase.from("project_costs").select("estimated_cost").eq("opportunity_id", oppKey).maybeSingle();
           if (error) throw error;
           if (data) {
             setEstimatedCost(data.estimated_cost?.toString() || "");
@@ -1953,11 +1954,12 @@ export function OpportunityDetailSheet({
       // If source was changed, update contact source separately
       const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
       const originalSource = contact?.source || "";
-      if (editedSource !== originalSource && opportunity.contact_id) {
+      if (editedSource !== originalSource && (opportunity.contact_id || opportunity.contact_uuid)) {
         try {
           await supabase.functions.invoke("update-contact-source", {
             body: {
               contactId: opportunity.contact_id,
+              contactUuid: opportunity.contact_uuid,
               source: editedSource,
               editedBy: user?.id || null,
               opportunityGhlId: opportunity.ghl_id
@@ -2053,11 +2055,12 @@ export function OpportunityDetailSheet({
     setCostError(null);
     setIsSavingCost(true);
     try {
-      // Upsert the estimated cost
+      // Upsert the estimated cost - use ghl_id if available, else use uuid
+      const oppKey = opportunity.ghl_id || opportunity.id;
       const {
         error
       } = await supabase.from("project_costs").upsert({
-        opportunity_id: opportunity.ghl_id,
+        opportunity_id: oppKey,
         estimated_cost: costValue,
         entered_by: user?.id || null,
         company_id: companyId
@@ -2126,10 +2129,11 @@ export function OpportunityDetailSheet({
       if (oppData?.error) throw new Error(oppData.error);
 
       // Also update contact custom_fields for legacy compatibility
-      if (opportunity.contact_id) {
+      if (opportunity.contact_id || opportunity.contact_uuid) {
         await supabase.functions.invoke("update-contact-address", {
           body: {
             contactId: opportunity.contact_id,
+            contactUuid: opportunity.contact_uuid,
             address: editedAddress.trim(),
             editedBy: user?.id || null,
             opportunityGhlId: opportunity.ghl_id
@@ -2247,7 +2251,7 @@ export function OpportunityDetailSheet({
     queryClient.invalidateQueries({ queryKey: ["estimates"] });
   };
   const handleSaveName = async () => {
-    if (!opportunity?.contact_id) return;
+    if (!opportunity?.contact_id && !opportunity?.contact_uuid) return;
     setIsSavingName(true);
     try {
       const {
@@ -2256,6 +2260,7 @@ export function OpportunityDetailSheet({
       } = await supabase.functions.invoke("update-contact-name", {
         body: {
           contactId: opportunity.contact_id,
+          contactUuid: opportunity.contact_uuid,
           firstName: editedFirstName.trim(),
           lastName: editedLastName.trim(),
           editedBy: user?.id || null,
