@@ -1758,6 +1758,7 @@ export function AppointmentDetailSheet({
                   </div>
                 )}
               </div>
+            </div>
 
           {/* Tasks Section - Collapsible */}
           <Collapsible open={openSections.tasks} onOpenChange={() => toggleSection('tasks')}>

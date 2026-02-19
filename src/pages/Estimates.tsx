@@ -308,13 +308,15 @@ export default function Estimates() {
     }).format(amount);
   };
 
-  // Format estimate number with appropriate prefix based on status
-  const formatEstimateNumber = (estimate: Estimate) => {
+  // Format estimate number with appropriate prefix based on status/tab
+  const formatEstimateNumber = (estimate: Estimate, tableType?: string) => {
     const num = estimate.estimate_number;
     if (estimate.status === "accepted") {
       return `CNT-${num}`;
     }
-    // CO- prefix would be for change orders - can be added when that feature exists
+    if (tableType === "proposals" || ["sent", "viewed", "needs_changes"].includes(estimate.status)) {
+      return `PROP-${num}`;
+    }
     return `EST-${num}`;
   };
 
@@ -454,7 +456,7 @@ export default function Estimates() {
           {estimateList.map((estimate) => (
             <TableRow key={estimate.id}>
               <TableCell className="font-mono text-muted-foreground font-medium">
-                {formatEstimateNumber(estimate)}
+                {formatEstimateNumber(estimate, tableType)}
               </TableCell>
               <TableCell>
                 <div className="flex flex-col">
@@ -671,7 +673,9 @@ export default function Estimates() {
     <AppLayout>
       <div className="flex flex-col gap-3 p-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">Estimates</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {currentView === "proposals" ? "Proposals" : currentView === "contracts" ? "Contracts" : currentView === "declined" ? "Declined" : "Estimates"}
+          </h1>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
