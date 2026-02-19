@@ -1677,26 +1677,6 @@ export function AppointmentDetailSheet({
         </div>
 
         <div className="p-4 space-y-4">
-          {/* Scope of Work - Collapsible */}
-          {scopeOfWork && (
-            <Collapsible open={openSections.scope} onOpenChange={() => toggleSection('scope')}>
-              <div className="border rounded-lg overflow-hidden">
-                <CollapsibleTrigger className="w-full bg-muted/30 px-3 py-2 flex items-center justify-between border-b hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scope of Work</span>
-                  </div>
-                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${openSections.scope ? 'rotate-180' : ''}`} />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="p-3">
-                    <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-          )}
-
           {/* Appointment Notes - Collapsible */}
           {appointment.notes && (
             <Collapsible open={openSections.apptNotes} onOpenChange={() => toggleSection('apptNotes')}>
