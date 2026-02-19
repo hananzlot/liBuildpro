@@ -1,87 +1,135 @@
 
-## Fix: Annabella Cannot Add Scope, Appointments, or Tasks
+# Plan: Fix contact_uuid on Estimates + Remove Duplicate Scope of Work Section
 
-### Root Cause Summary
+## Summary of Changes
 
-Three separate bugs affect non-admin users like Annabella (roles: dispatch, production, sales, contract_manager):
+Three distinct changes will be made:
+
+1. **Database trigger** on the `estimates` table to auto-populate `contact_uuid` from the linked opportunity when null.
+2. **Database backfill SQL** to fix all existing estimates that have `opportunity_uuid` but null `contact_uuid`.
+3. **Code fix** in `EstimateBuilderDialog.tsx` to always resolve `contact_uuid` from the opportunity before saving (even when `contact_uuid` is null on the opportunity object, fall back to fetching it from the DB via `opportunity_uuid`).
+4. **Remove the standalone Scope of Work collapsible section** in `AppointmentDetailSheet.tsx` (lines ~1681–1698), since that data already appears inside the linked Opportunity section.
 
 ---
 
-### Bug 1: Scope of Work silently fails for locally-created opportunities
+## Change 1: Database Migration — Trigger + Backfill
 
-**File:** `src/components/dashboard/OpportunityDetailSheet.tsx` — `handleSaveScope()` at line 2072
+### Backfill SQL
+Runs once to fix all existing estimates where `contact_uuid` is null but the linked opportunity has a valid `contact_uuid`:
 
-```typescript
-const handleSaveScope = async () => {
-  if (!opportunity?.ghl_id) return;  // ← SILENT RETURN if ghl_id is null
+```sql
+UPDATE estimates e
+SET contact_uuid = o.contact_uuid
+FROM opportunities o
+WHERE e.opportunity_uuid = o.id
+  AND e.contact_uuid IS NULL
+  AND o.contact_uuid IS NOT NULL;
 ```
 
-Locally created opportunities (via "Create Opp" button) have `ghl_id: null`. The save button appears and clicks, but nothing happens. The fix is to fall back to `opportunity?.id` (the UUID) when `ghl_id` is null, and pass both to the edge function. The `update-opportunity-scope` edge function should then query by UUID when the ghl_id is a local ID or null.
+### Database Trigger
+A `BEFORE INSERT OR UPDATE` trigger on `estimates` that, when `contact_uuid` is null and `opportunity_uuid` is set, looks up the opportunity and copies over its `contact_uuid`:
 
-**Fix approach:**
-- In `handleSaveScope`, use `opportunity.id` as fallback identifier when `ghl_id` is null
-- Pass `opportunityId` (UUID) alongside `opportunityGhlId` to the edge function
-- In `update-opportunity-scope/index.ts`, if `opportunityGhlId` is null or missing, use `opportunityId` to look up and update the record by UUID
+```sql
+CREATE OR REPLACE FUNCTION public.sync_estimate_contact_uuid()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  -- Only act when contact_uuid is missing but opportunity_uuid is present
+  IF NEW.contact_uuid IS NULL AND NEW.opportunity_uuid IS NOT NULL THEN
+    SELECT contact_uuid
+    INTO NEW.contact_uuid
+    FROM public.opportunities
+    WHERE id = NEW.opportunity_uuid
+      AND contact_uuid IS NOT NULL
+    LIMIT 1;
+  END IF;
+  RETURN NEW;
+END;
+$$;
 
----
-
-### Bug 2: Task creation fails silently for locally-created opportunities
-
-**File:** `src/components/dashboard/OpportunityDetailSheet.tsx` — `handleCreateTask()` at line 880
-
-```typescript
-contactId: opportunity.contact_id,  // ← passes "local_contact_..." string
+CREATE TRIGGER trg_sync_estimate_contact_uuid
+BEFORE INSERT OR UPDATE ON public.estimates
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_estimate_contact_uuid();
 ```
 
-The `create-ghl-task` edge function tries to look up the contact using `ghl_id = 'local_contact_...'` to resolve `company_id`, but finds nothing since local contacts use their UUID as `id`, not `ghl_id`. The insert proceeds without a `company_id`, which means Annabella's company RLS filter won't show it.
+---
 
-**Fix approach:**
-- Pass `companyId` explicitly in the task creation body (already available via `useCompanyContext`)
-- Also pass `contactUuid: opportunity.contact_uuid` alongside `contactId` in the body
-- In the edge function, prefer UUID-based lookup when resolving company context
+## Change 2: Code Fix in EstimateBuilderDialog.tsx
+
+### Problem
+At line ~1074, `contact_uuid` is only copied from the `linkedOpportunity` prop if `linkedOpportunity.contact_uuid` is already non-null:
+
+```typescript
+if (linkedOpportunity.contact_uuid) {
+  setLinkedContactUuid(linkedOpportunity.contact_uuid);
+  setLinkedContactId(linkedOpportunity.contact_id);
+}
+```
+
+If the opportunity object was fetched without `contact_uuid` being populated (race condition or missing backfill), the estimate is saved with a null `contact_uuid`.
+
+### Fix
+Inside the `saveMutation.mutationFn`, just before building `estimateData`, add a resolution step: if `linkedContactUuid` is still null but `linkedOpportunityUuid` is set, perform a quick Supabase query to fetch the opportunity's `contact_uuid` from the DB and use it:
+
+```typescript
+// Resolve contact_uuid from opportunity if still missing
+let resolvedContactUuid = linkedContactUuid;
+if (!resolvedContactUuid && linkedOpportunityUuid) {
+  const { data: oppData } = await supabase
+    .from("opportunities")
+    .select("contact_uuid")
+    .eq("id", linkedOpportunityUuid)
+    .maybeSingle();
+  if (oppData?.contact_uuid) {
+    resolvedContactUuid = oppData.contact_uuid;
+  }
+}
+```
+
+Then use `resolvedContactUuid` in `estimateData` instead of `linkedContactUuid`.
 
 ---
 
-### Bug 3: Appointment creation missing companyId
+## Change 3: Remove Standalone Scope of Work from AppointmentDetailSheet.tsx
 
-**File:** `src/components/dashboard/OpportunityDetailSheet.tsx` — `handleCreateAppointment()` at line 1211
+### Location
+Lines 1680–1698 in `src/components/dashboard/AppointmentDetailSheet.tsx`.
 
-The `create-ghl-appointment` edge function is called without `companyId` in the body. Same issue as tasks — when it tries to auto-resolve the company from `contacts.ghl_id = 'local_contact_...'`, it gets nothing, and the appointment record is created with `company_id = null`. Annabella then can't see it due to RLS.
+### What to Remove
+The entire `{/* Scope of Work - Collapsible */}` block:
 
-**Fix approach:**
-- Pass `companyId` explicitly in the appointment creation body
+```tsx
+{scopeOfWork && (
+  <Collapsible open={openSections.scope} onOpenChange={() => toggleSection('scope')}>
+    <div className="border rounded-lg overflow-hidden">
+      <CollapsibleTrigger ...>
+        <Briefcase ... />
+        <span>Scope of Work</span>
+        ...
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
+      </CollapsibleContent>
+    </div>
+  </Collapsible>
+)}
+```
 
----
+### Why It's Safe
+The `scopeOfWork` value (derived from `contact.custom_fields` or `attributions`) is already rendered inside the **Opportunity section** of the same sheet — specifically, `primaryOpportunity.scope_of_work` is displayed and editable in the opportunity collapsible at lines ~1456–1463. Removing this standalone card eliminates the duplication without losing any data.
 
-### What is NOT broken
-
-- Notes work because `create-contact-note` resolves by `contact_id` differently and the `contact_notes` table has an open INSERT policy for all company users
-- The UI buttons all show for Annabella — no role guards block the buttons
-- Annabella's roles are correctly set — this is purely a data/logic bug
-
----
-
-### Technical Details
-
-**Files to edit:**
-1. `src/components/dashboard/OpportunityDetailSheet.tsx`
-   - `handleSaveScope`: add fallback to `opportunity.id` when `opportunity.ghl_id` is null
-   - `handleCreateTask`: add `companyId` and `contactUuid` to the invocation body
-   - `handleCreateAppointment`: add `companyId` to the invocation body
-
-2. `supabase/functions/update-opportunity-scope/index.ts`
-   - Accept `opportunityId` (UUID) as a fallback when `opportunityGhlId` is null
-   - Query by `id` (UUID) when `opportunityGhlId` is null or a local ID
-
-3. `supabase/functions/create-ghl-task/index.ts`
-   - Accept and use `companyId` directly from the request body when provided (skip the lookup)
-   - Accept `contactUuid` and use it for UUID-based contact lookup when `contactId` is a local ID
-
-4. `supabase/functions/create-ghl-appointment/index.ts`
-   - Accept and use `companyId` directly from the request body when provided
+The `scopeOfWork` variable and the `openSections.scope` key can be left in state (unused variables cause no runtime harm), or cleaned up too for completeness.
 
 ---
 
-### No Database / Migration Changes Required
+## Files Changed
 
-All fixes are in frontend component logic and edge function logic only.
+| File | Type of Change |
+|---|---|
+| Supabase migration (new) | Backfill SQL + trigger function + trigger |
+| `src/components/estimates/EstimateBuilderDialog.tsx` | Add contact_uuid resolution in saveMutation |
+| `src/components/dashboard/AppointmentDetailSheet.tsx` | Remove standalone Scope of Work collapsible block |
