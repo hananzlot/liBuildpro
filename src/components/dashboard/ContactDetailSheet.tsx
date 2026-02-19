@@ -312,6 +312,7 @@ export function ContactDetailSheet({
       const { error } = await supabase.functions.invoke('update-contact-phone', {
         body: {
           contactId: localContact.ghl_id,
+          contactUuid: localContact.id,
           phone,
           editedBy: user?.id,
           companyId
