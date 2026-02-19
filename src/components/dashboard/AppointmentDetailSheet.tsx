@@ -353,12 +353,18 @@ export function AppointmentDetailSheet({
       });
       if (ghlError) console.error("Error fetching from GHL:", ghlError);
 
-      // Then fetch from database with creator info
-      const { data, error } = await supabase
+      // Then fetch from database with creator info, scoped to company
+      let notesQuery = supabase
         .from("contact_notes")
         .select("*, creator:profiles!contact_notes_entered_by_fkey(full_name)")
         .eq("contact_id", appointment.contact_id)
         .order("ghl_date_added", { ascending: false });
+
+      if (companyId) {
+        notesQuery = notesQuery.eq("company_id", companyId);
+      }
+
+      const { data, error } = await notesQuery;
 
       if (error) throw error;
       setContactNotes(data || []);
@@ -375,13 +381,17 @@ export function AppointmentDetailSheet({
     if (!appointment?.contact_uuid && !appointment?.contact_id) return;
     setLoadingTasks(true);
     try {
-      // Build query - prioritize UUID, fallback to GHL ID
+      // Build query - prioritize UUID, fallback to GHL ID; always scope to company
       let query = supabase.from("ghl_tasks").select("*");
       
       if (appointment.contact_uuid) {
         query = query.eq("contact_uuid", appointment.contact_uuid);
       } else if (appointment.contact_id) {
         query = query.eq("contact_id", appointment.contact_id);
+      }
+
+      if (companyId) {
+        query = query.eq("company_id", companyId);
       }
       
       const { data, error } = await query.order("due_date", { ascending: true });
@@ -412,7 +422,7 @@ export function AppointmentDetailSheet({
     if (!contact?.id) return;
     setLoadingEstimates(true);
     try {
-      const query = supabase
+      let estimatesQuery = supabase
         .from("estimates")
         .select("id, estimate_number, status, total, created_at")
         .eq("contact_uuid", contact.id)
@@ -420,10 +430,10 @@ export function AppointmentDetailSheet({
 
       // Always scope to the current company to avoid cross-tenant duplicates
       if (companyId) {
-        query.eq("company_id", companyId);
+        estimatesQuery = estimatesQuery.eq("company_id", companyId);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await estimatesQuery;
 
       if (error) throw error;
       setEstimates(data || []);
