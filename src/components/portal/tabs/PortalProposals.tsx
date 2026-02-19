@@ -651,7 +651,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           <CardContent className="p-8">
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
               <div>
-                <p className="text-sm text-muted-foreground">Proposal #{selectedEstimate.estimate_number}</p>
+                <p className="text-sm text-muted-foreground">Prop-{selectedEstimate.estimate_number}</p>
                 <h3 className="text-2xl font-bold text-slate-900 mt-1">{selectedEstimate.estimate_title}</h3>
               </div>
               <div className="flex items-center gap-3">
@@ -1383,7 +1383,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                         {statusConfig.label}
                       </Badge>
                       <span className="text-sm text-slate-400 font-mono">
-                        #{estimate.estimate_number}
+                        Prop-{estimate.estimate_number}
                       </span>
                     </div>
                     
