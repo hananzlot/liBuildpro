@@ -703,7 +703,7 @@ export function ContactDetailSheet({
                     icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
                     value={localContact.phone}
                     placeholder="No phone"
-                    isAdmin={isAdmin}
+                    isAdmin={true}
                     type="tel"
                     linkPrefix="tel:"
                     copyable
@@ -715,7 +715,7 @@ export function ContactDetailSheet({
                     icon={<Mail className="h-3.5 w-3.5 shrink-0" />}
                     value={localContact.email}
                     placeholder="No email"
-                    isAdmin={isAdmin}
+                    isAdmin={true}
                     type="email"
                     linkPrefix="mailto:"
                     copyable
