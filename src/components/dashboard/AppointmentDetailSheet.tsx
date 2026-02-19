@@ -419,7 +419,13 @@ export function AppointmentDetailSheet({
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setEstimates(data || []);
+      // Deduplicate by estimate_number — the DB can have duplicate rows for the same estimate
+      const seen = new Map<string, typeof data[0]>();
+      for (const est of (data || [])) {
+        const key = String(est.estimate_number ?? est.id);
+        if (!seen.has(key)) seen.set(key, est);
+      }
+      setEstimates(Array.from(seen.values()));
     } catch (error) {
       console.error("Error fetching estimates:", error);
     } finally {
