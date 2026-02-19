@@ -2134,6 +2134,19 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       const currentStatus = isEditing && existingEstimate?.estimate?.status 
         ? existingEstimate.estimate.status 
         : "draft";
+
+      // Resolve contact_uuid from opportunity if still missing (race condition / backfill gap)
+      let resolvedContactUuid = linkedContactUuid;
+      if (!resolvedContactUuid && linkedOpportunityUuid) {
+        const { data: oppData } = await supabase
+          .from("opportunities")
+          .select("contact_uuid")
+          .eq("id", linkedOpportunityUuid)
+          .maybeSingle();
+        if (oppData?.contact_uuid) {
+          resolvedContactUuid = oppData.contact_uuid;
+        }
+      }
       
       // Prepare estimate data
       // Persist AI analysis if ANY AI section has content (including missing_info)
@@ -2187,7 +2200,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         company_id: companyId,
         opportunity_uuid: linkedOpportunityUuid || null,
         opportunity_id: linkedOpportunityGhlId || null,
-        contact_uuid: linkedContactUuid || null,
+        contact_uuid: resolvedContactUuid || null,
         contact_id: linkedContactId || null,
         lead_source: linkedLeadSource || null,
         ai_analysis: aiAnalysisData,
