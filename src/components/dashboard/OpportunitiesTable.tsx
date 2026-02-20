@@ -320,22 +320,28 @@ export function OpportunitiesTable({
 
   // Track which contacts have appointments (excluding cancelled)
   const contactsWithAppointments = useMemo(() => {
-    return new Set(
-      appointments
-        .filter((a) => a.contact_id && a.appointment_status?.toLowerCase() !== "cancelled")
-        .map((a) => a.contact_id),
-    );
+    const set = new Set<string>();
+    appointments
+      .filter((a) => (a.contact_id || a.contact_uuid) && a.appointment_status?.toLowerCase() !== "cancelled")
+      .forEach((a) => {
+        if (a.contact_id) set.add(a.contact_id);
+        if (a.contact_uuid) set.add(a.contact_uuid);
+      });
+    return set;
   }, [appointments]);
 
-  // Map contact_id to appointments for quick lookup
+  // Map contact key (ghl_id AND uuid) to appointments for quick lookup
   const appointmentsByContact = useMemo(() => {
     const map = new Map<string, Appointment[]>();
     appointments
-      .filter((a) => a.contact_id && a.appointment_status?.toLowerCase() !== "cancelled")
+      .filter((a) => (a.contact_id || a.contact_uuid) && a.appointment_status?.toLowerCase() !== "cancelled")
       .forEach((a) => {
-        const existing = map.get(a.contact_id!) || [];
-        existing.push(a);
-        map.set(a.contact_id!, existing);
+        const keys = [a.contact_id, a.contact_uuid].filter(Boolean) as string[];
+        keys.forEach((key) => {
+          const existing = map.get(key) || [];
+          existing.push(a);
+          map.set(key, existing);
+        });
       });
     return map;
   }, [appointments]);
@@ -351,43 +357,82 @@ export function OpportunitiesTable({
     return map;
   }, [users]);
 
-  // Contact lookup map for dates
+  // Contact lookup map - keyed by both ghl_id AND uuid for full coverage
   const contactMap = useMemo(() => {
     const map = new Map<string, Contact>();
     contacts.forEach((c) => {
       if (c.ghl_id) {
         map.set(c.ghl_id, c);
       }
+      if (c.id) {
+        map.set(c.id, c);
+      }
     });
     return map;
   }, [contacts]);
 
-  // Map contact_id to latest note
-  const latestNoteByContact = useMemo(() => {
-    const map = new Map<string, ContactNote>();
-    // Notes are already sorted by ghl_date_added desc, so first one for each contact is latest
-    notes.forEach((note) => {
-      if (note.contact_id && !map.has(note.contact_id)) {
-        map.set(note.contact_id, note);
+  // Helper to resolve contact from an opportunity (prefers contact_uuid, falls back to contact_id)
+  const getOppContact = (opp: Opportunity): Contact | null => {
+    if (opp.contact_uuid) {
+      const c = contactMap.get(opp.contact_uuid);
+      if (c) return c;
+    }
+    if (opp.contact_id) {
+      const c = contactMap.get(opp.contact_id);
+      if (c) return c;
+    }
+    return null;
+  };
+
+  // Helper to get the best contact key for map lookups (notes, tasks, appointments)
+  const getOppContactKey = (opp: Opportunity): string | null => {
+    return opp.contact_uuid || opp.contact_id || null;
+  };
+
+  // Build a ghl_id -> uuid reverse map for cross-referencing
+  const ghlIdToUuid = useMemo(() => {
+    const map = new Map<string, string>();
+    contacts.forEach((c) => {
+      if (c.ghl_id && c.id) {
+        map.set(c.ghl_id, c.id);
       }
     });
     return map;
-  }, [notes]);
+  }, [contacts]);
 
-  // Map contact_id to latest task
+  // Map contact key (ghl_id AND uuid) to latest note
+  const latestNoteByContact = useMemo(() => {
+    const map = new Map<string, ContactNote>();
+    notes.forEach((note) => {
+      if (note.contact_id && !map.has(note.contact_id)) {
+        map.set(note.contact_id, note);
+        // Also key by UUID
+        const uuid = ghlIdToUuid.get(note.contact_id);
+        if (uuid && !map.has(uuid)) {
+          map.set(uuid, note);
+        }
+      }
+    });
+    return map;
+  }, [notes, ghlIdToUuid]);
+
+  // Map contact key (ghl_id AND uuid) to latest task
   const latestTaskByContact = useMemo(() => {
     const map = new Map<string, Task>();
-    // Sort tasks by created_at desc to get latest first
     const sortedTasks = [...tasks].sort((a, b) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
     sortedTasks.forEach((task) => {
       if (task.contact_id && !map.has(task.contact_id)) {
         map.set(task.contact_id, task);
+        const uuid = ghlIdToUuid.get(task.contact_id);
+        if (uuid && !map.has(uuid)) {
+          map.set(uuid, task);
+        }
       }
     });
     return map;
-  }, [tasks]);
+  }, [tasks, ghlIdToUuid]);
 
   const formatAppointmentDateTime = (dateString: string | null) => {
     if (!dateString) return "-";
@@ -410,7 +455,7 @@ export function OpportunitiesTable({
     // Apply source filter (multi-select)
     if (sourceFilter.length > 0) {
       filtered = filtered.filter((opp) => {
-        const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+        const contact = getOppContact(opp);
         return contact?.source && sourceFilter.includes(contact.source);
       });
     }
@@ -425,9 +470,15 @@ export function OpportunitiesTable({
 
     // Apply appointment filter
     if (appointmentFilter === "with") {
-      filtered = filtered.filter((opp) => opp.contact_id && contactsWithAppointments.has(opp.contact_id));
+      filtered = filtered.filter((opp) => {
+        const key = getOppContactKey(opp);
+        return key && contactsWithAppointments.has(key);
+      });
     } else if (appointmentFilter === "without") {
-      filtered = filtered.filter((opp) => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
+      filtered = filtered.filter((opp) => {
+        const key = getOppContactKey(opp);
+        return !key || !contactsWithAppointments.has(key);
+      });
     }
 
     // Apply sales rep filter (multi-select) - match using both UUID and GHL ID
@@ -447,10 +498,11 @@ export function OpportunitiesTable({
         // Check opportunity assigned_to (could be UUID or GHL ID)
         if (opp.assigned_to && matchingIds.has(opp.assigned_to)) return true;
         // Check contact assigned_to
-        const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+        const contact = getOppContact(opp);
         if (contact?.assigned_to && matchingIds.has(contact.assigned_to)) return true;
         // Check appointment assigned_user_id
-        const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
+        const key = getOppContactKey(opp);
+        const oppAppointments = key ? appointmentsByContact.get(key) || [] : [];
         return oppAppointments.some((a) => a.assigned_user_id && matchingIds.has(a.assigned_user_id));
       });
     }
@@ -462,7 +514,7 @@ export function OpportunitiesTable({
         if (tableDateField === "updatedDate") {
           dateStr = opp.ghl_date_updated || opp.ghl_date_added;
         } else {
-          const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+          const contact = getOppContact(opp);
           dateStr = contact?.ghl_date_added || opp.ghl_date_added;
         }
         if (!dateStr) return false;
@@ -484,7 +536,7 @@ export function OpportunitiesTable({
         return ninetyDaysAgo.getTime();
       }
       // Use contact's date if available, otherwise fall back to opportunity date
-      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+      const contact = getOppContact(opp);
       const dateStr = contact?.ghl_date_added || opp.ghl_date_added;
       return dateStr ? new Date(dateStr).getTime() : 0;
     };
@@ -506,7 +558,7 @@ export function OpportunitiesTable({
         ninetyDaysAgo.setHours(0, 0, 0, 0);
         return ninetyDaysAgo.getTime();
       }
-      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+      const contact = getOppContact(opp);
       const dateStr = contact?.ghl_date_added || opp.ghl_date_added;
       return toDayTimestamp(dateStr);
     };
@@ -543,8 +595,8 @@ export function OpportunitiesTable({
           return dir * comparison;
 
         case "source": {
-          const contactA = a.contact_id ? contactMap.get(a.contact_id) : null;
-          const contactB = b.contact_id ? contactMap.get(b.contact_id) : null;
+          const contactA = getOppContact(a);
+          const contactB = getOppContact(b);
           comparison = (contactA?.source || "").localeCompare(contactB?.source || "");
           return dir * comparison;
         }
@@ -642,8 +694,9 @@ export function OpportunitiesTable({
     ];
 
     const rows = filteredAndSortedOpportunities.map((opp) => {
-      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
-      const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
+      const contact = getOppContact(opp);
+      const key = getOppContactKey(opp);
+      const oppAppointments = key ? appointmentsByContact.get(key) || [] : [];
       const latestAppt =
         oppAppointments.length > 0
           ? oppAppointments.sort(
@@ -663,8 +716,8 @@ export function OpportunitiesTable({
         contact?.contact_name || [contact?.first_name, contact?.last_name].filter(Boolean).join(" ") || "";
 
       // Get latest note and task for this contact
-      const latestNote = opp.contact_id ? latestNoteByContact.get(opp.contact_id) : null;
-      const latestTask = opp.contact_id ? latestTaskByContact.get(opp.contact_id) : null;
+      const latestNote = key ? latestNoteByContact.get(key) : null;
+      const latestTask = key ? latestTaskByContact.get(key) : null;
       
       // Strip HTML from note body for CSV
       const noteContent = latestNote?.body 
@@ -893,7 +946,8 @@ export function OpportunitiesTable({
   const handleCalendarIconClick = (e: React.MouseEvent, opp: Opportunity, contact: Contact | undefined) => {
     e.stopPropagation(); // Prevent row click
     
-    const contactAppts = opp.contact_id ? appointmentsByContact.get(opp.contact_id) : [];
+    const contactKey = getOppContactKey(opp);
+    const contactAppts = contactKey ? appointmentsByContact.get(contactKey) : [];
     
     if (contactAppts && contactAppts.length > 0) {
       // Open the most recent/upcoming appointment
@@ -1073,7 +1127,8 @@ export function OpportunitiesTable({
                 </TableRow>
               ) : (
                 paginatedOpportunities.map((opp) => {
-                  const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
+                  const key = getOppContactKey(opp);
+                  const oppAppointments = key ? appointmentsByContact.get(key) || [] : [];
                   const latestAppt =
                     oppAppointments.length > 0
                       ? oppAppointments.sort(
@@ -1081,12 +1136,12 @@ export function OpportunitiesTable({
                         )[0]
                       : null;
                   const salesRepName = latestAppt?.assigned_user_id ? userMap.get(latestAppt.assigned_user_id) : null;
-                  const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+                  const contact = getOppContact(opp);
                   const contactDate = contact?.ghl_date_added || opp.ghl_date_added;
                   
                   // Get latest note and task for this contact
-                  const latestNote = opp.contact_id ? latestNoteByContact.get(opp.contact_id) : null;
-                  const latestTask = opp.contact_id ? latestTaskByContact.get(opp.contact_id) : null;
+                  const latestNote = key ? latestNoteByContact.get(key) : null;
+                  const latestTask = key ? latestTaskByContact.get(key) : null;
                   
                   // Strip HTML from note body and truncate
                   const notePreview = latestNote?.body 
@@ -1108,7 +1163,7 @@ export function OpportunitiesTable({
 
                   return (
                     <TableRow
-                      key={opp.ghl_id}
+                      key={opp.id || opp.ghl_id || `opp-${paginatedOpportunities.indexOf(opp)}`}
                       className={cn(
                         "border-border/30 hover:bg-muted/30 cursor-pointer",
                         overdueTask && "bg-destructive/5 hover:bg-destructive/10",
@@ -1124,7 +1179,7 @@ export function OpportunitiesTable({
                                 <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
                               </span>
                             )}
-                            {opp.contact_id && contactsWithAppointments.has(opp.contact_id) ? (
+                            {key && contactsWithAppointments.has(key) ? (
                               <button
                                 type="button"
                                 title="View appointment"
