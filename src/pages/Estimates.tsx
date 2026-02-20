@@ -12,10 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BadgePill } from "@/components/ui/badge-pill";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload, ChevronDown, Eye, Globe } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
 import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
 import { format } from "date-fns";
@@ -515,9 +517,14 @@ export default function Estimates() {
               )}
               {!isContractsTab && !isDeclinedTab && (
                 <TableCell>
-                  <Badge className={`${statusColors[estimate.status]} text-white`}>
+                  <BadgePill intent={
+                    estimate.status === 'accepted' ? 'success' :
+                    estimate.status === 'declined' ? 'danger' :
+                    estimate.status === 'sent' || estimate.status === 'viewed' ? 'primary' :
+                    estimate.status === 'needs_changes' ? 'warning' : 'muted'
+                  }>
                     {statusLabels[estimate.status]}
-                  </Badge>
+                  </BadgePill>
                 </TableCell>
               )}
               <TableCell className="text-right font-semibold">
@@ -671,27 +678,29 @@ export default function Estimates() {
 
   return (
     <AppLayout>
-      <div className="flex flex-col gap-3 p-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {currentView === "proposals" ? "Proposals" : currentView === "contracts" ? "Contracts" : currentView === "declined" ? "Declined" : "Estimates"}
-          </h1>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              title="Refresh estimates"
-            >
-              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button onClick={handleNewEstimateClick}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Estimate
-            </Button>
-          </div>
-        </div>
+      <div className="px-4 sm:px-6 py-5 space-y-4">
+        <PageHeader
+          title={currentView === "proposals" ? "Proposals" : currentView === "contracts" ? "Contracts" : currentView === "declined" ? "Declined" : "Estimates"}
+          subtitle={isLoading ? "Loading..." : `${estimates?.length ?? 0} total`}
+          actions={
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                title="Refresh estimates"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button size="sm" className="h-8" onClick={handleNewEstimateClick}>
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                New Estimate
+              </Button>
+            </>
+          }
+        />
 
         <Tabs value={currentView} onValueChange={handleViewChange} className="w-full">
           <TabsList className="w-full max-w-3xl grid grid-cols-4 h-auto">

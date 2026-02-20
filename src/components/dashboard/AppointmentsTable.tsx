@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { BadgePill, statusToIntent } from "@/components/ui/badge-pill";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, ChevronLeft, ChevronRight, User, ArrowUpDown, ArrowUp, ArrowDown, PhoneCall, DollarSign, Megaphone, ChevronDown } from "lucide-react";
@@ -996,9 +997,12 @@ export function AppointmentsTable({
                       <div className="flex flex-col gap-0.5">
                         <span className="text-sm whitespace-nowrap">{formatDateTime(appt.start_time)}</span>
                         <div className="flex items-center gap-1">
-                          <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getStatusColor(appt.appointment_status)}`}>
+                          <BadgePill intent={
+                            appt.appointment_status?.toLowerCase() === 'confirmed' || appt.appointment_status?.toLowerCase() === 'showed' ? 'success' :
+                            appt.appointment_status?.toLowerCase() === 'cancelled' || appt.appointment_status?.toLowerCase() === 'no_show' ? 'danger' : 'warning'
+                          }>
                             {appt.appointment_status || 'Unknown'}
-                          </Badge>
+                          </BadgePill>
                           {appt.salesperson_confirmed && (
                             <span title="Salesperson Confirmed" className="text-emerald-500">
                               <PhoneCall className="h-3 w-3" />
@@ -1016,9 +1020,9 @@ export function AppointmentsTable({
                     <TableCell className="py-2">
                       <div className="flex flex-col gap-0.5">
                         {getOpportunityStatus(appt.contact_id, appt.contact_uuid) !== '-' ? (
-                          <Badge variant="outline" className={`text-xs px-1.5 py-0 w-fit ${getOpportunityStatusColor(getOpportunityStatus(appt.contact_id, appt.contact_uuid))}`}>
+                          <BadgePill intent={statusToIntent(getOpportunityStatus(appt.contact_id, appt.contact_uuid))}>
                             {getOpportunityStatus(appt.contact_id, appt.contact_uuid)}
-                          </Badge>
+                          </BadgePill>
                         ) : (
                           <span className="text-muted-foreground text-xs">-</span>
                         )}

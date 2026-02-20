@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Phone, Mail, MapPin, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { BadgePill } from "@/components/ui/badge-pill";
 import { Button } from "@/components/ui/button";
 import { useUnifiedMode } from "@/hooks/useUnifiedMode";
 import {
@@ -265,9 +266,9 @@ export function ContactsTable({
                      </TableCell>
                     <TableCell>
                       {contact.source ? (
-                        <Badge variant="outline" className="text-xs">
+                        <BadgePill intent="info">
                           {contact.source}
-                        </Badge>
+                        </BadgePill>
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}

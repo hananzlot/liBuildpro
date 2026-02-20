@@ -6,6 +6,7 @@ import { useAppTabs } from "@/contexts/AppTabsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { BadgePill, statusToIntent } from "@/components/ui/badge-pill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1208,9 +1209,9 @@ export function OpportunitiesTable({
                           <span className="text-muted-foreground whitespace-nowrap">
                             {contactDate ? new Date(contactDate).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
                           </span>
-                          <Badge variant="outline" className={cn(getStatusColor(opp.status), "text-xs px-1.5 py-0 w-fit")}>
+                          <BadgePill intent={statusToIntent(opp.status)}>
                             {opp.status || "?"}
-                          </Badge>
+                          </BadgePill>
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">

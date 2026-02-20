@@ -11,7 +11,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
+
 const Contacts = () => {
   const navigate = useNavigate();
   const { contactId } = useParams<{ contactId?: string }>();
@@ -63,6 +65,8 @@ const Contacts = () => {
     }
   };
 
+  const totalCount = metrics?.allContacts?.length ?? 0;
+
   if (error) {
     return (
       <AppLayout onAdminAction={handleAdminAction}>
@@ -87,31 +91,33 @@ const Contacts = () => {
 
   return (
     <AppLayout onAdminAction={handleAdminAction}>
-      <div className="px-6 py-6 space-y-6">
-        {/* Top Actions Bar */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
-          <div className="flex items-center gap-3">
-            {isAdmin && (
-              <Button variant="outline" onClick={() => setMergeDialogOpen(true)}>
-                <Merge className="h-4 w-4 mr-2" />
-                Merge Duplicates
-              </Button>
-            )}
-            {!isGHLEnabled && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-warning/10 text-warning-foreground text-xs font-medium rounded-full border border-warning/20">
-                <HardDrive className="h-3 w-3" />
-                Local Mode
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="px-4 sm:px-6 py-5 space-y-4">
+        {/* Page Header — card-first style */}
+        <PageHeader
+          title="Contacts"
+          subtitle={isLoading ? "Loading..." : `${totalCount} total`}
+          actions={
+            <>
+              {isAdmin && (
+                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setMergeDialogOpen(true)}>
+                  <Merge className="h-3.5 w-3.5 mr-1" />
+                  Merge Duplicates
+                </Button>
+              )}
+              {!isGHLEnabled && (
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-warning/10 text-warning text-xs font-medium rounded-full border border-warning/20">
+                  <HardDrive className="h-3 w-3" />
+                  Local
+                </div>
+              )}
+            </>
+          }
+        />
 
         {/* Contacts Table */}
         <section>
           {isLoading ? (
-            <div className="rounded-lg border bg-card p-0 overflow-hidden">
-              {/* Table skeleton: header + rows */}
+            <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
               <div className="border-b px-4 py-3 flex gap-6">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Skeleton key={i} className="h-3 w-24" />
