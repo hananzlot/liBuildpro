@@ -1,19 +1,14 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { AppTabBar } from "./AppTabBar";
-import { GlobalAdminSearch } from "./GlobalAdminSearch";
-import { NotificationBell } from "@/components/dashboard/NotificationBell";
+import { TopBar } from "./TopBar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { HelpCircle, ExternalLink } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePortalChatNotifications } from "@/hooks/usePortalChatNotifications";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 
@@ -100,61 +95,7 @@ export function AppLayout({
         
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {/* Header */}
-          <header className="h-12 shadow-xs bg-card backdrop-blur-sm sticky top-0 z-30 flex items-center justify-between px-4 shrink-0">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <SidebarTrigger />
-              {/* Always show GlobalAdminSearch for all authenticated users */}
-              <GlobalAdminSearch />
-              {headerContent}
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Quick Web Search - opens Google in popup window */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8"
-                    onClick={() => {
-                      const width = 1024;
-                      const height = 768;
-                      const left = window.screenX + (window.outerWidth - width) / 2;
-                      const top = window.screenY + (window.outerHeight - height) / 2;
-                      window.open(
-                        'https://www.google.com',
-                        'WebSearch',
-                        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-                      );
-                    }}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Open Web Search</TooltipContent>
-              </Tooltip>
-              
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <HelpCircle className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Help</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link to="/help/quickbooks" target="_blank">
-                      QuickBooks Setup Guide
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {showNotifications && <NotificationBell />}
-            </div>
-          </header>
+          <TopBar showNotifications={showNotifications} headerContent={headerContent} />
 
           {/* Inner Tab Bar */}
           <AppTabBar />
