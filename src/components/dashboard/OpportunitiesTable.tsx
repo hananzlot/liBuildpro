@@ -1253,7 +1253,7 @@ export function OpportunitiesTable({
                             variant="ghost"
                             size="sm"
                             className="h-5 w-5 p-0 flex-shrink-0 hover:bg-primary/10"
-                            onClick={(e) => openQuickNoteDialog(e, opp.contact_id, displayName)}
+                            onClick={(e) => openQuickNoteDialog(e, opp.contact_uuid || opp.contact_id, displayName)}
                             title="Add note"
                           >
                             <Plus className="h-3 w-3" />
@@ -1283,7 +1283,7 @@ export function OpportunitiesTable({
                             variant="ghost"
                             size="sm"
                             className="h-5 w-5 p-0 flex-shrink-0 hover:bg-primary/10"
-                            onClick={(e) => openQuickTaskDialog(e, opp.contact_id, displayName)}
+                            onClick={(e) => openQuickTaskDialog(e, opp.contact_uuid || opp.contact_id, displayName)}
                             title="Add task"
                           >
                             <Plus className="h-3 w-3" />
