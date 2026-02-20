@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logEdgeFunctionRun } from "../_shared/edge-function-logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,19 +11,18 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  let requestSummary: Record<string, unknown> = {};
+  let requestingUserId: string | null = null;
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
-    // Create admin client
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
+      auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Verify the requesting user is an admin
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "No authorization header" }), {
@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if requesting user is admin or super_admin
+    requestingUserId = requestingUser.id;
+
     const { data: adminRoles } = await supabaseAdmin
       .from("user_roles")
       .select("role")
@@ -57,8 +58,8 @@ Deno.serve(async (req) => {
 
     const isSuperAdmin = adminRoles.some(r => r.role === "super_admin");
 
-    // Get request body
     const { userId } = await req.json();
+    requestSummary = { targetUserId: userId };
 
     if (!userId) {
       return new Response(JSON.stringify({ error: "User ID is required" }), {
@@ -67,7 +68,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prevent self-deletion
     if (userId === requestingUser.id) {
       return new Response(JSON.stringify({ error: "Cannot delete your own account" }), {
         status: 400,
@@ -75,16 +75,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Company access validation for non-super-admins
+    let targetCompanyId: string | null = null;
+
     if (!isSuperAdmin) {
-      // Get requesting user's company
       const { data: requestingProfile } = await supabaseAdmin
         .from("profiles")
         .select("company_id")
         .eq("id", requestingUser.id)
         .single();
 
-      // Get target user's company
       const { data: targetProfile } = await supabaseAdmin
         .from("profiles")
         .select("company_id")
@@ -98,7 +97,8 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check if target user is a super_admin (non-super-admins cannot delete super_admins)
+      targetCompanyId = targetProfile.company_id;
+
       const { data: targetRoles } = await supabaseAdmin
         .from("user_roles")
         .select("role")
@@ -112,7 +112,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Verify same company
       if (requestingProfile?.company_id !== targetProfile.company_id) {
         console.log(`Access denied: User ${requestingUser.id} (company: ${requestingProfile?.company_id}) tried to delete user ${userId} (company: ${targetProfile.company_id})`);
         return new Response(JSON.stringify({ error: "Cannot delete users from other companies" }), {
@@ -128,15 +127,34 @@ Deno.serve(async (req) => {
       .update({ user_id: null })
       .eq("user_id", userId);
 
-    // Delete the user (this will cascade to profiles and user_roles due to foreign keys)
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteError) {
+      logEdgeFunctionRun({
+        functionName: 'delete-user',
+        companyId: targetCompanyId,
+        userId: requestingUserId,
+        requestSummary,
+        status: 'error',
+        durationMs: Date.now() - startTime,
+        errorMessage: deleteError.message,
+      });
+
       return new Response(JSON.stringify({ error: deleteError.message }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    logEdgeFunctionRun({
+      functionName: 'delete-user',
+      companyId: targetCompanyId,
+      userId: requestingUserId,
+      requestSummary,
+      responseSummary: { deletedUserId: userId },
+      status: 'success',
+      durationMs: Date.now() - startTime,
+    });
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
@@ -145,6 +163,17 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("Error deleting user:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+    logEdgeFunctionRun({
+      functionName: 'delete-user',
+      userId: requestingUserId,
+      requestSummary,
+      status: 'error',
+      durationMs: Date.now() - startTime,
+      errorMessage,
+      errorDetails: error instanceof Error ? error.stack : undefined,
+    });
+
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

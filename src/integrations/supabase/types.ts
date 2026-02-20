@@ -1794,6 +1794,56 @@ export type Database = {
           },
         ]
       }
+      edge_function_logs: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          duration_ms: number | null
+          error_details: string | null
+          error_message: string | null
+          function_name: string
+          id: string
+          request_summary: Json | null
+          response_summary: Json | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: string | null
+          error_message?: string | null
+          function_name: string
+          id?: string
+          request_summary?: Json | null
+          response_summary?: Json | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_details?: string | null
+          error_message?: string | null
+          function_name?: string
+          id?: string
+          request_summary?: Json | null
+          response_summary?: Json | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edge_function_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       encryption_keys: {
         Row: {
           created_at: string | null

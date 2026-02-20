@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logEdgeFunctionRun } from "../_shared/edge-function-logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  let companyId: string | null = null;
+  let enteredBy: string | null = null;
+  let requestSummary: Record<string, unknown> = {};
+
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -30,16 +36,20 @@ serve(async (req) => {
       address,
       scope,
       notes,
-      appointmentDateTime, // ISO string in UTC
+      appointmentDateTime,
       source,
       assignedTo,
-      enteredBy, // User ID who created this entry
+      enteredBy: enteredByParam,
       pipelineId,
       pipelineStageId,
-      calendarId, // Calendar ID for appointments
-      locationId, // Required: which location to use
-      companyId, // Company ID for multi-tenancy
+      calendarId,
+      locationId,
+      companyId: companyIdParam,
     } = await req.json();
+
+    companyId = companyIdParam || null;
+    enteredBy = enteredByParam || null;
+    requestSummary = { firstName, lastName, phone, email, source, locationId, hasAppointment: !!appointmentDateTime };
 
     // Allow entries with just firstName - use it as full name if lastName is missing
     if (!firstName && !lastName) {
@@ -196,6 +206,19 @@ serve(async (req) => {
 
     console.log('Entry created successfully (local-only)');
 
+    const responseSummary = { contactUuid, opportunityUuid, appointmentId, displayName };
+
+    // Log success
+    logEdgeFunctionRun({
+      functionName: 'create-ghl-entry',
+      companyId,
+      userId: enteredBy,
+      requestSummary,
+      responseSummary,
+      status: 'success',
+      durationMs: Date.now() - startTime,
+    });
+
     return new Response(JSON.stringify({ 
       success: true, 
       contactId,
@@ -211,6 +234,19 @@ serve(async (req) => {
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error creating entry:', errorMessage);
+
+    // Log failure
+    logEdgeFunctionRun({
+      functionName: 'create-ghl-entry',
+      companyId,
+      userId: enteredBy,
+      requestSummary,
+      status: 'error',
+      durationMs: Date.now() - startTime,
+      errorMessage,
+      errorDetails: error instanceof Error ? error.stack : undefined,
+    });
+
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
