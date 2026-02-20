@@ -1947,10 +1947,9 @@ export default function Production() {
                   <p className="text-sm">Projects will appear here when opportunities are marked as won</p>
                 </div>
               ) : (
-                <div>
-                  <table className="w-full caption-bottom text-xs table-fixed">
-                    <TableHeader className="[&_tr]:border-b">
-                      <TableRow className="[&_th]:sticky [&_th]:top-0 [&_th]:bg-card [&_th]:z-10 bg-card hover:bg-card">
+                <table className="w-full caption-bottom text-xs table-fixed">
+                    <thead className="[&_tr]:border-b sticky top-0 z-20 bg-card">
+                      <TableRow className="bg-card hover:bg-card">
                         <TableHead className="w-[5%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('project_number')}>
                           <div className="flex items-center"># <SortIcon column="project_number" /></div>
                         </TableHead>
@@ -2002,7 +2001,7 @@ export default function Production() {
                         </TableHead>
                         <TableHead className="w-[4%]"></TableHead>
                       </TableRow>
-                    </TableHeader>
+                    </thead>
                     <TableBody>
                       {sortedAndFilteredProjects.map((project, index) => {
                         const financials = projectFinancials[project.id];
@@ -2249,7 +2248,6 @@ export default function Production() {
                       })}
                     </TableBody>
                   </table>
-                </div>
               )}
             </DataListCardBody>
           </DataListCard>
