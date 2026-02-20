@@ -44,6 +44,8 @@ interface NewEntryDialogProps {
   users: User[];
   onSuccess?: () => void;
   userId?: string;
+  externalOpen?: boolean;
+  onExternalOpenChange?: (open: boolean) => void;
 }
 
 interface CSVEntry {
@@ -87,9 +89,14 @@ interface GoogleCalendarConnection {
 
 const PRIMARY_LOCATION_ID = "pVeFrqvtYWNIPRIi0Fmr";
 
-export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps) {
+export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExternalOpenChange }: NewEntryDialogProps) {
   const { companyId } = useCompanyContext();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (onExternalOpenChange) onExternalOpenChange(v);
+    setInternalOpen(v);
+  };
   const [activeTab, setActiveTab] = useState("single");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
