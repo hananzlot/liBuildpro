@@ -38,6 +38,7 @@ import { SocialMediaLinks } from "@/components/admin/SocialMediaLinks";
 import { BankManagement } from "@/components/admin/BankManagement";
 import { RoleAnalyticsDefaults } from "@/components/admin/RoleAnalyticsDefaults";
 import { OnboardingPromptBanner } from "@/components/onboarding/OnboardingPromptBanner";
+import { EdgeFunctionLogs } from "@/components/admin/EdgeFunctionLogs";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
 import { useQuickBooksCallback } from "@/hooks/useQuickBooksCallback";
 import { format } from "date-fns";
@@ -1974,6 +1975,11 @@ export default function AdminSettings() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Edge Function Logs Tab */}
+          <TabsContent value="edge-logs" className="mt-6">
+            <EdgeFunctionLogs />
           </TabsContent>
         </Tabs>
       </div>

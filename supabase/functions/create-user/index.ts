@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logEdgeFunctionRun } from "../_shared/edge-function-logger.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,19 +11,18 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  let requestSummary: Record<string, unknown> = {};
+  let requestingUserId: string | null = null;
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
-    // Create admin client
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
+      auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Verify the requesting user is an admin
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "No authorization header" }), {
@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if requesting user is admin or super_admin
+    requestingUserId = requestingUser.id;
+
     const { data: adminRoles } = await supabaseAdmin
       .from("user_roles")
       .select("role")
@@ -57,8 +58,8 @@ Deno.serve(async (req) => {
 
     const isSuperAdmin = adminRoles.some(r => r.role === "super_admin");
 
-    // Get request body
     const { email, password, fullName, companyId, corporationId, role } = await req.json();
+    requestSummary = { email, fullName, companyId, role };
 
     if (!email || !password) {
       return new Response(JSON.stringify({ error: "Email and password are required" }), {
@@ -67,17 +68,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Company access validation for non-super-admins
     let targetCompanyId = companyId;
     if (!isSuperAdmin) {
-      // Get requesting user's company
       const { data: requestingProfile } = await supabaseAdmin
         .from("profiles")
         .select("company_id")
         .eq("id", requestingUser.id)
         .single();
 
-      // Non-super-admins can only create users in their own company
       if (companyId && companyId !== requestingProfile?.company_id) {
         console.log(`Access denied: User ${requestingUser.id} (company: ${requestingProfile?.company_id}) tried to create user in company ${companyId}`);
         return new Response(JSON.stringify({ error: "Cannot create users in other companies" }), {
@@ -86,10 +84,8 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Force the new user to be in the admin's company
       targetCompanyId = requestingProfile?.company_id;
 
-      // Non-super-admins cannot assign super_admin role
       if (role === "super_admin") {
         return new Response(JSON.stringify({ error: "Cannot assign super_admin role" }), {
           status: 403,
@@ -98,11 +94,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Create the user
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // Auto-confirm email
+      email_confirm: true,
       user_metadata: {
         full_name: fullName || email.split("@")[0],
       },
@@ -111,7 +106,6 @@ Deno.serve(async (req) => {
     let userId: string | undefined;
 
     if (createError) {
-      // If user already exists, find them and proceed with role/company assignment
       if (createError.message?.includes("already been registered")) {
         const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
         const existingUser = existingUsers?.users?.find(
@@ -136,7 +130,6 @@ Deno.serve(async (req) => {
       userId = newUser.user?.id;
     }
 
-    // Update profile with company_id and/or corporation_id if provided
     if (userId && (targetCompanyId || corporationId)) {
       const updateData: { company_id?: string; corporation_id?: string } = {};
       if (targetCompanyId) updateData.company_id = targetCompanyId;
@@ -152,18 +145,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Assign role if provided
     if (userId && role) {
       const supabaseWithUserAuth = createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { headers: { Authorization: authHeader } },
       });
 
       const { error: roleError } = await supabaseWithUserAuth
@@ -177,6 +162,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Log success
+    logEdgeFunctionRun({
+      functionName: 'create-user',
+      companyId: targetCompanyId,
+      userId: requestingUserId,
+      requestSummary,
+      responseSummary: { createdUserId: userId, email },
+      status: 'success',
+      durationMs: Date.now() - startTime,
+    });
+
     return new Response(JSON.stringify({ user: { id: userId, email } }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -184,6 +180,17 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("Error creating user:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+    logEdgeFunctionRun({
+      functionName: 'create-user',
+      userId: requestingUserId,
+      requestSummary,
+      status: 'error',
+      durationMs: Date.now() - startTime,
+      errorMessage,
+      errorDetails: error instanceof Error ? error.stack : undefined,
+    });
+
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

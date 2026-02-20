@@ -19,7 +19,7 @@ import {
   FolderKanban, HardHat, Eye, EyeOff, Calculator, FileSignature, Send,
   Building2, Calendar, CalendarDays, ClipboardList, Contact, BrainCircuit,
   Landmark, Pin, PinOff, Mail, MessageSquare, Link, DollarSign, Sparkles,
-  Link2, Shield, Award, Plus, ChevronsUpDown,
+  Link2, Shield, Award, Plus, ChevronsUpDown, Activity,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import {
@@ -145,6 +145,7 @@ const ADMIN_SUB_ITEMS: { label: string; items: AdminMenuItem[] }[] = [
   { label: "System", items: [
     { title: "Users", icon: Users, tab: "users" }, { title: "Reports", icon: Eye, tab: "reports" },
     { title: "Data Cleanup", icon: Wrench, tab: "cleanup" }, { title: "Audit Log", icon: FileText, tab: "audit" },
+    { title: "Edge Logs", icon: Activity, tab: "edge-logs" },
   ]},
 ];
 
