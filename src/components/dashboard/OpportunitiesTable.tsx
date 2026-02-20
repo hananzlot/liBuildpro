@@ -63,6 +63,7 @@ interface Opportunity {
   address?: string | null;
   scope_of_work?: string | null;
   opportunity_number?: number | null;
+  updated_at?: string | null;
 }
 
 interface Appointment {
@@ -523,7 +524,7 @@ export function OpportunitiesTable({
       filtered = filtered.filter((opp) => {
         let dateStr: string | null | undefined;
         if (tableDateField === "updatedDate") {
-          dateStr = opp.ghl_date_updated || opp.ghl_date_added;
+          dateStr = opp.updated_at || opp.ghl_date_updated || opp.ghl_date_added;
         } else {
           const contact = getOppContact(opp);
           dateStr = contact?.ghl_date_added || opp.ghl_date_added;
@@ -576,7 +577,7 @@ export function OpportunitiesTable({
 
     // Helper to get UPDATED date (by day)
     const getUpdatedDate = (opp: Opportunity): number => {
-      const dateStr = opp.ghl_date_updated || opp.ghl_date_added;
+      const dateStr = opp.updated_at || opp.ghl_date_updated || opp.ghl_date_added;
       return toDayTimestamp(dateStr);
     };
 
@@ -1290,7 +1291,7 @@ export function OpportunitiesTable({
                       <TableCell className="text-muted-foreground text-xs">
                         <div className="flex flex-col gap-0.5 min-w-0">
                           <span className="truncate"><span className="text-muted-foreground/70">Rep:</span> {salesRepName || "-"}</span>
-                          <span className="whitespace-nowrap"><span className="text-muted-foreground/70">Edit:</span> {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}</span>
+                          <span className="whitespace-nowrap"><span className="text-muted-foreground/70">Edit:</span> {(opp.updated_at || opp.ghl_date_updated) ? new Date((opp.updated_at || opp.ghl_date_updated)!).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}</span>
                           <span className="truncate"><span className="text-muted-foreground/70">Appt:</span> {latestAppt ? (
                             <>
                               {formatAppointmentDateTime(latestAppt.start_time)}
