@@ -1657,7 +1657,7 @@ export default function Production() {
       onAdminAction={(isAdmin || isSimulating) ? handleAdminAction : undefined}
     >
       <TooltipProvider>
-        <div className="py-4 px-4 lg:px-6 space-y-4">
+        <div className="py-2 px-4 lg:px-6 space-y-3">
           {activeView === 'projects' && (
             <div className="space-y-4">
               {/* KPI Summary + Action Buttons on same row */}
@@ -1933,7 +1933,7 @@ export default function Production() {
                 </Button>
               </div>
             </DataListCardHeader>
-              <DataListCardBody className="overflow-auto max-h-[calc(100vh-280px)]">
+              <DataListCardBody className="overflow-x-auto">
               {isLoading ? (
                 <div className="space-y-2">
                   {[...Array(5)].map((_, i) => (
