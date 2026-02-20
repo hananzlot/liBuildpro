@@ -153,7 +153,7 @@ export function GlobalAdminSearch() {
         let query = supabase
           .from("opportunities")
           .select(
-            "ghl_id, name, status, monetary_value, pipeline_stage_id, stage_name, contact_id, ghl_date_added, address, opportunity_number"
+            "id, ghl_id, name, status, monetary_value, pipeline_stage_id, stage_name, contact_id, contact_uuid, ghl_date_added, address, opportunity_number"
           );
         query = applyCompanyFilter(query);
         const { data, error } = await query
@@ -676,9 +676,16 @@ export function GlobalAdminSearch() {
       .slice(0, 8);
   }, [searchQuery, contacts, appointments]);
 
-  const getContactName = (contactId: string | null) => {
-    if (!contactId) return "Unknown";
-    const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
+  const getContactName = (contactId: string | null, contactUuid?: string | null) => {
+    if (!contactId && !contactUuid) return "Unknown";
+    // Try UUID match first, then ghl_id match
+    let contact: Contact | undefined;
+    if (contactUuid) {
+      contact = contacts.find(c => c.id === contactUuid);
+    }
+    if (!contact && contactId) {
+      contact = findContactByIdOrGhlId(contacts, undefined, contactId);
+    }
     return (
       contact?.contact_name ||
       (contact?.first_name && contact?.last_name
@@ -744,7 +751,7 @@ export function GlobalAdminSearch() {
 
   const handleSelectOpportunity = (opp: Opportunity) => {
     // Open as a tab using the full-page opportunity route
-    const customerName = getContactName(opp.contact_id);
+    const customerName = getContactName(opp.contact_id, opp.contact_uuid);
     const oppNum = opp.opportunity_number;
     const tabTitle = oppNum 
       ? `Opp ${oppNum}${customerName && customerName !== 'Unknown' ? ` (${customerName})` : ''}`
@@ -880,7 +887,7 @@ export function GlobalAdminSearch() {
                     <div className="p-2">
                       {filteredOpportunities.map((opp) => (
                         <button
-                          key={opp.ghl_id}
+                          key={opp.id || opp.ghl_id}
                           className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
                           onClick={() => handleSelectOpportunity(opp)}
                         >
@@ -895,7 +902,7 @@ export function GlobalAdminSearch() {
                                 )}
                               </div>
                               <div className="text-xs text-muted-foreground truncate">
-                                {getContactName(opp.contact_id)}
+                                {getContactName(opp.contact_id, opp.contact_uuid)}
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1 shrink-0">
