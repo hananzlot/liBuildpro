@@ -60,7 +60,7 @@ const FollowUp = () => {
   };
 
   const handleOpenOpportunity = (opportunity: any, taskGhlIdParam?: string | null) => {
-    const oppId = opportunity.ghl_id || opportunity.id;
+    const oppId = opportunity.id || opportunity.ghl_id;
     if (taskGhlIdParam) {
       navigate(`/follow-up/opportunity/${oppId}/task/${taskGhlIdParam}`);
     } else {

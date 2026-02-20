@@ -56,6 +56,7 @@ interface Appointment {
   ghl_id: string;
   title: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   start_time: string | null;
   end_time: string | null;
   appointment_status: string | null;
@@ -164,15 +165,18 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
     return user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown';
   };
 
-  const getRelatedOpportunity = (contactId: string | null) => {
-    if (!contactId) return null;
-    return opportunities.find(opp => opp.contact_id === contactId);
+  const getRelatedOpportunity = (contactId: string | null, contactUuid?: string | null) => {
+    if (!contactId && !contactUuid) return null;
+    return opportunities.find(opp => 
+      (contactUuid && opp.contact_uuid === contactUuid) ||
+      (contactId && (opp.contact_id === contactId || opp.contact_uuid === contactId))
+    );
   };
 
   const uniqueStages = useMemo(() => {
     const stages = new Set<string>();
     pastConfirmedAppointments.forEach(apt => {
-      const opp = opportunities.find(o => o.contact_id === apt.contact_id);
+      const opp = getRelatedOpportunity(apt.contact_id, apt.contact_uuid);
       if (opp?.stage_name) stages.add(opp.stage_name);
     });
     return Array.from(stages).sort();
@@ -183,7 +187,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
     
     if (stageFilter !== 'all') {
       filtered = filtered.filter(apt => {
-        const opp = opportunities.find(o => o.contact_id === apt.contact_id);
+        const opp = getRelatedOpportunity(apt.contact_id, apt.contact_uuid);
         return opp?.stage_name === stageFilter;
       });
     }
@@ -198,8 +202,8 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
           comparison = getContactName(a.contact_id).localeCompare(getContactName(b.contact_id));
           break;
         case 'stage':
-          const stageA = opportunities.find(o => o.contact_id === a.contact_id)?.stage_name || '';
-          const stageB = opportunities.find(o => o.contact_id === b.contact_id)?.stage_name || '';
+          const stageA = getRelatedOpportunity(a.contact_id, a.contact_uuid)?.stage_name || '';
+          const stageB = getRelatedOpportunity(b.contact_id, b.contact_uuid)?.stage_name || '';
           comparison = stageA.localeCompare(stageB);
           break;
         case 'date':
@@ -246,7 +250,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
 
   const handleRowClick = (apt: Appointment, e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button, select, [role="combobox"]')) return;
-    const relatedOpp = getRelatedOpportunity(apt.contact_id);
+    const relatedOpp = getRelatedOpportunity(apt.contact_id, apt.contact_uuid);
     if (relatedOpp) {
       onOpenOpportunity(relatedOpp);
     } else {
@@ -314,7 +318,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
       if (apptError) throw apptError;
 
       if (newOppStage) {
-        const relatedOpp = getRelatedOpportunity(appointment.contact_id);
+        const relatedOpp = getRelatedOpportunity(appointment.contact_id, appointment.contact_uuid);
         if (relatedOpp) {
           let newOppStatus = 'open';
           const stageLower = newOppStage.toLowerCase();
@@ -667,7 +671,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
                 <TableBody>
                   {filteredSortedAppointments.slice(0, 50).map((apt) => {
                     const isUpdating = updatingApptIds.has(apt.id);
-                    const relatedOpp = getRelatedOpportunity(apt.contact_id);
+                    const relatedOpp = getRelatedOpportunity(apt.contact_id, apt.contact_uuid);
                     const selectedStage = selectedStages[apt.id] || '';
                     const selectedStatus = selectedApptStatuses[apt.id] || '';
                     return (

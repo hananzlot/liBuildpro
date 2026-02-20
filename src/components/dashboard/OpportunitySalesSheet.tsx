@@ -42,6 +42,8 @@ interface Opportunity {
   ghl_date_added?: string | null;
   ghl_date_updated?: string | null;
   won_at?: string | null;
+  company_id?: string | null;
+  location_id?: string;
 }
 
 interface Contact {

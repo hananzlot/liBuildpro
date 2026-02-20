@@ -487,6 +487,7 @@ const Index = () => {
         dateRange={dateRange} 
         onOpportunityClick={opp => {
           setSelectedOpportunity({
+            id: opp.id,
             ghl_id: opp.ghl_id,
             name: opp.name,
             status: opp.status,
@@ -496,10 +497,13 @@ const Index = () => {
             pipeline_stage_id: opp.pipeline_stage_id,
             stage_name: opp.stage_name,
             contact_id: opp.contact_id,
+            contact_uuid: opp.contact_uuid,
             assigned_to: opp.assigned_to,
             ghl_date_added: opp.ghl_date_added,
             ghl_date_updated: opp.ghl_date_updated,
-            won_at: opp.won_at
+            won_at: opp.won_at,
+            company_id: opp.company_id,
+            location_id: opp.location_id,
           });
           setWonOpportunitiesSheetOpen(false);
           setOppDetailSheetOpen(true);
@@ -525,6 +529,7 @@ const Index = () => {
         users={metrics?.users || []} 
         onOpportunityClick={opp => {
           setSelectedOpportunity({
+            id: opp.id,
             ghl_id: opp.ghl_id,
             name: opp.name,
             status: opp.status,
@@ -534,11 +539,14 @@ const Index = () => {
             pipeline_stage_id: opp.pipeline_stage_id,
             stage_name: opp.stage_name,
             contact_id: opp.contact_id,
+            contact_uuid: opp.contact_uuid,
             assigned_to: opp.assigned_to,
             ghl_date_added: opp.ghl_date_added,
             ghl_date_updated: opp.ghl_date_updated,
             won_at: opp.won_at,
-            scope_of_work: opp.scope_of_work
+            scope_of_work: opp.scope_of_work,
+            company_id: opp.company_id,
+            location_id: opp.location_id,
           });
           setOpportunitiesSheetOpen(false);
           setOppDetailSheetOpen(true);
@@ -592,6 +600,7 @@ const Index = () => {
         profiles={metrics?.profiles || []} 
         onOpportunityClick={opp => {
           setSelectedOpportunity({
+            id: opp.id,
             ghl_id: opp.ghl_id,
             name: opp.name,
             status: opp.status,
@@ -601,10 +610,13 @@ const Index = () => {
             pipeline_stage_id: null,
             stage_name: opp.stage_name,
             contact_id: opp.contact_id,
+            contact_uuid: opp.contact_uuid,
             assigned_to: opp.assigned_to,
             ghl_date_added: null,
             ghl_date_updated: opp.ghl_date_updated,
-            won_at: opp.won_at
+            won_at: opp.won_at,
+            company_id: opp.company_id,
+            location_id: opp.location_id,
           });
           setInitialTaskGhlId(null);
           setActivitySheetOpen(false);
@@ -612,6 +624,7 @@ const Index = () => {
         }} 
         onTaskClick={(opp, task) => {
           setSelectedOpportunity({
+            id: opp.id,
             ghl_id: opp.ghl_id,
             name: opp.name,
             status: opp.status,
@@ -621,10 +634,13 @@ const Index = () => {
             pipeline_stage_id: null,
             stage_name: opp.stage_name,
             contact_id: opp.contact_id,
+            contact_uuid: opp.contact_uuid,
             assigned_to: opp.assigned_to,
             ghl_date_added: null,
             ghl_date_updated: opp.ghl_date_updated,
-            won_at: opp.won_at
+            won_at: opp.won_at,
+            company_id: opp.company_id,
+            location_id: opp.location_id,
           });
           setInitialTaskGhlId(task.ghl_id);
           setActivitySheetOpen(false);
@@ -662,6 +678,7 @@ const Index = () => {
         contacts={metrics?.allContacts || []} 
         onOpportunityClick={opp => {
           setSelectedOpportunity({
+            id: opp.id,
             ghl_id: opp.ghl_id,
             name: opp.name,
             status: opp.status || null,
@@ -671,10 +688,13 @@ const Index = () => {
             pipeline_stage_id: opp.pipeline_stage_id || null,
             stage_name: opp.stage_name || null,
             contact_id: opp.contact_id || null,
+            contact_uuid: opp.contact_uuid || null,
             assigned_to: opp.assigned_to || null,
             ghl_date_added: opp.ghl_date_added || null,
             ghl_date_updated: opp.ghl_date_updated || null,
-            won_at: opp.won_at || null
+            won_at: opp.won_at || null,
+            company_id: opp.company_id || null,
+            location_id: opp.location_id || null,
           });
           setOpportunitySalesSheetOpen(false);
           setOppDetailSheetOpen(true);

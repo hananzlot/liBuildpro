@@ -22,6 +22,7 @@ interface DBOpportunity {
   id: string;
   ghl_id: string;
   contact_id: string | null;
+  contact_uuid?: string | null;
   name: string | null;
   monetary_value: number | null;
   status: string | null;
@@ -34,6 +35,8 @@ interface DBOpportunity {
   pipeline_stage_id: string | null;
   won_at?: string | null;
   scope_of_work?: string | null;
+  company_id?: string | null;
+  location_id?: string;
 }
 
 interface DBContact {
