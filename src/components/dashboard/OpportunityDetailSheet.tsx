@@ -2429,8 +2429,13 @@ export function OpportunityDetailSheet({
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success("Opportunity deleted");
+      // Close sheet first, then refetch data
       onOpenChange(false);
-      queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
+        queryKey: ["opportunities"]
+      });
+      // Also invalidate the combined metrics query used by the Opportunities page
+      await queryClient.refetchQueries({
         queryKey: ["opportunities"]
       });
     } catch (error) {
