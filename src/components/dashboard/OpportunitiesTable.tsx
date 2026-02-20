@@ -6,7 +6,6 @@ import { useAppTabs } from "@/contexts/AppTabsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -958,9 +957,10 @@ export function OpportunitiesTable({
 
   return (
     <>
-      <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-        <CardHeader className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-styled pb-1 pl-1">
+      <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
+        {/* Filter Surface */}
+        <div className="px-4 py-3 border-b border-border/40">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-styled pb-1">
             <MultiSelectFilter
               options={statusOptions}
               selected={statusFilter}
@@ -981,10 +981,10 @@ export function OpportunitiesTable({
               icon={<User className="h-3 w-3" />}
             />
             <Select value={appointmentFilter} onValueChange={handleAppointmentFilterChange}>
-              <SelectTrigger className="w-[160px] h-8 text-xs bg-background border-border">
+              <SelectTrigger className="w-[160px] h-8 text-xs">
                 <SelectValue placeholder="With Appointments?" />
               </SelectTrigger>
-              <SelectContent className="bg-popover border-border">
+              <SelectContent>
                 <SelectItem value="all">With Appointments?</SelectItem>
                 <SelectItem value="with">With Appointments</SelectItem>
                 <SelectItem value="without">Without Appointments</SelectItem>
@@ -1007,11 +1007,13 @@ export function OpportunitiesTable({
               </Button>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="overflow-x-auto scrollbar-styled pb-2">
+        </div>
+
+        {/* Data Table */}
+        <div className="overflow-x-auto scrollbar-styled">
           <Table className="w-full table-fixed">
-            <TableHeader>
-              <TableRow className="border-border/50 hover:bg-transparent">
+            <TableHeader className="sticky top-0 z-10 bg-card">
+              <TableRow className="border-border/40 hover:bg-transparent">
                 <TableHead
                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[12%]"
                   onClick={() => handleSort("name")}
@@ -1060,7 +1062,7 @@ export function OpportunitiesTable({
                 </TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y divide-border/30">
               {paginatedOpportunities.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
@@ -1287,37 +1289,38 @@ export function OpportunitiesTable({
             </TableBody>
           </Table>
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4 border-t border-border/30">
-              <span className="text-sm text-muted-foreground">
-                Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, totalItems)} of {totalItems}
+        </div>
+
+        {/* Pagination footer */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border/40">
+            <span className="text-sm text-muted-foreground">
+              Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, totalItems)} of {totalItems}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground px-2">
+                Page {currentPage} of {totalPages}
               </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground px-2">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
+      </div>
 
       <OpportunityDetailSheet
         opportunity={selectedOpportunity}
