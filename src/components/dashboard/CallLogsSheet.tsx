@@ -131,13 +131,19 @@ export function CallLogsSheet({
   // Get opportunities for selected contact
   const contactOpportunities = useMemo(() => {
     if (!selectedContact) return [];
-    return opportunities.filter(o => o.contact_id === selectedContact.ghl_id || o.contact_id === selectedContact.id);
+    return opportunities.filter(o => 
+      (o.contact_uuid && o.contact_uuid === selectedContact.id) ||
+      (o.contact_id && (o.contact_id === selectedContact.ghl_id || o.contact_id === selectedContact.id))
+    );
   }, [selectedContact, opportunities]);
 
   // Get appointments for selected contact
   const contactAppointments = useMemo(() => {
     if (!selectedContact) return [];
-    return appointments.filter(a => a.contact_id === selectedContact.ghl_id || a.contact_id === selectedContact.id);
+    return appointments.filter(a => 
+      (a.contact_uuid && a.contact_uuid === selectedContact.id) ||
+      (a.contact_id && (a.contact_id === selectedContact.ghl_id || a.contact_id === selectedContact.id))
+    );
   }, [selectedContact, appointments]);
 
   // Create lookup maps

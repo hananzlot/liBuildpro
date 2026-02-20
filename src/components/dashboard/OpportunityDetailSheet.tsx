@@ -73,6 +73,7 @@ interface Appointment {
   end_time: string | null;
   notes: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   address?: string | null;
 }
 interface Contact {
@@ -423,22 +424,31 @@ export function OpportunityDetailSheet({
     }
     
     const fetchProjectAndEstimates = async () => {
-      const { data: projectsData } = await supabase
+      // Fetch projects - prefer UUID, fallback to ghl_id
+      let projectsQuery = supabase
         .from("projects")
         .select("id, project_name")
-        .eq("opportunity_id", opportunity.ghl_id)
         .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false });
+        .is("deleted_at", null);
+      
+      if (opportunity.id) {
+        projectsQuery = projectsQuery.or(`opportunity_uuid.eq.${opportunity.id}${opportunity.ghl_id ? `,opportunity_id.eq.${opportunity.ghl_id}` : ''}`);
+      } else if (opportunity.ghl_id) {
+        projectsQuery = projectsQuery.eq("opportunity_id", opportunity.ghl_id);
+      }
+      
+      const { data: projectsData } = await projectsQuery.order("created_at", { ascending: false });
       
       setAssociatedProjects(projectsData || []);
       setAssociatedProjectId(projectsData?.[0]?.id ?? null);
 
-      // Fetch linked estimates (by opportunity_id or opportunity_uuid)
+      // Fetch linked estimates (by opportunity_uuid or opportunity_id)
+      const oppUuid = opportunity.id || 'none';
+      const oppGhlId = opportunity.ghl_id || 'none';
       const { data: estimatesData } = await supabase
         .from("estimates")
         .select("id, estimate_number, estimate_title, status, total, created_at")
-        .or(`opportunity_id.eq.${opportunity.ghl_id},opportunity_uuid.eq.${opportunity.id || 'none'}`)
+        .or(`opportunity_uuid.eq.${oppUuid},opportunity_id.eq.${oppGhlId}`)
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       
@@ -452,7 +462,7 @@ export function OpportunityDetailSheet({
         .from("projects")
         .select("id")
         .eq("company_id", companyId)
-        .or(`opportunity_id.eq.${opportunity.ghl_id},opportunity_uuid.eq.${opportunity.id || 'none'}`);
+        .or(`opportunity_uuid.eq.${oppUuid},opportunity_id.eq.${oppGhlId}`);
 
       if (oppProjects && oppProjects.length > 0) {
         const projectIds = oppProjects.map(p => p.id);
@@ -698,7 +708,7 @@ export function OpportunityDetailSheet({
       // Fetch estimated cost - scoped to company
       const fetchEstimatedCost = async () => {
         try {
-          const oppKey = opportunity.ghl_id || opportunity.id;
+          const oppKey = opportunity.id || opportunity.ghl_id;
           let costQuery = supabase
             .from("project_costs")
             .select("estimated_cost")
@@ -1183,7 +1193,7 @@ export function OpportunityDetailSheet({
 
   // Appointment creation handlers
   const openAppointmentDialog = () => {
-    const contact = contacts.find(c => c.ghl_id === opportunity?.contact_id);
+    const contact = findContactByIdOrGhlId(contacts, opportunity?.contact_uuid, opportunity?.contact_id);
     const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
     setAppointmentTitle(`Appointment - ${contactName || opportunity?.name || "Contact"}`);
     setAppointmentDate("");
@@ -1205,7 +1215,7 @@ export function OpportunityDetailSheet({
 
     setIsCreatingAppointment(true);
     try {
-      const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
       const locationId = contact?.location_id || "pVeFrqvtYWNIPRIi0Fmr";
       
       // Get the selected salesperson (if any) and extract both IDs
@@ -1677,7 +1687,7 @@ export function OpportunityDetailSheet({
 
   // Inline save for status change (without entering full edit mode)
   // Check for existing contact projects and prompt user before creating a new one
-  const checkAndOfferCreateProject = async (oppGhlId: string) => {
+  const checkAndOfferCreateProject = async (opportunityIdentifier: string) => {
     try {
       const opp = opportunity;
       if (!opp) return;
@@ -1698,7 +1708,7 @@ export function OpportunityDetailSheet({
       const { data: existingProjects } = await projectsQuery;
 
       // Store pending opp and show dialog regardless (0 or more existing projects)
-      setPendingWonOppGhlId(oppGhlId);
+      setPendingWonOppGhlId(opportunityIdentifier);
       setWonProjectExisting((existingProjects || []).map(p => ({
         id: p.id,
         project_name: p.project_name,
@@ -1716,22 +1726,31 @@ export function OpportunityDetailSheet({
     if (!pendingWonOppGhlId) return;
     setIsCreatingWonProject(true);
     try {
-      const { data: oppData } = await supabase
+      // Look up opportunity by UUID first, fallback to ghl_id
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(pendingWonOppGhlId);
+      let oppQuery = supabase
         .from("opportunities")
-        .select("*, contact_id, location_id, name, monetary_value, assigned_to")
-        .eq("ghl_id", pendingWonOppGhlId)
-        .single();
+        .select("*, contact_id, contact_uuid, location_id, name, monetary_value, assigned_to");
+      
+      if (isUUID) {
+        oppQuery = oppQuery.or(`id.eq.${pendingWonOppGhlId},ghl_id.eq.${pendingWonOppGhlId}`);
+      } else {
+        oppQuery = oppQuery.eq("ghl_id", pendingWonOppGhlId);
+      }
+      
+      const { data: oppData } = await oppQuery.maybeSingle();
 
       if (!oppData) throw new Error("Opportunity not found");
 
-      const contact = findContactByIdOrGhlId(contacts, undefined, oppData.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, oppData.contact_uuid, oppData.contact_id);
       const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
       const assignedUser = findUserByIdOrGhlId(users, undefined, oppData.assigned_to);
 
       const { error: createError } = await supabase
         .from("projects")
         .insert({
-          opportunity_id: pendingWonOppGhlId,
+          opportunity_id: oppData.ghl_id || null,
+          opportunity_uuid: oppData.id,
           location_id: oppData.location_id || "pVeFrqvtYWNIPRIi0Fmr",
           project_name: oppData.name || "Untitled Project",
           customer_first_name: contact?.first_name || null,
@@ -1743,6 +1762,7 @@ export function OpportunityDetailSheet({
           estimated_cost: oppData.monetary_value || null,
           project_status: "New Job",
           contact_id: oppData.contact_id || null,
+          contact_uuid: oppData.contact_uuid || null,
           created_by: user?.id || null,
           lead_source: contact?.source || null,
           company_id: companyId,
@@ -1911,7 +1931,7 @@ export function OpportunityDetailSheet({
 
       // Prompt user before creating project if status changed to "won"
       if (newStatus.toLowerCase() === "won") {
-        await checkAndOfferCreateProject(opportunity.ghl_id);
+        await checkAndOfferCreateProject(opportunity.id || opportunity.ghl_id);
       }
       // Check for proposals to decline if status changed to "lost"
       if (newStatus.toLowerCase() === "lost") {
@@ -2012,7 +2032,7 @@ export function OpportunityDetailSheet({
 
       // Prompt user before creating project if status changed to "won"
       if (editedStatus.toLowerCase() === "won") {
-        await checkAndOfferCreateProject(opportunity.ghl_id);
+        await checkAndOfferCreateProject(opportunity.id || opportunity.ghl_id);
       }
       // Check for proposals to decline if status changed to "lost"
       if (editedStatus.toLowerCase() === "lost") {
@@ -2067,8 +2087,8 @@ export function OpportunityDetailSheet({
     setCostError(null);
     setIsSavingCost(true);
     try {
-      // Upsert the estimated cost - use ghl_id if available, else use uuid
-      const oppKey = opportunity.ghl_id || opportunity.id;
+      // Upsert the estimated cost - use uuid if available, else use ghl_id
+      const oppKey = opportunity.id || opportunity.ghl_id;
       const {
         error
       } = await supabase.from("project_costs").upsert({
@@ -2541,7 +2561,10 @@ export function OpportunityDetailSheet({
     }).format(value);
   };
   const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
-  const relatedAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id);
+  const relatedAppointments = appointments.filter(a => 
+    (a.contact_uuid && a.contact_uuid === contact?.id) ||
+    (a.contact_id && (a.contact_id === opportunity.contact_id))
+  );
   const effectiveAssignedTo = savedValues.assigned_to !== undefined ? savedValues.assigned_to : opportunity.assigned_to;
   
   // Find assigned salesperson - check salespeople first (by ghl_user_id or id), then fallback to GHL users

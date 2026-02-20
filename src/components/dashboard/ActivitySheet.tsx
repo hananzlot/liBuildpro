@@ -19,9 +19,12 @@ interface DBOpportunity {
   status: string | null;
   stage_name: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   assigned_to: string | null;
   ghl_date_updated: string | null;
   won_at?: string | null;
+  company_id?: string | null;
+  location_id?: string;
 }
 
 interface DBAppointment {
