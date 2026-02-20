@@ -71,7 +71,7 @@ interface NavSection {
 /* ─── Navigation structure (destinations unchanged, re-labelled groups) ─── */
 const navSections: NavSection[] = [
   {
-    label: "Pipeline",
+    label: "Pipeline and Dispatch",
     roles: ['super_admin', 'admin', 'dispatch'],
     requiredFeature: 'dashboard',
     items: [
@@ -85,8 +85,8 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    label: "Operations",
-    roles: ['super_admin', 'admin', 'contract_manager', 'production'],
+    label: "Propose & Sign",
+    roles: ['super_admin', 'admin', 'contract_manager'],
     requiredFeature: 'estimates',
     items: [
       { title: "Estimates", url: "/estimates?view=list", icon: Calculator, roles: ['super_admin', 'admin', 'contract_manager'], requiredFeature: 'estimates' },
@@ -94,6 +94,13 @@ const navSections: NavSection[] = [
       { title: "Contracts", url: "/estimates?view=contracts", icon: FileSignature, roles: ['super_admin', 'admin', 'contract_manager'], requiredFeature: 'estimates' },
       { title: "Scope Submissions", url: "/production?view=scope-submissions", icon: ClipboardList, roles: ['super_admin', 'admin', 'contract_manager'], requiredFeature: 'estimates', dynamicSuffix: 'pendingScopes' },
       { title: "E-Sign Misc Docs", url: "/documents", icon: FileText, roles: ['super_admin', 'admin', 'contract_manager'], requiredFeature: 'documents' },
+    ],
+  },
+  {
+    label: "Operations",
+    roles: ['super_admin', 'admin', 'production'],
+    requiredFeature: 'production',
+    items: [
       { title: "Projects", url: "/production?view=projects", icon: FolderKanban, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production' },
       { title: "Pending Deposits", url: "/pending-deposits", icon: Landmark, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production', dynamicSuffix: 'pendingDeposits' },
       { title: "Subcontractors", url: "/production?view=subcontractors", icon: HardHat, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production' },
