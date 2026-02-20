@@ -188,6 +188,42 @@
   }
 }
 
+/* Form validation feedback */
+@layer components {
+  /* Error shake animation for invalid fields */
+  @keyframes field-shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-4px); }
+    40%, 80% { transform: translateX(4px); }
+  }
+
+  .field-error-shake {
+    animation: field-shake 0.3s ease-in-out;
+  }
+
+  /* Consistent form field label styling */
+  .form-label {
+    @apply text-sm font-medium text-foreground;
+  }
+
+  /* Inline validation message */
+  .field-error {
+    @apply text-xs font-medium text-destructive mt-1;
+    animation: fadeSlideIn 0.2s ease-out;
+  }
+
+  @keyframes fadeSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
 /* Print Styles */
 @media print {
   .no-print,
