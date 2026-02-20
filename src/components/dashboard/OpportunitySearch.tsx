@@ -13,6 +13,7 @@ import {
 import { getAddressFromContact as getAddressUtil, findContactByIdOrGhlId } from "@/lib/utils";
 
 interface Opportunity {
+  id: string;
   ghl_id: string;
   name: string | null;
   status: string | null;
@@ -22,6 +23,7 @@ interface Opportunity {
   pipeline_stage_id: string | null;
   stage_name: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
@@ -177,14 +179,14 @@ export function OpportunitySearch({
     const tabTitle = oppNum 
       ? `Opp ${oppNum}${customerName && customerName !== 'Unknown' ? ` (${customerName})` : ''}`
       : opp.name || 'Opportunity';
-    openTab(`/opportunity/${opp.ghl_id}`, tabTitle);
+    openTab(`/opportunity/${opp.id || opp.ghl_id}`, tabTitle);
     setIsOpen(false);
     setSearchQuery("");
   };
 
-  const getContactName = (contactId: string | null) => {
-    if (!contactId) return "Unknown";
-    const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
+  const getContactName = (contactId: string | null, contactUuid?: string | null) => {
+    if (!contactId && !contactUuid) return "Unknown";
+    const contact = findContactByIdOrGhlId(contacts, contactUuid || undefined, contactId);
     return contact?.contact_name || 
       (contact?.first_name && contact?.last_name 
         ? `${contact.first_name} ${contact.last_name}` 

@@ -20,6 +20,7 @@ import { getAddressFromContact, findContactByIdOrGhlId } from "@/lib/utils";
 import { formatCurrencyWithDecimals as formatCurrencyUtil } from "@/lib/utils";
 
 interface Opportunity {
+  id: string;
   ghl_id: string;
   name: string | null;
   status: string | null;
@@ -27,6 +28,7 @@ interface Opportunity {
   pipeline_stage_id: string | null;
   stage_name: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   ghl_date_added: string | null;
   address: string | null;
   opportunity_number: number | null;
@@ -46,6 +48,7 @@ interface Contact {
 interface Appointment {
   ghl_id: string;
   contact_id: string | null;
+  contact_uuid?: string | null;
   address?: string | null;
   start_time?: string | null;
 }
@@ -496,11 +499,11 @@ export function GlobalAdminSearch() {
   };
 
   // Check if contact has an upcoming appointment (today or future)
-  const hasUpcomingAppointment = (contactId: string | null): boolean => {
-    if (!contactId) return false;
+  const hasUpcomingAppointment = (contactId: string | null, contactUuid?: string | null): boolean => {
+    if (!contactId && !contactUuid) return false;
     const now = new Date();
     return appointments.some(apt => 
-      apt.contact_id === contactId && 
+      ((contactUuid && apt.contact_uuid === contactUuid) || (contactId && apt.contact_id === contactId)) && 
       apt.start_time && 
       new Date(apt.start_time) >= now
     );
@@ -746,7 +749,7 @@ export function GlobalAdminSearch() {
     const tabTitle = oppNum 
       ? `Opp ${oppNum}${customerName && customerName !== 'Unknown' ? ` (${customerName})` : ''}`
       : opp.name || 'Opportunity';
-    openTab(`/opportunity/${opp.ghl_id}`, tabTitle);
+    openTab(`/opportunity/${opp.id || opp.ghl_id}`, tabTitle);
     setIsOpen(false);
     setSearchQuery("");
   };

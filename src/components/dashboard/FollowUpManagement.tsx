@@ -38,6 +38,7 @@ interface DBAppointment {
   id: string;
   ghl_id: string;
   contact_id: string | null;
+  contact_uuid?: string | null;
   title: string | null;
   appointment_status: string | null;
   assigned_user_id: string | null;
@@ -68,6 +69,7 @@ interface DBContactNote {
   id: string;
   ghl_id: string;
   contact_id: string;
+  contact_uuid?: string | null;
   body: string | null;
   ghl_date_added: string | null;
 }
@@ -75,6 +77,7 @@ interface DBTask {
   id: string;
   ghl_id: string;
   contact_id: string;
+  contact_uuid?: string | null;
   title: string;
   body: string | null;
   due_date: string | null;
@@ -226,12 +229,19 @@ export function FollowUpManagement({
     const contact = findContactByIdOrGhlId(contacts, contactUuid, contactId);
     return contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown Contact";
   };
-  const getOpportunityForAppointment = (contactId: string | null): DBOpportunity | undefined => {
-    if (!contactId) return undefined;
-    return opportunities.find(o => o.contact_id === contactId && o.status?.toLowerCase() === "open");
+  const getOpportunityForAppointment = (contactId: string | null, contactUuid?: string | null): DBOpportunity | undefined => {
+    if (!contactId && !contactUuid) return undefined;
+    return opportunities.find(o => 
+      (contactUuid && o.contact_uuid === contactUuid) ||
+      (contactId && o.contact_id === contactId)
+    ) || opportunities.find(o => 
+      ((contactUuid && o.contact_uuid === contactUuid) || (contactId && o.contact_id === contactId)) && o.status?.toLowerCase() === "open"
+    );
   };
-  const getLatestNoteDate = (contactId: string): Date | null => {
-    const notes = contactNotes.filter(n => n.contact_id === contactId);
+  const getLatestNoteDate = (contactId: string, contactUuid?: string | null): Date | null => {
+    const notes = contactNotes.filter(n => 
+      (contactUuid && n.contact_uuid === contactUuid) || n.contact_id === contactId
+    );
     if (notes.length === 0) return null;
     const latest = notes.reduce((latest, note) => {
       if (!note.ghl_date_added) return latest;
@@ -242,8 +252,10 @@ export function FollowUpManagement({
   };
 
   // Get latest note for a contact (includes body)
-  const getLatestNote = (contactId: string): DBContactNote | null => {
-    const notes = contactNotes.filter(n => n.contact_id === contactId && n.ghl_date_added);
+  const getLatestNote = (contactId: string, contactUuid?: string | null): DBContactNote | null => {
+    const notes = contactNotes.filter(n => 
+      ((contactUuid && n.contact_uuid === contactUuid) || n.contact_id === contactId) && n.ghl_date_added
+    );
     if (notes.length === 0) return null;
     return notes.reduce((latest, note) => {
       if (!note.ghl_date_added) return latest;
@@ -253,10 +265,11 @@ export function FollowUpManagement({
   };
 
   // Get latest task for a contact
-  const getLatestTask = (contactId: string): DBTask | null => {
-    const contactTasks = tasks.filter(t => t.contact_id === contactId);
+  const getLatestTask = (contactId: string, contactUuid?: string | null): DBTask | null => {
+    const contactTasks = tasks.filter(t => 
+      (contactUuid && t.contact_uuid === contactUuid) || t.contact_id === contactId
+    );
     if (contactTasks.length === 0) return null;
-    // Sort by due_date descending, then by id as fallback
     return contactTasks.sort((a, b) => {
       const dateA = a.due_date ? new Date(a.due_date).getTime() : 0;
       const dateB = b.due_date ? new Date(b.due_date).getTime() : 0;
@@ -265,9 +278,9 @@ export function FollowUpManagement({
   };
 
   // Get latest appointment for a contact
-  const getLatestAppointment = (contactId: string): DBAppointment | null => {
+  const getLatestAppointment = (contactId: string, contactUuid?: string | null): DBAppointment | null => {
     const contactAppts = appointments.filter(a => 
-      a.contact_id === contactId && 
+      ((contactUuid && a.contact_uuid === contactUuid) || a.contact_id === contactId) && 
       a.start_time &&
       a.appointment_status?.toLowerCase() !== "cancelled"
     );
@@ -278,8 +291,10 @@ export function FollowUpManagement({
   };
 
   // Get oldest note date for a contact (for setting opportunity creation date)
-  const getOldestNoteDate = (contactId: string): Date | null => {
-    const notes = contactNotes.filter(n => n.contact_id === contactId && n.ghl_date_added);
+  const getOldestNoteDate = (contactId: string, contactUuid?: string | null): Date | null => {
+    const notes = contactNotes.filter(n => 
+      ((contactUuid && n.contact_uuid === contactUuid) || n.contact_id === contactId) && n.ghl_date_added
+    );
     if (notes.length === 0) return null;
     return notes.reduce((oldest, note) => {
       const noteDate = new Date(note.ghl_date_added!);
@@ -288,8 +303,10 @@ export function FollowUpManagement({
   };
 
   // Get oldest appointment date for a contact (fallback for creation date)
-  const getOldestAppointmentDate = (contactId: string): Date | null => {
-    const contactAppts = appointments.filter(a => a.contact_id === contactId && a.start_time);
+  const getOldestAppointmentDate = (contactId: string, contactUuid?: string | null): Date | null => {
+    const contactAppts = appointments.filter(a => 
+      ((contactUuid && a.contact_uuid === contactUuid) || a.contact_id === contactId) && a.start_time
+    );
     if (contactAppts.length === 0) return null;
     return contactAppts.reduce((oldest, appt) => {
       const apptDate = new Date(appt.start_time!);
@@ -306,8 +323,8 @@ export function FollowUpManagement({
 
     try {
       // Get the oldest note date, fallback to oldest appointment date
-      const oldestNoteDate = getOldestNoteDate(appointment.contact_id);
-      const oldestApptDate = getOldestAppointmentDate(appointment.contact_id);
+      const oldestNoteDate = getOldestNoteDate(appointment.contact_id, appointment.contact_uuid);
+      const oldestApptDate = getOldestAppointmentDate(appointment.contact_id, appointment.contact_uuid);
       const creationDate = (oldestNoteDate || oldestApptDate || new Date()).toISOString();
 
       // Generate a local opportunity ID
@@ -365,7 +382,10 @@ export function FollowUpManagement({
         if (appointmentStatus !== "confirmed") return;
 
         // Check if already has an opportunity
-        const existingOpp = opportunities.find(o => o.contact_id === appointment.contact_id);
+        const existingOpp = opportunities.find(o => 
+          (appointment.contact_uuid && o.contact_uuid === appointment.contact_uuid) ||
+          (appointment.contact_id && o.contact_id === appointment.contact_id)
+        );
         if (existingOpp) return;
 
         // Skip if already processed this session
@@ -419,9 +439,9 @@ export function FollowUpManagement({
     ];
 
     const rows = closeToSaleData.map(opp => {
-      const latestNote = opp.contact_id ? getLatestNote(opp.contact_id) : null;
-      const latestTask = opp.contact_id ? getLatestTask(opp.contact_id) : null;
-      const latestAppt = opp.contact_id ? getLatestAppointment(opp.contact_id) : null;
+      const latestNote = opp.contact_id ? getLatestNote(opp.contact_id, opp.contact_uuid) : null;
+      const latestTask = opp.contact_id ? getLatestTask(opp.contact_id, opp.contact_uuid) : null;
+      const latestAppt = opp.contact_id ? getLatestAppointment(opp.contact_id, opp.contact_uuid) : null;
       
       // Strip HTML from note body
       const noteContent = latestNote?.body 
@@ -984,23 +1004,23 @@ export function FollowUpManagement({
     }
 
     // Helper to get latest note date for an opportunity
-    const getLatestNoteDate = (contactId: string | null): Date | null => {
-      if (!contactId) return null;
-      const note = getLatestNote(contactId);
+    const getLatestNoteDate = (contactId: string | null, contactUuid?: string | null): Date | null => {
+      if (!contactId && !contactUuid) return null;
+      const note = getLatestNote(contactId || '', contactUuid);
       return note?.ghl_date_added ? new Date(note.ghl_date_added) : null;
     };
 
     // Helper to get latest task date for an opportunity
-    const getLatestTaskDate = (contactId: string | null): Date | null => {
-      if (!contactId) return null;
-      const task = getLatestTask(contactId);
+    const getLatestTaskDate = (contactId: string | null, contactUuid?: string | null): Date | null => {
+      if (!contactId && !contactUuid) return null;
+      const task = getLatestTask(contactId || '', contactUuid);
       return task?.due_date ? new Date(task.due_date) : null;
     };
 
     // Helper to get latest appointment date for an opportunity
-    const getLatestApptDate = (contactId: string | null): Date | null => {
-      if (!contactId) return null;
-      const appt = getLatestAppointment(contactId);
+    const getLatestApptDate = (contactId: string | null, contactUuid?: string | null): Date | null => {
+      if (!contactId && !contactUuid) return null;
+      const appt = getLatestAppointment(contactId || '', contactUuid);
       return appt?.start_time ? new Date(appt.start_time) : null;
     };
 
@@ -1017,24 +1037,24 @@ export function FollowUpManagement({
         case "value":
           return dir * ((a.monetary_value || 0) - (b.monetary_value || 0));
         case "note_date": {
-          const dateA = getLatestNoteDate(a.contact_id);
-          const dateB = getLatestNoteDate(b.contact_id);
+          const dateA = getLatestNoteDate(a.contact_id, a.contact_uuid);
+          const dateB = getLatestNoteDate(b.contact_id, b.contact_uuid);
           if (!dateA && !dateB) return 0;
           if (!dateA) return dir;
           if (!dateB) return -dir;
           return dir * (dateA.getTime() - dateB.getTime());
         }
         case "task_date": {
-          const dateA = getLatestTaskDate(a.contact_id);
-          const dateB = getLatestTaskDate(b.contact_id);
+          const dateA = getLatestTaskDate(a.contact_id, a.contact_uuid);
+          const dateB = getLatestTaskDate(b.contact_id, b.contact_uuid);
           if (!dateA && !dateB) return 0;
           if (!dateA) return dir;
           if (!dateB) return -dir;
           return dir * (dateA.getTime() - dateB.getTime());
         }
         case "appt_date": {
-          const dateA = getLatestApptDate(a.contact_id);
-          const dateB = getLatestApptDate(b.contact_id);
+          const dateA = getLatestApptDate(a.contact_id, a.contact_uuid);
+          const dateB = getLatestApptDate(b.contact_id, b.contact_uuid);
           if (!dateA && !dateB) return 0;
           if (!dateA) return dir;
           if (!dateB) return -dir;
@@ -1298,9 +1318,9 @@ export function FollowUpManagement({
 
       // Only include past appointments
       if (appointmentDate >= now) return;
-      const opportunity = getOpportunityForAppointment(appointment.contact_id);
+      const opportunity = getOpportunityForAppointment(appointment.contact_id, appointment.contact_uuid);
       if (!opportunity) return;
-      const lastNoteDate = getLatestNoteDate(appointment.contact_id);
+      const lastNoteDate = getLatestNoteDate(appointment.contact_id, appointment.contact_uuid);
 
       // Include if no notes exist OR last note is before appointment
       if (lastNoteDate === null || lastNoteDate < appointmentDate) {
@@ -1484,8 +1504,8 @@ export function FollowUpManagement({
       if (contactAppointments.length > 0) return; // Skip if any appointments exist
 
       // Check notes condition
-      const contactNotesList = contactNotes.filter(n => n.contact_id === opportunity.contact_id);
-      const latestNoteDate = getLatestNoteDate(opportunity.contact_id);
+      const contactNotesList = contactNotes.filter(n => n.contact_id === opportunity.contact_id || (opportunity.contact_uuid && n.contact_uuid === opportunity.contact_uuid));
+      const latestNoteDate = getLatestNoteDate(opportunity.contact_id, opportunity.contact_uuid);
       const hasStaleOrNoNotes = contactNotesList.length === 0 || latestNoteDate !== null && latestNoteDate < sevenDaysAgo;
 
       // Check tasks condition - from ghl_tasks only
@@ -1828,9 +1848,9 @@ export function FollowUpManagement({
                       </TableHeader>
                       <TableBody>
                         {closeToSaleData.map(opp => {
-                          const latestNote = opp.contact_id ? getLatestNote(opp.contact_id) : null;
-                          const latestTask = opp.contact_id ? getLatestTask(opp.contact_id) : null;
-                          const latestAppt = opp.contact_id ? getLatestAppointment(opp.contact_id) : null;
+                          const latestNote = opp.contact_id ? getLatestNote(opp.contact_id, opp.contact_uuid) : null;
+                          const latestTask = opp.contact_id ? getLatestTask(opp.contact_id, opp.contact_uuid) : null;
+                          const latestAppt = opp.contact_id ? getLatestAppointment(opp.contact_id, opp.contact_uuid) : null;
                           const noteText = latestNote?.body 
                             ? latestNote.body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
                             : null;
