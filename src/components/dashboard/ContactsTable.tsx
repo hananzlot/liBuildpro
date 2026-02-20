@@ -61,6 +61,18 @@ interface ContactsTableProps {
 type SortField = 'name' | 'email' | 'phone' | 'source' | 'date';
 type SortDirection = 'asc' | 'desc';
 
+const formatPhoneNumber = (phone: string | null | undefined): string => {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
+};
+
 export function ContactsTable({
   contacts,
   opportunities,
@@ -248,7 +260,7 @@ export function ContactsTable({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Phone className="h-3.5 w-3.5" />
-                          {contact.phone}
+                          {formatPhoneNumber(contact.phone)}
                         </a>
                       ) : (
                         <span className="text-muted-foreground">—</span>
@@ -335,7 +347,7 @@ export function ContactsTable({
                   )}
                   {contact.phone && (
                     <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-primary" onClick={(e) => e.stopPropagation()}>
-                      <Phone className="h-3 w-3" /> {contact.phone}
+                      <Phone className="h-3 w-3" /> {formatPhoneNumber(contact.phone)}
                     </a>
                   )}
                   {oppCount > 0 && (
