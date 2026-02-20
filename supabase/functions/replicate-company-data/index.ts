@@ -298,6 +298,7 @@ Deno.serve(async (req) => {
         id: newId, ...rest,
         company_id: TARGET_COMPANY_ID,
         contact_uuid: o.contact_uuid ? (contactMap.get(o.contact_uuid) || null) : null,
+        contact_id: null,
         entered_by: null,
         ghl_id: null, external_id: null,
         salesperson_id: o.salesperson_id ? (salespersonMap.get(o.salesperson_id) || null) : null,
@@ -315,6 +316,7 @@ Deno.serve(async (req) => {
         id: newId, ...rest,
         company_id: TARGET_COMPANY_ID,
         contact_uuid: a.contact_uuid ? (contactMap.get(a.contact_uuid) || null) : null,
+        contact_id: null,
         salesperson_id: a.salesperson_id ? (salespersonMap.get(a.salesperson_id) || null) : null,
         entered_by: null, edited_by: null,
         ghl_id: null, external_id: null,
@@ -335,7 +337,9 @@ Deno.serve(async (req) => {
         id: newId, ...rest,
         company_id: TARGET_COMPANY_ID,
         contact_uuid: p.contact_uuid ? (contactMap.get(p.contact_uuid) || null) : null,
+        contact_id: null,
         opportunity_uuid: p.opportunity_uuid ? (opportunityMap.get(p.opportunity_uuid) || null) : null,
+        opportunity_id: null,
         created_by: null,
       };
     });
@@ -483,6 +487,7 @@ Deno.serve(async (req) => {
         id: newId, ...rest,
         company_id: TARGET_COMPANY_ID,
         contact_uuid: e.contact_uuid ? (contactMap.get(e.contact_uuid) || null) : null,
+        contact_id: null,
         project_id: e.project_id ? (projectMap.get(e.project_id) || null) : null,
         opportunity_uuid: e.opportunity_id ? (opportunityMap.get(e.opportunity_id) || null) : null,
         opportunity_id: null,
@@ -545,6 +550,7 @@ Deno.serve(async (req) => {
         ...rest,
         company_id: TARGET_COMPANY_ID,
         contact_uuid: n.contact_uuid ? (contactMap.get(n.contact_uuid) || null) : null,
+        contact_id: null,
         entered_by: null, edited_by: null,
         ghl_id: null, external_id: null,
       };
