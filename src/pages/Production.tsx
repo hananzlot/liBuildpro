@@ -1933,7 +1933,7 @@ export default function Production() {
                 </Button>
               </div>
             </DataListCardHeader>
-            <DataListCardBody>
+              <DataListCardBody className="overflow-x-auto overflow-y-visible">
               {isLoading ? (
                 <div className="space-y-2">
                   {[...Array(5)].map((_, i) => (
@@ -1947,7 +1947,7 @@ export default function Production() {
                   <p className="text-sm">Projects will appear here when opportunities are marked as won</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div>
                   <table className="w-full caption-bottom text-xs table-fixed">
                     <TableHeader className="[&_tr]:border-b">
                       <TableRow className="[&_th]:sticky [&_th]:top-0 [&_th]:bg-card [&_th]:z-10 bg-card hover:bg-card">
