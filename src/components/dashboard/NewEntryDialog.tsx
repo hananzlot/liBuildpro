@@ -48,7 +48,7 @@ interface NewEntryDialogProps {
   userId?: string;
   externalOpen?: boolean;
   onExternalOpenChange?: (open: boolean) => void;
-  mode?: "entry" | "contact";
+  mode?: "entry" | "contact" | "opportunity";
 }
 
 interface CSVEntry {
@@ -88,7 +88,6 @@ interface GoogleCalendarConnection {
   is_company_calendar: boolean;
   is_active: boolean;
 }
-
 
 const PRIMARY_LOCATION_ID = "pVeFrqvtYWNIPRIi0Fmr";
 
@@ -424,6 +423,16 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
     };
     fetchPipelineStages();
   }, [open, companyId]);
+
+  // Auto-set pipeline/stage for opportunity mode
+  useEffect(() => {
+    if (mode === "opportunity" && pipelineStages.length > 0) {
+      const mainPipeline = pipelineStages.find(s => s.pipeline_name === "Main");
+      if (mainPipeline) setSelectedPipeline(mainPipeline.pipeline_id);
+      const newStage = pipelineStages.find(s => s.stage_name.toLowerCase().startsWith("new"));
+      if (newStage) setSelectedStage(newStage.pipeline_stage_id);
+    }
+  }, [mode, pipelineStages]);
 
   // Fetch company Google Calendar first, fallback to GHL calendars
   useEffect(() => {
@@ -1009,8 +1018,8 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
       )}
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>{mode === "contact" ? "Add New Contact" : "Add New Entry"}</DialogTitle>
-          <DialogDescription>{mode === "contact" ? "Add a new contact to your CRM" : "Create a new contact with opportunity and appointment"}</DialogDescription>
+          <DialogTitle>{mode === "contact" ? "Add New Contact" : mode === "opportunity" ? "Add New Opportunity" : "Add New Entry"}</DialogTitle>
+          <DialogDescription>{mode === "contact" ? "Add a new contact to your CRM" : mode === "opportunity" ? "Create a new opportunity for a contact" : "Create a new contact with opportunity and appointment"}</DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
@@ -1122,7 +1131,7 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                 />
               </div>
 
-              {mode !== "contact" && (
+              {mode === "entry" && (
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
