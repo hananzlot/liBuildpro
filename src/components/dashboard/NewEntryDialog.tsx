@@ -159,6 +159,7 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
   const [emailError, setEmailError] = useState("");
   const [contactDuplicateMatch, setContactDuplicateMatch] = useState<{ name: string; address: string | null } | null>(null);
   const [contactDuplicateConfirmed, setContactDuplicateConfirmed] = useState(false);
+  const [creatingNewContact, setCreatingNewContact] = useState(false);
 
   // Search contacts as user types
   useEffect(() => {
@@ -584,6 +585,7 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
     setDuplicateWarningDismissed(false);
     setContactDuplicateMatch(null);
     setContactDuplicateConfirmed(false);
+    setCreatingNewContact(false);
     // Reset to default pipeline/stage
     const defaultStage = pipelineStages.find((s) => s.stage_name === "New Lead (No Contacted Yet)");
     if (defaultStage) {
@@ -687,7 +689,17 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
   };
 
   const handleSubmitSingle = async () => {
-    if (!selectedContactId) {
+    // If creating a new contact inline, create the contact first
+    if (creatingNewContact) {
+      if (!firstName.trim()) {
+        toast.error("First name is required");
+        return;
+      }
+      if (!lastName.trim()) {
+        toast.error("Last name is required");
+        return;
+      }
+    } else if (!selectedContactId) {
       toast.error("Please select a contact");
       return;
     }
@@ -1229,8 +1241,31 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />Searching...
                               </div>
                             )}
-                            {!isSearchingContacts && contactSearchQuery.trim() && contactResults.length === 0 && (
-                              <CommandEmpty>No contacts found.</CommandEmpty>
+              {!isSearchingContacts && contactSearchQuery.trim() && contactResults.length === 0 && (
+                              <CommandEmpty>
+                                <span>No contacts found.</span>
+                              </CommandEmpty>
+                            )}
+                            {/* Always show "Create new contact" option when user has typed something */}
+                            {!isSearchingContacts && contactSearchQuery.trim() && (
+                              <CommandGroup heading="Or">
+                                <CommandItem
+                                  value="__create_new__"
+                                  onSelect={() => {
+                                    // Parse the search query into first/last name
+                                    const parts = contactSearchQuery.trim().split(/\s+/);
+                                    setFirstName(parts[0] || "");
+                                    setLastName(parts.slice(1).join(" ") || "");
+                                    setSelectedContactId(null);
+                                    setCreatingNewContact(true);
+                                    setContactSearchOpen(false);
+                                  }}
+                                  className="flex items-center gap-2 cursor-pointer text-primary"
+                                >
+                                  <Plus className="h-4 w-4 shrink-0" />
+                                  <span>Create new contact: <strong>{contactSearchQuery.trim()}</strong></span>
+                                </CommandItem>
+                              </CommandGroup>
                             )}
                             {!isSearchingContacts && !contactSearchQuery.trim() && (
                               <div className="py-4 text-center text-sm text-muted-foreground">
@@ -1262,9 +1297,30 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                     </Popover>
                     {selectedContactId && (
                       <Button variant="ghost" size="sm" className="h-6 text-xs px-2"
-                        onClick={() => { setSelectedContactId(null); setFirstName(""); setLastName(""); setPhone(""); setEmail(""); setSource(""); }}>
+                        onClick={() => { setSelectedContactId(null); setFirstName(""); setLastName(""); setPhone(""); setEmail(""); setSource(""); setCreatingNewContact(false); }}>
                         <X className="h-3 w-3 mr-1" /> Clear selection
                       </Button>
+                    )}
+                    {creatingNewContact && (
+                      <div className="space-y-3 pt-2 border-t mt-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-primary">Creating new contact</p>
+                          <Button variant="ghost" size="sm" className="h-6 text-xs px-2"
+                            onClick={() => { setCreatingNewContact(false); setFirstName(""); setLastName(""); setPhone(""); setEmail(""); }}>
+                            <X className="h-3 w-3 mr-1" /> Cancel
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">First Name *</Label>
+                            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Last Name *</Label>
+                            <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" />
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </>
@@ -1405,7 +1461,7 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                 ) : (
                   <Button
                     onClick={handleSubmitSingle}
-                    disabled={isSubmitting || !selectedContactId || !!phoneError || !!emailError}
+                    disabled={isSubmitting || (!selectedContactId && !creatingNewContact) || (creatingNewContact && (!firstName.trim() || !lastName.trim())) || !!phoneError || !!emailError}
                   >
                     {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Create Entry
