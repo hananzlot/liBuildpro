@@ -755,6 +755,18 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
       toast.error("First name is required");
       return;
     }
+    if (!lastName.trim()) {
+      toast.error("Last name is required");
+      return;
+    }
+    if (!phone.trim()) {
+      toast.error("Phone is required");
+      return;
+    }
+    if (!address.trim()) {
+      toast.error("Address is required");
+      return;
+    }
     if (phone.trim() && !validatePhone(phone)) {
       toast.error("Please enter a valid phone number");
       return;
@@ -767,15 +779,13 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
     // Check for duplicate by first + last name
     if (!contactDuplicateConfirmed) {
       try {
+        const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
         let query = supabase
           .from("contacts")
           .select("id, contact_name, first_name, last_name, custom_fields")
           .eq("company_id", companyId!)
-          .ilike("first_name", firstName.trim())
+          .or(`and(first_name.ilike.${firstName.trim()},last_name.ilike.${lastName.trim()}),contact_name.ilike.${fullName}`)
           .limit(5);
-        if (lastName.trim()) {
-          query = query.ilike("last_name", lastName.trim());
-        }
         const { data: matches } = await query;
         if (matches && matches.length > 0) {
           const match = matches[0];
@@ -1129,21 +1139,23 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                         value={firstName}
                         onChange={(e) => { setFirstName(e.target.value); setContactDuplicateMatch(null); setContactDuplicateConfirmed(false); }}
                         placeholder="First name"
+                        required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="contactLastName">Last Name</Label>
+                      <Label htmlFor="contactLastName">Last Name *</Label>
                       <Input
                         id="contactLastName"
                         value={lastName}
                         onChange={(e) => { setLastName(e.target.value); setContactDuplicateMatch(null); setContactDuplicateConfirmed(false); }}
                         placeholder="Last name"
+                        required
                       />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="contactPhone">Phone</Label>
+                      <Label htmlFor="contactPhone">Phone *</Label>
                       <Input
                         id="contactPhone"
                         value={phone}
@@ -1259,12 +1271,13 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">Address{mode === "contact" ? " *" : ""}</Label>
                 <Input
                   id="address"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="123 Main St, City, CA 90210"
+                  required={mode === "contact"}
                 />
               </div>
 
@@ -1384,7 +1397,7 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                 {mode === "contact" ? (
                   <Button
                     onClick={handleSubmitContact}
-                    disabled={isSubmitting || !firstName.trim() || !!phoneError || !!emailError}
+                    disabled={isSubmitting || !firstName.trim() || !lastName.trim() || !phone.trim() || !address.trim() || !!phoneError || !!emailError}
                   >
                     {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Save Contact
