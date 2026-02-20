@@ -439,6 +439,7 @@ export default function Estimates() {
     const isProposalsTab = tableType === 'proposals';
 
     return (
+      <div className="overflow-auto max-h-[calc(100vh-280px)]">
       <Table>
         <TableHeader>
           <TableRow>
@@ -673,6 +674,7 @@ export default function Estimates() {
           ))}
         </TableBody>
       </Table>
+      </div>
     );
   };
 

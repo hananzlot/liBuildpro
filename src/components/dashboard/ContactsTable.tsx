@@ -153,7 +153,7 @@ export function ContactsTable({
       </div>
 
       {/* Desktop Table */}
-      <div className="rounded-lg border bg-card hidden md:block">
+      <div className="rounded-lg border bg-card hidden md:block overflow-auto max-h-[calc(100vh-280px)]">
         <Table>
           <TableHeader>
             <TableRow>

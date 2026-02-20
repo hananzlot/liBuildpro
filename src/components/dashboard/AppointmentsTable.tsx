@@ -896,7 +896,8 @@ export function AppointmentsTable({
             </Collapsible>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
+         <div className="overflow-auto max-h-[calc(100vh-280px)]">
           <Table className="table-fixed w-full">
              <TableHeader>
                <TableRow className="border-border/50 hover:bg-transparent">
@@ -1068,6 +1069,7 @@ export function AppointmentsTable({
               </div>
             </div>
           )}
+         </div>
         </CardContent>
       </Card>
 
