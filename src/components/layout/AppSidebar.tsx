@@ -388,13 +388,13 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   /* ─── Quick Create menu items ─── */
   const quickCreateItems = (
     <>
-      <DropdownMenuItem onClick={() => { openTab('/opportunities', 'Opportunities'); closeSidebar(); }}>
+      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openTab('/dashboard?action=new-opportunity', 'Dashboard'); closeSidebar(); }}>
         <Briefcase className="h-4 w-4 mr-2" />New Opportunity
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => { openTab('/contacts', 'Contacts'); closeSidebar(); }}>
+      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openTab('/dashboard?action=new-contact', 'Dashboard'); closeSidebar(); }}>
         <Contact className="h-4 w-4 mr-2" />New Contact
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => { openTab('/appointments', 'Appointments'); closeSidebar(); }}>
+      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openTab('/dashboard?action=new-appointment', 'Dashboard'); closeSidebar(); }}>
         <Calendar className="h-4 w-4 mr-2" />New Appointment
       </DropdownMenuItem>
     </>

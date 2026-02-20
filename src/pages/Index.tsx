@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Calendar, Database, DollarSign, CalendarCheck, Trophy, Pencil, Receipt, HardDrive } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
@@ -70,6 +70,19 @@ const Index = () => {
   const [sourceManagementOpen, setSourceManagementOpen] = useState(false);
   const [adminCleanupOpen, setAdminCleanupOpen] = useState(false);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
+  const [newEntryOpen, setNewEntryOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Auto-open NewEntryDialog when navigating with ?action=new-*
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action && action.startsWith('new-')) {
+      setNewEntryOpen(true);
+      // Clean up the URL param
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Redirect production-only users to the production page
   // Don't redirect when an admin is simulating a role
@@ -184,7 +197,7 @@ const Index = () => {
                 </div>
               )}
               <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
-              {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
+              {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} externalOpen={newEntryOpen} onExternalOpenChange={setNewEntryOpen} />}
               <SyncDropdown 
                 onSyncGHL={handleSync} 
                 isSyncingGHL={syncMutation.isPending} 
