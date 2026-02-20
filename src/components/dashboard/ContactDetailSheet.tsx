@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -254,6 +255,7 @@ export function ContactDetailSheet({
   onRefresh,
 }: ContactDetailSheetProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { isAdmin, user, companyId } = useAuth();
   const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ contact: true });
@@ -430,6 +432,8 @@ export function ContactDetailSheet({
       });
       if (error) throw error;
       
+      queryClient.invalidateQueries({ queryKey: ["global-search-contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["global-search-opportunities"] });
       toast({ title: "Contact deleted", description: "The contact has been removed" });
       onOpenChange(false);
       navigate('/contacts', { replace: true });
