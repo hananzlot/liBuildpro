@@ -157,6 +157,8 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phoneError, setPhoneError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [contactDuplicateMatch, setContactDuplicateMatch] = useState<{ name: string; address: string | null } | null>(null);
+  const [contactDuplicateConfirmed, setContactDuplicateConfirmed] = useState(false);
 
   // Search contacts as user types
   useEffect(() => {
@@ -580,6 +582,8 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
     setEmailError("");
     setDuplicateContacts([]);
     setDuplicateWarningDismissed(false);
+    setContactDuplicateMatch(null);
+    setContactDuplicateConfirmed(false);
     // Reset to default pipeline/stage
     const defaultStage = pipelineStages.find((s) => s.stage_name === "New Lead (No Contacted Yet)");
     if (defaultStage) {
@@ -741,6 +745,91 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
     } catch (error) {
       console.error("Error creating entry:", error);
       toast.error("Failed to create entry");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitContact = async () => {
+    if (!firstName.trim()) {
+      toast.error("First name is required");
+      return;
+    }
+    if (phone.trim() && !validatePhone(phone)) {
+      toast.error("Please enter a valid phone number");
+      return;
+    }
+    if (email.trim() && !validateEmail(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    // Check for duplicate by first + last name
+    if (!contactDuplicateConfirmed) {
+      try {
+        let query = supabase
+          .from("contacts")
+          .select("id, contact_name, first_name, last_name, custom_fields")
+          .eq("company_id", companyId!)
+          .ilike("first_name", firstName.trim())
+          .limit(5);
+        if (lastName.trim()) {
+          query = query.ilike("last_name", lastName.trim());
+        }
+        const { data: matches } = await query;
+        if (matches && matches.length > 0) {
+          const match = matches[0];
+          let matchAddress: string | null = null;
+          if (match.custom_fields) {
+            const fields = match.custom_fields as any[];
+            if (Array.isArray(fields)) {
+              const addrField = fields.find((f: any) => f.id === "b7oTVsUQrLgZt84bHpCn" && f.value);
+              if (addrField) matchAddress = addrField.value;
+            }
+          }
+          if (!matchAddress) {
+            const { data: proj } = await supabase
+              .from("projects")
+              .select("project_address")
+              .eq("contact_uuid", match.id)
+              .not("project_address", "is", null)
+              .is("deleted_at", null)
+              .limit(1)
+              .maybeSingle();
+            if (proj?.project_address) matchAddress = proj.project_address;
+          }
+          const matchName = match.contact_name || `${match.first_name || ""} ${match.last_name || ""}`.trim();
+          setContactDuplicateMatch({ name: matchName, address: matchAddress });
+          return;
+        }
+      } catch (e) {
+        console.error("Duplicate check failed:", e);
+      }
+    }
+
+    setIsSubmitting(true);
+    try {
+      const contactName = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const { error } = await supabase.from("contacts").insert({
+        company_id: companyId!,
+        location_id: PRIMARY_LOCATION_ID,
+        first_name: firstName.trim(),
+        last_name: lastName.trim() || null,
+        contact_name: contactName,
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        source: source || null,
+        provider: "local",
+        ghl_id: `local_${crypto.randomUUID()}`,
+      });
+      if (error) throw error;
+      toast.success(`Contact created: ${contactName}`);
+      resetForm();
+      setOpen(false);
+      onSuccess?.();
+    } catch (error) {
+      console.error("Error creating contact:", error);
+      toast.error("Failed to create contact");
     } finally {
       setIsSubmitting(false);
     }
@@ -1030,73 +1119,144 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
 
           <TabsContent value="single" className="flex-1 overflow-auto">
             <div className="grid gap-4 py-4">
-              {/* Contact selector */}
-              <div className="space-y-2">
-                <Label>Contact *</Label>
-                <Popover open={contactSearchOpen} onOpenChange={setContactSearchOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" aria-expanded={contactSearchOpen}
-                      className="w-full justify-between font-normal">
-                      {selectedContactLabel ? (
-                        <span className="flex items-center gap-2 truncate">
-                          <UserCheck className="h-4 w-4 shrink-0 text-primary" />
-                          <span className="truncate">{selectedContactLabel}</span>
-                          {phone && <span className="text-muted-foreground text-xs">{phone}</span>}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Search contacts...</span>
-                      )}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50 bg-popover" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput placeholder="Search by name, phone, or email..."
-                        value={contactSearchQuery} onValueChange={setContactSearchQuery} />
-                      <CommandList>
-                        {isSearchingContacts && (
-                          <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />Searching...
-                          </div>
-                        )}
-                        {!isSearchingContacts && contactSearchQuery.trim() && contactResults.length === 0 && (
-                          <CommandEmpty>No contacts found.</CommandEmpty>
-                        )}
-                        {!isSearchingContacts && !contactSearchQuery.trim() && (
-                          <div className="py-4 text-center text-sm text-muted-foreground">
-                            Type to search contacts
-                          </div>
-                        )}
-                        <CommandGroup>
-                          {contactResults.map((contact) => {
-                            const name = contact.contact_name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "Unknown";
-                            return (
-                              <CommandItem key={contact.id} value={contact.id}
-                                onSelect={() => handleSelectContact(contact)}
-                                className="flex items-center gap-2 cursor-pointer">
-                                <Check className={`h-4 w-4 shrink-0 ${selectedContactId === contact.id ? "opacity-100" : "opacity-0"}`} />
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium truncate">{name}</div>
-                                  <div className="flex gap-2 text-xs text-muted-foreground">
-                                    {contact.phone && <span>{contact.phone}</span>}
-                                    {contact.email && <span>{contact.email}</span>}
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {selectedContactId && (
-                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2"
-                    onClick={() => { setSelectedContactId(null); setFirstName(""); setLastName(""); setPhone(""); setEmail(""); setSource(""); }}>
-                    <X className="h-3 w-3 mr-1" /> Clear selection
-                  </Button>
-                )}
-              </div>
+              {mode === "contact" ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="contactFirstName">First Name *</Label>
+                      <Input
+                        id="contactFirstName"
+                        value={firstName}
+                        onChange={(e) => { setFirstName(e.target.value); setContactDuplicateMatch(null); setContactDuplicateConfirmed(false); }}
+                        placeholder="First name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contactLastName">Last Name</Label>
+                      <Input
+                        id="contactLastName"
+                        value={lastName}
+                        onChange={(e) => { setLastName(e.target.value); setContactDuplicateMatch(null); setContactDuplicateConfirmed(false); }}
+                        placeholder="Last name"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="contactPhone">Phone</Label>
+                      <Input
+                        id="contactPhone"
+                        value={phone}
+                        onChange={(e) => handlePhoneChange(e.target.value)}
+                        onBlur={handlePhoneBlur}
+                        placeholder="(555) 123-4567"
+                      />
+                      {phoneError && <p className="text-xs text-destructive">{phoneError}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contactEmail">Email</Label>
+                      <Input
+                        id="contactEmail"
+                        type="email"
+                        value={email}
+                        onChange={(e) => handleEmailChange(e.target.value)}
+                        onBlur={handleEmailBlur}
+                        placeholder="email@example.com"
+                      />
+                      {emailError && <p className="text-xs text-destructive">{emailError}</p>}
+                    </div>
+                  </div>
+                  {contactDuplicateMatch && !contactDuplicateConfirmed && (
+                    <Alert className="border-warning bg-warning/10">
+                      <AlertTriangle className="h-4 w-4 text-warning" />
+                      <AlertDescription className="space-y-2">
+                        <p className="font-medium text-sm">A contact with this name already exists:</p>
+                        <p className="text-sm"><span className="font-medium">{contactDuplicateMatch.name}</span>
+                          {contactDuplicateMatch.address && <span className="text-muted-foreground"> — {contactDuplicateMatch.address}</span>}
+                        </p>
+                        <div className="flex gap-2 pt-1">
+                          <Button size="sm" variant="outline" onClick={() => { setContactDuplicateMatch(null); }}>
+                            Cancel
+                          </Button>
+                          <Button size="sm" variant="default" onClick={() => { setContactDuplicateConfirmed(true); setContactDuplicateMatch(null); }}>
+                            Create Anyway
+                          </Button>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Contact selector */}
+                  <div className="space-y-2">
+                    <Label>Contact *</Label>
+                    <Popover open={contactSearchOpen} onOpenChange={setContactSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" aria-expanded={contactSearchOpen}
+                          className="w-full justify-between font-normal">
+                          {selectedContactLabel ? (
+                            <span className="flex items-center gap-2 truncate">
+                              <UserCheck className="h-4 w-4 shrink-0 text-primary" />
+                              <span className="truncate">{selectedContactLabel}</span>
+                              {phone && <span className="text-muted-foreground text-xs">{phone}</span>}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">Search contacts...</span>
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50 bg-popover" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput placeholder="Search by name, phone, or email..."
+                            value={contactSearchQuery} onValueChange={setContactSearchQuery} />
+                          <CommandList>
+                            {isSearchingContacts && (
+                              <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />Searching...
+                              </div>
+                            )}
+                            {!isSearchingContacts && contactSearchQuery.trim() && contactResults.length === 0 && (
+                              <CommandEmpty>No contacts found.</CommandEmpty>
+                            )}
+                            {!isSearchingContacts && !contactSearchQuery.trim() && (
+                              <div className="py-4 text-center text-sm text-muted-foreground">
+                                Type to search contacts
+                              </div>
+                            )}
+                            <CommandGroup>
+                              {contactResults.map((contact) => {
+                                const name = contact.contact_name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "Unknown";
+                                return (
+                                  <CommandItem key={contact.id} value={contact.id}
+                                    onSelect={() => handleSelectContact(contact)}
+                                    className="flex items-center gap-2 cursor-pointer">
+                                    <Check className={`h-4 w-4 shrink-0 ${selectedContactId === contact.id ? "opacity-100" : "opacity-0"}`} />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium truncate">{name}</div>
+                                      <div className="flex gap-2 text-xs text-muted-foreground">
+                                        {contact.phone && <span>{contact.phone}</span>}
+                                        {contact.email && <span>{contact.email}</span>}
+                                      </div>
+                                    </div>
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    {selectedContactId && (
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2"
+                        onClick={() => { setSelectedContactId(null); setFirstName(""); setLastName(""); setPhone(""); setEmail(""); setSource(""); }}>
+                        <X className="h-3 w-3 mr-1" /> Clear selection
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="address">Address</Label>
@@ -1212,7 +1372,7 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
             </div>
 
             <DialogFooter className="flex-col items-stretch sm:items-center gap-2">
-              {duplicateContacts.length > 0 && !duplicateWarningDismissed && (
+              {mode !== "contact" && duplicateContacts.length > 0 && !duplicateWarningDismissed && (
                 <p className="text-xs text-warning text-center sm:text-left">
                   ⚠ Duplicate found — review above before submitting.
                 </p>
@@ -1221,13 +1381,23 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                 <Button variant="outline" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <Button
-                  onClick={handleSubmitSingle}
-                  disabled={isSubmitting || !selectedContactId || !!phoneError || !!emailError}
-                >
-                  {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Create Entry
-                </Button>
+                {mode === "contact" ? (
+                  <Button
+                    onClick={handleSubmitContact}
+                    disabled={isSubmitting || !firstName.trim() || !!phoneError || !!emailError}
+                  >
+                    {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Save Contact
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleSubmitSingle}
+                    disabled={isSubmitting || !selectedContactId || !!phoneError || !!emailError}
+                  >
+                    {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Create Entry
+                  </Button>
+                )}
               </div>
             </DialogFooter>
           </TabsContent>
