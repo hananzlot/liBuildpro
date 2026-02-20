@@ -446,6 +446,13 @@ export function OpportunitiesTable({
     return map;
   }, [tasks, ghlIdToUuid]);
 
+  const getLastEditedDate = (opp: Opportunity): string | null => {
+    const candidates = [opp.updated_at, opp.ghl_date_updated].filter(Boolean) as string[];
+    if (candidates.length === 0) return opp.ghl_date_added || null;
+    if (candidates.length === 1) return candidates[0];
+    return new Date(candidates[0]) > new Date(candidates[1]) ? candidates[0] : candidates[1];
+  };
+
   const formatAppointmentDateTime = (dateString: string | null) => {
     if (!dateString) return "-";
     const date = new Date(dateString);
@@ -524,7 +531,7 @@ export function OpportunitiesTable({
       filtered = filtered.filter((opp) => {
         let dateStr: string | null | undefined;
         if (tableDateField === "updatedDate") {
-          dateStr = opp.updated_at || opp.ghl_date_updated || opp.ghl_date_added;
+          dateStr = getLastEditedDate(opp);
         } else {
           const contact = getOppContact(opp);
           dateStr = contact?.ghl_date_added || opp.ghl_date_added;
@@ -575,9 +582,10 @@ export function OpportunitiesTable({
       return toDayTimestamp(dateStr);
     };
 
+
     // Helper to get UPDATED date (by day)
     const getUpdatedDate = (opp: Opportunity): number => {
-      const dateStr = opp.updated_at || opp.ghl_date_updated || opp.ghl_date_added;
+      const dateStr = getLastEditedDate(opp);
       return toDayTimestamp(dateStr);
     };
 
@@ -1291,7 +1299,7 @@ export function OpportunitiesTable({
                       <TableCell className="text-muted-foreground text-xs">
                         <div className="flex flex-col gap-0.5 min-w-0">
                           <span className="truncate"><span className="text-muted-foreground/70">Rep:</span> {salesRepName || "-"}</span>
-                          <span className="whitespace-nowrap"><span className="text-muted-foreground/70">Edit:</span> {(opp.updated_at || opp.ghl_date_updated) ? new Date((opp.updated_at || opp.ghl_date_updated)!).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}</span>
+                          <span className="whitespace-nowrap"><span className="text-muted-foreground/70">Edit:</span> {(() => { const d = getLastEditedDate(opp); return d ? new Date(d).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"; })()}</span>
                           <span className="truncate"><span className="text-muted-foreground/70">Appt:</span> {latestAppt ? (
                             <>
                               {formatAppointmentDateTime(latestAppt.start_time)}
