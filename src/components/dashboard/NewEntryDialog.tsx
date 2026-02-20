@@ -102,6 +102,39 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
   const [activeTab, setActiveTab] = useState("single");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch company salespeople as fallback for rep dropdown
+  const [salespeople, setSalespeople] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (!companyId) return;
+    supabase
+      .from("salespeople")
+      .select("id, name")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .order("name")
+      .then(({ data }) => setSalespeople(data || []));
+  }, [companyId]);
+
+  // Build rep options: prefer GHL users, fallback to salespeople
+  const repOptions = useMemo(() => {
+    if (users && users.length > 0) {
+      return [...users]
+        .sort((a, b) => {
+          const nameA = (a.name || `${a.first_name || ""} ${a.last_name || ""}`.trim() || "Unknown").toLowerCase();
+          const nameB = (b.name || `${b.first_name || ""} ${b.last_name || ""}`.trim() || "Unknown").toLowerCase();
+          return nameA.localeCompare(nameB);
+        })
+        .map((user) => ({
+          value: user.ghl_id,
+          label: user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown",
+        }));
+    }
+    return salespeople.map((sp) => ({
+      value: sp.id,
+      label: sp.name,
+    }));
+  }, [users, salespeople]);
+
   // Contact selection state
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [contactSearchOpen, setContactSearchOpen] = useState(false);
@@ -1107,26 +1140,15 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                   <SelectTrigger>
                     <SelectValue placeholder="Select rep" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {[...users]
-                      .sort((a, b) => {
-                        const nameA = (
-                          a.name ||
-                          `${a.first_name || ""} ${a.last_name || ""}`.trim() ||
-                          "Unknown"
-                        ).toLowerCase();
-                        const nameB = (
-                          b.name ||
-                          `${b.first_name || ""} ${b.last_name || ""}`.trim() ||
-                          "Unknown"
-                        ).toLowerCase();
-                        return nameA.localeCompare(nameB);
-                      })
-                      .map((user) => (
-                        <SelectItem key={user.ghl_id} value={user.ghl_id}>
-                          {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown"}
-                        </SelectItem>
-                      ))}
+                  <SelectContent className="bg-popover z-50">
+                    {repOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                    {repOptions.length === 0 && (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">No reps available</div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
