@@ -183,9 +183,16 @@ export function AppointmentsTable({
       .join(' ');
   };
 
-  const getContactName = (contactId: string | null, contactUuid?: string | null): string => {
-    if (!contactId && !contactUuid) return 'Unknown';
+  const getContactName = (contactId: string | null, contactUuid?: string | null, appointmentTitle?: string | null): string => {
+    if (!contactId && !contactUuid) {
+      if (appointmentTitle) return formatName(appointmentTitle.replace(/^Appointment\s*-\s*/i, '').trim());
+      return 'Unknown';
+    }
     const contact = findContactByIdOrGhlId(contacts, contactUuid, contactId);
+    if (!contact) {
+      if (appointmentTitle) return formatName(appointmentTitle.replace(/^Appointment\s*-\s*/i, '').trim());
+      return 'Unknown';
+    }
     const name = contact?.contact_name || `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim() || 'Unknown';
     return formatName(name);
   };
@@ -565,7 +572,7 @@ export function AppointmentsTable({
 
       switch (sortColumn) {
         case 'contact':
-          comparison = getContactName(a.contact_id, a.contact_uuid).localeCompare(getContactName(b.contact_id, b.contact_uuid));
+          comparison = getContactName(a.contact_id, a.contact_uuid, a.title).localeCompare(getContactName(b.contact_id, b.contact_uuid, b.title));
           break;
         case 'start':
           const dateA = a.start_time ? new Date(a.start_time).getTime() : 0;
@@ -975,7 +982,7 @@ export function AppointmentsTable({
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1">
                           <span className="font-medium text-foreground text-sm truncate">
-                            {getContactName(appt.contact_id, appt.contact_uuid)}
+                            {getContactName(appt.contact_id, appt.contact_uuid, appt.title)}
                           </span>
                           {isUpcoming(appt.start_time) && (
                             <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-[10px] px-1 py-0">
