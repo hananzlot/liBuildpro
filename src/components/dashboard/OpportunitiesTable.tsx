@@ -447,10 +447,14 @@ export function OpportunitiesTable({
   }, [tasks, ghlIdToUuid]);
 
   const getLastEditedDate = (opp: Opportunity): string | null => {
-    const candidates = [opp.updated_at, opp.ghl_date_updated].filter(Boolean) as string[];
-    if (candidates.length === 0) return opp.ghl_date_added || null;
-    if (candidates.length === 1) return candidates[0];
-    return new Date(candidates[0]) > new Date(candidates[1]) ? candidates[0] : candidates[1];
+    // Use ghl_date_updated as the baseline edit date
+    const ghlDate = opp.ghl_date_updated || opp.ghl_date_added || null;
+    // Only prefer updated_at if it's strictly newer than ghl_date_updated
+    // (meaning a genuine local edit occurred after the last GHL sync)
+    if (opp.updated_at && ghlDate) {
+      return new Date(opp.updated_at) > new Date(ghlDate) ? opp.updated_at : ghlDate;
+    }
+    return opp.updated_at || ghlDate;
   };
 
   const formatAppointmentDateTime = (dateString: string | null) => {
