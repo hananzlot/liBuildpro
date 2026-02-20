@@ -27,25 +27,30 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch contact - try by ghl_id first, then by UUID
+    // Fetch contact - prefer UUID lookup, then ghl_id scoped by company
     let contact = null;
     
-    if (contactId) {
-      const result = await supabase
-        .from("contacts")
-        .select("id, ghl_id, location_id, email")
-        .eq("ghl_id", contactId)
-        .maybeSingle();
-      contact = result.data;
-    }
-    
-    // Fallback to UUID if ghl_id lookup failed
-    if (!contact && contactUuid) {
+    if (contactUuid) {
       const result = await supabase
         .from("contacts")
         .select("id, ghl_id, location_id, email")
         .eq("id", contactUuid)
         .maybeSingle();
+      contact = result.data;
+    }
+    
+    if (!contact && contactId) {
+      let query = supabase
+        .from("contacts")
+        .select("id, ghl_id, location_id, email")
+        .eq("ghl_id", contactId);
+      
+      // Scope by company_id to prevent cross-company updates
+      if (companyId) {
+        query = query.eq("company_id", companyId);
+      }
+      
+      const result = await query.maybeSingle();
       contact = result.data;
     }
 
