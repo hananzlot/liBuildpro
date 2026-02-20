@@ -92,6 +92,9 @@ export function AppLayout({
           onAdminAction={onAdminAction} 
           onChangePassword={() => setChangePasswordOpen(true)}
         />
+
+        {/* Subtle vertical divider between dark sidebar and light content */}
+        <div className="w-px bg-sidebar-border shrink-0 hidden md:block" />
         
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {/* Header */}

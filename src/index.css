@@ -51,15 +51,19 @@
 
     --radius: 0.75rem;
 
-    --sidebar-background: 220 20% 98%;
-    --sidebar-foreground: 220 20% 14%;
-    --sidebar-primary: 220 90% 48%;
+    /* Dark sidebar tokens — premium CRM look */
+    --sidebar-background: 222 28% 14%;
+    --sidebar-foreground: 220 14% 82%;
+    --sidebar-primary: 220 90% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 40% 95%;
-    --sidebar-accent-foreground: 220 90% 42%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 220 90% 48%;
-    --sidebar: 220 20% 98%;
+    --sidebar-accent: 222 24% 20%;
+    --sidebar-accent-foreground: 220 14% 96%;
+    --sidebar-border: 222 20% 22%;
+    --sidebar-ring: 220 90% 56%;
+    --sidebar-muted-foreground: 220 10% 52%;
+    --sidebar-surface-hover: 222 24% 18%;
+    --sidebar-surface-active: 222 24% 22%;
+    --sidebar: 222 28% 14%;
 
     --chart-1: 220 90% 48%;
     --chart-2: 190 80% 42%;
@@ -129,15 +133,19 @@
 
     --radius: 0.75rem;
 
-    --sidebar-background: 224 28% 7%;
-    --sidebar-foreground: 220 14% 92%;
+    /* Dark sidebar tokens (darker in dark mode) */
+    --sidebar-background: 224 32% 8%;
+    --sidebar-foreground: 220 14% 82%;
     --sidebar-primary: 220 90% 56%;
     --sidebar-primary-foreground: 224 25% 8%;
-    --sidebar-accent: 220 40% 18%;
+    --sidebar-accent: 224 24% 16%;
     --sidebar-accent-foreground: 220 90% 68%;
-    --sidebar-border: 224 16% 16%;
+    --sidebar-border: 224 20% 14%;
     --sidebar-ring: 220 90% 56%;
-    --sidebar: 224 22% 12%;
+    --sidebar-muted-foreground: 220 10% 50%;
+    --sidebar-surface-hover: 224 24% 12%;
+    --sidebar-surface-active: 224 24% 16%;
+    --sidebar: 224 32% 8%;
 
     --chart-1: 220 90% 56%;
     --chart-2: 190 80% 52%;
