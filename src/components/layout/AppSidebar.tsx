@@ -404,6 +404,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openTab('/dashboard?action=new-appointment', 'Dashboard'); closeSidebar(); }}>
         <Calendar className="h-4 w-4 mr-2" />New Appointment
       </DropdownMenuItem>
+      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openTab('/estimate/new', 'New Estimate'); closeSidebar(); }}>
+        <FileText className="h-4 w-4 mr-2" />New Estimate
+      </DropdownMenuItem>
     </>
   );
 
