@@ -11,6 +11,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
 
 const Appointments = () => {
@@ -101,25 +102,41 @@ const Appointments = () => {
         ) : undefined
       }
     >
-      <div className="px-6 py-6 space-y-6">
-        {/* Top Actions Bar */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
-            <Badge variant="secondary" className="text-sm px-2.5 py-0.5">{filteredCount}</Badge>
-          </div>
-          {!isGHLEnabled && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
-              <HardDrive className="h-3 w-3" />
-              Local Mode
-            </div>
-          )}
-        </div>
+      <div className="px-4 sm:px-6 py-5 space-y-4">
+        {/* Page Header — card-first style */}
+        <PageHeader
+          title="Appointments"
+          subtitle={isLoading ? "Loading..." : `${filteredCount} filtered`}
+          actions={
+            !isGHLEnabled ? (
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-warning/10 text-warning text-xs font-medium rounded-full border border-warning/20">
+                <HardDrive className="h-3 w-3" />
+                Local
+              </div>
+            ) : undefined
+          }
+        />
 
         {/* Appointments Table */}
         <section>
           {isLoading ? (
-            <Skeleton className="h-[400px] rounded-2xl" />
+            <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-border/40">
+                <Skeleton className="h-8 w-full" />
+              </div>
+              <div className="divide-y divide-border/30">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="px-4 py-3 flex items-center gap-4">
+                    <Skeleton className="h-4 w-[28%]" />
+                    <Skeleton className="h-4 w-[18%]" />
+                    <Skeleton className="h-4 w-[10%]" />
+                    <Skeleton className="h-4 w-[11%]" />
+                    <Skeleton className="h-4 w-[16%]" />
+                    <Skeleton className="h-4 w-[10%]" />
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
             <AppointmentsTable 
               appointments={metrics?.allAppointments || []} 

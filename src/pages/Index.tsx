@@ -29,6 +29,7 @@ import { AppointmentsAnalysisDialog } from "@/components/dashboard/AppointmentsA
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
 import { OnboardingPromptBanner } from "@/components/onboarding";
 
@@ -167,30 +168,30 @@ const Index = () => {
     <AppLayout 
       onAdminAction={handleAdminAction}
     >
-      <div className="px-4 py-4 space-y-4">
+      <div className="px-4 sm:px-6 py-5 space-y-4">
         {/* Onboarding Banner for new admins */}
         <OnboardingPromptBanner variant="dashboard" />
         
-        {/* Top Actions Bar */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-foreground">Dispatch Dashboard</h1>
-            {!isGHLEnabled && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
-                <HardDrive className="h-3 w-3" />
-                Local Mode
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
-            {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
-            <SyncDropdown 
-              onSyncGHL={handleSync} 
-              isSyncingGHL={syncMutation.isPending} 
-            />
-          </div>
-        </div>
+        {/* Page Header — card-first style */}
+        <PageHeader
+          title="Dispatch Dashboard"
+          actions={
+            <>
+              {!isGHLEnabled && (
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-warning/10 text-warning text-xs font-medium rounded-full border border-warning/20">
+                  <HardDrive className="h-3 w-3" />
+                  Local
+                </div>
+              )}
+              <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
+              {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
+              <SyncDropdown 
+                onSyncGHL={handleSync} 
+                isSyncingGHL={syncMutation.isPending} 
+              />
+            </>
+          }
+        />
 
         {/* Metrics Grid */}
         <section className="flex flex-wrap gap-3 [&>*]:flex-1 [&>*]:min-w-[200px] [&>*]:max-w-full">
