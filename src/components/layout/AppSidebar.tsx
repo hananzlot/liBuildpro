@@ -28,6 +28,7 @@ import {
   Users,
   FileText,
   ChevronRight,
+  ChevronLeft,
   BarChart3,
   FolderKanban,
   HardHat,
@@ -53,6 +54,8 @@ import {
   Link2,
   Shield,
   Award,
+  Plus,
+  ChevronsUpDown,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -302,8 +305,6 @@ const navSections: NavSection[] = [
   },
 ];
 
-// Reports sub-menus removed for now - can be added when routes are created
-
 interface AdminMenuItem {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -404,7 +405,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const togglePinned = () => {
     const newPinned = !isPinned;
     setIsPinned(newPinned);
-    // If pinning, expand the sidebar; if unpinning, collapse it
     setOpen(newPinned);
   };
 
@@ -419,37 +419,24 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const [aiQueueOpen, setAiQueueOpen] = useState(false);
 
   const closeSidebar = () => {
-    // On mobile, always close
     if (isMobile) {
-      setTimeout(() => {
-        setOpenMobile(false);
-      }, 100);
+      setTimeout(() => { setOpenMobile(false); }, 100);
     } else if (!isPinned) {
-      // On desktop, only collapse if not pinned
-      setTimeout(() => {
-        setOpen(false);
-      }, 100);
+      setTimeout(() => { setOpen(false); }, 100);
     }
   };
 
   const handleSidebarContentClickCapture = (event: React.MouseEvent) => {
     const target = event.target as HTMLElement | null;
     if (!target) return;
-
-    // Only close when a real navigation link inside the sidebar is clicked
     const linkEl = target.closest("a");
     if (!linkEl) return;
-
     const insideMenu = linkEl.closest('[data-sidebar="menu-button"], [data-sidebar="menu-sub-button"]');
     if (!insideMenu) return;
-
     closeSidebar();
   };
 
-  // Track which collapsible menus are open (for items with subItems)
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
-  
-  // Track which sections are open (collapsed by default, auto-expand active section)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const handleLogout = async () => {
@@ -458,25 +445,17 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   };
 
   const toggleMenu = (title: string) => {
-    setOpenMenus(prev => ({
-      ...prev,
-      [title]: !prev[title]
-    }));
+    setOpenMenus(prev => ({ ...prev, [title]: !prev[title] }));
   };
 
   const toggleSection = (label: string) => {
-    setOpenSections(prev => ({
-      ...prev,
-      [label]: !prev[label]
-    }));
+    setOpenSections(prev => ({ ...prev, [label]: !prev[label] }));
   };
 
   const canViewItem = (item: NavItem): boolean => {
-    // Check feature access first (super admins bypass this)
     if (item.requiredFeature && !isSuperAdmin && !canUseFeature(item.requiredFeature)) {
       return false;
     }
-
     if (item.roles && item.roles.length > 0) {
       const hasRequiredRole = item.roles.some(role => {
         switch (role) {
@@ -492,7 +471,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       });
       if (!hasRequiredRole) return false;
     }
-
     if (item.excludeRoles && item.excludeRoles.length > 0) {
       const shouldExclude = item.excludeRoles.some(role => {
         if (role === 'production') {
@@ -502,14 +480,12 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       });
       if (shouldExclude) return false;
     }
-
     return true;
   };
 
   const isSubItemActive = (item: NavItem): boolean => {
     if (!item.subItems) return false;
     return item.subItems.some(sub => {
-      // Handle URLs with query params (e.g., /production?view=projects)
       if (sub.url.includes('?')) {
         const [path, queryString] = sub.url.split('?');
         if (location.pathname !== path) return false;
@@ -533,11 +509,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   };
 
   const canViewSection = (section: NavSection): boolean => {
-    // Check feature access first (super admins bypass this)
     if (section.requiredFeature && !isSuperAdmin && !canUseFeature(section.requiredFeature)) {
       return false;
     }
-
     return section.roles.some(role => {
       switch (role) {
         case 'super_admin': return isSuperAdmin;
@@ -552,7 +526,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     });
   };
 
-  // Check if any item in a section is currently active
   const isSectionActive = (section: NavSection): boolean => {
     return section.items.some(item => {
       if (item.url && isUrlActive(item.url)) return true;
@@ -561,10 +534,8 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     });
   };
 
-  // Check if a specific URL (with query params) is currently active
   const isUrlActive = (url: string | undefined): boolean => {
     if (!url) return false;
-    
     if (url.includes('?')) {
       const [path, queryString] = url.split('?');
       if (location.pathname !== path) return false;
@@ -576,7 +547,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   };
 
   const renderNavItem = (item: NavItem) => {
-    // Check if the current item's URL is active (handles query params)
     const isActive = !item.external && !item.subItems && isUrlActive(item.url);
     const hasActiveSubItem = isSubItemActive(item);
     const isOpen = openMenus[item.title] || hasActiveSubItem;
@@ -595,8 +565,12 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
               <SidebarMenuButton 
                 tooltip={item.title}
                 isActive={hasActiveSubItem}
+                className={cn(
+                  "h-10",
+                  hasActiveSubItem && "bg-sidebar-surface-active text-sidebar-accent-foreground font-medium"
+                )}
               >
-                <item.icon className="h-4 w-4" />
+                <item.icon className="h-[18px] w-[18px]" />
                 {!collapsed && (
                   <>
                     <span className="flex-1">{item.title}</span>
@@ -621,8 +595,8 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                           className={cn(
                             "flex items-center gap-2 rounded-md transition-colors",
                             isSubActive 
-                              ? "bg-sidebar-accent text-sidebar-accent-foreground border-l-2 border-primary pl-[calc(0.5rem-2px)]" 
-                              : "hover:bg-accent/50"
+                              ? "bg-sidebar-surface-active text-sidebar-accent-foreground border-l-2 border-sidebar-primary pl-[calc(0.5rem-2px)] font-medium" 
+                              : "text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
                           )}
                         >
                           {subItem.icon && <subItem.icon className="h-3 w-3" />}
@@ -646,14 +620,10 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           <SidebarMenuButton 
             asChild 
             tooltip={item.title}
+            className="h-10 text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
           >
-            <a 
-              href={item.url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center gap-2"
-            >
-              <item.icon className="h-4 w-4" />
+            <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+              <item.icon className="h-[18px] w-[18px]" />
               {!collapsed && <span>{item.title}</span>}
             </a>
           </SidebarMenuButton>
@@ -661,26 +631,13 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       );
     }
 
-    // Regular nav link - use custom active check for URLs with query params
-    const hasQueryParams = item.url?.includes('?');
-    
-    // Build display title with dynamic suffix for AR/AP
+    // Regular nav link
     const getDynamicAmount = () => {
-      if (item.dynamicSuffix === 'ar' && totalUnpaidAR > 0) {
-        return formatCompactCurrency(totalUnpaidAR);
-      }
-      if (item.dynamicSuffix === 'ap' && apDueByFocusDay > 0) {
-        return formatCompactCurrency(apDueByFocusDay);
-      }
-      if (item.dynamicSuffix === 'todayAppts') {
-        return todayAppointmentsCount.toString();
-      }
-      if (item.dynamicSuffix === 'pendingScopes' && pendingScopesCount > 0) {
-        return pendingScopesCount.toString();
-      }
-      if (item.dynamicSuffix === 'pendingDeposits' && pendingDepositsCount > 0) {
-        return pendingDepositsCount.toString();
-      }
+      if (item.dynamicSuffix === 'ar' && totalUnpaidAR > 0) return formatCompactCurrency(totalUnpaidAR);
+      if (item.dynamicSuffix === 'ap' && apDueByFocusDay > 0) return formatCompactCurrency(apDueByFocusDay);
+      if (item.dynamicSuffix === 'todayAppts') return todayAppointmentsCount.toString();
+      if (item.dynamicSuffix === 'pendingScopes' && pendingScopesCount > 0) return pendingScopesCount.toString();
+      if (item.dynamicSuffix === 'pendingDeposits' && pendingDepositsCount > 0) return pendingDepositsCount.toString();
       return null;
     };
     
@@ -689,28 +646,27 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     
     const renderTitleWithAmount = () => {
       if (!dynamicAmount) return <span>{item.title}</span>;
-      // Pending deposits: red round badge
       if (item.dynamicSuffix === 'pendingDeposits') {
         return (
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-2 flex-1">
             <span>{item.title}</span>
-            <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
+            <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">
               {dynamicAmount}
             </span>
           </span>
         );
       }
-      // AR in dark green, AP in orange, Today's appointments in blue, Pending scopes in amber
       const colorClass = item.dynamicSuffix === 'ar' 
-        ? "text-green-700 dark:text-green-500" 
+        ? "text-green-400" 
         : item.dynamicSuffix === 'ap'
-        ? "text-orange-500"
+        ? "text-orange-400"
         : item.dynamicSuffix === 'pendingScopes'
-        ? "text-amber-500"
-        : "text-primary";
+        ? "text-amber-400"
+        : "text-sidebar-primary";
       return (
-        <span>
-          {item.title} <span className={colorClass}>({dynamicAmount})</span>
+        <span className="flex items-center gap-1 flex-1">
+          <span>{item.title}</span>
+          <span className={cn("ml-auto text-xs", colorClass)}>({dynamicAmount})</span>
         </span>
       );
     };
@@ -721,18 +677,23 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           asChild 
           isActive={isActive}
           tooltip={displayTitle}
+          className={cn(
+            "h-10 relative",
+            isActive 
+              ? "bg-sidebar-surface-active text-sidebar-accent-foreground font-medium" 
+              : "text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
+          )}
         >
           <a 
             href={item.url}
             onClick={(e) => handleNavClick(e, item.url || '/', item.title)}
-            className={cn(
-              "flex items-center gap-2 rounded-md transition-colors",
-              isActive 
-                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-primary pl-[calc(0.5rem-2px)]" 
-                : "hover:bg-accent/50"
-            )}
+            className="flex items-center gap-2 rounded-md transition-colors"
           >
-            <item.icon className="h-4 w-4" />
+            {/* Active accent bar */}
+            {isActive && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary" />
+            )}
+            <item.icon className="h-[18px] w-[18px]" />
             {!collapsed && renderTitleWithAmount()}
           </a>
         </SidebarMenuButton>
@@ -744,21 +705,10 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const dynamicSections = useMemo(() => {
     return navSections.map(section => {
       if (section.label !== "Analytics") return section;
-      
-      // If user has no analytics access at all, return section as-is (canViewSection will hide it)
       if (!hasAnyAnalyticsAccess) return section;
-      
-      // Build sub-items from visible reports (only analytics tabs, not outstanding AP/AR)
       const analyticsTabReports = ANALYTICS_REPORTS.filter(r => !r.key.startsWith('outstanding_'));
       const visibleAnalyticsTabs = analyticsTabReports.filter(r => visibleReports.includes(r.key));
-      
-      // Also check outstanding AP/AR visibility  
-      const hasOutstandingAP = visibleReports.includes('outstanding_ap');
-      const hasOutstandingAR = visibleReports.includes('outstanding_ar');
-      
       const items: NavItem[] = [];
-      
-      // Add each visible analytics report as a direct nav item (no nested submenu)
       for (const report of visibleAnalyticsTabs) {
         items.push({
           title: report.label,
@@ -768,109 +718,160 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           requiredFeature: 'analytics',
         });
       }
-      
-      // Outstanding AR/AP moved to Production section
-      
       return { ...section, items };
     });
   }, [visibleReports, hasAnyAnalyticsAccess]);
 
-  // Get visible sections
   const visibleSections = dynamicSections.filter(section => {
-    // For analytics section, also check if user has any analytics access
     if (section.label === "Analytics" && !hasAnyAnalyticsAccess) return false;
     return canViewSection(section);
   });
 
-  // For super admins, show warning if no company selected
   const noCompanyContext = isSuperAdmin && !company;
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
-        {/* Pin Toggle - only visible when expanded on desktop */}
-        {!isMobile && !collapsed && (
-          <div className="flex justify-end -mb-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={togglePinned}
-                  className="p-1 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label={isPinned ? "Unpin sidebar" : "Pin sidebar open"}
-                >
-                  {isPinned ? (
-                    <Pin className="h-3.5 w-3.5" />
-                  ) : (
-                    <PinOff className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                {isPinned ? "Unpin sidebar (auto-collapse)" : "Pin sidebar open"}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        )}
+      {/* ─── Workspace Header ─── */}
+      <SidebarHeader className="border-b border-sidebar-border p-0">
         <div 
-          className={`flex flex-col gap-2 px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors ${isViewingOtherCompany ? 'bg-amber-500/5 border border-amber-500/30' : ''} ${noCompanyContext ? 'bg-destructive/5 border border-destructive/30' : ''}`}
-          onClick={() => {
-            if (collapsed) {
-              setOpen(true);
-            }
-          }}
+          className={cn(
+            "flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-sidebar-surface-hover transition-colors",
+            isViewingOtherCompany && "bg-amber-500/10",
+            noCompanyContext && "bg-destructive/10",
+          )}
+          onClick={() => { if (collapsed) setOpen(true); }}
         >
-          {/* Logo - full width */}
+          {/* Company logo (small) */}
           {company?.logo_url ? (
             <img 
               src={company.logo_url} 
               alt={company.name || "Company"} 
-              className={collapsed ? "h-8 w-8 rounded-lg object-contain mx-auto" : "h-12 w-full rounded-lg object-contain"}
+              className="h-8 w-8 rounded-lg object-contain shrink-0"
             />
           ) : (
-            <div className={`flex items-center justify-center rounded-lg font-bold text-sm ${collapsed ? 'h-8 w-8 mx-auto' : 'h-12 w-full'} ${noCompanyContext ? 'bg-destructive/20 text-destructive' : isViewingOtherCompany ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'}`}>
+            <div className={cn(
+              "h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
+              noCompanyContext 
+                ? "bg-destructive/20 text-destructive" 
+                : isViewingOtherCompany 
+                ? "bg-amber-500 text-white" 
+                : "bg-sidebar-primary text-sidebar-primary-foreground"
+            )}>
               {noCompanyContext ? "?" : (company?.name || "CO").substring(0, 2).toUpperCase()}
             </div>
           )}
-          {/* Company name - below logo */}
+
+          {/* Company name + environment badge */}
           {!collapsed && (
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1 justify-center">
-                <span className={`text-sm font-semibold truncate text-center ${noCompanyContext ? 'text-destructive' : ''}`}>
-                  {noCompanyContext ? "Select a Company" : company?.name || "Company"}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "text-sm font-semibold truncate text-sidebar-foreground",
+                  noCompanyContext && "text-destructive"
+                )}>
+                  {noCompanyContext ? "Select Company" : company?.name || "Company"}
                 </span>
                 {isViewingOtherCompany && (
-                  <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
+                  <span className="inline-flex items-center h-[18px] px-1.5 rounded-full text-[10px] font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30">
                     Working
-                  </Badge>
+                  </span>
                 )}
               </div>
-              <div className="flex items-center gap-1 justify-center">
-                {noCompanyContext ? (
-                  <span className="text-xs text-muted-foreground">Use switcher below</span>
-                ) : (
-                  <>
-                    <span className="text-xs text-muted-foreground">{versionString}</span>
-                    {isAdmin && (
-                      <VersionBumpDialog currentVersion={version} />
-                    )}
-                    {isSimulating && (
-                      <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
-                        Simulating
-                      </Badge>
-                    )}
-                  </>
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] text-sidebar-muted-foreground">{versionString}</span>
+                {isAdmin && <VersionBumpDialog currentVersion={version} />}
+                {isSimulating && (
+                  <span className="inline-flex items-center h-[16px] px-1 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400">
+                    Simulating
+                  </span>
                 )}
               </div>
             </div>
+          )}
+
+          {/* Collapse toggle */}
+          {!collapsed && !isMobile && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={(e) => { e.stopPropagation(); togglePinned(); }}
+                  className="p-1 rounded-md hover:bg-sidebar-surface-active text-sidebar-muted-foreground hover:text-sidebar-foreground transition-colors shrink-0"
+                  aria-label={isPinned ? "Unpin sidebar" : "Pin sidebar open"}
+                >
+                  {isPinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {isPinned ? "Unpin sidebar" : "Pin sidebar open"}
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
         
         {/* Company Switcher for Super Admins and Corp Admins */}
         {(isSuperAdmin || isCorpAdmin) && !collapsed && <CompanySwitcher />}
+
+        {/* Quick Create */}
+        {!collapsed && (
+          <div className="px-3 pb-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-full flex items-center justify-center gap-1.5 h-8 rounded-md text-xs font-medium bg-sidebar-primary text-sidebar-primary-foreground hover:opacity-90 transition-opacity">
+                  <Plus className="h-3.5 w-3.5" />
+                  Quick Create
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="start" className="w-48">
+                <DropdownMenuItem onClick={() => { openTab('/opportunities', 'Opportunities'); closeSidebar(); }}>
+                  <Briefcase className="h-4 w-4 mr-2" />
+                  New Opportunity
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { openTab('/contacts', 'Contacts'); closeSidebar(); }}>
+                  <Contact className="h-4 w-4 mr-2" />
+                  New Contact
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { openTab('/appointments', 'Appointments'); closeSidebar(); }}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  New Appointment
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+        {collapsed && (
+          <div className="flex justify-center pb-2">
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button className="h-8 w-8 rounded-md flex items-center justify-center bg-sidebar-primary text-sidebar-primary-foreground hover:opacity-90 transition-opacity">
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="right">Quick Create</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent side="right" align="start" className="w-48">
+                <DropdownMenuItem onClick={() => { openTab('/opportunities', 'Opportunities'); closeSidebar(); }}>
+                  <Briefcase className="h-4 w-4 mr-2" />
+                  New Opportunity
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { openTab('/contacts', 'Contacts'); closeSidebar(); }}>
+                  <Contact className="h-4 w-4 mr-2" />
+                  New Contact
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { openTab('/appointments', 'Appointments'); closeSidebar(); }}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  New Appointment
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent onClickCapture={handleSidebarContentClickCapture}>
-        {/* Navigation Sections - Collapsible, auto-expand active section */}
+        {/* Navigation Sections */}
         {visibleSections.map((section) => {
           const visibleItems = section.items.filter(canViewItem);
           if (visibleItems.length === 0) return null;
@@ -887,9 +888,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
             >
               <SidebarGroup>
                 <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors flex items-center justify-between pr-2">
+                  <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-surface-hover rounded-md transition-colors flex items-center justify-between pr-2 text-[11px] uppercase tracking-wider font-semibold text-sidebar-muted-foreground">
                     <span>{section.label}</span>
-                    <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${isSectionOpen ? 'rotate-90' : ''}`} />
+                    <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-200 ${isSectionOpen ? 'rotate-90' : ''}`} />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -905,26 +906,29 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         })}
 
 
-        {/* Admin Tools - always show for actual admins (even when simulating) */}
+        {/* Admin Tools */}
         {(isAdmin || isSimulating) && (
           <>
             <SidebarSeparator />
             <SidebarGroup>
-              <SidebarGroupLabel>Admin Tools</SidebarGroupLabel>
+              <SidebarGroupLabel className="text-[11px] uppercase tracking-wider font-semibold text-sidebar-muted-foreground">Admin Tools</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {/* Super Admin Portal - first item for super admins */}
+                  {/* Super Admin Portal */}
                   {isSuperAdmin && (
                     <SidebarMenuItem>
                       <SidebarMenuButton 
                         tooltip="Super Admin Portal"
                         isActive={location.pathname.startsWith('/super-admin')}
-                        onClick={() => {
-                          closeSidebar();
-                          openTab('/super-admin', 'Super Admin');
-                        }}
+                        className={cn(
+                          "h-10",
+                          location.pathname.startsWith('/super-admin')
+                            ? "bg-sidebar-surface-active text-sidebar-accent-foreground font-medium"
+                            : "text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
+                        )}
+                        onClick={() => { closeSidebar(); openTab('/super-admin', 'Super Admin'); }}
                       >
-                        <Building2 className="h-4 w-4" />
+                        <Building2 className="h-[18px] w-[18px]" />
                         {!collapsed && <span>Super Admin Portal</span>}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -934,15 +938,18 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                   <SidebarMenuItem>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <SidebarMenuButton tooltip="Simulate Role">
-                          {isSimulating ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        <SidebarMenuButton 
+                          tooltip="Simulate Role"
+                          className="h-10 text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
+                        >
+                          {isSimulating ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                           {!collapsed && (
                             <span className="flex items-center gap-2">
                               Simulate Role
                               {isSimulating && (
-                                <Badge variant="outline" className="h-4 px-1.5 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                <span className="inline-flex items-center h-[16px] px-1.5 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400">
                                   {simulatedRole}
-                                </Badge>
+                                </span>
                               )}
                             </span>
                           )}
@@ -956,10 +963,8 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                           onValueChange={(value) => {
                             if (value === '') {
                               setSimulatedRole(null);
-                              // Reset welcome screen so admin sees it again
                               sessionStorage.removeItem('crm-welcome-dismissed');
                               toast.info("Role simulation disabled");
-                              // Navigate to dashboard
                               openTab('/', 'Dashboard');
                             } else {
                               setSimulatedRole(value as AppRole);
@@ -989,15 +994,16 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                     <SidebarMenuButton 
                       tooltip={`AI Queue${aiQueueCount > 0 ? ` (${aiQueueCount})` : ''}`}
                       onClick={() => setAiQueueOpen(true)}
+                      className="h-10 text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
                     >
-                      <BrainCircuit className="h-4 w-4" />
+                      <BrainCircuit className="h-[18px] w-[18px]" />
                       {!collapsed && (
                         <span className="flex items-center gap-2">
                           AI Queue
                           {aiQueueCount > 0 && (
-                            <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-xs">
+                            <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-[10px] font-bold leading-none">
                               {aiQueueCount}
-                            </Badge>
+                            </span>
                           )}
                         </span>
                       )}
@@ -1015,8 +1021,14 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                         <SidebarMenuButton 
                           tooltip="Admin Settings"
                           isActive={location.pathname === '/admin/settings'}
+                          className={cn(
+                            "h-10",
+                            location.pathname === '/admin/settings'
+                              ? "bg-sidebar-surface-active text-sidebar-accent-foreground font-medium"
+                              : "text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
+                          )}
                         >
-                          <Settings className="h-4 w-4" />
+                          <Settings className="h-[18px] w-[18px]" />
                           {!collapsed && (
                             <>
                               <span className="flex-1">Admin Settings</span>
@@ -1029,7 +1041,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                         <SidebarMenuSub>
                           {ADMIN_SUB_ITEMS.map((group) => (
                             <React.Fragment key={group.label}>
-                              <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-1 first:mt-0">
+                              <div className="px-2 py-1 text-[10px] font-semibold text-sidebar-muted-foreground uppercase tracking-wider mt-1 first:mt-0">
                                 {group.label}
                               </div>
                               {group.items.map((item) => {
@@ -1049,7 +1061,12 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                                           openTab(`/admin/settings?tab=${item.tab}`, item.title);
                                           closeSidebar();
                                         }}
-                                        className={`flex items-center gap-2 ${isSubActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}`}
+                                        className={cn(
+                                          "flex items-center gap-2",
+                                          isSubActive 
+                                            ? "bg-sidebar-surface-active text-sidebar-accent-foreground font-medium" 
+                                            : "text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
+                                        )}
                                       >
                                         <item.icon className="h-3 w-3" />
                                         <span>{item.title}</span>
@@ -1071,17 +1088,32 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         )}
       </SidebarContent>
 
+      {/* ─── Bottom dock (user/profile) ─── */}
       <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton tooltip={profile?.full_name || user?.email || "User"}>
-                  <User className="h-4 w-4" />
+                <SidebarMenuButton 
+                  tooltip={profile?.full_name || user?.email || "User"}
+                  className="h-11 text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
+                >
+                  {/* Avatar circle */}
+                  <div className="h-7 w-7 rounded-full bg-sidebar-surface-active flex items-center justify-center text-[11px] font-semibold text-sidebar-foreground shrink-0">
+                    {(profile?.full_name || user?.email || "U").substring(0, 1).toUpperCase()}
+                  </div>
                   {!collapsed && (
-                    <span className="truncate">
-                      {profile?.full_name || user?.email}
-                    </span>
+                    <>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-sm font-medium truncate text-sidebar-foreground">
+                          {profile?.full_name || "User"}
+                        </span>
+                        <span className="text-[11px] truncate text-sidebar-muted-foreground">
+                          {user?.email}
+                        </span>
+                      </div>
+                      <ChevronsUpDown className="h-4 w-4 text-sidebar-muted-foreground shrink-0" />
+                    </>
                   )}
                 </SidebarMenuButton>
               </DropdownMenuTrigger>

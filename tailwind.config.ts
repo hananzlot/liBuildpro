@@ -69,7 +69,10 @@ export default {
   				accent: 'hsl(var(--sidebar-accent))',
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
-  				ring: 'hsl(var(--sidebar-ring))'
+  				ring: 'hsl(var(--sidebar-ring))',
+  				'muted-foreground': 'hsl(var(--sidebar-muted-foreground, var(--sidebar-foreground)))',
+  				'surface-hover': 'hsl(var(--sidebar-surface-hover, var(--sidebar-accent)))',
+  				'surface-active': 'hsl(var(--sidebar-surface-active, var(--sidebar-accent)))',
   			}
   		},
   		borderRadius: {

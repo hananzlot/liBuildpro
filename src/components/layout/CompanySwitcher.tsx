@@ -100,7 +100,7 @@ export function CompanySwitcher() {
     : (selectedCompany?.name || (noCompanySelected ? "No company selected" : company?.name || "—"));
 
   return (
-    <div className="px-2 py-2">
+    <div className="px-3 py-1.5">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -108,15 +108,15 @@ export function CompanySwitcher() {
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "w-full justify-between text-left font-normal h-auto py-2",
-              noCompanySelected && "border-destructive/50 bg-destructive/5",
-              isOverriding && "border-amber-500/50 bg-amber-500/5"
+              "w-full justify-between text-left font-normal h-auto py-2 bg-sidebar-surface-hover border-sidebar-border text-sidebar-foreground hover:bg-sidebar-surface-active hover:text-sidebar-foreground",
+              noCompanySelected && "border-destructive/50 bg-destructive/10",
+              isOverriding && "border-amber-500/50 bg-amber-500/10"
             )}
           >
             <div className="flex items-center gap-2 min-w-0">
-              <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Building2 className="h-4 w-4 shrink-0 text-sidebar-muted-foreground" />
               <div className="flex flex-col min-w-0">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-[11px] text-sidebar-muted-foreground">
                   {noCompanySelected ? "Select Company" : label}
                 </span>
                 <span className={cn(
@@ -131,13 +131,13 @@ export function CompanySwitcher() {
               {isOverriding && (
                 <Badge 
                   variant="outline" 
-                  className="h-5 px-1.5 text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30 cursor-pointer hover:bg-amber-500/20"
+                  className="h-5 px-1.5 text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30 cursor-pointer hover:bg-amber-500/20"
                   onClick={handleReset}
                 >
                   <X className="h-3 w-3" />
                 </Badge>
               )}
-              <ChevronsUpDown className="h-4 w-4 opacity-50" />
+              <ChevronsUpDown className="h-4 w-4 text-sidebar-muted-foreground opacity-70" />
             </div>
           </Button>
         </PopoverTrigger>
@@ -183,8 +183,8 @@ export function CompanySwitcher() {
       {canUnify && (
         <div className="flex items-center justify-between gap-2 px-1 pt-1.5">
           <div className="flex items-center gap-1.5">
-            <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-            <Label htmlFor="unified-toggle" className="text-xs text-muted-foreground cursor-pointer">
+            <Layers className="h-3.5 w-3.5 text-sidebar-muted-foreground" />
+            <Label htmlFor="unified-toggle" className="text-xs text-sidebar-muted-foreground cursor-pointer">
               Unified View
             </Label>
           </div>
