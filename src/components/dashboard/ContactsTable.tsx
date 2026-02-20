@@ -162,7 +162,7 @@ export function ContactsTable({
                 className="w-[22%] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('name')}
               >
-                <div className="flex items-center">
+                <div className="flex items-end gap-0.5">
                   Name
                   <SortIcon field="name" />
                 </div>
@@ -171,7 +171,7 @@ export function ContactsTable({
                 className="w-[24%] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('email')}
               >
-                <div className="flex items-center">
+                <div className="flex items-end gap-0.5">
                   Email
                   <SortIcon field="email" />
                 </div>
@@ -180,7 +180,7 @@ export function ContactsTable({
                 className="w-[16%] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('phone')}
               >
-                <div className="flex items-center">
+                <div className="flex items-end gap-0.5">
                   Phone
                   <SortIcon field="phone" />
                 </div>
@@ -190,7 +190,7 @@ export function ContactsTable({
                 className="w-[12%] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('source')}
               >
-                <div className="flex items-center">
+                <div className="flex items-end gap-0.5">
                   Source
                   <SortIcon field="source" />
                 </div>

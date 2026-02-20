@@ -446,9 +446,9 @@ export default function Estimates() {
             <TableHead className="w-[20%]">Customer</TableHead>
             <TableHead className="w-[22%]">Title</TableHead>
             <TableHead className="w-[12%]">Salesperson</TableHead>
-            <TableHead className="w-[10%] whitespace-nowrap">Date</TableHead>
-            {isContractsTab && <TableHead className="w-[10%] whitespace-nowrap">Accepted</TableHead>}
-            {isDeclinedTab && <TableHead className="w-[10%] whitespace-nowrap">Declined</TableHead>}
+            <TableHead className="w-[10%]">Date</TableHead>
+            {isContractsTab && <TableHead className="w-[10%]">Accepted</TableHead>}
+            {isDeclinedTab && <TableHead className="w-[10%]">Declined</TableHead>}
             {!isContractsTab && !isDeclinedTab && <TableHead className="w-[8%]">Status</TableHead>}
             <TableHead className="w-[10%] text-right">Total</TableHead>
             <TableHead className="w-[10%]">Actions</TableHead>

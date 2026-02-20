@@ -904,16 +904,16 @@ export function AppointmentsTable({
                    className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[28%]"
                    onClick={() => handleSort('contact')}
                  >
-                   <div className="flex items-center">
+                   <div className="flex items-end gap-0.5">
                      Contact Info
                      <SortIcon column="contact" />
                    </div>
                  </TableHead>
                  <TableHead 
-                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[18%] whitespace-nowrap"
+                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[18%]"
                    onClick={() => handleSort('start')}
                  >
-                   <div className="flex items-center">
+                   <div className="flex items-end gap-0.5">
                      Date / Status
                      <SortIcon column="start" />
                    </div>
@@ -922,7 +922,7 @@ export function AppointmentsTable({
                    className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[10%]"
                    onClick={() => handleSort('rep')}
                  >
-                   <div className="flex items-center">
+                   <div className="flex items-end gap-0.5">
                      Rep
                      <SortIcon column="rep" />
                    </div>
@@ -931,7 +931,7 @@ export function AppointmentsTable({
                    className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[11%]"
                    onClick={() => handleSort('source')}
                  >
-                   <div className="flex items-center">
+                   <div className="flex items-end gap-0.5">
                      Source
                      <SortIcon column="source" />
                    </div>
@@ -940,7 +940,7 @@ export function AppointmentsTable({
                    className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[16%]"
                    onClick={() => handleSort('oppStatus')}
                  >
-                   <div className="flex items-center">
+                   <div className="flex items-end gap-0.5">
                      Opp / Stage
                      <SortIcon column="oppStatus" />
                    </div>
@@ -949,7 +949,7 @@ export function AppointmentsTable({
                    className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[10%]"
                    onClick={() => handleSort('oppValue')}
                  >
-                   <div className="flex items-center">
+                   <div className="flex items-end gap-0.5">
                      Value
                      <SortIcon column="oppValue" />
                    </div>
