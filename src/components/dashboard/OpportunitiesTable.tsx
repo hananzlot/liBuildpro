@@ -60,6 +60,7 @@ interface Opportunity {
   contact_id: string | null;
   contact_uuid?: string | null;
   assigned_to: string | null;
+  address?: string | null;
   scope_of_work?: string | null;
   opportunity_number?: number | null;
 }
@@ -1168,6 +1169,12 @@ export function OpportunitiesTable({
                               );
                             })()}
                           </div>
+                          {(() => {
+                            const address = opp.address || getAddressFromContact(contact, appointments, opp.contact_id);
+                            return address ? (
+                              <span className="text-[11px] text-muted-foreground truncate" title={address}>{address}</span>
+                            ) : null;
+                          })()}
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">
