@@ -71,12 +71,14 @@ const Index = () => {
   const [adminCleanupOpen, setAdminCleanupOpen] = useState(false);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
+  const [newEntryMode, setNewEntryMode] = useState<"entry" | "contact">("entry");
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Auto-open NewEntryDialog when navigating with ?action=new-*
   useEffect(() => {
     const action = searchParams.get('action');
     if (action && action.startsWith('new-')) {
+      setNewEntryMode(action === 'new-contact' ? 'contact' : 'entry');
       setNewEntryOpen(true);
       // Clean up the URL param
       searchParams.delete('action');
@@ -197,7 +199,7 @@ const Index = () => {
                 </div>
               )}
               <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
-              {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} externalOpen={newEntryOpen} onExternalOpenChange={setNewEntryOpen} />}
+              {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} externalOpen={newEntryOpen} onExternalOpenChange={(open) => { setNewEntryOpen(open); if (!open) setNewEntryMode("entry"); }} mode={newEntryMode} />}
               <SyncDropdown 
                 onSyncGHL={handleSync} 
                 isSyncingGHL={syncMutation.isPending} 
