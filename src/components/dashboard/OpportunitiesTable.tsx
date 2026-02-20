@@ -346,16 +346,27 @@ export function OpportunitiesTable({
     return map;
   }, [appointments]);
 
-  // User lookup map
+  // User/salesperson lookup map - keyed by GHL ID AND internal UUID for full coverage
   const userMap = useMemo(() => {
     const map = new Map<string, string>();
     users.forEach((u) => {
+      const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
       if (u.ghl_id) {
-        map.set(u.ghl_id, u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id);
+        map.set(u.ghl_id, displayName);
+      }
+    });
+    // Also add salespeople keyed by their internal UUID and GHL user ID
+    salespeople.forEach((sp) => {
+      const name = sp.name || "Unknown";
+      if (sp.id && !map.has(sp.id)) {
+        map.set(sp.id, name);
+      }
+      if (sp.ghl_user_id && !map.has(sp.ghl_user_id)) {
+        map.set(sp.ghl_user_id, name);
       }
     });
     return map;
-  }, [users]);
+  }, [users, salespeople]);
 
   // Contact lookup map - keyed by both ghl_id AND uuid for full coverage
   const contactMap = useMemo(() => {
@@ -1135,7 +1146,7 @@ export function OpportunitiesTable({
                           (a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime(),
                         )[0]
                       : null;
-                  const salesRepName = latestAppt?.assigned_user_id ? userMap.get(latestAppt.assigned_user_id) : null;
+                  const salesRepName = latestAppt?.assigned_user_id ? userMap.get(latestAppt.assigned_user_id) : (opp.assigned_to ? userMap.get(opp.assigned_to) : null);
                   const contact = getOppContact(opp);
                   const contactDate = contact?.ghl_date_added || opp.ghl_date_added;
                   
