@@ -1164,10 +1164,9 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                       </span>
                     </div>
                   ) : !hasActiveCalendars ? (
-                    <div className="flex items-center gap-2 p-3 rounded-md bg-warning/10 border border-warning/30 text-warning">
-                      <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-sm">
-                        No active calendars available. Connect a Google Calendar in Admin Settings.
+                    <div className="flex items-center gap-2 p-3 rounded-md bg-muted border">
+                      <span className="text-sm text-muted-foreground">
+                        Using app calendar (no external calendar connected)
                       </span>
                     </div>
                   ) : (
