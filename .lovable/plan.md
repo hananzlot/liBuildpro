@@ -1,43 +1,28 @@
 
-# Fix Clone Function: Nullify Stale GHL ID Fields
 
-## Problem
-The `replicate-company-data` edge function correctly remaps UUID-based references (`contact_uuid`, `opportunity_uuid`) but leaves the legacy GHL ID fields (`contact_id`, `opportunity_id`) intact. These stale IDs point to records in the source company (CA Pro Builders), causing "missing ID" errors and cross-company data leakage when edge functions fall back to GHL ID lookups.
+## Auto-Update "Last Edited" Date on Local Edits
 
-## Scope of Stale Data in Demo Co #1
-| Table | Stale Field(s) | Affected Records |
-|-------|----------------|-----------------|
-| opportunities | `contact_id` | 1,176 |
-| projects | `contact_id`, `opportunity_id` | 37 |
-| estimates | `contact_id` | 31 |
-| appointments | `contact_id` | 19 |
-| ghl_tasks | `contact_id` | 4 |
+### Problem
+When you edit an opportunity locally (e.g., changing the sales rep, stage, or any field), the "Last Edited" date doesn't update because there's no database trigger to set `updated_at` on the `opportunities` table.
 
-## Changes
+### Solution
 
-### 1. Fix the Clone Function (`supabase/functions/replicate-company-data/index.ts`)
-Add `contact_id: null` to the mapped output for all entity tables that carry it:
-- **Opportunities** (line ~298): add `contact_id: null`
-- **Appointments** (line ~314): add `contact_id: null`
-- **Projects** (line ~334): add `contact_id: null, opportunity_id: null`
-- Add `contact_id: null` to the estimates and ghl_tasks clone blocks as well (need to locate those sections)
+**1. Add a database trigger** on the `opportunities` table that automatically sets `updated_at = now()` whenever any row is updated. The project already has a reusable `update_updated_at_column()` function defined -- we just need to attach it to the `opportunities` table.
 
-This ensures future clones produce clean data with no cross-company GHL ID references.
+**2. Update the UI** in `OpportunitiesTable.tsx` to use `updated_at` as the primary date for the "Last Edited" column, falling back to `ghl_date_updated` and then `ghl_date_added`.
 
-### 2. Clean Up Existing Stale Data (SQL Migration)
-Run a single migration to nullify all stale GHL ID fields in Demo Co #1:
+### Technical Details
 
-```text
-UPDATE opportunities SET contact_id = NULL WHERE company_id = 'demo-co-1-id';
-UPDATE appointments SET contact_id = NULL WHERE company_id = 'demo-co-1-id';
-UPDATE projects SET contact_id = NULL, opportunity_id = NULL WHERE company_id = 'demo-co-1-id';
-UPDATE estimates SET contact_id = NULL WHERE company_id = 'demo-co-1-id';
-UPDATE ghl_tasks SET contact_id = NULL WHERE company_id = 'demo-co-1-id';
+**Database migration:**
+```sql
+CREATE TRIGGER set_opportunities_updated_at
+  BEFORE UPDATE ON public.opportunities
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
 ```
 
-This is safe because all these records already have valid `contact_uuid` / `opportunity_uuid` references (or were patched in previous fixes).
+**UI change in `OpportunitiesTable.tsx`:**
+- Change the date resolution order from `ghl_date_updated || ghl_date_added` to `updated_at || ghl_date_updated || ghl_date_added`
+- This ensures local edits immediately reflect in the "Last Edited" column
+- GHL syncs will also trigger the trigger, so the date stays current either way
 
-### What This Prevents
-- "Cannot update contact: missing ID" errors
-- Cross-company contact lookups via stale GHL IDs
-- Any future clone operations producing the same problem
