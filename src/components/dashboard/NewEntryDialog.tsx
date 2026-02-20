@@ -216,14 +216,18 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
         return;
       }
 
-      // 2. Fallback: opportunity address for this contact
+      // 2. Fallback: opportunity address + scope for this contact
       const { data: opp } = await supabase
         .from("opportunities")
-        .select("address")
+        .select("address, scope_of_work")
         .eq("contact_uuid", contact.id)
-        .not("address", "is", null)
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      if (opp?.scope_of_work && !scope) {
+        setScope(opp.scope_of_work);
+      }
 
       if (opp?.address) {
         setAddress(opp.address);
