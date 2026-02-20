@@ -49,6 +49,7 @@ interface Opportunity {
   ghl_id: string;
   name?: string | null;
   contact_id?: string | null;
+  contact_uuid?: string | null;
   monetary_value?: number | null;
   status?: string | null;
   stage_name?: string | null;
@@ -61,6 +62,7 @@ interface Appointment {
   ghl_id: string;
   title?: string | null;
   contact_id?: string | null;
+  contact_uuid?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   appointment_status?: string | null;
@@ -546,8 +548,14 @@ export function ContactDetailSheet({
     `${assignedUser?.first_name || ''} ${assignedUser?.last_name || ''}`.trim() || 
     null;
 
-  const relatedOpportunities = opportunities.filter(opp => opp.contact_id === localContact.ghl_id || opp.contact_id === localContact.id);
-  const relatedAppointments = appointments.filter(apt => apt.contact_id === localContact.ghl_id || apt.contact_id === localContact.id);
+  const relatedOpportunities = opportunities.filter(opp => 
+    (opp.contact_uuid && opp.contact_uuid === localContact.id) ||
+    (opp.contact_id && (opp.contact_id === localContact.ghl_id || opp.contact_id === localContact.id))
+  );
+  const relatedAppointments = appointments.filter(apt => 
+    (apt.contact_uuid && apt.contact_uuid === localContact.id) ||
+    (apt.contact_id && (apt.contact_id === localContact.ghl_id || apt.contact_id === localContact.id))
+  );
 
   const address = extractCustomField(localContact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
   const scopeFromCustomField = extractCustomField(localContact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);

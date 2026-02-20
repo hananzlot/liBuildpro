@@ -36,6 +36,7 @@ interface Opportunity {
   status: string | null;
   monetary_value: number | null;
   contact_id: string | null;
+  contact_uuid: string | null;
 }
 
 interface Appointment {
@@ -97,9 +98,11 @@ export function ContactsTable({
     return getAddressFromContact(contact, appointments, contact.ghl_id);
   };
 
-  const getOpportunityCount = (contactId: string | null) => {
-    if (!contactId) return 0;
-    return opportunities.filter(o => o.contact_id === contactId).length;
+  const getOpportunityCount = (contact: Contact) => {
+    return opportunities.filter(o => 
+      (o.contact_uuid && o.contact_uuid === contact.id) ||
+      (o.contact_id && (o.contact_id === contact.ghl_id || o.contact_id === contact.id))
+    ).length;
   };
 
   const handleSort = (field: SortField) => {
@@ -220,7 +223,7 @@ export function ContactsTable({
             ) : (
               paginatedContacts.map((contact) => {
                 const address = getAddress(contact);
-                const oppCount = getOpportunityCount(contact.ghl_id);
+                const oppCount = getOpportunityCount(contact);
                 
                 return (
                   <TableRow 
@@ -328,7 +331,7 @@ export function ContactsTable({
           <p className="text-center py-8 text-sm text-muted-foreground">No contacts found</p>
         ) : (
           paginatedContacts.map((contact) => {
-            const oppCount = getOpportunityCount(contact.ghl_id);
+            const oppCount = getOpportunityCount(contact);
             return (
               <div
                 key={contact.id}
