@@ -1949,55 +1949,55 @@ export default function Production() {
               ) : (
                 <table className="w-full caption-bottom text-xs table-fixed">
                     <thead className="[&_tr]:border-b sticky top-0 z-20 bg-card">
-                      <TableRow className="bg-card hover:bg-card">
+                      <TableRow className="bg-card hover:bg-card [&_th]:align-bottom [&_th]:leading-tight [&_th]:py-2">
                         <TableHead className="w-[5%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('project_number')}>
-                          <div className="flex items-center"># <SortIcon column="project_number" /></div>
+                          <div className="flex items-end gap-0.5"># <SortIcon column="project_number" /></div>
                         </TableHead>
                         {isUnified && (
                           <TableHead className="w-[7%] text-xs">
-                            <div className="flex items-center truncate">Co.</div>
+                            <div className="flex items-end">Co.</div>
                           </TableHead>
                         )}
                         <TableHead className={cn(isUnified ? "w-[12%]" : "w-[14%]", "cursor-pointer hover:bg-muted/50 text-xs")} onClick={() => handleSort('address')}>
-                          <div className="flex items-center truncate">Address <SortIcon column="address" /></div>
+                          <div className="flex items-end gap-0.5">Address <SortIcon column="address" /></div>
                         </TableHead>
                         <TableHead className="w-[9%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('status')}>
-                          <div className="flex items-center">Status <SortIcon column="status" /></div>
+                          <div className="flex items-end gap-0.5">Status <SortIcon column="status" /></div>
                         </TableHead>
                         <TableHead className="w-[8%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('salesperson')}>
-                          <div className="flex items-center truncate">Sales <SortIcon column="salesperson" /></div>
+                          <div className="flex items-end gap-0.5">Sales <SortIcon column="salesperson" /></div>
                         </TableHead>
                         <TableHead className="w-[7%] text-xs">
-                          <div className="flex items-center truncate">Source</div>
+                          <div className="flex items-end">Source</div>
                         </TableHead>
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('sold_amount')}>
-                          <div className="flex items-center justify-end truncate">Sold <SortIcon column="sold_amount" /></div>
+                          <div className="flex items-end justify-end gap-0.5">Sold <SortIcon column="sold_amount" /></div>
                         </TableHead>
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('est_proj_cost')}>
-                          <div className="flex items-center justify-end truncate">Cost <SortIcon column="est_proj_cost" /></div>
+                          <div className="flex items-end justify-end gap-0.5">Cost <SortIcon column="est_proj_cost" /></div>
                         </TableHead>
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('bills_received')}>
-                          <div className="flex items-center justify-end truncate">Bills <SortIcon column="bills_received" /></div>
+                          <div className="flex items-end justify-end gap-0.5">Bills Recv <SortIcon column="bills_received" /></div>
                         </TableHead>
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('bills_paid')}>
-                          <div className="flex items-center justify-end truncate">Paid <SortIcon column="bills_paid" /></div>
+                          <div className="flex items-end justify-end gap-0.5">Bills Paid <SortIcon column="bills_paid" /></div>
                         </TableHead>
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('inv_collected')}>
-                          <div className="flex items-center justify-end truncate">Collect <SortIcon column="inv_collected" /></div>
+                          <div className="flex items-end justify-end gap-0.5">Inv Collect <SortIcon column="inv_collected" /></div>
                         </TableHead>
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('inv_balance')}>
-                          <div className="flex items-center justify-end truncate">InvBal <SortIcon column="inv_balance" /></div>
+                          <div className="flex items-end justify-end gap-0.5">Inv Bal <SortIcon column="inv_balance" /></div>
                         </TableHead>
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('proj_balance')}>
-                          <div className="flex items-center justify-end truncate">ProjBal <SortIcon column="proj_balance" /></div>
+                          <div className="flex items-end justify-end gap-0.5">Proj Bal <SortIcon column="proj_balance" /></div>
                         </TableHead>
                         {isAdmin && (
                           <TableHead className="w-[6%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('expected_profit')}>
-                            <div className="flex items-center justify-end truncate">Profit <SortIcon column="expected_profit" /></div>
+                            <div className="flex items-end justify-end gap-0.5">Profit <SortIcon column="expected_profit" /></div>
                           </TableHead>
                         )}
                         <TableHead className="w-[6%] text-right cursor-pointer hover:bg-muted/50 bg-primary/10 text-xs" onClick={() => handleSort('total_cash')}>
-                          <div className="flex items-center justify-end font-semibold">Cash <SortIcon column="total_cash" /></div>
+                          <div className="flex items-end justify-end gap-0.5 font-semibold">Cash <SortIcon column="total_cash" /></div>
                         </TableHead>
                         <TableHead className="w-[4%]"></TableHead>
                       </TableRow>
