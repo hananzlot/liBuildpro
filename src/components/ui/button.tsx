@@ -44,4 +44,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = "Button";
 
-export { Button, buttonVariants };
+/** IconButton – convenience wrapper for icon-only buttons */
+const IconButton = React.forwardRef<HTMLButtonElement, Omit<ButtonProps, "size">>(
+  ({ className, variant = "ghost", ...props }, ref) => (
+    <Button ref={ref} variant={variant} size="icon" className={cn("h-8 w-8", className)} {...props} />
+  ),
+);
+IconButton.displayName = "IconButton";
+
+export { Button, buttonVariants, IconButton };
