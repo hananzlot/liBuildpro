@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Plus, Upload, Loader2, X, FileSpreadsheet, Download, AlertTriangle, UserCheck } from "lucide-react";
+import { Plus, Upload, Loader2, X, FileSpreadsheet, Download, AlertTriangle, UserCheck, Search, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -100,6 +102,13 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
   const [activeTab, setActiveTab] = useState("single");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Contact selection state
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [contactSearchOpen, setContactSearchOpen] = useState(false);
+  const [contactSearchQuery, setContactSearchQuery] = useState("");
+  const [contactResults, setContactResults] = useState<{ id: string; contact_name: string | null; first_name: string | null; last_name: string | null; phone: string | null; email: string | null; source: string | null }[]>([]);
+  const [isSearchingContacts, setIsSearchingContacts] = useState(false);
+
   // Single entry form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -115,6 +124,50 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phoneError, setPhoneError] = useState("");
   const [emailError, setEmailError] = useState("");
+
+  // Search contacts as user types
+  useEffect(() => {
+    if (!contactSearchQuery.trim() || !companyId) {
+      setContactResults([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      setIsSearchingContacts(true);
+      try {
+        const q = contactSearchQuery.trim();
+        const { data } = await supabase
+          .from("contacts")
+          .select("id, contact_name, first_name, last_name, phone, email, source")
+          .eq("company_id", companyId)
+          .or(`contact_name.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`)
+          .limit(20);
+        setContactResults(data || []);
+      } catch (e) {
+        console.error("Contact search error:", e);
+      } finally {
+        setIsSearchingContacts(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [contactSearchQuery, companyId]);
+
+  const handleSelectContact = (contact: typeof contactResults[0]) => {
+    setSelectedContactId(contact.id);
+    setFirstName(contact.first_name || "");
+    setLastName(contact.last_name || "");
+    setPhone(contact.phone || "");
+    setEmail(contact.email || "");
+    if (contact.source) setSource(contact.source);
+    setContactSearchOpen(false);
+    setContactSearchQuery("");
+  };
+
+  const selectedContactLabel = useMemo(() => {
+    if (!selectedContactId) return null;
+    // Find in results or use current firstName/lastName
+    const name = `${firstName} ${lastName}`.trim();
+    return name || "Selected Contact";
+  }, [selectedContactId, firstName, lastName]);
 
   // Pipeline/stage state
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
@@ -408,6 +461,9 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
   const stagesForPipeline = pipelineStages.filter((s) => s.pipeline_id === selectedPipeline);
 
   const resetForm = () => {
+    setSelectedContactId(null);
+    setContactSearchQuery("");
+    setContactResults([]);
     setFirstName("");
     setLastName("");
     setPhone("");
@@ -527,8 +583,8 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
   };
 
   const handleSubmitSingle = async () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      toast.error("First name and last name are required");
+    if (!selectedContactId) {
+      toast.error("Please select a contact");
       return;
     }
 
@@ -872,113 +928,73 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
 
           <TabsContent value="single" className="flex-1 overflow-auto">
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name *</Label>
-                  <Input
-                    id="firstName"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="John"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name *</Label>
-                  <Input
-                    id="lastName"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Doe"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => handlePhoneChange(e.target.value)}
-                    onBlur={handlePhoneBlur}
-                    placeholder="(555) 123-4567"
-                    className={phoneError ? "border-destructive" : ""}
-                  />
-                  {phoneError && <p className="text-xs text-destructive">{phoneError}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => handleEmailChange(e.target.value)}
-                    onBlur={handleEmailBlur}
-                    placeholder="john@example.com"
-                    className={emailError ? "border-destructive" : ""}
-                  />
-                  {emailError && <p className="text-xs text-destructive">{emailError}</p>}
-                </div>
-              </div>
-
-              {/* Duplicate contact warning */}
-              {isDuplicateCheckPending && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Checking for duplicate contacts…
-                </div>
-              )}
-              {!isDuplicateCheckPending && duplicateContacts.length > 0 && !duplicateWarningDismissed && (
-                <Alert ref={duplicateWarningRef} className="border-warning/50 bg-warning/10">
-                  <AlertTriangle className="h-4 w-4 text-warning" />
-                  <AlertDescription>
-                    <div className="font-medium text-warning mb-2">
-                      Potential duplicate{duplicateContacts.length > 1 ? "s" : ""} found
-                    </div>
-                    <div className="space-y-2 mb-3">
-                      {duplicateContacts.map((c) => (
-                        <div key={c.id} className="flex items-start gap-2 text-sm">
-                          <UserCheck className="h-4 w-4 mt-0.5 text-warning flex-shrink-0" />
-                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-foreground">
-                            <span className="font-medium">
-                              {c.contact_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Unknown"}
-                            </span>
-                            {c.phone && <span className="text-muted-foreground">{c.phone}</span>}
-                            {c.email && <span className="text-muted-foreground">{c.email}</span>}
-                            {c.source && (
-                              <Badge variant="outline" className="text-xs h-5">
-                                {c.source}
-                              </Badge>
-                            )}
+              {/* Contact selector */}
+              <div className="space-y-2">
+                <Label>Contact *</Label>
+                <Popover open={contactSearchOpen} onOpenChange={setContactSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={contactSearchOpen}
+                      className="w-full justify-between font-normal">
+                      {selectedContactLabel ? (
+                        <span className="flex items-center gap-2 truncate">
+                          <UserCheck className="h-4 w-4 shrink-0 text-primary" />
+                          <span className="truncate">{selectedContactLabel}</span>
+                          {phone && <span className="text-muted-foreground text-xs">{phone}</span>}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Search contacts...</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-50 bg-popover" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput placeholder="Search by name, phone, or email..."
+                        value={contactSearchQuery} onValueChange={setContactSearchQuery} />
+                      <CommandList>
+                        {isSearchingContacts && (
+                          <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />Searching...
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs border-warning/50 hover:bg-warning/10"
-                        onClick={() => setDuplicateWarningDismissed(true)}
-                      >
-                        Proceed Anyway
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs"
-                        onClick={() => {
-                          setDuplicateContacts([]);
-                          setDuplicateWarningDismissed(false);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </AlertDescription>
-                </Alert>
-              )}
+                        )}
+                        {!isSearchingContacts && contactSearchQuery.trim() && contactResults.length === 0 && (
+                          <CommandEmpty>No contacts found.</CommandEmpty>
+                        )}
+                        {!isSearchingContacts && !contactSearchQuery.trim() && (
+                          <div className="py-4 text-center text-sm text-muted-foreground">
+                            Type to search contacts
+                          </div>
+                        )}
+                        <CommandGroup>
+                          {contactResults.map((contact) => {
+                            const name = contact.contact_name || `${contact.first_name || ""} ${contact.last_name || ""}`.trim() || "Unknown";
+                            return (
+                              <CommandItem key={contact.id} value={contact.id}
+                                onSelect={() => handleSelectContact(contact)}
+                                className="flex items-center gap-2 cursor-pointer">
+                                <Check className={`h-4 w-4 shrink-0 ${selectedContactId === contact.id ? "opacity-100" : "opacity-0"}`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{name}</div>
+                                  <div className="flex gap-2 text-xs text-muted-foreground">
+                                    {contact.phone && <span>{contact.phone}</span>}
+                                    {contact.email && <span>{contact.email}</span>}
+                                  </div>
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedContactId && (
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2"
+                    onClick={() => { setSelectedContactId(null); setFirstName(""); setLastName(""); setPhone(""); setEmail(""); setSource(""); }}>
+                    <X className="h-3 w-3 mr-1" /> Clear selection
+                  </Button>
+                )}
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="address">Address</Label>
@@ -1169,7 +1185,7 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                 </Button>
                 <Button
                   onClick={handleSubmitSingle}
-                  disabled={isSubmitting || !firstName.trim() || !lastName.trim() || !!phoneError || !!emailError}
+                  disabled={isSubmitting || !selectedContactId || !!phoneError || !!emailError}
                 >
                   {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Create Entry
