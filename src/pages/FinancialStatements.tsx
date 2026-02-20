@@ -223,11 +223,11 @@ export default function FinancialStatements() {
 
   return (
     <AppLayout>
-      <div className="flex-1 p-4 md:p-6 space-y-6">
+      <div className="flex-1 p-4 md:p-6 space-y-4">
         <div className="flex flex-col items-center gap-4">
           <div className="text-center">
-            <h1 className="text-2xl font-bold tracking-tight">Financial Statements</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">Financial Statements</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               P&L and Balance Sheet views derived from project financials
             </p>
           </div>

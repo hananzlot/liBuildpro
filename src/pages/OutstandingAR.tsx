@@ -4,6 +4,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useProductionAnalytics } from "@/hooks/useProductionAnalytics";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { BadgePill } from "@/components/ui/badge-pill";
+import { DataListCard, DataListCardHeader, DataListCardBody } from "@/components/ui/data-list-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,16 +23,16 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { Printer, Search } from "lucide-react";
 
 function AgingBadge({ bucket }: { bucket: string }) {
-  const colors = {
-    '0-30': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-    '31-60': 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-    '61-90': 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-    '90+': 'bg-red-500/10 text-red-600 border-red-500/20',
+  const intentMap: Record<string, "success" | "warning" | "danger"> = {
+    '0-30': 'success',
+    '31-60': 'warning',
+    '61-90': 'danger',
+    '90+': 'danger',
   };
   return (
-    <Badge variant="outline" className={colors[bucket as keyof typeof colors] || 'bg-muted'}>
+    <BadgePill intent={intentMap[bucket] || 'muted'}>
       {bucket} days
-    </Badge>
+    </BadgePill>
   );
 }
 
@@ -69,12 +72,11 @@ export default function OutstandingAR() {
 
   return (
     <AppLayout>
-      <div className="px-6 py-6 space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Outstanding Receivables (AR)</h1>
-            <p className="text-sm text-muted-foreground">Unpaid invoices with aging analysis</p>
-          </div>
+      <div className="px-6 py-6 space-y-4">
+        <PageHeader
+          title="Outstanding Receivables (AR)"
+          subtitle="Unpaid invoices with aging analysis"
+        >
           <Button
             variant="outline"
             size="sm"
@@ -84,10 +86,10 @@ export default function OutstandingAR() {
             <Printer className="h-4 w-4 mr-2" />
             Print
           </Button>
-        </div>
+        </PageHeader>
 
-        <Card>
-          <CardHeader className="pb-3">
+        <DataListCard>
+          <DataListCardHeader>
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -98,12 +100,12 @@ export default function OutstandingAR() {
                   className="pl-9"
                 />
               </div>
-              <Badge variant="outline" className="bg-amber-500/10 text-amber-600">
+              <BadgePill intent="warning">
                 Total Outstanding: {formatCurrency(total)}
-              </Badge>
+              </BadgePill>
             </div>
-          </CardHeader>
-          <CardContent>
+          </DataListCardHeader>
+          <DataListCardBody>
             {isLoading ? (
               <Skeleton className="h-[400px]" />
             ) : (
@@ -162,8 +164,8 @@ export default function OutstandingAR() {
                 </Table>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </DataListCardBody>
+        </DataListCard>
       </div>
     </AppLayout>
   );

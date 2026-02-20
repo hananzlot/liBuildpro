@@ -83,11 +83,11 @@ export default function Analytics() {
 
   return (
     <AppLayout>
-      <div className="flex-1 p-4 md:p-6 space-y-6">
+      <div className="flex-1 p-4 md:p-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="shrink-0">
-            <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">Analytics</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               Financial analytics, profitability, and cash flow insights
             </p>
           </div>
