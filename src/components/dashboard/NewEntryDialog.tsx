@@ -788,17 +788,34 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
       return;
     }
 
-    // Check for duplicate by first + last name
+    // Check for duplicate by first + last name (case-insensitive)
     if (!contactDuplicateConfirmed) {
       try {
-        const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-        let query = supabase
+        const trimmedFirst = firstName.trim();
+        const trimmedLast = lastName.trim();
+        const fullName = `${trimmedFirst} ${trimmedLast}`.trim();
+
+        // Query 1: match by first_name + last_name
+        const { data: nameMatches } = await supabase
           .from("contacts")
           .select("id, contact_name, first_name, last_name, custom_fields")
           .eq("company_id", companyId!)
-          .or(`and(first_name.ilike.${firstName.trim()},last_name.ilike.${lastName.trim()}),contact_name.ilike.${fullName}`)
-          .limit(5);
-        const { data: matches } = await query;
+          .ilike("first_name", trimmedFirst)
+          .ilike("last_name", trimmedLast)
+          .limit(3);
+
+        // Query 2: match by contact_name
+        const { data: fullNameMatches } = await supabase
+          .from("contacts")
+          .select("id, contact_name, first_name, last_name, custom_fields")
+          .eq("company_id", companyId!)
+          .ilike("contact_name", fullName)
+          .limit(3);
+
+        // Combine and dedupe
+        const allMatches = [...(nameMatches || []), ...(fullNameMatches || [])];
+        const seen = new Set<string>();
+        const matches = allMatches.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
         if (matches && matches.length > 0) {
           const match = matches[0];
           let matchAddress: string | null = null;
