@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Database, HardDrive, Merge, Download } from "lucide-react";
+import { Database, HardDrive, Merge, Download, Plus } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
 import { useOpportunitiesFilters } from "@/stores/useOpportunitiesFilters";
 import type { DateRange } from "react-day-picker";
@@ -92,6 +93,8 @@ const Opportunities = () => {
     }
   };
 
+  const totalCount = metrics?.allOpportunities?.length ?? 0;
+
   if (error) {
     return (
       <AppLayout onAdminAction={handleAdminAction}>
@@ -115,10 +118,8 @@ const Opportunities = () => {
   }
 
   return (
-    <AppLayout 
-      onAdminAction={handleAdminAction}
-    >
-      <div className="px-6 py-6 space-y-6">
+    <AppLayout onAdminAction={handleAdminAction}>
+      <div className="px-4 sm:px-6 py-5 space-y-4">
         {/* Duplicate Opportunities Alert */}
         {isAdmin && !isLoading && (
           <DuplicateOpportunitiesAlert
@@ -131,16 +132,17 @@ const Opportunities = () => {
           />
         )}
 
-        {/* Top Actions Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-bold text-foreground">Opportunities</h1>
-            <div className="flex items-center gap-1.5">
+        {/* Page Header — card-first style */}
+        <PageHeader
+          title="Opportunities"
+          subtitle={isLoading ? "Loading..." : `${totalCount} total`}
+          actions={
+            <>
               <Select value={dateField} onValueChange={(v) => setDateField(v as "updatedDate" | "createdDate")}>
-                <SelectTrigger className="w-[120px] h-8 text-xs bg-background border-border">
+                <SelectTrigger className="w-[120px] h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-popover border-border">
+                <SelectContent>
                   <SelectItem value="updatedDate">Last Edited</SelectItem>
                   <SelectItem value="createdDate">Created</SelectItem>
                 </SelectContent>
@@ -149,60 +151,72 @@ const Opportunities = () => {
                 dateRange={dateRange} 
                 onDateRangeChange={setDateRange} 
               />
+              <Button
+                variant={showAlternatingColors ? "secondary" : "ghost"}
+                size="sm"
+                className="h-8 text-xs px-2.5"
+                onClick={() => setShowAlternatingColors(!showAlternatingColors)}
+                title={showAlternatingColors ? "Disable alternating row colors" : "Enable alternating row colors"}
+              >
+                Stripes
+              </Button>
+              <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => downloadCSVFn?.()}>
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+              {isAdmin && (
+                <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => {
+                  setPreselectedOpportunities(null);
+                  setMergeDialogOpen(true);
+                }}>
+                  <Merge className="h-3.5 w-3.5 mr-1" />
+                  Merge
+                </Button>
+              )}
+              {!isGHLEnabled && (
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-warning/10 text-warning text-xs font-medium rounded-full border border-warning/20">
+                  <HardDrive className="h-3 w-3" />
+                  Local
+                </div>
+              )}
+            </>
+          }
+        />
+
+        {/* Opportunities List */}
+        {isLoading ? (
+          <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-border/40">
+              <Skeleton className="h-8 w-full" />
+            </div>
+            <div className="divide-y divide-border/30">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="px-4 py-3 flex items-center gap-4">
+                  <Skeleton className="h-4 w-[30%]" />
+                  <Skeleton className="h-4 w-[15%]" />
+                  <Skeleton className="h-4 w-[12%]" />
+                  <Skeleton className="h-4 w-[18%]" />
+                  <Skeleton className="h-4 w-[12%]" />
+                  <Skeleton className="h-4 w-[13%]" />
+                </div>
+              ))}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Button
-              variant={showAlternatingColors ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 text-xs px-2"
-              onClick={() => setShowAlternatingColors(!showAlternatingColors)}
-              title={showAlternatingColors ? "Disable alternating row colors" : "Enable alternating row colors"}
-            >
-              Stripes
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => downloadCSVFn?.()}>
-              <Download className="h-3.5 w-3.5" />
-            </Button>
-            {isAdmin && (
-              <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => {
-                setPreselectedOpportunities(null);
-                setMergeDialogOpen(true);
-              }}>
-                <Merge className="h-3.5 w-3.5 mr-1" />
-                Merge
-              </Button>
-            )}
-            {!isGHLEnabled && (
-              <div className="flex items-center gap-1 px-2 py-0.5 bg-warning/10 text-warning-foreground text-xs font-medium rounded-full border border-warning/20">
-                <HardDrive className="h-3 w-3" />
-                Local
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Opportunities Table */}
-        <section>
-          {isLoading ? (
-            <Skeleton className="h-[400px] rounded-2xl" />
-          ) : (
-            <OpportunitiesTable 
-              opportunities={metrics?.allOpportunities || []} 
-              appointments={metrics?.allAppointments || []} 
-              contacts={metrics?.allContacts || []} 
-              users={metrics?.users || []} 
-              conversations={metrics?.conversations || []} 
-              notes={metrics?.contactNotes || []} 
-              tasks={metrics?.tasks || []} 
-              showAlternatingColors={showAlternatingColors}
-              onAlternatingColorsChange={setShowAlternatingColors}
-              onDownloadCSV={handleDownloadCSVCallback}
-              tableDateField={dateField}
-              tableDateRange={dateRange}
-            />
-          )}
-        </section>
+        ) : (
+          <OpportunitiesTable 
+            opportunities={metrics?.allOpportunities || []} 
+            appointments={metrics?.allAppointments || []} 
+            contacts={metrics?.allContacts || []} 
+            users={metrics?.users || []} 
+            conversations={metrics?.conversations || []} 
+            notes={metrics?.contactNotes || []} 
+            tasks={metrics?.tasks || []} 
+            showAlternatingColors={showAlternatingColors}
+            onAlternatingColorsChange={setShowAlternatingColors}
+            onDownloadCSV={handleDownloadCSVCallback}
+            tableDateField={dateField}
+            tableDateRange={dateRange}
+          />
+        )}
       </div>
 
       {/* Opportunity Detail Sheet - open state derived from URL */}
