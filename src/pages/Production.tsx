@@ -35,6 +35,9 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { BadgePill } from "@/components/ui/badge-pill";
+import { DataListCard, DataListCardHeader, DataListCardBody } from "@/components/ui/data-list-card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -145,13 +148,16 @@ interface ProjectFinancials {
 type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'sold_amount' | 'est_proj_cost' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'commission' | 'expected_profit' | 'total_cash';
 type SortDirection = 'asc' | 'desc';
 
-const statusColors: Record<string, string> = {
-  "Proposal": "bg-purple-500/10 text-purple-500 border-purple-500/20",
-  "New Job": "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  "In-Progress": "bg-amber-500/10 text-amber-500 border-amber-500/20",
-  "On-Hold": "bg-orange-500/10 text-orange-500 border-orange-500/20",
-  "Completed": "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-  "Cancelled": "bg-red-500/10 text-red-500 border-red-500/20",
+const statusToIntent = (status: string | null | undefined) => {
+  switch (status) {
+    case "Proposal": return "info" as const;
+    case "New Job": return "primary" as const;
+    case "In-Progress": return "warning" as const;
+    case "On-Hold": return "danger" as const;
+    case "Completed": return "success" as const;
+    case "Cancelled": return "danger" as const;
+    default: return "muted" as const;
+  }
 };
 
 // Helper component for project sold cards
@@ -205,9 +211,9 @@ function ProjectSoldCard({
           <p className="text-lg font-bold text-primary">
             {formatCurrency(soldAmount)}
           </p>
-          <Badge variant="outline" className={`text-[10px] ${statusColors[project.project_status || 'New Job'] || ''}`}>
+          <BadgePill intent={statusToIntent(project.project_status)}>
             {project.project_status || 'New Job'}
-          </Badge>
+          </BadgePill>
         </div>
       </div>
     </div>
@@ -1874,13 +1880,13 @@ export default function Production() {
               )}
 
           {/* Projects Table */}
-          <Card>
-            <CardHeader className="sticky top-14 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex flex-row items-center justify-between space-y-0 pb-2 border-b border-border/50">
+          <DataListCard>
+            <DataListCardHeader className="sticky top-14 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex flex-row items-center justify-between space-y-0 border-b border-border/50">
               <div>
-                <CardTitle>Projects</CardTitle>
-                <CardDescription>
+                <h3 className="text-sm font-semibold text-foreground">Projects</h3>
+                <p className="text-xs text-muted-foreground">
                   {sortedAndFilteredProjects.length} project{sortedAndFilteredProjects.length !== 1 ? "s" : ""} found
-                </CardDescription>
+                </p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {isAdmin && (
@@ -1916,7 +1922,6 @@ export default function Production() {
                   icon={<Filter className="h-3.5 w-3.5" />}
                   className="w-[160px]"
                 />
-                {/* Alternating Colors Toggle */}
                 <Button
                   variant={showAlternatingColors ? "secondary" : "ghost"}
                   size="sm"
@@ -1927,8 +1932,8 @@ export default function Production() {
                   Stripes
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent>
+            </DataListCardHeader>
+            <DataListCardBody>
               {isLoading ? (
                 <div className="space-y-2">
                   {[...Array(5)].map((_, i) => (
@@ -2119,12 +2124,9 @@ export default function Production() {
                                   }}
                                 >
                                   <SelectTrigger className="h-auto p-0 border-0 bg-transparent hover:bg-transparent focus:ring-0 w-auto">
-                                    <Badge 
-                                      variant="outline" 
-                                      className={`cursor-pointer hover:opacity-80 text-[10px] px-1 py-0 ${statusColors[project.project_status || "New Job"] || ""}`}
-                                    >
+                                    <BadgePill intent={statusToIntent(project.project_status)}>
                                       {project.project_status || "New Job"}
-                                    </Badge>
+                                    </BadgePill>
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="Proposal">Proposal</SelectItem>
@@ -2249,8 +2251,8 @@ export default function Production() {
                   </table>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </DataListCardBody>
+          </DataListCard>
 
           {/* Archived Projects Section */}
           {isAdmin && showArchived && (
@@ -2294,9 +2296,9 @@ export default function Production() {
                               {project.project_address || "-"}
                             </TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="text-[10px]">
+                              <BadgePill intent={statusToIntent(project.project_status)}>
                                 {project.project_status || "Unknown"}
-                              </Badge>
+                              </BadgePill>
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">
                               {project.deleted_at 
@@ -2551,13 +2553,13 @@ export default function Production() {
                   {statusChangeProject && (
                     <p>
                       Change status of <strong>#{statusChangeProject.project_number} - {statusChangeProject.project_name}</strong> from{" "}
-                      <Badge variant="outline" className={`inline ${statusColors[statusChangeProject.project_status || "New Job"] || ""}`}>
+                      <BadgePill intent={statusToIntent(statusChangeProject.project_status)}>
                         {statusChangeProject.project_status || "New Job"}
-                      </Badge>{" "}
+                      </BadgePill>{" "}
                       to{" "}
-                      <Badge variant="outline" className={`inline ${statusColors[statusChangeNewStatus] || ""}`}>
+                      <BadgePill intent={statusToIntent(statusChangeNewStatus)}>
                         {statusChangeNewStatus}
-                      </Badge>?
+                      </BadgePill>?
                     </p>
                   )}
                 </div>

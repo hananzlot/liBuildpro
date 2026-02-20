@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { DataListCard, DataListCardBody } from "@/components/ui/data-list-card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -125,19 +127,13 @@ export default function PendingDeposits() {
 
   return (
     <AppLayout>
-    <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Landmark className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="text-xl font-semibold">Pending Deposit Verification</h1>
-            <p className="text-sm text-muted-foreground">
-              Payments received but not yet verified as deposited. Total: {formatCurrency(totalPending)}
-            </p>
-          </div>
-          <Badge variant="secondary" className="ml-2">{pendingPayments.length}</Badge>
-        </div>
-      </div>
+    <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-4">
+      <PageHeader
+        title="Pending Deposit Verification"
+        subtitle={`Payments received but not yet verified as deposited. Total: ${formatCurrency(totalPending)}`}
+      >
+        <Badge variant="secondary">{pendingPayments.length}</Badge>
+      </PageHeader>
 
       {selectedPayments.length > 0 && (
         <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20">
@@ -160,7 +156,8 @@ export default function PendingDeposits() {
         </div>
       )}
 
-      <ScrollArea className="h-[calc(100vh-220px)]">
+      <DataListCard>
+        <DataListCardBody className="h-[calc(100vh-220px)] overflow-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -246,7 +243,8 @@ export default function PendingDeposits() {
             </TableBody>
           </Table>
         )}
-      </ScrollArea>
+        </DataListCardBody>
+      </DataListCard>
     </div>
     </AppLayout>
   );

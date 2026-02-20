@@ -8,6 +8,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { BadgePill } from "@/components/ui/badge-pill";
+import { DataListCard, DataListCardHeader, DataListCardBody } from "@/components/ui/data-list-card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -905,24 +908,21 @@ export default function OutstandingAP() {
 
   return (
     <AppLayout>
-      <div className="px-6 py-6 space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Outstanding Payables (AP)</h1>
-            <p className="text-sm text-muted-foreground">All unpaid bills with cash impact projections</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.print()}
-              className="no-print"
-            >
-              <Printer className="h-4 w-4 mr-2" />
-              Print
-            </Button>
-          </div>
-        </div>
+      <div className="px-6 py-6 space-y-4">
+        <PageHeader
+          title="Outstanding Payables (AP)"
+          subtitle="All unpaid bills with cash impact projections"
+        >
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.print()}
+            className="no-print"
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Print
+          </Button>
+        </PageHeader>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'scheduled' | 'paid' | 'voided')} className="w-full">
           <TabsList className="mb-4">
@@ -954,8 +954,8 @@ export default function OutstandingAP() {
           </TabsList>
 
           <TabsContent value="all" className="mt-0">
-            <Card>
-              <CardHeader className="pb-3">
+            <DataListCard>
+              <DataListCardHeader>
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1 min-w-[200px]">
@@ -976,12 +976,12 @@ export default function OutstandingAP() {
                       {groupByProject ? "Grouped" : "Flat"}
                     </Button>
                   </div>
-                  <Badge variant="outline" className="bg-destructive/10 text-destructive">
+                  <BadgePill intent="danger">
                     Total Due: {formatCurrencyWithDecimals(total)}
-                  </Badge>
+                  </BadgePill>
                 </div>
-              </CardHeader>
-              <CardContent>
+              </DataListCardHeader>
+              <DataListCardBody>
                 {isLoading ? (
                   <Skeleton className="h-[400px]" />
                 ) : (
@@ -1302,8 +1302,8 @@ export default function OutstandingAP() {
                     </Table>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </DataListCardBody>
+            </DataListCard>
           </TabsContent>
 
           <TabsContent value="scheduled" className="mt-0">
