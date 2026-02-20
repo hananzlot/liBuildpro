@@ -714,6 +714,62 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
       return;
     }
 
+    // Duplicate contact check for inline new contact creation
+    if (creatingNewContact && !contactDuplicateConfirmed) {
+      try {
+        const trimmedFirst = firstName.trim();
+        const trimmedLast = lastName.trim();
+        const fullName = `${trimmedFirst} ${trimmedLast}`.trim();
+
+        const { data: nameMatches } = await supabase
+          .from("contacts")
+          .select("id, contact_name, first_name, last_name, custom_fields")
+          .eq("company_id", companyId!)
+          .ilike("first_name", trimmedFirst)
+          .ilike("last_name", trimmedLast)
+          .limit(3);
+
+        const { data: fullNameMatches } = await supabase
+          .from("contacts")
+          .select("id, contact_name, first_name, last_name, custom_fields")
+          .eq("company_id", companyId!)
+          .ilike("contact_name", fullName)
+          .limit(3);
+
+        const allMatches = [...(nameMatches || []), ...(fullNameMatches || [])];
+        const seen = new Set<string>();
+        const matches = allMatches.filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; });
+
+        if (matches.length > 0) {
+          const match = matches[0];
+          let matchAddress: string | null = null;
+          if (match.custom_fields) {
+            const fields = match.custom_fields as any[];
+            if (Array.isArray(fields)) {
+              const addrField = fields.find((f: any) => f.id === "b7oTVsUQrLgZt84bHpCn" && f.value);
+              if (addrField) matchAddress = addrField.value;
+            }
+          }
+          if (!matchAddress) {
+            const { data: proj } = await supabase
+              .from("projects")
+              .select("project_address")
+              .eq("contact_uuid", match.id)
+              .not("project_address", "is", null)
+              .is("deleted_at", null)
+              .limit(1)
+              .maybeSingle();
+            if (proj?.project_address) matchAddress = proj.project_address;
+          }
+          const matchName = match.contact_name || `${match.first_name || ""} ${match.last_name || ""}`.trim();
+          setContactDuplicateMatch({ name: matchName, address: matchAddress });
+          return;
+        }
+      } catch (e) {
+        console.error("Inline duplicate check failed:", e);
+      }
+    }
+
     // Guard: unreviewed duplicates must be acknowledged first
     if (duplicateContacts.length > 0 && !duplicateWarningDismissed) {
       duplicateWarningRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1337,6 +1393,25 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                             <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" />
                           </div>
                         </div>
+                        {contactDuplicateMatch && !contactDuplicateConfirmed && (
+                          <Alert className="border-warning bg-warning/10">
+                            <AlertTriangle className="h-4 w-4 text-warning" />
+                            <AlertDescription className="space-y-2">
+                              <p className="font-medium text-sm">A contact with this name already exists:</p>
+                              <p className="text-sm"><span className="font-medium">{contactDuplicateMatch.name}</span>
+                                {contactDuplicateMatch.address && <span className="text-muted-foreground"> — {contactDuplicateMatch.address}</span>}
+                              </p>
+                              <div className="flex gap-2 pt-1">
+                                <Button size="sm" variant="outline" onClick={() => { setContactDuplicateMatch(null); setCreatingNewContact(false); setFirstName(""); setLastName(""); }}>
+                                  Cancel
+                                </Button>
+                                <Button size="sm" variant="default" onClick={() => { setContactDuplicateConfirmed(true); setContactDuplicateMatch(null); }}>
+                                  Create Anyway
+                                </Button>
+                              </div>
+                            </AlertDescription>
+                          </Alert>
+                        )}
                       </div>
                     )}
                   </div>
