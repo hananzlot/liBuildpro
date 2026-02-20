@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone, Mail, MapPin, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useUnifiedMode } from "@/hooks/useUnifiedMode";
@@ -150,8 +151,8 @@ export function ContactsTable({
         {sortedContacts.length} contacts{totalPages > 1 && ` • Page ${safeCurrentPage} of ${totalPages}`}
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border bg-card">
+      {/* Desktop Table */}
+      <div className="rounded-lg border bg-card hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -302,6 +303,57 @@ export function ContactsTable({
               </Button>
               <Button variant="ghost" size="icon" className="h-7 w-7" disabled={safeCurrentPage >= totalPages} onClick={() => setCurrentPage(totalPages)}>
                 <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-2">
+        {paginatedContacts.length === 0 ? (
+          <p className="text-center py-8 text-sm text-muted-foreground">No contacts found</p>
+        ) : (
+          paginatedContacts.map((contact) => {
+            const oppCount = getOpportunityCount(contact.ghl_id);
+            return (
+              <div
+                key={contact.id}
+                className="rounded-lg border border-border/60 bg-card p-3 space-y-1.5 active:bg-muted/50 transition-colors cursor-pointer"
+                onClick={() => navigate(`/contacts/${contact.id}`)}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm">{getContactName(contact)}</span>
+                  {contact.source && <Badge variant="outline" className="text-[10px]">{contact.source}</Badge>}
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  {contact.email && (
+                    <a href={`mailto:${contact.email}`} className="flex items-center gap-1 text-primary" onClick={(e) => e.stopPropagation()}>
+                      <Mail className="h-3 w-3" /> {contact.email}
+                    </a>
+                  )}
+                  {contact.phone && (
+                    <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-primary" onClick={(e) => e.stopPropagation()}>
+                      <Phone className="h-3 w-3" /> {contact.phone}
+                    </a>
+                  )}
+                  {oppCount > 0 && (
+                    <Badge variant="secondary" className="text-[10px] h-4">{oppCount} opp{oppCount > 1 ? 's' : ''}</Badge>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-xs text-muted-foreground">{safeCurrentPage} / {totalPages}</span>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="icon" className="h-8 w-8" disabled={safeCurrentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-8 w-8" disabled={safeCurrentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>

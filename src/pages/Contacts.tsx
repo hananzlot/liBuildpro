@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Database, HardDrive, Merge } from "lucide-react";
+import { Database, HardDrive, Merge, Contact as ContactIcon } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +9,7 @@ import { ContactDetailSheet } from "@/components/dashboard/ContactDetailSheet";
 import { MergeContactsDialog } from "@/components/dashboard/MergeContactsDialog";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 const Contacts = () => {
@@ -109,7 +110,35 @@ const Contacts = () => {
         {/* Contacts Table */}
         <section>
           {isLoading ? (
-            <Skeleton className="h-[400px] rounded-2xl" />
+            <div className="rounded-lg border bg-card p-0 overflow-hidden">
+              {/* Table skeleton: header + rows */}
+              <div className="border-b px-4 py-3 flex gap-6">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-3 w-24" />
+                ))}
+              </div>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-6 px-4 py-3 border-b last:border-0">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+              ))}
+            </div>
+          ) : metrics?.allContacts?.length === 0 ? (
+            <EmptyState
+              icon={ContactIcon}
+              title="No contacts yet"
+              description="Contacts will appear here once synced from your CRM or added manually."
+              action={
+                <Button onClick={handleSync} disabled={syncMutation.isPending}>
+                  <Database className="h-4 w-4 mr-2" />
+                  Sync from GHL
+                </Button>
+              }
+            />
           ) : (
             <ContactsTable 
               contacts={metrics?.allContacts || []} 
