@@ -44,6 +44,7 @@ import Privacy from "@/pages/Privacy";
 import QuickBooksHelp from "@/pages/QuickBooksHelp";
 import ProposalPrint from "@/pages/ProposalPrint";
 import { ProtectedRoute, DefaultPageRedirect } from "./RouteGuards";
+import { UUIDRouteGuard } from "./UUIDRouteGuard";
 
 /**
  * Main application routes.
@@ -99,7 +100,9 @@ export function AppRoutes() {
           path="/opportunity/:id"
           element={
             <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
-              <OpportunityDetail />
+              <UUIDRouteGuard table="opportunities">
+                <OpportunityDetail />
+              </UUIDRouteGuard>
             </ProtectedRoute>
           }
         />
@@ -127,7 +130,9 @@ export function AppRoutes() {
           path="/appointment/:id"
           element={
             <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
-              <AppointmentDetail />
+              <UUIDRouteGuard table="appointments">
+                <AppointmentDetail />
+              </UUIDRouteGuard>
             </ProtectedRoute>
           }
         />
@@ -225,10 +230,12 @@ export function AppRoutes() {
           path="/project/:id"
           element={
             <ProtectedRoute requiredRole="production" requiredFeature="production">
-              <ProjectDetail />
+              <UUIDRouteGuard table="projects">
+                <ProjectDetail />
+              </UUIDRouteGuard>
             </ProtectedRoute>
           }
-          />
+        />
         
         {/* Outstanding AR - accessible by production role or analytics permission */}
         <Route
@@ -336,7 +343,9 @@ export function AppRoutes() {
           path="/estimate/:id"
           element={
             <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="estimates">
-              <EstimateBuilder />
+              <UUIDRouteGuard table="estimates">
+                <EstimateBuilder />
+              </UUIDRouteGuard>
             </ProtectedRoute>
           }
         />
