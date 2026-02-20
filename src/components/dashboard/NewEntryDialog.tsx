@@ -151,15 +151,68 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
     return () => clearTimeout(timeout);
   }, [contactSearchQuery, companyId]);
 
-  const handleSelectContact = (contact: typeof contactResults[0]) => {
+  const handleSelectContact = async (contact: typeof contactResults[0]) => {
     setSelectedContactId(contact.id);
     setFirstName(contact.first_name || "");
     setLastName(contact.last_name || "");
     setPhone(contact.phone || "");
     setEmail(contact.email || "");
-    if (contact.source) setSource(contact.source);
     setContactSearchOpen(false);
     setContactSearchQuery("");
+
+    // Fetch address: contact custom_fields → opportunity address fallback
+    try {
+      // 1. Try contact custom_fields for address
+      const { data: fullContact } = await supabase
+        .from("contacts")
+        .select("custom_fields")
+        .eq("id", contact.id)
+        .single();
+
+      let contactAddress = "";
+      if (fullContact?.custom_fields) {
+        const fields = fullContact.custom_fields as any[];
+        if (Array.isArray(fields)) {
+          const addressField = fields.find((f: any) => f.id === "b7oTVsUQrLgZt84bHpCn" && f.value);
+          if (addressField) contactAddress = addressField.value;
+        }
+      }
+
+      if (contactAddress) {
+        setAddress(contactAddress);
+        return;
+      }
+
+      // 2. Fallback: opportunity address for this contact
+      const { data: opp } = await supabase
+        .from("opportunities")
+        .select("address")
+        .eq("contact_uuid", contact.id)
+        .not("address", "is", null)
+        .limit(1)
+        .maybeSingle();
+
+      if (opp?.address) {
+        setAddress(opp.address);
+        return;
+      }
+
+      // 3. Fallback: project address
+      const { data: proj } = await supabase
+        .from("projects")
+        .select("project_address")
+        .eq("contact_uuid", contact.id)
+        .not("project_address", "is", null)
+        .is("deleted_at", null)
+        .limit(1)
+        .maybeSingle();
+
+      if (proj?.project_address) {
+        setAddress(proj.project_address);
+      }
+    } catch (e) {
+      console.error("Failed to fetch contact address:", e);
+    }
   };
 
   const selectedContactLabel = useMemo(() => {
@@ -1048,51 +1101,34 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="source">Source</Label>
-                  <Select value={source} onValueChange={setSource}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableSources.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
+              <div className="space-y-2">
+                <Label htmlFor="assignedTo">Assigned Rep</Label>
+                <Select value={assignedTo} onValueChange={setAssignedTo}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select rep" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[...users]
+                      .sort((a, b) => {
+                        const nameA = (
+                          a.name ||
+                          `${a.first_name || ""} ${a.last_name || ""}`.trim() ||
+                          "Unknown"
+                        ).toLowerCase();
+                        const nameB = (
+                          b.name ||
+                          `${b.first_name || ""} ${b.last_name || ""}`.trim() ||
+                          "Unknown"
+                        ).toLowerCase();
+                        return nameA.localeCompare(nameB);
+                      })
+                      .map((user) => (
+                        <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                          {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown"}
                         </SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="assignedTo">Assigned Rep</Label>
-                  <Select value={assignedTo} onValueChange={setAssignedTo}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select rep" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[...users]
-                        .sort((a, b) => {
-                          const nameA = (
-                            a.name ||
-                            `${a.first_name || ""} ${a.last_name || ""}`.trim() ||
-                            "Unknown"
-                          ).toLowerCase();
-                          const nameB = (
-                            b.name ||
-                            `${b.first_name || ""} ${b.last_name || ""}`.trim() ||
-                            "Unknown"
-                          ).toLowerCase();
-                          return nameA.localeCompare(nameB);
-                        })
-                        .map((user) => (
-                          <SelectItem key={user.ghl_id} value={user.ghl_id}>
-                            {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown"}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Calendar info - auto-selected for Google, selector for GHL */}
@@ -1130,47 +1166,6 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                   )}
                 </div>
               )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="pipeline">Pipeline *</Label>
-                  <Select
-                    value={selectedPipeline}
-                    onValueChange={(val) => {
-                      setSelectedPipeline(val);
-                      // Reset stage when pipeline changes
-                      const firstStage = pipelineStages.find((s) => s.pipeline_id === val);
-                      setSelectedStage(firstStage?.pipeline_stage_id || "");
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select pipeline" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {uniquePipelines.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="stage">Stage *</Label>
-                  <Select value={selectedStage} onValueChange={setSelectedStage}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select stage" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stagesForPipeline.map((s) => (
-                        <SelectItem key={s.pipeline_stage_id} value={s.pipeline_stage_id}>
-                          {s.stage_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
             </div>
 
             <DialogFooter className="flex-col items-stretch sm:items-center gap-2">
