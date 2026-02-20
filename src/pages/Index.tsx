@@ -71,14 +71,14 @@ const Index = () => {
   const [adminCleanupOpen, setAdminCleanupOpen] = useState(false);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
-  const [newEntryMode, setNewEntryMode] = useState<"entry" | "contact">("entry");
+  const [newEntryMode, setNewEntryMode] = useState<"entry" | "contact" | "opportunity">("entry");
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Auto-open NewEntryDialog when navigating with ?action=new-*
   useEffect(() => {
     const action = searchParams.get('action');
     if (action && action.startsWith('new-')) {
-      setNewEntryMode(action === 'new-contact' ? 'contact' : 'entry');
+      setNewEntryMode(action === 'new-contact' ? 'contact' : action === 'new-opportunity' ? 'opportunity' : 'entry');
       setNewEntryOpen(true);
       // Clean up the URL param
       searchParams.delete('action');
