@@ -48,6 +48,7 @@ interface NewEntryDialogProps {
   userId?: string;
   externalOpen?: boolean;
   onExternalOpenChange?: (open: boolean) => void;
+  mode?: "entry" | "contact";
 }
 
 interface CSVEntry {
@@ -91,7 +92,7 @@ interface GoogleCalendarConnection {
 
 const PRIMARY_LOCATION_ID = "pVeFrqvtYWNIPRIi0Fmr";
 
-export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExternalOpenChange }: NewEntryDialogProps) {
+export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExternalOpenChange, mode = "entry" }: NewEntryDialogProps) {
   const { companyId } = useCompanyContext();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
@@ -1006,8 +1007,8 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Add New Entry</DialogTitle>
-          <DialogDescription>Create a new contact with opportunity and appointment</DialogDescription>
+          <DialogTitle>{mode === "contact" ? "Add New Contact" : "Add New Entry"}</DialogTitle>
+          <DialogDescription>{mode === "contact" ? "Add a new contact to your CRM" : "Create a new contact with opportunity and appointment"}</DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
@@ -1096,15 +1097,17 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="scope">Scope of Work</Label>
-                <Input
-                  id="scope"
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value)}
-                  placeholder="Kitchen remodel, ADU construction..."
-                />
-              </div>
+              {mode !== "contact" && (
+                <div className="space-y-2">
+                  <Label htmlFor="scope">Scope of Work</Label>
+                  <Input
+                    id="scope"
+                    value={scope}
+                    onChange={(e) => setScope(e.target.value)}
+                    placeholder="Kitchen remodel, ADU construction..."
+                  />
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
@@ -1117,45 +1120,49 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="appointmentDate">Appointment Date</Label>
-                  <Input
-                    id="appointmentDate"
-                    type="date"
-                    value={appointmentDate}
-                    onChange={(e) => setAppointmentDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="appointmentTime">Appointment Time (PST)</Label>
-                  <Input
-                    id="appointmentTime"
-                    type="time"
-                    value={appointmentTime}
-                    onChange={(e) => setAppointmentTime(e.target.value)}
-                  />
-                </div>
-              </div>
+              {mode !== "contact" && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="appointmentDate">Appointment Date</Label>
+                      <Input
+                        id="appointmentDate"
+                        type="date"
+                        value={appointmentDate}
+                        onChange={(e) => setAppointmentDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="appointmentTime">Appointment Time (PST)</Label>
+                      <Input
+                        id="appointmentTime"
+                        type="time"
+                        value={appointmentTime}
+                        onChange={(e) => setAppointmentTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="assignedTo">Assigned Rep</Label>
-                <Select value={assignedTo} onValueChange={setAssignedTo}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select rep" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
-                    {repOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                    {repOptions.length === 0 && (
-                      <div className="px-3 py-2 text-sm text-muted-foreground">No reps available</div>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="assignedTo">Assigned Rep</Label>
+                    <Select value={assignedTo} onValueChange={setAssignedTo}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select rep" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover z-50">
+                        {repOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                        {repOptions.length === 0 && (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">No reps available</div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
 
               {/* Calendar info - auto-selected for Google, selector for GHL */}
               {assignedTo && (
