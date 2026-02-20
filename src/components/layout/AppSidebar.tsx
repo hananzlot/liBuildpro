@@ -451,23 +451,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                 </div>
               </div>
 
-              {/* Quick Create (+) */}
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <button className="h-6 w-6 rounded-md flex items-center justify-center bg-sidebar-primary/90 text-sidebar-primary-foreground hover:bg-sidebar-primary transition-colors shrink-0">
-                        <Plus className="h-3.5 w-3.5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">Quick Create</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent side="right" align="start" className="w-48">
-                  {quickCreateItems}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
               {/* Pin toggle */}
               {!isMobile && (
                 <Tooltip>
@@ -484,8 +467,28 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
             </>
           )}
 
-          {/* Collapsed: quick-create icon */}
-          {collapsed && (
+        </div>
+
+        {/* Company Switcher */}
+        {(isSuperAdmin || isCorpAdmin) && !collapsed && <CompanySwitcher />}
+
+        {/* Quick Create button — below company switcher */}
+        {!collapsed ? (
+          <div className="px-3 pb-2.5">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 w-full h-8 px-3 rounded-md text-[13px] font-medium bg-sidebar-primary/90 text-sidebar-primary-foreground hover:bg-sidebar-primary transition-colors">
+                  <Plus className="h-3.5 w-3.5" />
+                  Quick Create
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="start" className="w-48">
+                {quickCreateItems}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : (
+          <div className="flex justify-center pb-2">
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -501,11 +504,8 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                 {quickCreateItems}
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-        </div>
-
-        {/* Company Switcher */}
-        {(isSuperAdmin || isCorpAdmin) && !collapsed && <CompanySwitcher />}
+          </div>
+        )}
       </SidebarHeader>
 
       {/* ─── Main navigation ─── */}
