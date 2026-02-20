@@ -1933,7 +1933,7 @@ export default function Production() {
                 </Button>
               </div>
             </DataListCardHeader>
-              <DataListCardBody className="overflow-x-auto overflow-y-visible">
+              <DataListCardBody className="overflow-auto max-h-[calc(100vh-280px)]">
               {isLoading ? (
                 <div className="space-y-2">
                   {[...Array(5)].map((_, i) => (
