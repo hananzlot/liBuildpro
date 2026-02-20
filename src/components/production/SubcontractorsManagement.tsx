@@ -477,6 +477,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
               No active subcontractors. Add one to get started.
             </p>
           ) : (
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -598,6 +599,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
