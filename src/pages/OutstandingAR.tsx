@@ -105,7 +105,7 @@ export default function OutstandingAR() {
               </BadgePill>
             </div>
           </DataListCardHeader>
-          <DataListCardBody>
+          <DataListCardBody className="overflow-auto max-h-[calc(100vh-260px)]">
             {isLoading ? (
               <Skeleton className="h-[400px]" />
             ) : (
