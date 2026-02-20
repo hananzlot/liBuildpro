@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAppVersion } from "@/hooks/useAppVersion";
@@ -617,7 +618,12 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                         <a 
                           href={subItem.url}
                           onClick={(e) => handleNavClick(e, subItem.url, subItem.title)}
-                          className={`flex items-center gap-2 ${isSubActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}`}
+                          className={cn(
+                            "flex items-center gap-2 rounded-md transition-colors",
+                            isSubActive 
+                              ? "bg-sidebar-accent text-sidebar-accent-foreground border-l-2 border-primary pl-[calc(0.5rem-2px)]" 
+                              : "hover:bg-accent/50"
+                          )}
                         >
                           {subItem.icon && <subItem.icon className="h-3 w-3" />}
                           <span>{subItem.title}</span>
@@ -719,7 +725,12 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           <a 
             href={item.url}
             onClick={(e) => handleNavClick(e, item.url || '/', item.title)}
-            className={`flex items-center gap-2 ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : ''}`}
+            className={cn(
+              "flex items-center gap-2 rounded-md transition-colors",
+              isActive 
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium border-l-2 border-primary pl-[calc(0.5rem-2px)]" 
+                : "hover:bg-accent/50"
+            )}
           >
             <item.icon className="h-4 w-4" />
             {!collapsed && renderTitleWithAmount()}
