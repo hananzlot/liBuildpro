@@ -3523,11 +3523,13 @@ export type Database = {
           appointment_ghl_id: string | null
           company_id: string | null
           created_at: string
+          dismissed_at: string | null
           ghl_user_id: string | null
           id: string
           message: string
           read: boolean
           reference_url: string | null
+          snoozed_until: string | null
           title: string
           type: string
           user_id: string | null
@@ -3536,11 +3538,13 @@ export type Database = {
           appointment_ghl_id?: string | null
           company_id?: string | null
           created_at?: string
+          dismissed_at?: string | null
           ghl_user_id?: string | null
           id?: string
           message: string
           read?: boolean
           reference_url?: string | null
+          snoozed_until?: string | null
           title: string
           type?: string
           user_id?: string | null
@@ -3549,11 +3553,13 @@ export type Database = {
           appointment_ghl_id?: string | null
           company_id?: string | null
           created_at?: string
+          dismissed_at?: string | null
           ghl_user_id?: string | null
           id?: string
           message?: string
           read?: boolean
           reference_url?: string | null
+          snoozed_until?: string | null
           title?: string
           type?: string
           user_id?: string | null

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Bell, Check, CheckCheck, Calendar, DollarSign,
   ClipboardList, AlertTriangle, Receipt, FileText,
+  MoreHorizontal, EyeOff, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +11,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,11 +43,13 @@ const tabFilters: Record<FilterTab, NotificationType[]> = {
   tasks: ["overdue_task", "stale_opportunity"],
 };
 
+const actionableTypes: NotificationType[] = ["stale_opportunity", "overdue_task", "overdue_invoice", "bill_due"];
+
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, dismissNotification, snoozeNotification } = useNotifications();
 
   const filteredNotifications =
     activeTab === "all"
@@ -138,6 +148,7 @@ export function NotificationBell() {
               {filteredNotifications.map((notification) => {
                 const config = typeConfig[notification.type as NotificationType] || typeConfig.reminder;
                 const Icon = config.icon;
+                const isActionable = actionableTypes.includes(notification.type as NotificationType);
 
                 return (
                   <div
@@ -169,6 +180,34 @@ export function NotificationBell() {
                           })}
                         </p>
                       </div>
+                      {isActionable && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={() => dismissNotification(notification.id)}>
+                              <EyeOff className="h-3.5 w-3.5 mr-2" />
+                              Dismiss
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => snoozeNotification({ notificationId: notification.id, days: 1 })}>
+                              <Clock className="h-3.5 w-3.5 mr-2" />
+                              Snooze 1 day
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => snoozeNotification({ notificationId: notification.id, days: 3 })}>
+                              <Clock className="h-3.5 w-3.5 mr-2" />
+                              Snooze 3 days
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => snoozeNotification({ notificationId: notification.id, days: 7 })}>
+                              <Clock className="h-3.5 w-3.5 mr-2" />
+                              Snooze 7 days
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </div>
                 );
