@@ -535,7 +535,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                   Quick Create
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="right" align="start" className="w-48">
+              <DropdownMenuContent side="right" align="start" className="w-56">
                 {quickCreateItems}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -553,7 +553,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                 </TooltipTrigger>
                 <TooltipContent side="right">Quick Create</TooltipContent>
               </Tooltip>
-              <DropdownMenuContent side="right" align="start" className="w-48">
+              <DropdownMenuContent side="right" align="start" className="w-56">
                 {quickCreateItems}
               </DropdownMenuContent>
             </DropdownMenu>
