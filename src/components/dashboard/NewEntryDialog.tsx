@@ -705,6 +705,10 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
     }
 
     // Validate phone and email
+    if (creatingNewContact && !phone.trim()) {
+      toast.error("Phone is required for new contacts");
+      return;
+    }
     if (phone.trim() && !validatePhone(phone)) {
       toast.error("Please enter a valid phone number");
       return;
@@ -1391,6 +1395,18 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                           <div className="space-y-1">
                             <Label className="text-xs">Last Name *</Label>
                             <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Phone *</Label>
+                            <Input value={phone} onChange={(e) => handlePhoneChange(e.target.value)} onBlur={handlePhoneBlur} placeholder="(555) 123-4567" />
+                            {phoneError && <p className="text-xs text-destructive">{phoneError}</p>}
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Email</Label>
+                            <Input type="email" value={email} onChange={(e) => handleEmailChange(e.target.value)} onBlur={handleEmailBlur} placeholder="email@example.com" />
+                            {emailError && <p className="text-xs text-destructive">{emailError}</p>}
                           </div>
                         </div>
                         {contactDuplicateMatch && !contactDuplicateConfirmed && (
