@@ -45,7 +45,31 @@ export function useNotifications() {
         .limit(50);
 
       if (error) throw error;
-      return data as Notification[];
+      
+      // Filter out reminder notifications for past appointments
+      const reminderGhlIds = (data || [])
+        .filter((n: any) => n.type === "reminder" && n.appointment_ghl_id)
+        .map((n: any) => n.appointment_ghl_id);
+      
+      let pastAppointmentIds = new Set<string>();
+      if (reminderGhlIds.length > 0) {
+        const { data: appts } = await supabase
+          .from("appointments")
+          .select("ghl_id, start_time")
+          .in("ghl_id", reminderGhlIds)
+          .lt("start_time", now);
+        
+        if (appts) {
+          pastAppointmentIds = new Set(appts.map((a: any) => a.ghl_id).filter(Boolean));
+        }
+      }
+      
+      return (data || []).filter((n: any) => {
+        if (n.type === "reminder" && n.appointment_ghl_id && pastAppointmentIds.has(n.appointment_ghl_id)) {
+          return false;
+        }
+        return true;
+      }) as Notification[];
     },
     enabled: !!companyId,
     refetchInterval: 60 * 1000,
