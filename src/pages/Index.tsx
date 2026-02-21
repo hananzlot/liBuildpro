@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { usePersistedDialog, getPersistedDialogState } from "@/hooks/usePersistedDialog";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Calendar, Database, DollarSign, CalendarCheck, Trophy, Pencil, Receipt, HardDrive } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
@@ -70,21 +71,29 @@ const Index = () => {
   const [sourceManagementOpen, setSourceManagementOpen] = useState(false);
   const [adminCleanupOpen, setAdminCleanupOpen] = useState(false);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
-  const [newEntryOpen, setNewEntryOpen] = useState(false);
-  const [newEntryMode, setNewEntryMode] = useState<"entry" | "contact" | "opportunity">("entry");
+  const [newEntryMode, setNewEntryMode] = useState<"entry" | "contact" | "opportunity">(() => {
+    // Restore mode from persisted dialog state on mount
+    const persisted = getPersistedDialogState();
+    if (persisted && (persisted.type === "entry" || persisted.type === "contact" || persisted.type === "opportunity")) {
+      return persisted.type as "entry" | "contact" | "opportunity";
+    }
+    return "entry";
+  });
+  const { open: newEntryOpen, setOpen: setNewEntryOpen } = usePersistedDialog(newEntryMode);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Auto-open NewEntryDialog when navigating with ?action=new-*
   useEffect(() => {
     const action = searchParams.get('action');
     if (action && action.startsWith('new-')) {
-      setNewEntryMode(action === 'new-contact' ? 'contact' : action === 'new-opportunity' ? 'opportunity' : 'entry');
+      const mode = action === 'new-contact' ? 'contact' : action === 'new-opportunity' ? 'opportunity' : 'entry';
+      setNewEntryMode(mode);
       setNewEntryOpen(true);
       // Clean up the URL param
       searchParams.delete('action');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, setNewEntryOpen]);
 
   // Redirect production-only users to the production page
   // Don't redirect when an admin is simulating a role
