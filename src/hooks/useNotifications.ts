@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 
 interface Notification {
   id: string;
@@ -17,25 +18,32 @@ interface Notification {
 
 export function useNotifications() {
   const { profile } = useAuth();
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
 
   const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ["notifications", profile?.ghl_user_id],
+    queryKey: ["notifications", companyId, profile?.ghl_user_id],
     queryFn: async () => {
-      if (!profile?.ghl_user_id) return [];
+      if (!companyId) return [];
       
+      // Fetch notifications scoped to company: user-specific OR company-wide (ghl_user_id is null)
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
-        .eq("ghl_user_id", profile.ghl_user_id)
+        .eq("company_id", companyId)
+        .or(
+          profile?.ghl_user_id
+            ? `ghl_user_id.eq.${profile.ghl_user_id},ghl_user_id.is.null`
+            : `ghl_user_id.is.null`
+        )
         .order("created_at", { ascending: false })
         .limit(50);
 
       if (error) throw error;
       return data as Notification[];
     },
-    enabled: !!profile?.ghl_user_id,
-    refetchInterval: 60 * 1000, // Refetch every minute
+    enabled: !!companyId,
+    refetchInterval: 60 * 1000,
   });
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -56,14 +64,23 @@ export function useNotifications() {
 
   const markAllAsRead = useMutation({
     mutationFn: async () => {
-      if (!profile?.ghl_user_id) return;
+      if (!companyId) return;
       
-      const { error } = await supabase
+      let query = supabase
         .from("notifications")
         .update({ read: true })
-        .eq("ghl_user_id", profile.ghl_user_id)
+        .eq("company_id", companyId)
         .eq("read", false);
-      
+
+      if (profile?.ghl_user_id) {
+        query = query.or(
+          `ghl_user_id.eq.${profile.ghl_user_id},ghl_user_id.is.null`
+        );
+      } else {
+        query = query.is("ghl_user_id", null);
+      }
+
+      const { error } = await query;
       if (error) throw error;
     },
     onSuccess: () => {
