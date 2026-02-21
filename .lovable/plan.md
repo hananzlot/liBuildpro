@@ -1,81 +1,55 @@
 
 
-## Enhanced Notification Bell for Productivity
+## Dismiss/Snooze Stale Opportunity Notifications
 
-### Overview
-Expand the notification bell from appointment-only reminders to surface 5 types of actionable productivity alerts, with UI improvements for categorization and navigation.
+### Problem
+Currently, stale opportunity notifications reappear after being marked as read because the edge function's dedup check only looks for `read = false`. Once read, a new notification gets created on the next hourly run.
 
-### Notification Types
+### Solution
+Add dismiss and snooze capabilities to notifications so users can permanently dismiss or temporarily hide specific alerts.
 
-**1. Overdue Invoice Alerts (A/R Collections)**
-- Query `project_invoices` for invoices 30, 60, or 90+ days past due with open balance > 0
-- Show customer name, project, amount, and days overdue
-- Clicking navigates to the project's invoice detail
+### Changes
 
-**2. Overdue Task Reminders (In-App Tasks Only)**
-- Query `ghl_tasks` filtered to `provider = 'local'` only (NOT GHL-synced tasks)
-- Find tasks where `due_date < now()` and `completed = false`
-- Daily digest: "You have X overdue in-app tasks"
-- Clicking navigates to the relevant opportunity/contact
+**1. Database Migration**
+Add two columns to the `notifications` table:
+- `dismissed_at` (timestamptz, nullable) -- when set, notification is permanently dismissed
+- `snoozed_until` (timestamptz, nullable) -- when set, notification is hidden until this time
 
-**3. Stale Opportunity Alerts**
-- Flag opportunities not updated in 7+ days (configurable)
-- Prompt the assigned rep to follow up or update the status
+**2. Edge Function Update (`generate-productivity-notifications/index.ts`)**
+Update the dedup logic for stale opportunities (and all other types) to also skip creating new notifications when an existing one with the same `appointment_ghl_id` has been dismissed or snoozed (not just unread ones). Specifically:
+- Remove the `.eq("read", false)` filter from the stale opportunity dedup query (line 170)
+- Instead, check for any existing notification with the same dedup key that is either unread, dismissed, or snoozed into the future
+- Apply the same pattern to bill_due dedup (line 219) which also currently filters on `read = false`
 
-**4. Unpaid Bills Due Soon (A/P Reminders)**
-- Query `project_bills` for bills approaching or past their due date with balance > 0
-- Show vendor name, amount, and due date
+**3. Hook Update (`src/hooks/useNotifications.ts`)**
+- Filter out dismissed and snoozed notifications from the fetched list
+- Add `dismissNotification` mutation (sets `dismissed_at = now()`)
+- Add `snoozeNotification` mutation (sets `snoozed_until` to a chosen future time, e.g., 24h, 3 days, 7 days)
+- Export these new mutations
 
-**5. Proposal Activity**
-- Notify when estimates are accepted or declined
-- Link to the estimate/project detail
+**4. UI Update (`src/components/dashboard/NotificationBell.tsx`)**
+- Add a small dropdown menu (three-dot or right-click) on each notification row with:
+  - "Dismiss" -- hides the notification permanently
+  - "Snooze 1 day" / "Snooze 3 days" / "Snooze 7 days" -- hides until the selected time
+- Only show dismiss/snooze options for actionable types (stale_opportunity, overdue_task, overdue_invoice, bill_due)
+- Show a subtle "Dismissed" or "Snoozed until..." indicator if needed
 
----
+### Technical Details
 
-### Database Changes
-
-Add a `reference_url` column to the `notifications` table so each notification can deep-link to the relevant page:
-
+**Migration SQL:**
 ```sql
 ALTER TABLE public.notifications
-  ADD COLUMN IF NOT EXISTS reference_url text;
+  ADD COLUMN IF NOT EXISTS dismissed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS snoozed_until timestamptz;
 ```
 
----
+**Edge function dedup change (stale opportunities and bills):**
+Replace the current `.eq("read", false)` with a broader check -- query for any existing notification with the same dedup key (regardless of read status). This prevents re-creation after dismiss or read.
 
-### New Edge Function: `generate-productivity-notifications`
-
-- Scheduled to run periodically (e.g., every hour via pg_cron)
-- For each company, queries:
-  - `project_invoices` for overdue A/R
-  - `ghl_tasks` WHERE `provider = 'local'` AND `completed = false` AND `due_date < now()` for overdue in-app tasks
-  - `opportunities` WHERE `updated_at < now() - interval '7 days'` for stale leads
-  - `project_bills` WHERE `balance > 0` AND due date approaching/past
-- Deduplication: before inserting, checks if a notification for the same item already exists (using `appointment_ghl_id` or a new reference field) to avoid duplicates
-- Inserts into the existing `notifications` table with new `type` values: `overdue_invoice`, `overdue_task`, `stale_opportunity`, `bill_due`, `proposal_activity`
-- Sets `reference_url` to the appropriate in-app route (e.g., `/projects/{id}`, `/opportunities/{id}`)
-
----
-
-### Frontend Changes
-
-**NotificationBell.tsx:**
-- Add icon mapping per notification type (DollarSign for invoices, ClipboardList for tasks, AlertTriangle for stale leads, Receipt for bills, FileText for proposals)
-- Add filter tabs at the top of the popover: All | Appointments | Financial | Tasks
-- Make notifications clickable: use `react-router-dom`'s `useNavigate` to go to `reference_url` on click
-- Add a "Today's Focus" summary line at the top showing counts by category
-- Distinct accent colors per notification type
-
-**useNotifications.ts:**
-- No changes needed to the query itself (it already fetches all notification types)
-- Optionally add a `type` filter parameter for the tab filtering
-
----
-
-### Key Design Decision: Why Only Local Tasks
-
-The `ghl_tasks` table contains both GHL-synced tasks (`provider = 'ghl'`) and in-app created tasks (`provider = 'local'`). Overdue notifications will only surface **locally created tasks** because:
-- GHL tasks are managed in an external system with its own notification mechanisms
-- In-app tasks are the ones users directly create and are responsible for within this application
-- This avoids duplicate alerting for tasks already tracked in GoHighLevel
+**Notification filtering in hook:**
+```typescript
+// Filter out dismissed and currently-snoozed notifications
+.is("dismissed_at", null)
+.or("snoozed_until.is.null,snoozed_until.lt." + new Date().toISOString())
+```
 
