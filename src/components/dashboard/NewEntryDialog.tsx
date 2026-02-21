@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Plus, Upload, Loader2, X, FileSpreadsheet, Download, AlertTriangle, UserCheck, Search, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Upload, Loader2, X, FileSpreadsheet, Download, AlertTriangle, UserCheck, Search, Check, ChevronsUpDown, Trash2 } from "lucide-react";
+import { useFormDraft } from "@/hooks/useFormDraft";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -91,6 +92,29 @@ interface GoogleCalendarConnection {
 
 const PRIMARY_LOCATION_ID = "pVeFrqvtYWNIPRIi0Fmr";
 
+// Draft persistence schema version — bump when form shape changes
+const DRAFT_VERSION = 1;
+
+interface DraftValues {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  address: string;
+  scope: string;
+  notes: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  source: string;
+  assignedTo: string;
+  selectedContactId: string | null;
+  creatingNewContact: boolean;
+  selectedPipeline: string;
+  selectedStage: string;
+  selectedCalendar: string;
+}
+
+
 export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExternalOpenChange, mode = "entry" }: NewEntryDialogProps) {
   const { companyId } = useCompanyContext();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -161,7 +185,86 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
   const [contactDuplicateConfirmed, setContactDuplicateConfirmed] = useState(false);
   const [creatingNewContact, setCreatingNewContact] = useState(false);
 
-  // Search contacts as user types
+  // Pipeline/stage state (declared before draft hook so collectDraftValues can reference them)
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
+  const [selectedPipeline, setSelectedPipeline] = useState("");
+  const [selectedStage, setSelectedStage] = useState("");
+
+  // Calendar state
+  const [calendars, setCalendars] = useState<GHLCalendar[]>([]);
+  const [selectedCalendar, setSelectedCalendar] = useState("");
+  const [googleCalendar, setGoogleCalendar] = useState<GoogleCalendarConnection | null>(null);
+
+  // --- Draft persistence ---
+  const { restore, persist, discard: discardDraft, hasDraft } = useFormDraft<DraftValues>(
+    `newEntry-${mode}`, undefined, DRAFT_VERSION, open
+  );
+  const [showDraftRestored, setShowDraftRestored] = useState(false);
+  const draftRestoredRef = useRef(false);
+
+  // Collect current values into a draft object
+  const collectDraftValues = useCallback((): DraftValues => ({
+    firstName, lastName, phone, email, address, scope, notes,
+    appointmentDate, appointmentTime, source, assignedTo,
+    selectedContactId, creatingNewContact,
+    selectedPipeline, selectedStage, selectedCalendar,
+  }), [firstName, lastName, phone, email, address, scope, notes,
+    appointmentDate, appointmentTime, source, assignedTo,
+    selectedContactId, creatingNewContact,
+    selectedPipeline, selectedStage, selectedCalendar]);
+
+  // Restore draft when dialog opens
+  useEffect(() => {
+    if (!open || draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+    const draft = restore();
+    if (draft) {
+      setFirstName(draft.firstName || "");
+      setLastName(draft.lastName || "");
+      setPhone(draft.phone || "");
+      setEmail(draft.email || "");
+      setAddress(draft.address || "");
+      setScope(draft.scope || "");
+      setNotes(draft.notes || "");
+      setAppointmentDate(draft.appointmentDate || "");
+      setAppointmentTime(draft.appointmentTime || "09:00");
+      setSource(draft.source || "");
+      setAssignedTo(draft.assignedTo || "");
+      setSelectedContactId(draft.selectedContactId ?? null);
+      setCreatingNewContact(draft.creatingNewContact ?? false);
+      if (draft.selectedPipeline) setSelectedPipeline(draft.selectedPipeline);
+      if (draft.selectedStage) setSelectedStage(draft.selectedStage);
+      if (draft.selectedCalendar) setSelectedCalendar(draft.selectedCalendar);
+      setShowDraftRestored(true);
+    }
+  }, [open, restore]);
+
+  // Reset the restored flag when dialog closes so next open can try restore again
+  useEffect(() => {
+    if (!open) draftRestoredRef.current = false;
+  }, [open]);
+
+  // Persist draft on every form change (debounced)
+  useEffect(() => {
+    if (!open) return;
+    persist(collectDraftValues());
+  }, [open, persist, collectDraftValues]);
+
+  const handleDiscardDraft = useCallback(() => {
+    discardDraft();
+    setFirstName(""); setLastName(""); setPhone(""); setEmail("");
+    setAddress(""); setScope(""); setNotes("");
+    setAppointmentDate(""); setAppointmentTime("09:00");
+    setSource(""); setAssignedTo("");
+    setSelectedContactId(null); setCreatingNewContact(false);
+    setSelectedCalendar("");
+    setPhoneError(""); setEmailError("");
+    setContactDuplicateMatch(null); setContactDuplicateConfirmed(false);
+    setShowDraftRestored(false);
+    toast.info("Draft discarded");
+  }, [discardDraft]);
+
+
   useEffect(() => {
     if (!contactSearchQuery.trim() || !companyId) {
       setContactResults([]);
@@ -262,15 +365,6 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
     return name || "Selected Contact";
   }, [selectedContactId, firstName, lastName]);
 
-  // Pipeline/stage state
-  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
-  const [selectedPipeline, setSelectedPipeline] = useState("");
-  const [selectedStage, setSelectedStage] = useState("");
-
-  // Calendar state
-  const [calendars, setCalendars] = useState<GHLCalendar[]>([]);
-  const [selectedCalendar, setSelectedCalendar] = useState("");
-  const [googleCalendar, setGoogleCalendar] = useState<GoogleCalendarConnection | null>(null);
 
   // Available sources state
   const [availableSources, setAvailableSources] = useState<string[]>([]);
@@ -564,6 +658,8 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
   const stagesForPipeline = pipelineStages.filter((s) => s.pipeline_id === selectedPipeline);
 
   const resetForm = () => {
+    discardDraft();
+    setShowDraftRestored(false);
     setSelectedContactId(null);
     setContactSearchQuery("");
     setContactResults([]);
@@ -1218,6 +1314,14 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
 
           <TabsContent value="single" className="flex-1 overflow-auto">
             <div className="grid gap-4 py-4">
+              {showDraftRestored && (
+                <div className="flex items-center justify-between rounded-md border border-border/50 bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                  <span>📝 Draft restored from a previous session</span>
+                  <Button variant="ghost" size="sm" className="h-5 text-xs px-2 gap-1" onClick={handleDiscardDraft}>
+                    <Trash2 className="h-3 w-3" /> Discard
+                  </Button>
+                </div>
+              )}
               {mode === "contact" ? (
                 <>
                   <div className="grid grid-cols-2 gap-4">
@@ -1554,27 +1658,37 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                   ⚠ Duplicate found — review above before submitting.
                 </p>
               )}
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                {mode === "contact" ? (
-                  <Button
-                    onClick={handleSubmitContact}
-                    disabled={isSubmitting || !firstName.trim() || !lastName.trim() || !phone.trim() || !address.trim() || !!phoneError || !!emailError}
-                  >
-                    {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Save Contact
+              <div className="flex gap-2 justify-between w-full">
+                <div>
+                  {showDraftRestored && (
+                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1" onClick={handleDiscardDraft}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Discard Draft
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setOpen(false)}>
+                    Cancel
                   </Button>
-                ) : (
-                  <Button
-                    onClick={handleSubmitSingle}
-                    disabled={isSubmitting || (!selectedContactId && !creatingNewContact) || (creatingNewContact && (!firstName.trim() || !lastName.trim())) || !!phoneError || !!emailError}
-                  >
-                    {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Create Entry
-                  </Button>
-                )}
+                  {mode === "contact" ? (
+                    <Button
+                      onClick={handleSubmitContact}
+                      disabled={isSubmitting || !firstName.trim() || !lastName.trim() || !phone.trim() || !address.trim() || !!phoneError || !!emailError}
+                    >
+                      {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Save Contact
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleSubmitSingle}
+                      disabled={isSubmitting || (!selectedContactId && !creatingNewContact) || (creatingNewContact && (!firstName.trim() || !lastName.trim())) || !!phoneError || !!emailError}
+                    >
+                      {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Create Entry
+                    </Button>
+                  )}
+                </div>
               </div>
             </DialogFooter>
           </TabsContent>
