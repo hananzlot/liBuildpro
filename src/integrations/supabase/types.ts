@@ -3527,6 +3527,7 @@ export type Database = {
           id: string
           message: string
           read: boolean
+          reference_url: string | null
           title: string
           type: string
           user_id: string | null
@@ -3539,6 +3540,7 @@ export type Database = {
           id?: string
           message: string
           read?: boolean
+          reference_url?: string | null
           title: string
           type?: string
           user_id?: string | null
@@ -3551,6 +3553,7 @@ export type Database = {
           id?: string
           message?: string
           read?: boolean
+          reference_url?: string | null
           title?: string
           type?: string
           user_id?: string | null

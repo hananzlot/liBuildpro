@@ -227,3 +227,6 @@ verify_jwt = false
 
 [functions.replicate-company-data]
 verify_jwt = false
+
+[functions.generate-productivity-notifications]
+verify_jwt = false
