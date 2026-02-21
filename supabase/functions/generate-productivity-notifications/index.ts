@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
             type: "overdue_invoice",
             read: false,
             reference_url: inv.project_id
-              ? `/projects/${inv.project_id}`
+              ? `/project/${inv.project_id}`
               : null,
             appointment_ghl_id: dedupKey,
           });
@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
             type: "bill_due",
             read: false,
             reference_url: bill.project_id
-              ? `/projects/${bill.project_id}`
+              ? `/project/${bill.project_id}`
               : null,
             appointment_ghl_id: dedupKey,
           });
@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
 
         if (!existing?.length) {
           const refUrl = est.project_id
-            ? `/projects/${est.project_id}`
+            ? `/project/${est.project_id}`
             : est.opportunity_uuid
               ? `/opportunities/${est.opportunity_uuid}`
               : null;
