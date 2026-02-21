@@ -559,8 +559,8 @@ export default function Production() {
     const commissionBase = contractsTotal - leadCostAmount - costForProfit;
     const totalCommission = commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0;
     
-    // Company expected profit: Total Sold - Max(Bills, Est) - Commission
-    const expectedFinalProfit = contractsTotal - costForProfit - totalCommission;
+    // Company expected profit (matches P&L Net Income): Revenue - COGS - Commission + Lead Fee Income
+    const expectedFinalProfit = contractsTotal - costForProfit - totalCommission + leadCostAmount;
     
     // Total Cash = Payments received - Bill payments made
     const totalCash = invoicesCollected - totalBillPayments;
