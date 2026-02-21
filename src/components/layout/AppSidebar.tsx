@@ -11,7 +11,8 @@ import { useAnalyticsPermissions, ANALYTICS_REPORTS } from "@/hooks/useAnalytics
 import { VersionBumpDialog } from "@/components/layout/VersionBumpDialog";
 import { AIQueueSheet } from "@/components/admin/AIQueueSheet";
 import { CompanySwitcher } from "@/components/layout/CompanySwitcher";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { QuickCreateProjectSelector, type QuickCreateAction } from "./QuickCreateProjectSelector";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { 
   LayoutDashboard, Briefcase, ListChecks, ExternalLink, LogOut, Key, User,
@@ -19,7 +20,7 @@ import {
   FolderKanban, HardHat, Eye, EyeOff, Calculator, FileSignature, Send,
   Building2, Calendar, CalendarDays, ClipboardList, Contact, BrainCircuit,
   Landmark, Pin, PinOff, Mail, MessageSquare, Link, DollarSign, Sparkles,
-  Link2, Shield, Award, Plus, ChevronsUpDown, Activity,
+  Link2, Shield, Award, Plus, ChevronsUpDown, Activity, Receipt, CreditCard,
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import {
@@ -213,8 +214,22 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   };
 
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+  const navigate = useNavigate();
   const handleLogout = async () => { await signOut(); toast.success("Signed out successfully"); };
   const toggleMenu = (title: string) => { setOpenMenus(prev => ({ ...prev, [title]: !prev[title] })); };
+
+  // Quick Create project selector state
+  const [quickCreateProjectSelectorOpen, setQuickCreateProjectSelectorOpen] = useState(false);
+  const [quickCreateAction, setQuickCreateAction] = useState<QuickCreateAction | null>(null);
+  const handleQuickCreateFinance = (action: QuickCreateAction) => {
+    setQuickCreateAction(action);
+    setQuickCreateProjectSelectorOpen(true);
+    closeSidebar();
+  };
+  const handleProjectSelectedForQuickCreate = (projectId: string, action: QuickCreateAction) => {
+    openTab(`/production/${projectId}?autoOpen=${action.replace('new-', '')}`, 'Project');
+    navigate(`/production/${projectId}?autoOpen=${action.replace('new-', '')}`);
+  };
 
   // Collapsible sidebar sections (default collapsed, persisted to localStorage)
   const SECTIONS_STORAGE_KEY = 'sidebar-open-sections';
@@ -424,6 +439,16 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       </DropdownMenuItem>
       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openTab('/estimate/new', 'New Estimate'); closeSidebar(); }}>
         <FileText className="h-4 w-4 mr-2" />New Estimate
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickCreateFinance('new-invoice'); }}>
+        <Receipt className="h-4 w-4 mr-2" />New Invoice
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickCreateFinance('new-payment'); }}>
+        <DollarSign className="h-4 w-4 mr-2" />Record Payment
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickCreateFinance('new-bill'); }}>
+        <CreditCard className="h-4 w-4 mr-2" />New Bill
       </DropdownMenuItem>
     </>
   );
@@ -733,6 +758,12 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       </SidebarFooter>
 
       <AIQueueSheet open={aiQueueOpen} onOpenChange={setAiQueueOpen} />
+      <QuickCreateProjectSelector
+        open={quickCreateProjectSelectorOpen}
+        onOpenChange={setQuickCreateProjectSelectorOpen}
+        action={quickCreateAction}
+        onProjectSelected={handleProjectSelectedForQuickCreate}
+      />
     </Sidebar>
   );
 }

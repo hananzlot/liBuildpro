@@ -90,6 +90,8 @@ interface FinanceSectionProps {
   onUpdateProject: (updates: Record<string, unknown>) => void;
   onNavigateToSubcontractors?: () => void;
   autoOpenBillDialog?: boolean;
+  /** Auto-open a specific dialog when the component mounts (invoice, payment, bill) */
+  autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | null;
   /** Initial sub-tab for Finance section (agreements, phases, invoices, bills, commission) */
   initialSubTab?: string;
   initialBillsSubTab?: 'bills' | 'history';
@@ -199,7 +201,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, onSubTabChange, projectStatus, projectName, projectAddress, customerName }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, autoOpenFinanceDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, onSubTabChange, projectStatus, projectName, projectAddress, customerName }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
@@ -280,6 +282,27 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       setHasAutoOpenedBill(true);
     }
   }, [autoOpenBillDialog, hasAutoOpenedBill]);
+
+  // Auto-open specific finance dialog from Quick Create
+  const [hasAutoOpenedFinanceDialog, setHasAutoOpenedFinanceDialog] = useState(false);
+  useEffect(() => {
+    if (autoOpenFinanceDialog && !hasAutoOpenedFinanceDialog) {
+      setHasAutoOpenedFinanceDialog(true);
+      if (autoOpenFinanceDialog === 'invoice') {
+        setActiveSubTab("invoices");
+        setActiveInvoicesSubTab("invoices");
+        setEditingInvoice(null);
+        setInvoiceDialogOpen(true);
+      } else if (autoOpenFinanceDialog === 'payment') {
+        setActiveSubTab("invoices");
+        setActiveInvoicesSubTab("payments");
+        setPaymentDialogOpen(true);
+      } else if (autoOpenFinanceDialog === 'bill') {
+        setActiveSubTab("bills");
+        setBillDialogOpen(true);
+      }
+    }
+  }, [autoOpenFinanceDialog, hasAutoOpenedFinanceDialog]);
 
   // Set bills sub-tab when initialBillsSubTab changes
   useEffect(() => {

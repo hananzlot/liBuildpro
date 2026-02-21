@@ -106,6 +106,8 @@ interface ProjectDetailSheetProps {
   /** Initial sub-tab within the Finance tab (agreements, phases, invoices, bills, commission) */
   initialFinanceSectionTab?: string;
   initialFinanceSubTab?: 'bills' | 'history';
+  /** Auto-open a specific finance dialog (invoice, payment, bill) */
+  autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | null;
   highlightInvoiceId?: string | null;
   highlightBillId?: string | null;
   highlightPaymentId?: string | null;
@@ -122,7 +124,7 @@ const statusColors: Record<string, string> = {
   "Cancelled": "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
-export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab, initialFinanceSectionTab, initialFinanceSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, mode = 'sheet' }: ProjectDetailSheetProps) {
+export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab, initialFinanceSectionTab, initialFinanceSubTab, autoOpenFinanceDialog, highlightInvoiceId, highlightBillId, highlightPaymentId, mode = 'sheet' }: ProjectDetailSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isSuperAdmin, user } = useAuth();
@@ -2017,6 +2019,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 onUpdateProject={(updates) => updateProjectMutation.mutate(updates)}
                 onNavigateToSubcontractors={handleNavigateToSubcontractors}
                 autoOpenBillDialog={autoOpenBillDialog}
+                autoOpenFinanceDialog={autoOpenFinanceDialog}
                 initialSubTab={initialFinanceSectionTab}
                 initialBillsSubTab={initialFinanceSubTab}
                 highlightInvoiceId={highlightInvoiceId}
