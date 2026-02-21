@@ -812,8 +812,21 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                 <Label htmlFor="phone">Phone</Label>
                 <Input
                   id="phone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
                   value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) => {
+                    // Strip non-digits
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    // Format as (XXX) XXX-XXXX
+                    let formatted = '';
+                    if (digits.length > 0) formatted += '(' + digits.slice(0, 3);
+                    if (digits.length >= 3) formatted += ') ';
+                    else if (digits.length > 0) { /* partial area code */ }
+                    if (digits.length > 3) formatted += digits.slice(3, 6);
+                    if (digits.length > 6) formatted += '-' + digits.slice(6);
+                    setFormData(prev => ({ ...prev, phone: formatted }));
+                  }}
                 />
               </div>
               <div className="space-y-2">
