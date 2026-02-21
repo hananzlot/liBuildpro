@@ -43,9 +43,10 @@ export function QuickCreateProjectSelector({
       if (!companyId) return [];
       const { data, error } = await supabase
         .from("projects")
-        .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, deleted_at")
+        .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, deleted_at, project_status")
         .eq("company_id", companyId)
         .is("deleted_at", null)
+        .in("project_status", ["New Job", "In-Progress"])
         .order("project_number", { ascending: false });
       if (error) throw error;
       return (data || []).map(p => ({
