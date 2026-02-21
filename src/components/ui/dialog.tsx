@@ -16,7 +16,23 @@ const shouldPreventDismissOnWindowBlur = (event?: Event) => {
   return document.visibilityState === "hidden" || !document.hasFocus();
 };
 
-const Dialog = DialogPrimitive.Root;
+const Dialog = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>
+>(({ onOpenChange, ...props }, _ref) => (
+  <DialogPrimitive.Root
+    onOpenChange={(open) => {
+      // Prevent Radix from closing dialogs when the browser tab loses focus.
+      // Only allow closing (open=false) if the document is visible and focused.
+      if (!open && typeof document !== "undefined" && (document.visibilityState === "hidden" || !document.hasFocus())) {
+        return;
+      }
+      onOpenChange?.(open);
+    }}
+    {...props}
+  />
+));
+Dialog.displayName = "Dialog";
 
 const DialogTrigger = DialogPrimitive.Trigger;
 
