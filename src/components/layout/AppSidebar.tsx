@@ -445,7 +445,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         <Receipt className="h-4 w-4 mr-2" />New Invoice
       </DropdownMenuItem>
       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickCreateFinance('new-payment'); }}>
-        <DollarSign className="h-4 w-4 mr-2" />Record Payment
+        <DollarSign className="h-4 w-4 mr-2" />Record A/R Collection
       </DropdownMenuItem>
       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickCreateFinance('new-bill'); }}>
         <CreditCard className="h-4 w-4 mr-2" />New Bill

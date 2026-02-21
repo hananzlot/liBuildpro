@@ -17,7 +17,7 @@ export type QuickCreateAction = "new-invoice" | "new-payment" | "new-bill";
 
 const actionLabels: Record<QuickCreateAction, string> = {
   "new-invoice": "Create New Invoice",
-  "new-payment": "Record New Payment",
+  "new-payment": "Record A/R Collection",
   "new-bill": "Create New Bill",
 };
 
