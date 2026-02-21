@@ -216,10 +216,22 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const handleLogout = async () => { await signOut(); toast.success("Signed out successfully"); };
   const toggleMenu = (title: string) => { setOpenMenus(prev => ({ ...prev, [title]: !prev[title] })); };
 
-  // Collapsible sidebar sections (default open)
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
-  const toggleSection = (label: string) => { setCollapsedSections(prev => ({ ...prev, [label]: !prev[label] })); };
-  const isSectionOpen = (label: string) => !collapsedSections[label]; // default open
+  // Collapsible sidebar sections (default collapsed, persisted to localStorage)
+  const SECTIONS_STORAGE_KEY = 'sidebar-open-sections';
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const stored = localStorage.getItem(SECTIONS_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : {};
+    } catch { return {}; }
+  });
+  const toggleSection = (label: string) => {
+    setOpenSections(prev => {
+      const next = { ...prev, [label]: !prev[label] };
+      localStorage.setItem(SECTIONS_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+  const isSectionOpen = (label: string) => !!openSections[label]; // default collapsed
 
   /* ─── Visibility helpers (unchanged logic) ─── */
   const canViewItem = (item: NavItem): boolean => {
