@@ -12,6 +12,7 @@ interface Notification {
   read: boolean;
   appointment_ghl_id: string | null;
   created_at: string;
+  reference_url: string | null;
 }
 
 export function useNotifications() {
