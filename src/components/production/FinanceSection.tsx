@@ -7231,6 +7231,7 @@ function ProjectFinancialStatements({
 
   const ar = totalInvoiced - totalCollected;
   const ap = totalCOGS - totalBillsPaid;
+  const netCash = totalCollected - totalBillsPaid;
   const totalAssets = totalCollected + Math.max(ar, 0);
   const totalLiabilities = Math.max(ap, 0);
   const equity = totalAssets - totalLiabilities;
@@ -7304,6 +7305,8 @@ function ProjectFinancialStatements({
               <table className="w-full text-sm">
                 <tbody>
                   {lineRow("Cash (Payments Collected)", totalCollected, { indent: true })}
+                  {lineRow("Less: Bills Paid", -totalBillsPaid, { indent: true })}
+                  {lineRow("Net Cash (Collected − Paid)", netCash, { bold: true })}
                   {lineRow("Accounts Receivable", Math.max(ar, 0), { indent: true })}
                   {lineRow("Total Assets", totalAssets, { bold: true })}
                 </tbody>
