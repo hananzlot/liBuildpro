@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Check, ChevronsUpDown, Building2, X, Layers } from "lucide-react";
 import { useAuth, Company } from "@/contexts/AuthContext";
 import { useUnifiedMode } from "@/hooks/useUnifiedMode";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export function CompanySwitcher() {
   } = useAuth();
   
   const { canUnify, isUnified, toggleUnified } = useUnifiedMode();
+  const { closeAllTabs } = useAppTabs();
   
   const [open, setOpen] = useState(false);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -77,6 +79,8 @@ export function CompanySwitcher() {
     : company;
 
   const handleSelect = (companyId: string) => {
+    // Close all tabs before switching company context
+    closeAllTabs();
     // If selecting their own company, reset the override
     if (!isSuperAdmin && companyId === company?.id) {
       setViewingCompanyId(null);
@@ -88,6 +92,7 @@ export function CompanySwitcher() {
 
   const handleReset = (e: React.MouseEvent) => {
     e.stopPropagation();
+    closeAllTabs();
     setViewingCompanyId(null);
   };
 
