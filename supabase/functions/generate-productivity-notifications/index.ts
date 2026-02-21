@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
       // ─── 2. Overdue In-App Task Reminders ───
       const { data: overdueTasks } = await supabase
         .from("ghl_tasks")
-        .select("id, title, assigned_to, due_date, contact_uuid")
+        .select("id, title, assigned_to, due_date, contact_uuid, contact_id, ghl_id")
         .eq("company_id", companyId)
         .eq("provider", "local")
         .eq("completed", false)
@@ -129,6 +129,25 @@ Deno.serve(async (req) => {
               (1000 * 60 * 60 * 24)
           );
 
+          // Find the opportunity linked to this task's contact
+          let refUrl: string | null = null;
+          const contactLookup = task.contact_uuid || task.contact_id;
+          if (contactLookup) {
+            const { data: opp } = await supabase
+              .from("opportunities")
+              .select("id")
+              .eq("company_id", companyId)
+              .or(`contact_uuid.eq.${contactLookup},contact_id.eq.${contactLookup}`)
+              .limit(1)
+              .maybeSingle();
+
+            if (opp) {
+              refUrl = `/follow-up/opportunity/${opp.id}/task/${task.ghl_id || task.id}`;
+            } else {
+              refUrl = `/follow-up`;
+            }
+          }
+
           notifications.push({
             company_id: companyId,
             ghl_user_id: task.assigned_to || null,
@@ -136,9 +155,7 @@ Deno.serve(async (req) => {
             message: `"${task.title || "Untitled task"}" is ${daysOverdue} day${daysOverdue !== 1 ? "s" : ""} overdue`,
             type: "overdue_task",
             read: false,
-            reference_url: task.contact_uuid
-              ? `/contacts?task=${task.id}`
-              : null,
+            reference_url: refUrl,
             appointment_ghl_id: dedupKey,
           });
         }
