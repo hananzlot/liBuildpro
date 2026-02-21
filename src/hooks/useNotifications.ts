@@ -14,6 +14,8 @@ interface Notification {
   appointment_ghl_id: string | null;
   created_at: string;
   reference_url: string | null;
+  dismissed_at: string | null;
+  snoozed_until: string | null;
 }
 
 export function useNotifications() {
@@ -26,11 +28,14 @@ export function useNotifications() {
     queryFn: async () => {
       if (!companyId) return [];
       
-      // Fetch notifications scoped to company: user-specific OR company-wide (ghl_user_id is null)
+      const now = new Date().toISOString();
+      
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
         .eq("company_id", companyId)
+        .is("dismissed_at", null)
+        .or(`snoozed_until.is.null,snoozed_until.lt.${now}`)
         .or(
           profile?.ghl_user_id
             ? `ghl_user_id.eq.${profile.ghl_user_id},ghl_user_id.is.null`
@@ -88,11 +93,41 @@ export function useNotifications() {
     },
   });
 
+  const dismissNotification = useMutation({
+    mutationFn: async (notificationId: string) => {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ dismissed_at: new Date().toISOString() } as any)
+        .eq("id", notificationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+
+  const snoozeNotification = useMutation({
+    mutationFn: async ({ notificationId, days }: { notificationId: string; days: number }) => {
+      const snoozedUntil = new Date();
+      snoozedUntil.setDate(snoozedUntil.getDate() + days);
+      const { error } = await supabase
+        .from("notifications")
+        .update({ snoozed_until: snoozedUntil.toISOString() } as any)
+        .eq("id", notificationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+
   return {
     notifications,
     unreadCount,
     isLoading,
     markAsRead: markAsRead.mutate,
     markAllAsRead: markAllAsRead.mutate,
+    dismissNotification: dismissNotification.mutate,
+    snoozeNotification: snoozeNotification.mutate,
   };
 }

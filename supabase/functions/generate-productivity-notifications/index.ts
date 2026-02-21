@@ -167,7 +167,6 @@ Deno.serve(async (req) => {
           .eq("company_id", companyId)
           .eq("type", "stale_opportunity")
           .eq("appointment_ghl_id", dedupKey)
-          .eq("read", false)
           .limit(1);
 
         if (!existing?.length) {
@@ -216,7 +215,6 @@ Deno.serve(async (req) => {
           .eq("company_id", companyId)
           .eq("type", "bill_due")
           .eq("appointment_ghl_id", dedupKey)
-          .eq("read", false)
           .limit(1);
 
         if (!existing?.length) {
