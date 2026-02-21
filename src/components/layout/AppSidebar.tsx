@@ -15,7 +15,7 @@ import { useLocation } from "react-router-dom";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { 
   LayoutDashboard, Briefcase, ListChecks, ExternalLink, LogOut, Key, User,
-  Wrench, Settings, Pencil, Users, FileText, ChevronRight, BarChart3,
+  Wrench, Settings, Pencil, Users, FileText, ChevronRight, ChevronDown, BarChart3,
   FolderKanban, HardHat, Eye, EyeOff, Calculator, FileSignature, Send,
   Building2, Calendar, CalendarDays, ClipboardList, Contact, BrainCircuit,
   Landmark, Pin, PinOff, Mail, MessageSquare, Link, DollarSign, Sparkles,
@@ -215,6 +215,11 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const handleLogout = async () => { await signOut(); toast.success("Signed out successfully"); };
   const toggleMenu = (title: string) => { setOpenMenus(prev => ({ ...prev, [title]: !prev[title] })); };
+
+  // Collapsible sidebar sections (default open)
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const toggleSection = (label: string) => { setCollapsedSections(prev => ({ ...prev, [label]: !prev[label] })); };
+  const isSectionOpen = (label: string) => !collapsedSections[label]; // default open
 
   /* ─── Visibility helpers (unchanged logic) ─── */
   const canViewItem = (item: NavItem): boolean => {
@@ -524,137 +529,152 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         {visibleSections.map((section) => {
           const items = section.items.filter(canViewItem);
           if (!items.length) return null;
+          const sectionOpen = isSectionOpen(section.label);
           return (
-            <SidebarGroup key={section.label} className="px-2 py-0.5">
-              <SidebarGroupLabel className="h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted-foreground select-none pointer-events-none">
-                {section.label}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu className="gap-0.5">
-                  {items.map(renderNavItem)}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            <Collapsible key={section.label} open={collapsed || sectionOpen} onOpenChange={() => toggleSection(section.label)}>
+              <SidebarGroup className="px-2 py-0.5">
+                <CollapsibleTrigger asChild>
+                  <SidebarGroupLabel className={cn("h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted-foreground select-none", !collapsed && "cursor-pointer hover:text-sidebar-foreground transition-colors")}>
+                    {section.label}
+                    {!collapsed && <ChevronDown className={cn("ml-auto h-3 w-3 shrink-0 transition-transform duration-200", !sectionOpen && "-rotate-90")} />}
+                  </SidebarGroupLabel>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu className="gap-0.5">
+                      {items.map(renderNavItem)}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
           );
         })}
 
         {/* Admin Tools */}
         {(isAdmin || isSimulating) && (
-          <SidebarGroup className="px-2 py-0.5">
-            <SidebarGroupLabel className="h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted-foreground select-none pointer-events-none">
-              Admin
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-0.5">
-                {/* Super Admin Portal */}
-                {isSuperAdmin && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton tooltip="Super Admin Portal" isActive={location.pathname.startsWith('/super-admin')}
-                      className={cn(ITEM_CLS, "relative", location.pathname.startsWith('/super-admin') ? ACTIVE_CLS : DEFAULT_CLS)}
-                      onClick={() => { closeSidebar(); openTab('/super-admin', 'Super Admin'); }}>
-                      {location.pathname.startsWith('/super-admin') && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary" />}
-                      <Building2 className={ICON_CLS} />{!collapsed && <span>Super Admin</span>}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-
-                {/* Role Simulation */}
-                <SidebarMenuItem>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <SidebarMenuButton tooltip="Simulate Role" className={cn(ITEM_CLS, DEFAULT_CLS)}>
-                        {isSimulating ? <EyeOff className={ICON_CLS} /> : <Eye className={ICON_CLS} />}
-                        {!collapsed && (
-                          <span className="flex items-center gap-2 truncate">
-                            Simulate Role
-                            {isSimulating && <span className="inline-flex items-center h-4 px-1 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400">{simulatedRole}</span>}
-                          </span>
-                        )}
-                      </SidebarMenuButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="right" align="start" className="w-48">
-                      <DropdownMenuLabel>View as Role</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuRadioGroup value={simulatedRole || ''} onValueChange={(v) => {
-                        if (v === '') { setSimulatedRole(null); sessionStorage.removeItem('crm-welcome-dismissed'); toast.info("Role simulation disabled"); openTab('/', 'Dashboard'); }
-                        else { setSimulatedRole(v as AppRole); toast.info(`Now viewing as: ${v}`); }
-                      }}>
-                        <DropdownMenuRadioItem value="">
-                          <span className="flex items-center gap-2">My Actual Role {!simulatedRole && <Badge variant="outline" className="h-4 px-1 text-[9px]">Active</Badge>}</span>
-                        </DropdownMenuRadioItem>
-                        <DropdownMenuSeparator />
-                        {availableRoles.map(r => <DropdownMenuRadioItem key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1).replace('_', ' ')}</DropdownMenuRadioItem>)}
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </SidebarMenuItem>
-
-                {/* AI Queue */}
-                <SidebarMenuItem>
-                  <SidebarMenuButton tooltip={`AI Queue${aiQueueCount > 0 ? ` (${aiQueueCount})` : ''}`}
-                    onClick={() => setAiQueueOpen(true)} className={cn(ITEM_CLS, DEFAULT_CLS)}>
-                    <BrainCircuit className={ICON_CLS} />
-                    {!collapsed && (
-                      <>
-                        <span className="flex-1 truncate">AI Queue</span>
-                        {aiQueueCount > 0 && <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-[10px] font-bold leading-none">{aiQueueCount}</span>}
-                      </>
+          <Collapsible open={collapsed || isSectionOpen('Admin')} onOpenChange={() => toggleSection('Admin')}>
+            <SidebarGroup className="px-2 py-0.5">
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className={cn("h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted-foreground select-none", !collapsed && "cursor-pointer hover:text-sidebar-foreground transition-colors")}>
+                  Admin
+                  {!collapsed && <ChevronDown className={cn("ml-auto h-3 w-3 shrink-0 transition-transform duration-200", !isSectionOpen('Admin') && "-rotate-90")} />}
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu className="gap-0.5">
+                    {/* Super Admin Portal */}
+                    {isSuperAdmin && (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton tooltip="Super Admin Portal" isActive={location.pathname.startsWith('/super-admin')}
+                          className={cn(ITEM_CLS, "relative", location.pathname.startsWith('/super-admin') ? ACTIVE_CLS : DEFAULT_CLS)}
+                          onClick={() => { closeSidebar(); openTab('/super-admin', 'Super Admin'); }}>
+                          {location.pathname.startsWith('/super-admin') && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary" />}
+                          <Building2 className={ICON_CLS} />{!collapsed && <span>Super Admin</span>}
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
                     )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
 
-                {/* Admin Settings (collapsible sub-menu) */}
-                <Collapsible open={openMenus['Admin Settings'] || location.pathname === '/admin/settings'}
-                  onOpenChange={() => toggleMenu('Admin Settings')} className="group/collapsible">
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton tooltip="Settings" isActive={location.pathname === '/admin/settings'}
-                        className={cn(ITEM_CLS, "relative", location.pathname === '/admin/settings' ? ACTIVE_CLS : DEFAULT_CLS)}>
-                        {location.pathname === '/admin/settings' && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary" />}
-                        <Settings className={ICON_CLS} />
+                    {/* Role Simulation */}
+                    <SidebarMenuItem>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <SidebarMenuButton tooltip="Simulate Role" className={cn(ITEM_CLS, DEFAULT_CLS)}>
+                            {isSimulating ? <EyeOff className={ICON_CLS} /> : <Eye className={ICON_CLS} />}
+                            {!collapsed && (
+                              <span className="flex items-center gap-2 truncate">
+                                Simulate Role
+                                {isSimulating && <span className="inline-flex items-center h-4 px-1 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400">{simulatedRole}</span>}
+                              </span>
+                            )}
+                          </SidebarMenuButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent side="right" align="start" className="w-48">
+                          <DropdownMenuLabel>View as Role</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuRadioGroup value={simulatedRole || ''} onValueChange={(v) => {
+                            if (v === '') { setSimulatedRole(null); sessionStorage.removeItem('crm-welcome-dismissed'); toast.info("Role simulation disabled"); openTab('/', 'Dashboard'); }
+                            else { setSimulatedRole(v as AppRole); toast.info(`Now viewing as: ${v}`); }
+                          }}>
+                            <DropdownMenuRadioItem value="">
+                              <span className="flex items-center gap-2">My Actual Role {!simulatedRole && <Badge variant="outline" className="h-4 px-1 text-[9px]">Active</Badge>}</span>
+                            </DropdownMenuRadioItem>
+                            <DropdownMenuSeparator />
+                            {availableRoles.map(r => <DropdownMenuRadioItem key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1).replace('_', ' ')}</DropdownMenuRadioItem>)}
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </SidebarMenuItem>
+
+                    {/* AI Queue */}
+                    <SidebarMenuItem>
+                      <SidebarMenuButton tooltip={`AI Queue${aiQueueCount > 0 ? ` (${aiQueueCount})` : ''}`}
+                        onClick={() => setAiQueueOpen(true)} className={cn(ITEM_CLS, DEFAULT_CLS)}>
+                        <BrainCircuit className={ICON_CLS} />
                         {!collapsed && (
                           <>
-                            <span className="flex-1 truncate">Settings</span>
-                            <ChevronRight className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", (openMenus['Admin Settings'] || location.pathname === '/admin/settings') && "rotate-90")} />
+                            <span className="flex-1 truncate">AI Queue</span>
+                            {aiQueueCount > 0 && <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-[10px] font-bold leading-none">{aiQueueCount}</span>}
                           </>
                         )}
                       </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {ADMIN_SUB_ITEMS.map(group => (
-                          <React.Fragment key={group.label}>
-                            <div className="px-2 py-1 text-[9px] font-semibold text-sidebar-muted-foreground uppercase tracking-wider mt-1.5 first:mt-0">
-                              {group.label}
-                            </div>
-                            {group.items.map(item => {
-                              const sp = new URLSearchParams(location.search);
-                              const ct = sp.get('tab') || 'settings';
-                              const isSubActive = location.pathname === '/admin/settings' && ct === item.tab;
-                              return (
-                                <SidebarMenuSubItem key={item.tab}>
-                                  <SidebarMenuSubButton asChild isActive={isSubActive}>
-                                    <a href={`/admin/settings?tab=${item.tab}`}
-                                      onClick={(e) => { e.preventDefault(); openTab(`/admin/settings?tab=${item.tab}`, item.title); closeSidebar(); }}
-                                      className={cn("flex items-center gap-2", isSubActive
-                                        ? "bg-sidebar-surface-active text-sidebar-accent-foreground font-medium"
-                                        : "text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
-                                      )}>
-                                      <item.icon className="h-3.5 w-3.5" /><span>{item.title}</span>
-                                    </a>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              );
-                            })}
-                          </React.Fragment>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+                    </SidebarMenuItem>
+
+                    {/* Admin Settings (collapsible sub-menu) */}
+                    <Collapsible open={openMenus['Admin Settings'] || location.pathname === '/admin/settings'}
+                      onOpenChange={() => toggleMenu('Admin Settings')} className="group/collapsible">
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton tooltip="Settings" isActive={location.pathname === '/admin/settings'}
+                            className={cn(ITEM_CLS, "relative", location.pathname === '/admin/settings' ? ACTIVE_CLS : DEFAULT_CLS)}>
+                            {location.pathname === '/admin/settings' && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary" />}
+                            <Settings className={ICON_CLS} />
+                            {!collapsed && (
+                              <>
+                                <span className="flex-1 truncate">Settings</span>
+                                <ChevronRight className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", (openMenus['Admin Settings'] || location.pathname === '/admin/settings') && "rotate-90")} />
+                              </>
+                            )}
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {ADMIN_SUB_ITEMS.map(group => (
+                              <React.Fragment key={group.label}>
+                                <div className="px-2 py-1 text-[9px] font-semibold text-sidebar-muted-foreground uppercase tracking-wider mt-1.5 first:mt-0">
+                                  {group.label}
+                                </div>
+                                {group.items.map(item => {
+                                  const sp = new URLSearchParams(location.search);
+                                  const ct = sp.get('tab') || 'settings';
+                                  const isSubActive = location.pathname === '/admin/settings' && ct === item.tab;
+                                  return (
+                                    <SidebarMenuSubItem key={item.tab}>
+                                      <SidebarMenuSubButton asChild isActive={isSubActive}>
+                                        <a href={`/admin/settings?tab=${item.tab}`}
+                                          onClick={(e) => { e.preventDefault(); openTab(`/admin/settings?tab=${item.tab}`, item.title); closeSidebar(); }}
+                                          className={cn("flex items-center gap-2", isSubActive
+                                            ? "bg-sidebar-surface-active text-sidebar-accent-foreground font-medium"
+                                            : "text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
+                                          )}>
+                                          <item.icon className="h-3.5 w-3.5" /><span>{item.title}</span>
+                                        </a>
+                                      </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                  );
+                                })}
+                              </React.Fragment>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
         )}
       </SidebarContent>
 
