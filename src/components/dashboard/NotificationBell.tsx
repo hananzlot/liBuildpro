@@ -153,10 +153,13 @@ export function NotificationBell() {
                 return (
                   <div
                     key={notification.id}
-                    className={`p-3 hover:bg-muted/50 cursor-pointer transition-colors ${
+                    role="button"
+                    tabIndex={0}
+                    className={`p-3 hover:bg-muted/50 cursor-pointer transition-colors active:bg-muted ${
                       !notification.read ? "bg-primary/5" : ""
                     }`}
                     onClick={() => handleNotificationClick(notification)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleNotificationClick(notification); }}
                   >
                     <div className="flex items-start gap-2">
                       <div className={`rounded-full p-1.5 ${config.bg} ${config.text}`}>
@@ -164,7 +167,7 @@ export function NotificationBell() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">
+                          <p className={`text-sm font-medium truncate ${notification.reference_url ? "text-primary hover:underline" : ""}`}>
                             {notification.title}
                           </p>
                           {!notification.read && (
