@@ -51,7 +51,7 @@ export default function FinancialStatements() {
     navigate(`/analytics/${tab}`, { replace: true });
   }, [navigate]);
 
-  const { isLoading, projects } = useProductionAnalytics({
+  const { isLoading, projects, bankTransactions } = useProductionAnalytics({
     dateRange: undefined,
     selectedProjects: [],
     selectedSalespeople: [],
@@ -347,6 +347,7 @@ export default function FinancialStatements() {
                   allProjects={filteredProjects}
                   viewMode={viewMode}
                   onProjectClick={handleProjectClick}
+                  bankTransactions={bankTransactions}
                 />
               </TabsContent>
             )}
