@@ -234,6 +234,7 @@ export default function Production() {
   const returnToParam = searchParams.get('returnTo');
   const returnToOppId = searchParams.get('oppId');
   const openBillDialog = searchParams.get('openBill') === 'true';
+  const autoOpenFinanceDialog = searchParams.get('autoOpen') as 'invoice' | 'payment' | 'bill' | null;
   
   // Redirect non-admin users away from analytics view if they don't have a specific tab
   // Admin can access full analytics, production users can only access AR/AP tabs directly
@@ -2421,8 +2422,9 @@ export default function Production() {
           onUpdate={refetch}
           autoOpenBillDialog={pendingBillDialogOpen}
           onBillDialogOpened={() => setPendingBillDialogOpen(false)}
-          initialTab={projectInitialTab}
+          initialTab={projectInitialTab || (autoOpenFinanceDialog ? 'finance' : undefined)}
           initialFinanceSubTab={projectInitialFinanceSubTab}
+          autoOpenFinanceDialog={autoOpenFinanceDialog}
           highlightInvoiceId={highlightedInvoiceId}
           highlightBillId={highlightedBillId}
         />
