@@ -679,8 +679,10 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     });
     
     return activeBills.map(bill => {
-      const project = projectsWithFinancials.find(p => p.id === bill.project_id);
-      const projectBills = activeBills.filter(b => b.project_id === bill.project_id);
+      const project = bill.project_id ? projectsWithFinancials.find(p => p.id === bill.project_id) : null;
+      const projectBills = bill.project_id 
+        ? activeBills.filter(b => b.project_id === bill.project_id)
+        : [bill];
       const totalProjectPayables = projectBills.reduce((sum, b) => sum + (b.balance || 0), 0);
       const projectCurrentCash = project?.cashPosition || 0;
       
@@ -690,7 +692,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         id: bill.id,
         project_id: bill.project_id || '',
         project_number: project?.project_number || 0,
-        project_name: project?.project_name || 'Unknown',
+        project_name: project?.project_name || bill.installer_company || 'Unlinked Bill',
         project_address: project?.project_address || null,
         vendor: bill.installer_company,
         bill_ref: bill.bill_ref,
@@ -707,7 +709,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         total_project_scheduled_this_week: totalScheduledThisWeek,
         cash_after_scheduled_this_week: projectCurrentCash - totalScheduledThisWeek,
       };
-    }).filter(p => p.project_id);
+    });
   }, [bills, projectsWithFinancials]);
 
   // Scheduled payments
