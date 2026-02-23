@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProductionAnalytics, PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
@@ -127,7 +127,11 @@ export default function OutstandingAP() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [groupByProject, setGroupByProject] = useState(false);
   const [scheduledDateFilter, setScheduledDateFilter] = useState<Date | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<'all' | 'scheduled' | 'paid' | 'voided'>('all');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<'all' | 'scheduled' | 'paid' | 'voided'>(
+    initialTab === 'scheduled' || initialTab === 'paid' || initialTab === 'voided' ? initialTab : 'all'
+  );
   const [restoringBillId, setRestoringBillId] = useState<string | null>(null);
   const [paidDateRange, setPaidDateRange] = useState<{ from: Date; to: Date }>({
     from: startOfWeek(new Date(), { weekStartsOn: 0 }),
