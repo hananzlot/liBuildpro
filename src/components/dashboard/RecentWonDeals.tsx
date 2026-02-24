@@ -14,12 +14,14 @@ interface Opportunity {
   status: string | null;
   monetary_value: number | null;
   contact_id: string | null;
+  contact_uuid: string | null;
   ghl_date_updated: string | null;
   ghl_date_added: string | null;
   won_at: string | null;
 }
 
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;
@@ -77,6 +79,7 @@ export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], 
   const contactMap = new Map<string, Contact>();
   contacts.forEach((c) => {
     if (c.ghl_id) contactMap.set(c.ghl_id, c);
+    if (c.id) contactMap.set(c.id, c); // Also map by UUID
   });
 
   // 🔹 Filter by selected date range using won_at (accurate) with fallback to ghl_date_updated
@@ -184,7 +187,7 @@ export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], 
               .slice()
               .sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0))
               .map((opp) => {
-                const address = getAddress(opp.contact_id);
+                const address = getAddress(opp.contact_id || opp.contact_uuid);
                 const cost = projectCosts.get(opp.ghl_id);
                 const profit = cost !== undefined ? (opp.monetary_value || 0) - cost : null;
 
@@ -202,7 +205,7 @@ export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], 
                     {/* Name + days worked */}
                     <div className="min-w-0">
                       {(() => {
-                        const contactName = getContactName(opp.contact_id);
+                        const contactName = getContactName(opp.contact_id || opp.contact_uuid);
 
                         // 🔹 Days worked = won_at - ghl_date_added (calendar days)
                         const startDate = parseGhlDate(opp.ghl_date_added);
