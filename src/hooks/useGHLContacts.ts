@@ -393,10 +393,10 @@ async function fetchProfilesFromDB(companyIds?: string[]): Promise<DBProfile[]> 
   return data || [];
 }
 
-async function fetchSalespeopleFromDB(companyIds?: string[]): Promise<DBSalesperson[]> {
-  let query = supabase.from("salespeople").select("id, name, email, phone, ghl_user_id, is_active");
-  query = applyCompanyFilter(query, companyIds);
-  const { data, error } = await query;
+async function fetchSalespeopleFromDB(_companyIds?: string[]): Promise<DBSalesperson[]> {
+  // Fetch ALL salespeople without company filter — needed for name resolution
+  // since opportunities may reference salespeople from other companies in the same corporation
+  const { data, error } = await supabase.from("salespeople").select("id, name, email, phone, ghl_user_id, is_active");
   if (error) throw new Error(error.message);
   return data || [];
 }
