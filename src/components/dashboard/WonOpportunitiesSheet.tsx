@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { format, differenceInCalendarDays } from "date-fns";
 import type { DateRange } from "@/hooks/useGHLContacts";
+import type { SalesRepPerformance } from "@/types/ghl";
 import { getAddressFromContact, CUSTOM_FIELD_IDS, extractCustomField } from "@/lib/utils";
 
 function parseGhlDate(value: string | null | undefined): Date | null {
@@ -104,6 +105,7 @@ interface WonOpportunitiesSheetProps {
   users: DBUser[];
   appointments?: DBAppointment[];
   dateRange?: DateRange;
+  salesRepPerformance?: SalesRepPerformance[];
   onOpportunityClick?: (opportunity: DBOpportunity) => void;
 }
 
@@ -124,6 +126,7 @@ export function WonOpportunitiesSheet({
   users,
   appointments = [],
   dateRange,
+  salesRepPerformance = [],
   onOpportunityClick,
 }: WonOpportunitiesSheetProps) {
   const [sourceFilter, setSourceFilter] = useState("");
@@ -132,11 +135,17 @@ export function WonOpportunitiesSheet({
   const [sortColumn, setSortColumn] = useState<"contact" | "address" | "source" | "rep" | "value" | "date">("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  const userMap = new Map<string, string>();
+  const repNameMap = new Map<string, string>();
   users.forEach((u) => {
     const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
-    if (u.ghl_id) userMap.set(u.ghl_id, displayName);
-    if (u.id) userMap.set(u.id, displayName); // UUID fallback
+    if (u.ghl_id) repNameMap.set(u.ghl_id, displayName);
+    if (u.id) repNameMap.set(u.id, displayName); // UUID fallback
+  });
+
+  salesRepPerformance.forEach((rep) => {
+    if (rep.userGhlId && rep.assignedTo) {
+      repNameMap.set(rep.userGhlId, rep.assignedTo);
+    }
   });
 
   const contactMap = new Map<string, DBContact>();
@@ -150,7 +159,7 @@ export function WonOpportunitiesSheet({
     const counts = new Map<string, { name: string; count: number; value: number }>();
     opportunities.forEach((opp) => {
       const repId = opp.assigned_to || "unassigned";
-      const repName = opp.assigned_to ? userMap.get(opp.assigned_to) || "Unknown" : "Unassigned";
+      const repName = opp.assigned_to ? repNameMap.get(opp.assigned_to) || "Assigned Rep" : "Unassigned";
       if (!counts.has(repId)) {
         counts.set(repId, { name: repName, count: 0, value: 0 });
       }
@@ -161,7 +170,7 @@ export function WonOpportunitiesSheet({
     return Array.from(counts.entries())
       .sort((a, b) => b[1].value - a[1].value)
       .slice(0, 5); // Top 5 reps
-  }, [opportunities, userMap]);
+  }, [opportunities, repNameMap]);
 
   const filteredOpportunities = useMemo(() => {
     let result = [...opportunities];
@@ -203,7 +212,7 @@ export function WonOpportunitiesSheet({
   const enrichedOpportunities = useMemo(() => {
     return filteredOpportunities.map((opp) => {
       const contact = contactMap.get(opp.contact_id!) || contactMap.get(opp.contact_uuid!) || null;
-      const salesPerson = opp.assigned_to ? userMap.get(opp.assigned_to) : null;
+      const salesPerson = opp.assigned_to ? repNameMap.get(opp.assigned_to) : null;
       // Use getAddressFromContact with appointments fallback
       const address = getAddressFromContact(contact, appointments, opp.contact_id || opp.contact_uuid);
       const scopeFromCustomField = contact
@@ -245,7 +254,7 @@ export function WonOpportunitiesSheet({
         daysWorked,
       };
     });
-  }, [filteredOpportunities, contactMap, userMap, appointments]);
+  }, [filteredOpportunities, contactMap, repNameMap, appointments]);
 
   // Sorted opportunities for table view
   const sortedOpportunities = useMemo(() => {
