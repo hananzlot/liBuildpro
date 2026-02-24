@@ -626,6 +626,7 @@ const Index = () => {
         contacts={metrics?.allContacts || []} 
         users={metrics?.users || []} 
         profiles={metrics?.profiles || []} 
+        salespeople={metrics?.salespeople || []}
         onOpportunityClick={opp => {
           setSelectedOpportunity({
             id: opp.id,

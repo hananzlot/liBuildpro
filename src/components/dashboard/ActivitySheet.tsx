@@ -94,6 +94,12 @@ interface DBUser {
   last_name: string | null;
 }
 
+interface DBSalesperson {
+  id: string;
+  name: string | null;
+  ghl_user_id: string | null;
+}
+
 // Unified activity item for display
 interface ActivityItem {
   id: string;
@@ -120,6 +126,7 @@ interface ActivitySheetProps {
   contacts: DBContact[];
   users: DBUser[];
   profiles: DBProfile[];
+  salespeople?: DBSalesperson[];
   onOpportunityClick?: (opportunity: DBOpportunity) => void;
   onAppointmentClick?: (appointment: DBAppointment) => void;
   onTaskClick?: (opportunity: DBOpportunity, task: DBTask) => void;
@@ -150,7 +157,7 @@ const getContactName = (contact: DBContact | undefined): string => {
     "Unknown";
 };
 
-const getUserName = (userId: string | null, users: DBUser[], profiles?: DBProfile[]): string => {
+const getUserName = (userId: string | null, users: DBUser[], profiles?: DBProfile[], salespeople?: DBSalesperson[]): string => {
   if (!userId) return "Unassigned";
   // Try GHL users first (by ghl_id or UUID)
   const user = findUserByIdOrGhlId(users, userId, userId);
@@ -158,7 +165,12 @@ const getUserName = (userId: string | null, users: DBUser[], profiles?: DBProfil
     const name = user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim();
     if (name) return name;
   }
-  // Fallback to profiles (for Supabase user IDs / salesperson UUIDs)
+  // Try salespeople (for salesperson UUIDs)
+  if (salespeople) {
+    const sp = salespeople.find(s => s.id === userId || s.ghl_user_id === userId);
+    if (sp?.name) return sp.name;
+  }
+  // Fallback to profiles (for Supabase user IDs)
   if (profiles) {
     const profile = profiles.find(p => p.id === userId);
     if (profile) return profile.full_name || profile.email?.split('@')[0] || "Unknown";
@@ -271,7 +283,7 @@ const getFieldDisplayName = (fieldName: string): string => {
   return fieldNames[fieldName] || fieldName.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 };
 
-const formatFieldValue = (fieldName: string, value: string | null, users: DBUser[], profiles?: DBProfile[]): string => {
+const formatFieldValue = (fieldName: string, value: string | null, users: DBUser[], profiles?: DBProfile[], salespeople?: DBSalesperson[]): string => {
   if (value === null || value === undefined || value === "") return "(empty)";
   
   // Boolean fields
@@ -289,9 +301,9 @@ const formatFieldValue = (fieldName: string, value: string | null, users: DBUser
     return isNaN(num) ? value : formatCurrency(num);
   }
   
-  // User assignments (GHL user IDs)
+  // User assignments (GHL user IDs or salesperson UUIDs)
   if (fieldName === "assigned_to" || fieldName === "assigned_user_id") {
-    return getUserName(value, users, profiles);
+    return getUserName(value, users, profiles, salespeople);
   }
   
   // Profile references (Supabase user IDs) - like edited_by, entered_by
@@ -338,6 +350,7 @@ export function ActivitySheet({
   contacts,
   users,
   profiles,
+  salespeople = [],
   onOpportunityClick,
   onAppointmentClick,
   onTaskClick,
@@ -693,8 +706,17 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   groupedEdits.map(({ oppGhlId, edits }) => {
-                    const opportunity = findOpportunityByIdOrGhlId(editedOpportunities, undefined, oppGhlId);
-                    const contact = opportunity?.contact_id 
+                    // Try direct lookup, then strip local_opp_ prefix for UUID match
+                    let opportunity = findOpportunityByIdOrGhlId(editedOpportunities, undefined, oppGhlId);
+                    if (!opportunity && oppGhlId.startsWith('local_opp_')) {
+                      const uuid = oppGhlId.replace('local_opp_', '');
+                      opportunity = findOpportunityByIdOrGhlId(editedOpportunities, uuid, undefined)
+                        || findOpportunityByIdOrGhlId(allOpportunities, uuid, undefined);
+                    }
+                    if (!opportunity) {
+                      opportunity = findOpportunityByIdOrGhlId(allOpportunities, undefined, oppGhlId);
+                    }
+                    const contact = opportunity?.contact_uuid || opportunity?.contact_id
                       ? findContactByIdOrGhlId(contacts, opportunity.contact_uuid || opportunity.contact_id, opportunity.contact_id) 
                       : edits[0]?.contact_ghl_id 
                         ? findContactByIdOrGhlId(contacts, edits[0].contact_ghl_id, edits[0].contact_ghl_id)
@@ -733,11 +755,11 @@ export function ActivitySheet({
                                       {getFieldDisplayName(edit.field_name)}
                                     </span>
                                     <span className="text-muted-foreground line-through">
-                                      {formatFieldValue(edit.field_name, edit.old_value, users, profiles)}
+                                      {formatFieldValue(edit.field_name, edit.old_value, users, profiles, salespeople)}
                                     </span>
                                     <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                     <span className="text-foreground font-medium">
-                                      {formatFieldValue(edit.field_name, edit.new_value, users, profiles)}
+                                      {formatFieldValue(edit.field_name, edit.new_value, users, profiles, salespeople)}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 mt-1">
@@ -811,11 +833,11 @@ export function ActivitySheet({
                                   {getFieldDisplayName(activity.fieldName)}
                                 </span>
                                 <span className="text-muted-foreground line-through">
-                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users, profiles)}
+                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users, profiles, salespeople)}
                                 </span>
                                 <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                 <span className="text-foreground font-medium">
-                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users, profiles)}
+                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users, profiles, salespeople)}
                                 </span>
                               </div>
                             </div>
@@ -849,11 +871,11 @@ export function ActivitySheet({
                                                 {getFieldDisplayName(edit.field_name)}:
                                               </span>
                                               <span className="text-muted-foreground line-through">
-                                                {formatFieldValue(edit.field_name, edit.old_value, users, profiles)}
+                                                {formatFieldValue(edit.field_name, edit.old_value, users, profiles, salespeople)}
                                               </span>
                                               <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                               <span className="text-foreground font-medium">
-                                                {formatFieldValue(edit.field_name, edit.new_value, users, profiles)}
+                                                {formatFieldValue(edit.field_name, edit.new_value, users, profiles, salespeople)}
                                               </span>
                                             </div>
                                             <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 mt-0.5">
@@ -873,7 +895,7 @@ export function ActivitySheet({
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <User className="h-3 w-3" />
-                              <span>{getUserName(appt.assigned_user_id, users, profiles)}</span>
+                              <span>{getUserName(appt.assigned_user_id, users, profiles, salespeople)}</span>
                             </div>
                             <div className="text-[10px] text-muted-foreground/70">
                               {appt.start_time ? `Scheduled: ${formatDate(appt.start_time)}` : "No date"}
@@ -964,11 +986,11 @@ export function ActivitySheet({
                                   {getFieldDisplayName(activity.fieldName)}:
                                 </span>
                                 <span className="text-muted-foreground line-through">
-                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users, profiles)}
+                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users, profiles, salespeople)}
                                 </span>
                                 <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                 <span className="text-foreground font-medium">
-                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users, profiles)}
+                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users, profiles, salespeople)}
                                 </span>
                               </div>
                             )}
@@ -1005,11 +1027,11 @@ export function ActivitySheet({
                                                 {getFieldDisplayName(edit.field_name)}:
                                               </span>
                                               <span className="text-muted-foreground line-through">
-                                                {formatFieldValue(edit.field_name, edit.old_value, users, profiles)}
+                                                {formatFieldValue(edit.field_name, edit.old_value, users, profiles, salespeople)}
                                               </span>
                                               <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                               <span className="text-foreground font-medium">
-                                                {formatFieldValue(edit.field_name, edit.new_value, users, profiles)}
+                                                {formatFieldValue(edit.field_name, edit.new_value, users, profiles, salespeople)}
                                               </span>
                                             </div>
                                             <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 mt-0.5">
@@ -1029,7 +1051,7 @@ export function ActivitySheet({
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <User className="h-3 w-3" />
-                              <span>{getUserName(task.assigned_to, users, profiles)}</span>
+                              <span>{getUserName(task.assigned_to, users, profiles, salespeople)}</span>
                             </div>
                             {task.due_date && (
                               <div className="flex items-center gap-1">
@@ -1109,11 +1131,11 @@ export function ActivitySheet({
                                   {getFieldDisplayName(activity.fieldName)}:
                                 </span>
                                 <span className="text-muted-foreground line-through truncate max-w-[100px]">
-                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users, profiles)}
+                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users, profiles, salespeople)}
                                 </span>
                                 <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                 <span className="text-foreground font-medium truncate max-w-[100px]">
-                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users, profiles)}
+                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users, profiles, salespeople)}
                                 </span>
                               </div>
                             )}
@@ -1175,11 +1197,11 @@ export function ActivitySheet({
                                                 {getFieldDisplayName(edit.field_name)}:
                                               </span>
                                               <span className="text-muted-foreground line-through truncate max-w-[80px]">
-                                                {formatFieldValue(edit.field_name, edit.old_value, users, profiles)}
+                                                {formatFieldValue(edit.field_name, edit.old_value, users, profiles, salespeople)}
                                               </span>
                                               <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                               <span className="text-foreground font-medium truncate max-w-[80px]">
-                                                {formatFieldValue(edit.field_name, edit.new_value, users, profiles)}
+                                                {formatFieldValue(edit.field_name, edit.new_value, users, profiles, salespeople)}
                                               </span>
                                             </div>
                                             <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 mt-0.5">

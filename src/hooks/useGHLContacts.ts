@@ -545,6 +545,7 @@ function processMetrics(
   allContacts: DBContact[];
   allOpportunities: DBOpportunity[];
   users: DBUser[];
+  salespeople: DBSalesperson[];
   wonOpportunitiesCount: number;
   wonOpportunitiesValue: number;
   wonOpportunities: DBOpportunity[];
@@ -1099,6 +1100,7 @@ function processMetrics(
     allContacts: contacts,
     allOpportunities: opportunities,
     users,
+    salespeople,
     wonOpportunitiesCount,
     wonOpportunitiesValue,
     wonOpportunities,
