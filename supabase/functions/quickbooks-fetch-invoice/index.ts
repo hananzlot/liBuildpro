@@ -194,20 +194,7 @@ Deno.serve(async (req) => {
       }
 
       if (!projectId) {
-        log("warn", "Could not match invoice to a local project", { customerId, customerName });
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: "No matching project found",
-            invoice: {
-              qb_id: qbInvoice.Id,
-              doc_number: qbInvoice.DocNumber,
-              customer_name: customerName,
-              amount: qbInvoice.TotalAmt,
-            }
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        log("warn", "Could not match invoice to a local project — saving as unlinked", { customerId, customerName });
       }
 
       // Check if invoice already exists in our DB
