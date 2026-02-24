@@ -80,29 +80,44 @@ export function LinkBillToProjectDialog({ open, onOpenChange, bill, isQBConnecte
       .ilike("company_name", bill.vendor)
       .maybeSingle();
 
-    if (!sub) {
-      // No subcontractor record found — can't map
-      onOpenChange(false);
-      return;
+    if (sub) {
+      // Check if this subcontractor already has a QB vendor mapping
+      const { data: existingMapping } = await supabase
+        .from("quickbooks_mappings")
+        .select("qbo_id")
+        .eq("company_id", companyId)
+        .eq("mapping_type", "vendor")
+        .eq("source_value", sub.id)
+        .maybeSingle();
+
+      if (existingMapping?.qbo_id) {
+        // Already mapped
+        onOpenChange(false);
+        return;
+      }
+
+      // Not mapped — open vendor mapping dialog with subcontractor ID
+      setSubcontractorForMapping({ id: sub.id, name: sub.company_name });
+    } else {
+      // No subcontractor record — still prompt mapping using vendor name as identifier
+      // Use the vendor name as the source_value for mapping
+      const { data: existingMapping } = await supabase
+        .from("quickbooks_mappings")
+        .select("qbo_id")
+        .eq("company_id", companyId)
+        .eq("mapping_type", "vendor")
+        .eq("qbo_name", bill.vendor)
+        .maybeSingle();
+
+      if (existingMapping?.qbo_id) {
+        onOpenChange(false);
+        return;
+      }
+
+      // Use vendor name as both id and name for mapping
+      setSubcontractorForMapping({ id: `vendor_name:${bill.vendor}`, name: bill.vendor });
     }
 
-    // Check if this subcontractor already has a QB vendor mapping
-    const { data: existingMapping } = await supabase
-      .from("quickbooks_mappings")
-      .select("qbo_id")
-      .eq("company_id", companyId)
-      .eq("mapping_type", "vendor")
-      .eq("source_value", sub.id)
-      .maybeSingle();
-
-    if (existingMapping?.qbo_id) {
-      // Already mapped
-      onOpenChange(false);
-      return;
-    }
-
-    // Not mapped — open vendor mapping dialog
-    setSubcontractorForMapping({ id: sub.id, name: sub.company_name });
     onOpenChange(false);
     setVendorMappingOpen(true);
   }, [isQBConnected, bill, companyId, onOpenChange]);
