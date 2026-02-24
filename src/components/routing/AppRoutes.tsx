@@ -43,6 +43,7 @@ import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import QuickBooksHelp from "@/pages/QuickBooksHelp";
 import ProposalPrint from "@/pages/ProposalPrint";
+import Deck from "@/pages/Deck";
 import { ProtectedRoute, DefaultPageRedirect } from "./RouteGuards";
 import { UUIDRouteGuard } from "./UUIDRouteGuard";
 
@@ -428,6 +429,9 @@ export function AppRoutes() {
         
         {/* Help pages - public */}
         <Route path="/help/quickbooks" element={<QuickBooksHelp />} />
+        
+        {/* Marketing deck - public */}
+        <Route path="/deck" element={<Deck />} />
         
         {/* External browser - embedded web view */}
         <Route
