@@ -56,6 +56,7 @@ interface DBAppointment {
   ghl_id: string;
   location_id: string;
   contact_id: string | null;
+  contact_uuid: string | null;
   calendar_id: string | null;
   title: string | null;
   appointment_status: string | null;
@@ -695,16 +696,18 @@ function processMetrics(
   // Map contact ghl_id -> contact.assigned_to
   const contactAssignmentMap = new Map<string, string>();
   contacts.forEach((c) => {
-    if (c.ghl_id && c.assigned_to) {
-      contactAssignmentMap.set(c.ghl_id, c.assigned_to);
+    if (c.assigned_to) {
+      if (c.ghl_id) contactAssignmentMap.set(c.ghl_id, c.assigned_to);
+      contactAssignmentMap.set(c.id, c.assigned_to); // Also map by UUID
     }
   });
 
-  // Map contact_id -> appointment.assigned_user_id (first appointment found)
+  // Map contact_id/contact_uuid -> appointment.assigned_user_id (first appointment found)
   const appointmentAssignmentMap = new Map<string, string>();
   appointments.forEach((a) => {
-    if (a.contact_id && a.assigned_user_id && !appointmentAssignmentMap.has(a.contact_id)) {
-      appointmentAssignmentMap.set(a.contact_id, a.assigned_user_id);
+    const key = a.contact_id || a.contact_uuid;
+    if (key && a.assigned_user_id && !appointmentAssignmentMap.has(key)) {
+      appointmentAssignmentMap.set(key, a.assigned_user_id);
     }
   });
 
@@ -715,13 +718,14 @@ function processMetrics(
       return opportunity.assigned_to;
     }
     // Priority 2: Assignment on the related contact
-    if (opportunity.contact_id) {
-      const contactAssignment = contactAssignmentMap.get(opportunity.contact_id);
+    const contactKey = opportunity.contact_id || opportunity.contact_uuid;
+    if (contactKey) {
+      const contactAssignment = contactAssignmentMap.get(contactKey);
       if (contactAssignment) {
         return contactAssignment;
       }
       // Priority 3: Assignment from appointment for this contact
-      const appointmentAssignment = appointmentAssignmentMap.get(opportunity.contact_id);
+      const appointmentAssignment = appointmentAssignmentMap.get(contactKey);
       if (appointmentAssignment) {
         return appointmentAssignment;
       }
@@ -932,13 +936,16 @@ function processMetrics(
   // Won by source - group won opportunities by contact source (normalized)
   const contactSourceMap = new Map<string, string>();
   contacts.forEach((c) => {
-    contactSourceMap.set(c.ghl_id, normalizeSourceName(c.source || "Direct"));
+    const normalized = normalizeSourceName(c.source || "Direct");
+    if (c.ghl_id) contactSourceMap.set(c.ghl_id, normalized);
+    contactSourceMap.set(c.id, normalized); // Also map by UUID
   });
 
   const wonBySourceMap = new Map<string, { count: number; value: number }>();
   wonOpportunities.forEach((o) => {
-    if (o.contact_id) {
-      const source = contactSourceMap.get(o.contact_id) || "Direct";
+    const contactKey = o.contact_id || o.contact_uuid;
+    if (contactKey) {
+      const source = contactSourceMap.get(contactKey) || "Direct";
       const existing = wonBySourceMap.get(source) || { count: 0, value: 0 };
       wonBySourceMap.set(source, {
         count: existing.count + 1,
@@ -956,8 +963,9 @@ function processMetrics(
   filteredOpportunities
     .filter((o) => o.stage_name?.toLowerCase() !== "quickbase")
     .forEach((o) => {
-      if (o.contact_id) {
-        const source = contactSourceMap.get(o.contact_id) || "Direct";
+      const contactKey = o.contact_id || o.contact_uuid;
+      if (contactKey) {
+        const source = contactSourceMap.get(contactKey) || "Direct";
         opportunitiesBySourceMap.set(source, (opportunitiesBySourceMap.get(source) || 0) + 1);
       }
     });
@@ -971,7 +979,8 @@ function processMetrics(
   filteredOpportunities
     .filter((o) => o.stage_name?.toLowerCase() !== "quickbase")
     .forEach((o) => {
-      if (o.contact_id) filteredOppsContactIds.add(o.contact_id);
+      const key = o.contact_id || o.contact_uuid;
+      if (key) filteredOppsContactIds.add(key);
     });
 
   // Build set of contact IDs that have ANY appointments ever (non-cancelled)
@@ -979,17 +988,22 @@ function processMetrics(
   appointments
     .filter((a) => a.appointment_status?.toLowerCase() !== "cancelled")
     .forEach((a) => {
-      if (a.contact_id) contactIdsWithAnyAppointments.add(a.contact_id);
+      const key = a.contact_id || a.contact_uuid;
+      if (key) contactIdsWithAnyAppointments.add(key);
     });
 
   // Appointments by source - from the Opps contacts, which ones have appointments
   const appointmentsBySourceMap = new Map<string, number>();
   filteredOpportunities
     .filter((o) => o.stage_name?.toLowerCase() !== "quickbase")
-    .filter((o) => o.contact_id && contactIdsWithAnyAppointments.has(o.contact_id))
+    .filter((o) => {
+      const key = o.contact_id || o.contact_uuid;
+      return key && contactIdsWithAnyAppointments.has(key);
+    })
     .forEach((o) => {
-      if (o.contact_id) {
-        const source = contactSourceMap.get(o.contact_id) || "Direct";
+      const contactKey = o.contact_id || o.contact_uuid;
+      if (contactKey) {
+        const source = contactSourceMap.get(contactKey) || "Direct";
         appointmentsBySourceMap.set(source, (appointmentsBySourceMap.get(source) || 0) + 1);
       }
     });
@@ -1002,10 +1016,14 @@ function processMetrics(
   const oppsWithoutAppointmentsBySourceMap = new Map<string, number>();
   filteredOpportunities
     .filter((o) => o.stage_name?.toLowerCase() !== "quickbase")
-    .filter((o) => o.contact_id && !contactIdsWithAnyAppointments.has(o.contact_id))
+    .filter((o) => {
+      const key = o.contact_id || o.contact_uuid;
+      return key && !contactIdsWithAnyAppointments.has(key);
+    })
     .forEach((o) => {
-      if (o.contact_id) {
-        const source = contactSourceMap.get(o.contact_id) || "Direct";
+      const contactKey = o.contact_id || o.contact_uuid;
+      if (contactKey) {
+        const source = contactSourceMap.get(contactKey) || "Direct";
         oppsWithoutAppointmentsBySourceMap.set(source, (oppsWithoutAppointmentsBySourceMap.get(source) || 0) + 1);
       }
     });
