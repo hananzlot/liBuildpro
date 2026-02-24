@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { usePersistedDialog, getPersistedDialogState } from "@/hooks/usePersistedDialog";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Calendar, Database, DollarSign, CalendarCheck, Trophy, Pencil, Receipt, HardDrive } from "lucide-react";
+import { useDispatchFilters } from "@/stores/useDispatchFilters";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,12 +47,28 @@ const Index = () => {
   const { isGHLEnabled } = useGHLMode();
   const { visibility: kpiVisibility } = useKPIVisibility();
   
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+  // Persisted date range via Zustand store
+  const { dateRangeFrom, dateRangeTo, setDateRange: setStoreDateRange, hasHydrated } = useDispatchFilters();
+  
+  const dateRange = useMemo<DateRange | undefined>(() => {
+    if (!hasHydrated) return undefined;
+    if (dateRangeFrom && dateRangeTo) {
+      return { from: new Date(dateRangeFrom), to: new Date(dateRangeTo) };
+    }
+    // Default: today
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
     return { from: start, to: end };
-  });
+  }, [dateRangeFrom, dateRangeTo, hasHydrated]);
+
+  const setDateRange = useCallback((range: DateRange | undefined) => {
+    if (range?.from && range?.to) {
+      setStoreDateRange(range.from.toISOString(), range.to.toISOString());
+    } else {
+      setStoreDateRange(null, null);
+    }
+  }, [setStoreDateRange]);
   
   const [wonOpportunitiesSheetOpen, setWonOpportunitiesSheetOpen] = useState(false);
   const [upcomingAppointmentsSheetOpen, setUpcomingAppointmentsSheetOpen] = useState(false);
