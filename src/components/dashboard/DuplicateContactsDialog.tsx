@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -10,10 +10,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -123,7 +132,100 @@ export function DuplicateContactsDialog({
     },
   });
 
-  // Build dismissed set for fast lookups
+  // Merge All state
+  const [confirmMergeAll, setConfirmMergeAll] = useState(false);
+  const [mergeAllProgress, setMergeAllProgress] = useState<{ current: number; total: number } | null>(null);
+
+  const mergeOnePair = useCallback(async (primary: Contact, secondary: Contact) => {
+    if (!companyId) throw new Error("No company");
+
+    // Keep primary's data, fill gaps from secondary
+    const mergedData: Record<string, any> = {};
+    const fields = ["contact_name", "first_name", "last_name", "email", "phone", "source"] as const;
+    fields.forEach((f) => {
+      mergedData[f] = (primary as any)[f] || (secondary as any)[f] || null;
+    });
+
+    // Merge custom_fields: prefer primary, fill from secondary
+    const primaryCF = Array.isArray(primary.custom_fields) ? primary.custom_fields : [];
+    const secondaryCF = Array.isArray(secondary.custom_fields) ? secondary.custom_fields : [];
+    const cfMap = new Map<string, any>();
+    secondaryCF.forEach((cf: any) => { if (cf?.id && cf?.value) cfMap.set(cf.id, cf); });
+    primaryCF.forEach((cf: any) => { if (cf?.id && cf?.value) cfMap.set(cf.id, cf); }); // primary overwrites
+    if (cfMap.size > 0) mergedData.custom_fields = Array.from(cfMap.values());
+
+    mergedData.ghl_id = primary.ghl_id;
+    mergedData.updated_at = new Date().toISOString();
+
+    // Update primary
+    await supabase.from("contacts").update(mergedData).eq("id", primary.id);
+
+    // Transfer related records
+    const buildOr = (uuid: string, ghlId: string | null | undefined) => {
+      const c = [`contact_uuid.eq.${uuid}`];
+      if (ghlId) c.push(`contact_id.eq.${ghlId}`);
+      return c.join(",");
+    };
+    const secondaryOr = buildOr(secondary.id, secondary.ghl_id);
+    const transferPayload = { contact_id: primary.ghl_id, contact_uuid: primary.id };
+
+    await Promise.all([
+      supabase.from("opportunities").update(transferPayload).eq("company_id", companyId).or(secondaryOr),
+      supabase.from("appointments").update(transferPayload).eq("company_id", companyId).or(secondaryOr),
+      supabase.from("contact_notes").update({ contact_id: primary.ghl_id || primary.id, contact_uuid: primary.id }).eq("company_id", companyId).or(secondaryOr),
+      supabase.from("estimates").update(transferPayload).eq("company_id", companyId).or(secondaryOr),
+      supabase.from("projects").update(transferPayload).eq("company_id", companyId).or(secondaryOr),
+      ...(secondary.ghl_id ? [supabase.from("ghl_tasks").update({ contact_id: primary.ghl_id, contact_uuid: primary.id }).eq("company_id", companyId).eq("contact_id", secondary.ghl_id)] : []),
+    ]);
+
+    // Delete secondary
+    await supabase.from("contacts").delete().eq("id", secondary.id);
+  }, [companyId]);
+
+  const mergeAllMutation = useMutation({
+    mutationFn: async (pairs: DuplicatePair[]) => {
+      let merged = 0;
+      let failed = 0;
+      setMergeAllProgress({ current: 0, total: pairs.length });
+      for (let i = 0; i < pairs.length; i++) {
+        try {
+          // Use the older contact (by created_at or ghl_date_added) as primary
+          const a = pairs[i].contactA;
+          const b = pairs[i].contactB;
+          const dateA = a.ghl_date_added || a.created_at || "";
+          const dateB = b.ghl_date_added || b.created_at || "";
+          const [primary, secondary] = dateA <= dateB ? [a, b] : [b, a];
+          await mergeOnePair(primary, secondary);
+          merged++;
+        } catch (err) {
+          console.error("Failed to merge pair:", err);
+          failed++;
+        }
+        setMergeAllProgress({ current: i + 1, total: pairs.length });
+      }
+      return { merged, failed };
+    },
+    onSuccess: ({ merged, failed }) => {
+      setMergeAllProgress(null);
+      toast.success(`Merged ${merged} duplicate pairs${failed > 0 ? ` (${failed} failed)` : ""}`);
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["contact_notes"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl_tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
+      queryClient.invalidateQueries({ queryKey: ["global-search-opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["global-search-contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["global-search-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["global-search-estimates"] });
+    },
+    onError: (err) => {
+      setMergeAllProgress(null);
+      toast.error(`Merge all failed: ${err.message}`);
+    },
+  });
+
   const dismissedSet = useMemo(() => {
     const set = new Set<string>();
     (dismissedPairs || []).forEach((d) => {
@@ -217,6 +319,7 @@ export function DuplicateContactsDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
@@ -245,87 +348,140 @@ export function DuplicateContactsDialog({
             </p>
           </div>
         ) : (
-          <div className="overflow-y-auto max-h-[60vh] -mx-6 px-6">
-            <div className="space-y-3 pb-4">
-              {duplicatePairs.map((pair, idx) => (
-                <div
-                  key={`${pair.contactA.id}-${pair.contactB.id}`}
-                  className="rounded-lg border bg-card p-4 space-y-3"
-                >
-                  {/* Match reason */}
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs gap-1">
-                      <AlertTriangle className="h-3 w-3 text-warning" />
-                      {matchTypeLabel(pair.matchType)}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground truncate">
-                      {pair.matchValue}
-                    </span>
-                  </div>
-
-                  {/* Two contact cards side by side */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {[pair.contactA, pair.contactB].map((contact) => (
-                      <div
-                        key={contact.id}
-                        className="rounded-md border border-border/60 p-3 space-y-1"
-                      >
-                        <p className="font-medium text-sm truncate">
-                          {getContactName(contact)}
-                        </p>
-                        {contact.email && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                            <Mail className="h-3 w-3 shrink-0" />
-                            {contact.email}
-                          </p>
-                        )}
-                        {contact.phone && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Phone className="h-3 w-3 shrink-0" />
-                            {contact.phone}
-                          </p>
-                        )}
-                        {contact.source && (
-                          <p className="text-xs text-muted-foreground">
-                            Source: {contact.source}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs h-8"
-                      disabled={dismissMutation.isPending}
-                      onClick={() => dismissMutation.mutate(pair)}
-                    >
-                      <EyeOff className="h-3.5 w-3.5 mr-1" />
-                      Not Duplicate
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="text-xs h-8"
-                      onClick={() => {
-                        onMerge({
-                          contactA: pair.contactA,
-                          contactB: pair.contactB,
-                        });
-                      }}
-                    >
-                      <Merge className="h-3.5 w-3.5 mr-1" />
-                      Merge
-                    </Button>
-                  </div>
+          <>
+            {/* Merge All button + progress */}
+            {mergeAllProgress ? (
+              <div className="space-y-2 py-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Merging duplicates...</span>
+                  <span className="font-medium">{mergeAllProgress.current} / {mergeAllProgress.total}</span>
                 </div>
-              ))}
+                <Progress value={(mergeAllProgress.current / mergeAllProgress.total) * 100} />
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">{duplicatePairs.length} pairs</span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="text-xs h-8"
+                  disabled={mergeAllMutation.isPending}
+                  onClick={() => setConfirmMergeAll(true)}
+                >
+                  <Merge className="h-3.5 w-3.5 mr-1" />
+                  Merge All ({duplicatePairs.length})
+                </Button>
+              </div>
+            )}
+
+            <div className="overflow-y-auto max-h-[55vh] -mx-6 px-6">
+              <div className="space-y-3 pb-4">
+                {duplicatePairs.map((pair, idx) => (
+                  <div
+                    key={`${pair.contactA.id}-${pair.contactB.id}`}
+                    className="rounded-lg border bg-card p-4 space-y-3"
+                  >
+                    {/* Match reason */}
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <AlertTriangle className="h-3 w-3 text-warning" />
+                        {matchTypeLabel(pair.matchType)}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground truncate">
+                        {pair.matchValue}
+                      </span>
+                    </div>
+
+                    {/* Two contact cards side by side */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {[pair.contactA, pair.contactB].map((contact) => (
+                        <div
+                          key={contact.id}
+                          className="rounded-md border border-border/60 p-3 space-y-1"
+                        >
+                          <p className="font-medium text-sm truncate">
+                            {getContactName(contact)}
+                          </p>
+                          {contact.email && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                              <Mail className="h-3 w-3 shrink-0" />
+                              {contact.email}
+                            </p>
+                          )}
+                          {contact.phone && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Phone className="h-3 w-3 shrink-0" />
+                              {contact.phone}
+                            </p>
+                          )}
+                          {contact.source && (
+                            <p className="text-xs text-muted-foreground">
+                              Source: {contact.source}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-8"
+                        disabled={dismissMutation.isPending || mergeAllMutation.isPending}
+                        onClick={() => dismissMutation.mutate(pair)}
+                      >
+                        <EyeOff className="h-3.5 w-3.5 mr-1" />
+                        Not Duplicate
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="text-xs h-8"
+                        disabled={mergeAllMutation.isPending}
+                        onClick={() => {
+                          onMerge({
+                            contactA: pair.contactA,
+                            contactB: pair.contactB,
+                          });
+                        }}
+                      >
+                        <Merge className="h-3.5 w-3.5 mr-1" />
+                        Merge
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
       </DialogContent>
     </Dialog>
+
+      {/* Merge All Confirmation */}
+      <AlertDialog open={confirmMergeAll} onOpenChange={setConfirmMergeAll}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Merge all {duplicatePairs.length} duplicate pairs?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will automatically merge each pair, keeping the older contact as the primary record and transferring all related data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmMergeAll(false);
+                mergeAllMutation.mutate(duplicatePairs);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Merge All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
