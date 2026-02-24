@@ -973,8 +973,22 @@ export function AppointmentDetailSheet({
   const scopeOfWork = scopeFromCustomField || scopeFromAttributions;
 
   // Get all messages from all conversations, sorted by date
+  // When messages array is empty but conversation has last_message_body, create a synthetic message
   const allMessages = conversations
-    .flatMap((c) => c.messages)
+    .flatMap((c) => {
+      if (c.messages && c.messages.length > 0) return c.messages;
+      if ((c as any).last_message_body) {
+        return [{
+          id: `synthetic-${(c as any).ghl_id || 'conv'}`,
+          body: (c as any).last_message_body,
+          direction: (c as any).last_message_direction || 'inbound',
+          status: 'delivered',
+          type: (c as any).last_message_type || (c as any).type || 'SMS',
+          dateAdded: (c as any).last_message_date || new Date().toISOString(),
+        }];
+      }
+      return [];
+    })
     .sort((a, b) => new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime());
 
   const handleOpenOpportunity = (opp: Opportunity) => {
