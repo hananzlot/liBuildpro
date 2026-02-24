@@ -47,6 +47,7 @@ interface DBAppointment {
   id: string;
   ghl_id: string;
   contact_id: string | null;
+  contact_uuid?: string | null;
   title: string | null;
   start_time: string | null;
   end_time: string | null;
@@ -71,6 +72,7 @@ interface DBContact {
 }
 
 interface DBUser {
+  id?: string;
   ghl_id: string;
   name: string | null;
   first_name: string | null;
@@ -81,6 +83,7 @@ interface DBUser {
 interface DBOpportunity {
   ghl_id: string;
   contact_id: string | null;
+  contact_uuid?: string | null;
   status: string | null;
   stage_name: string | null;
   pipeline_name: string | null;
@@ -206,11 +209,15 @@ export function DateRangeAppointmentsSheet({
   const userMap = new Map<string, string>();
   users.forEach((u) => {
     const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
-    userMap.set(u.ghl_id, displayName);
+    if (u.ghl_id) userMap.set(u.ghl_id, displayName);
+    if (u.id) userMap.set(u.id, displayName);
   });
 
   const contactMap = new Map<string, DBContact>();
-  contacts.forEach((c) => contactMap.set(c.ghl_id, c));
+  contacts.forEach((c) => {
+    if (c.ghl_id) contactMap.set(c.ghl_id, c);
+    contactMap.set(c.id, c);
+  });
 
   // Create profile map (id -> profile)
   const profileMap = useMemo(() => {
@@ -219,12 +226,15 @@ export function DateRangeAppointmentsSheet({
     return map;
   }, [profiles]);
 
-  // Create opportunity map (contact_id -> first opportunity for that contact)
+  // Create opportunity map (contact key -> first opportunity for that contact)
   const opportunityMap = useMemo(() => {
     const map = new Map<string, DBOpportunity>();
     opportunities.forEach((opp) => {
       if (opp.contact_id && !map.has(opp.contact_id)) {
         map.set(opp.contact_id, opp);
+      }
+      if (opp.contact_uuid && !map.has(opp.contact_uuid)) {
+        map.set(opp.contact_uuid, opp);
       }
     });
     return map;
@@ -234,10 +244,12 @@ export function DateRangeAppointmentsSheet({
   useEffect(() => {
     if (!open || defaultStatusFilter !== "showed") return;
     
-    const contactIds = appointments
-      .filter(apt => apt.appointment_status?.toLowerCase() === "showed" && apt.contact_id)
-      .map(apt => apt.contact_id!)
-      .filter((id, idx, arr) => arr.indexOf(id) === idx); // unique
+    const contactIds = Array.from(new Set(
+      appointments
+        .filter(apt => apt.appointment_status?.toLowerCase() === "showed")
+        .map(apt => apt.contact_id || apt.contact_uuid)
+        .filter(Boolean) as string[]
+    ));
 
     if (contactIds.length === 0) return;
 
@@ -354,7 +366,7 @@ export function DateRangeAppointmentsSheet({
 
       // Get address from latest appointment or fallback from contact
       const address = group.latestAppointment.address 
-        || getAddressFromContact(contact, appointments, group.latestAppointment.contact_id) 
+        || getAddressFromContact(contact, appointments, group.latestAppointment.contact_id || group.latestAppointment.contact_uuid)
         || "";
 
       return [
@@ -412,7 +424,7 @@ export function DateRangeAppointmentsSheet({
 
     const searchTerm = searchFilter.toLowerCase().trim();
     return filtered.filter((apt) => {
-      const contact = apt.contact_id ? contactMap.get(apt.contact_id) : null;
+      const contact = (apt.contact_id && contactMap.get(apt.contact_id)) || (apt.contact_uuid && contactMap.get(apt.contact_uuid)) || null;
       const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
       const title = apt.title || "";
       const rep = apt.assigned_user_id ? userMap.get(apt.assigned_user_id) || "" : "";
@@ -431,7 +443,9 @@ export function DateRangeAppointmentsSheet({
     const noContactAppointments: GroupedContactAppointments[] = [];
 
     filteredAppointments.forEach((apt) => {
-      if (!apt.contact_id) {
+      const contactKey = apt.contact_id || apt.contact_uuid;
+
+      if (!contactKey) {
         // Appointments without contact go as individual rows
         noContactAppointments.push({
           contact_id: apt.id, // Use apt.id as unique key
@@ -445,8 +459,8 @@ export function DateRangeAppointmentsSheet({
         return;
       }
 
-      if (groups.has(apt.contact_id)) {
-        const existing = groups.get(apt.contact_id)!;
+      if (groups.has(contactKey)) {
+        const existing = groups.get(contactKey)!;
         existing.appointments.push(apt);
         // Update latestAppointment if this one is more recent
         if (apt.start_time && existing.latestAppointment.start_time) {
@@ -455,13 +469,13 @@ export function DateRangeAppointmentsSheet({
           }
         }
       } else {
-        groups.set(apt.contact_id, {
-          contact_id: apt.contact_id,
+        groups.set(contactKey, {
+          contact_id: contactKey,
           appointments: [apt],
-          contact: contactMap.get(apt.contact_id) || null,
-          opportunity: opportunityMap.get(apt.contact_id) || null,
-          note: notesMap.get(apt.contact_id) || null,
-          task: tasksMap.get(apt.contact_id) || null,
+          contact: contactMap.get(contactKey) || null,
+          opportunity: opportunityMap.get(contactKey) || null,
+          note: notesMap.get(contactKey) || null,
+          task: tasksMap.get(contactKey) || null,
           latestAppointment: apt,
         });
       }
@@ -1101,7 +1115,7 @@ export function DateRangeAppointmentsSheet({
                   : "Unknown Contact";
                 
                 // Address: local state > appointment address > fallback from contact
-                const fallbackAddress = getAddressFromContact(contact, appointments, apt.contact_id);
+                const fallbackAddress = getAddressFromContact(contact, appointments, apt.contact_id || apt.contact_uuid);
                 const displayAddress = localAddressState[apt.ghl_id] ?? apt.address ?? fallbackAddress;
                 const isEditingThis = editingAddressId === apt.ghl_id;
 
