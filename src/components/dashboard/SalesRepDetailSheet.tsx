@@ -262,13 +262,14 @@ export function SalesRepDetailSheet({
     return Array.from(statuses).sort((a, b) => (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99));
   }, [repOpportunities]);
 
-  // Group contacts by source (sorted by count)
+  // Group opportunities by contact source (sorted by count)
   const leadsBySource = useMemo(() => {
-    const sourceMap = new Map<string, Contact[]>();
-    repContacts.forEach(c => {
-      const source = c.source || 'No Source';
+    const sourceMap = new Map<string, Opportunity[]>();
+    repOpportunities.forEach(opp => {
+      const contact = findContactByIdOrGhlId(contacts, opp.contact_uuid, opp.contact_id);
+      const source = contact?.source || 'No Source';
       if (!sourceMap.has(source)) sourceMap.set(source, []);
-      sourceMap.get(source)!.push(c);
+      sourceMap.get(source)!.push(opp);
     });
     return Array.from(sourceMap.entries())
       .sort((a, b) => b[1].length - a[1].length);
