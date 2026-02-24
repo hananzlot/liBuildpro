@@ -1537,6 +1537,62 @@ export type Database = {
         }
         Relationships: []
       }
+      dismissed_duplicate_contacts: {
+        Row: {
+          company_id: string
+          contact_id_a: string
+          contact_id_b: string
+          dismissed_at: string
+          dismissed_by: string | null
+          id: string
+        }
+        Insert: {
+          company_id: string
+          contact_id_a: string
+          contact_id_b: string
+          dismissed_at?: string
+          dismissed_by?: string | null
+          id?: string
+        }
+        Update: {
+          company_id?: string
+          contact_id_a?: string
+          contact_id_b?: string
+          dismissed_at?: string
+          dismissed_by?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dismissed_duplicate_contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dismissed_duplicate_contacts_contact_id_a_fkey"
+            columns: ["contact_id_a"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dismissed_duplicate_contacts_contact_id_b_fkey"
+            columns: ["contact_id_b"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dismissed_duplicate_contacts_dismissed_by_fkey"
+            columns: ["dismissed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_portal_tokens: {
         Row: {
           access_count: number | null
