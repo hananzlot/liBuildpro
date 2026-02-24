@@ -68,16 +68,24 @@ const Contacts = () => {
     }
   };
 
+  const [returnToDuplicates, setReturnToDuplicates] = useState(false);
+
   const handleMergeFromDuplicates = (pair: { contactA: any; contactB: any }) => {
     setDuplicateDialogOpen(false);
     setMergePreselected(pair);
+    setReturnToDuplicates(true);
     setMergeDialogOpen(true);
   };
 
   const handleMergeDialogClose = (open: boolean) => {
     setMergeDialogOpen(open);
     if (!open) {
+      const shouldReturn = returnToDuplicates;
       setMergePreselected(undefined);
+      setReturnToDuplicates(false);
+      if (shouldReturn) {
+        setDuplicateDialogOpen(true);
+      }
     }
   };
 
