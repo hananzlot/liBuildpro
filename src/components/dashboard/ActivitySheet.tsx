@@ -150,11 +150,20 @@ const getContactName = (contact: DBContact | undefined): string => {
     "Unknown";
 };
 
-const getUserName = (userId: string | null, users: DBUser[]): string => {
+const getUserName = (userId: string | null, users: DBUser[], profiles?: DBProfile[]): string => {
   if (!userId) return "Unassigned";
-  const user = findUserByIdOrGhlId(users, undefined, userId);
-  if (!user) return "Unknown";
-  return user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown";
+  // Try GHL users first (by ghl_id or UUID)
+  const user = findUserByIdOrGhlId(users, userId, userId);
+  if (user) {
+    const name = user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim();
+    if (name) return name;
+  }
+  // Fallback to profiles (for Supabase user IDs / salesperson UUIDs)
+  if (profiles) {
+    const profile = profiles.find(p => p.id === userId);
+    if (profile) return profile.full_name || profile.email?.split('@')[0] || "Unknown";
+  }
+  return "Unknown";
 };
 
 const formatDate = (dateStr: string | null): string => {
@@ -221,10 +230,20 @@ const getAppointmentStatusColor = (status: string | null): string => {
       return "bg-amber-500/20 text-amber-400 border-amber-500/30";
   }
 };
-const getCreatorName = (enteredBy: string | null, profiles: DBProfile[]): string | null => {
+const getCreatorName = (enteredBy: string | null, profiles: DBProfile[], users?: DBUser[]): string | null => {
   if (!enteredBy) return null;
+  // Try profiles first
   const profile = profiles.find(p => p.id === enteredBy);
-  return profile?.full_name || profile?.email?.split('@')[0] || null;
+  if (profile) return profile.full_name || profile.email?.split('@')[0] || null;
+  // Fallback to GHL users
+  if (users) {
+    const user = findUserByIdOrGhlId(users, enteredBy, enteredBy);
+    if (user) {
+      const name = user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim();
+      if (name) return name;
+    }
+  }
+  return null;
 };
 
 const getFieldDisplayName = (fieldName: string): string => {
@@ -272,7 +291,7 @@ const formatFieldValue = (fieldName: string, value: string | null, users: DBUser
   
   // User assignments (GHL user IDs)
   if (fieldName === "assigned_to" || fieldName === "assigned_user_id") {
-    return getUserName(value, users);
+    return getUserName(value, users, profiles);
   }
   
   // Profile references (Supabase user IDs) - like edited_by, entered_by
@@ -676,9 +695,9 @@ export function ActivitySheet({
                   groupedEdits.map(({ oppGhlId, edits }) => {
                     const opportunity = findOpportunityByIdOrGhlId(editedOpportunities, undefined, oppGhlId);
                     const contact = opportunity?.contact_id 
-                      ? findContactByIdOrGhlId(contacts, undefined, opportunity.contact_id) 
+                      ? findContactByIdOrGhlId(contacts, opportunity.contact_uuid || opportunity.contact_id, opportunity.contact_id) 
                       : edits[0]?.contact_ghl_id 
-                        ? findContactByIdOrGhlId(contacts, undefined, edits[0].contact_ghl_id)
+                        ? findContactByIdOrGhlId(contacts, edits[0].contact_ghl_id, edits[0].contact_ghl_id)
                         : undefined;
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     
@@ -706,7 +725,7 @@ export function ActivitySheet({
                           
                           <div className="bg-muted/50 rounded p-2 space-y-2">
                             {edits.map((edit, idx) => {
-                              const editorName = getCreatorName(edit.edited_by, profiles);
+                              const editorName = getCreatorName(edit.edited_by, profiles, users);
                               return (
                                 <div key={edit.id} className={`${idx > 0 ? 'border-t border-border/30 pt-2' : ''}`}>
                                   <div className="flex items-center gap-2 text-xs">
@@ -752,9 +771,9 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   appointmentActivityItems.map(({ appointment: appt, activity }) => {
-                    const contact = findContactByIdOrGhlId(contacts, undefined, appt.contact_id);
+                    const contact = findContactByIdOrGhlId(contacts, appt.contact_id, appt.contact_id);
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
-                    const actorName = getCreatorName(activity.editedBy, profiles);
+                    const actorName = getCreatorName(activity.editedBy, profiles, users);
                     return (
                       <Card 
                         key={activity.id} 
@@ -822,7 +841,7 @@ export function ActivitySheet({
                                   {isExpanded && (
                                     <div className="mt-2 space-y-2 border-l-2 border-primary/30 pl-3">
                                       {allApptEdits.map((edit) => {
-                                        const editorName = getCreatorName(edit.edited_by, profiles);
+                                        const editorName = getCreatorName(edit.edited_by, profiles, users);
                                         return (
                                           <div key={edit.id} className="text-xs">
                                             <div className="flex items-center gap-2">
@@ -854,7 +873,7 @@ export function ActivitySheet({
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <User className="h-3 w-3" />
-                              <span>{getUserName(appt.assigned_user_id, users)}</span>
+                              <span>{getUserName(appt.assigned_user_id, users, profiles)}</span>
                             </div>
                             <div className="text-[10px] text-muted-foreground/70">
                               {appt.start_time ? `Scheduled: ${formatDate(appt.start_time)}` : "No date"}
@@ -889,12 +908,12 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   taskActivityItems.map(({ task, activity }) => {
-                    const contact = findContactByIdOrGhlId(contacts, undefined, task.contact_id);
+                    const contact = findContactByIdOrGhlId(contacts, task.contact_id, task.contact_id);
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
                     const relatedOpp = findContactByIdOrGhlId(editedOpportunities, undefined, task.contact_id) as DBOpportunity | undefined
                       || allOpportunities.find(o => o.contact_id === task.contact_id);
-                    const actorName = getCreatorName(activity.editedBy, profiles);
+                    const actorName = getCreatorName(activity.editedBy, profiles, users);
                     return (
                       <Card 
                         key={activity.id} 
@@ -978,7 +997,7 @@ export function ActivitySheet({
                                   {isExpanded && (
                                     <div className="mt-2 space-y-2 border-l-2 border-primary/30 pl-3">
                                       {allTaskEdits.map((edit, idx) => {
-                                        const editorName = getCreatorName(edit.edited_by, profiles);
+                                        const editorName = getCreatorName(edit.edited_by, profiles, users);
                                         return (
                                           <div key={edit.id} className="text-xs">
                                             <div className="flex items-center gap-2">
@@ -1010,7 +1029,7 @@ export function ActivitySheet({
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <User className="h-3 w-3" />
-                              <span>{getUserName(task.assigned_to, users)}</span>
+                              <span>{getUserName(task.assigned_to, users, profiles)}</span>
                             </div>
                             {task.due_date && (
                               <div className="flex items-center gap-1">
@@ -1048,12 +1067,12 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   noteActivityItems.map(({ note, activity }) => {
-                    const contact = findContactByIdOrGhlId(contacts, undefined, note.contact_id);
+                    const contact = findContactByIdOrGhlId(contacts, note.contact_id, note.contact_id);
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
                     const relatedOpp = findContactByIdOrGhlId(editedOpportunities, undefined, note.contact_id) as DBOpportunity | undefined
                       || allOpportunities.find(o => o.contact_id === note.contact_id);
-                    const actorName = getCreatorName(activity.editedBy, profiles);
+                    const actorName = getCreatorName(activity.editedBy, profiles, users);
                     return (
                       <Card 
                         key={activity.id} 
@@ -1148,7 +1167,7 @@ export function ActivitySheet({
                                   {isExpanded && (
                                     <div className="mt-2 space-y-2 border-l-2 border-primary/30 pl-3">
                                       {allNoteEdits.map((edit) => {
-                                        const editorName = getCreatorName(edit.edited_by, profiles);
+                                        const editorName = getCreatorName(edit.edited_by, profiles, users);
                                         return (
                                           <div key={edit.id} className="text-xs">
                                             <div className="flex items-center gap-2">
