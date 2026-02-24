@@ -327,100 +327,6 @@ export function SalesRepDetailSheet({
                 </div>
               </div>
 
-              {/* Leads by Source */}
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                  <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Leads by Source ({leadsBySource.length})
-                  </span>
-                </div>
-                <div className="divide-y max-h-48 overflow-y-auto">
-                  {leadsBySource.length === 0 ? (
-                    <div className="p-3 text-sm text-muted-foreground text-center">No leads</div>
-                  ) : (
-                    leadsBySource.map(([source, sourceContacts]) => (
-                      <div key={source} className="p-3 flex items-center justify-between">
-                        <span className="text-sm font-medium truncate">{source}</span>
-                        <Badge variant="secondary" className="text-xs">{sourceContacts.length}</Badge>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Appointments */}
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Appointments ({repAppointments.length} across {uniqueAppointmentContacts} contacts)
-                  </span>
-                </div>
-                <div className="divide-y max-h-64 overflow-y-auto">
-                  {repAppointments.length === 0 ? (
-                    <div className="p-3 text-sm text-muted-foreground text-center">No appointments</div>
-                  ) : (
-                    repAppointments
-                      .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
-                      .slice(0, 10)
-                      .map((appt) => {
-                        const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
-                        const opportunity = opportunities.find(o => o.contact_id === appt.contact_id);
-                        
-                        // Extract address from contact with appointment fallback
-                        const address = getAddressFromContact(contact, appointments, appt.contact_id);
-                        
-                        const contactName = capitalizeWords(
-                          contact?.contact_name || 
-                          [contact?.first_name, contact?.last_name].filter(Boolean).join(' ') || 
-                          'Unknown Contact'
-                        );
-                        
-                        return (
-                          <div 
-                            key={appt.ghl_id} 
-                            className={`p-3 space-y-1.5 ${opportunity ? 'cursor-pointer hover:bg-muted/30 transition-colors' : ''}`}
-                            onClick={() => opportunity && handleOpportunityClick(opportunity)}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <div className="font-medium text-sm truncate">{contactName}</div>
-                                <div className="text-xs text-muted-foreground">{appt.title || 'Untitled'}</div>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <Badge 
-                                  variant="outline" 
-                                  className={`text-xs ${
-                                    appt.appointment_status?.toLowerCase() === 'confirmed' 
-                                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                                      : appt.appointment_status?.toLowerCase() === 'cancelled'
-                                      ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                                      : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                                  }`}
-                                >
-                                  {appt.appointment_status || 'Unknown'}
-                                </Badge>
-                                {opportunity && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                              </div>
-                            </div>
-                            {address && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <MapPin className="h-3 w-3 shrink-0" />
-                                <span className="truncate">{address}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(appt.start_time)}
-                            </div>
-                          </div>
-                        );
-                      })
-                  )}
-                </div>
-              </div>
-
               {/* Opportunities */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="bg-muted/30 px-3 py-2 flex flex-col gap-2 border-b">
@@ -500,6 +406,99 @@ export function SalesRepDetailSheet({
                         </div>
                       );
                     })
+                  )}
+                </div>
+              </div>
+
+              {/* Leads by Source */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                  <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Leads by Source ({leadsBySource.length})
+                  </span>
+                </div>
+                <div className="divide-y max-h-48 overflow-y-auto">
+                  {leadsBySource.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground text-center">No leads</div>
+                  ) : (
+                    leadsBySource.map(([source, sourceContacts]) => (
+                      <div key={source} className="p-3 flex items-center justify-between">
+                        <span className="text-sm font-medium truncate">{source}</span>
+                        <Badge variant="secondary" className="text-xs">{sourceContacts.length}</Badge>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Appointments */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Appointments ({repAppointments.length} across {uniqueAppointmentContacts} contacts)
+                  </span>
+                </div>
+                <div className="divide-y max-h-64 overflow-y-auto">
+                  {repAppointments.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground text-center">No appointments</div>
+                  ) : (
+                    repAppointments
+                      .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
+                      .slice(0, 10)
+                      .map((appt) => {
+                        const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
+                        const opportunity = opportunities.find(o => o.contact_id === appt.contact_id);
+                        
+                        const address = getAddressFromContact(contact, appointments, appt.contact_id);
+                        
+                        const contactName = capitalizeWords(
+                          contact?.contact_name || 
+                          [contact?.first_name, contact?.last_name].filter(Boolean).join(' ') || 
+                          'Unknown Contact'
+                        );
+                        
+                        return (
+                          <div 
+                            key={appt.ghl_id} 
+                            className={`p-3 space-y-1.5 ${opportunity ? 'cursor-pointer hover:bg-muted/30 transition-colors' : ''}`}
+                            onClick={() => opportunity && handleOpportunityClick(opportunity)}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-sm truncate">{contactName}</div>
+                                <div className="text-xs text-muted-foreground">{appt.title || 'Untitled'}</div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs ${
+                                    appt.appointment_status?.toLowerCase() === 'confirmed' 
+                                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                      : appt.appointment_status?.toLowerCase() === 'cancelled'
+                                      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                                      : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                  }`}
+                                >
+                                  {appt.appointment_status || 'Unknown'}
+                                </Badge>
+                                {opportunity && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                              </div>
+                            </div>
+                            {address && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{address}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              {formatDate(appt.start_time)}
+                            </div>
+                          </div>
+                        );
+                      })
                   )}
                 </div>
               </div>
