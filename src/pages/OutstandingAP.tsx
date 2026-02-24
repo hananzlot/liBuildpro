@@ -1932,6 +1932,7 @@ export default function OutstandingAP() {
         open={linkBillDialogOpen}
         onOpenChange={setLinkBillDialogOpen}
         bill={linkingBill}
+        isQBConnected={isQBConnected}
       />
     </AppLayout>
   );
