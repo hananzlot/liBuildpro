@@ -1393,9 +1393,28 @@ export function OpportunitiesTable({
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground px-2">
-                Page {currentPage} of {totalPages}
-              </span>
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <span>Page</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={currentPage}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                      setCurrentPage(val);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (isNaN(val) || val < 1) setCurrentPage(1);
+                    else if (val > totalPages) setCurrentPage(totalPages);
+                  }}
+                  className="w-12 text-center bg-background border border-border rounded px-1 py-0.5 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <span>of {totalPages}</span>
+              </div>
               <Button
                 variant="outline"
                 size="sm"

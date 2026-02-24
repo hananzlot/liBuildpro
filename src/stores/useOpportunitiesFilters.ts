@@ -61,7 +61,7 @@ export const useOpportunitiesFilters = create<OpportunitiesFilters>()(
     (set) => ({
       ...initialState,
       setHasHydrated: (value) => set({ hasHydrated: value }),
-      setDateField: (value) => set({ dateField: value }),
+      setDateField: (value) => set({ dateField: value, currentPage: 1 }),
       setDateRange: (range) =>
         set({
           dateRange: range?.from
