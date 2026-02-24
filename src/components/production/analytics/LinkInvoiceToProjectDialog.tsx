@@ -28,10 +28,15 @@ interface LinkInvoiceToProjectDialogProps {
     amount: number | null;
     open_balance: number | null;
   } | null;
+  payment?: {
+    id: string;
+    check_number: string | null;
+    amount: number | null;
+  } | null;
   isQBConnected?: boolean;
 }
 
-export function LinkInvoiceToProjectDialog({ open, onOpenChange, invoice, isQBConnected }: LinkInvoiceToProjectDialogProps) {
+export function LinkInvoiceToProjectDialog({ open, onOpenChange, invoice, payment, isQBConnected }: LinkInvoiceToProjectDialogProps) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -111,32 +116,43 @@ export function LinkInvoiceToProjectDialog({ open, onOpenChange, invoice, isQBCo
 
   const linkMutation = useMutation({
     mutationFn: async (projectId: string) => {
-      if (!invoice) return;
-      // Link invoice to project
-      const { error } = await supabase
-        .from("project_invoices")
-        .update({ project_id: projectId })
-        .eq("id", invoice.id);
-      if (error) throw error;
+      if (payment) {
+        // Link payment to project
+        const { error } = await supabase
+          .from("project_payments")
+          .update({ project_id: projectId })
+          .eq("id", payment.id);
+        if (error) throw error;
+      } else if (invoice) {
+        // Link invoice to project
+        const { error } = await supabase
+          .from("project_invoices")
+          .update({ project_id: projectId })
+          .eq("id", invoice.id);
+        if (error) throw error;
 
-      // Auto-link any payments tied to this invoice
-      const { error: paymentError } = await supabase
-        .from("project_payments")
-        .update({ project_id: projectId })
-        .eq("invoice_id", invoice.id)
-        .is("project_id", null);
-      if (paymentError) {
-        console.warn("Failed to auto-link payments:", paymentError.message);
+        // Auto-link any payments tied to this invoice
+        const { error: paymentError } = await supabase
+          .from("project_payments")
+          .update({ project_id: projectId })
+          .eq("invoice_id", invoice.id)
+          .is("project_id", null);
+        if (paymentError) {
+          console.warn("Failed to auto-link payments:", paymentError.message);
+        }
       }
-
       return projectId;
     },
     onSuccess: (projectId) => {
-      toast.success("Invoice linked to project successfully");
+      toast.success(payment ? "Payment linked to project successfully" : "Invoice linked to project successfully");
       queryClient.invalidateQueries({ queryKey: ["analytics-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-payments"] });
       queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
       const project = projects.find(p => p.id === projectId);
-      if (projectId && project) {
+      if (payment) {
+        // No customer mapping flow for payments
+        onOpenChange(false);
+      } else if (projectId && project) {
         checkAndPromptCustomerMapping(projectId, project.project_name || '');
       } else {
         onOpenChange(false);
@@ -159,16 +175,21 @@ export function LinkInvoiceToProjectDialog({ open, onOpenChange, invoice, isQBCo
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Link2 className="h-5 w-5" />
-              Link Invoice to Project
+              {payment ? 'Link Payment to Project' : 'Link Invoice to Project'}
             </DialogTitle>
             <DialogDescription>
-              {invoice && (
+              {payment ? (
+                <>
+                  <span className="font-medium text-foreground">{payment.check_number ? `Check #${payment.check_number}` : 'Payment'}</span>
+                  <span> — {formatCurrency(payment.amount || 0)}</span>
+                </>
+              ) : invoice ? (
                 <>
                   <span className="font-medium text-foreground">{invoice.qb_customer_name || 'Unknown Customer'}</span>
                   {invoice.invoice_number && <span> — #{invoice.invoice_number}</span>}
                   <span> — {formatCurrency(invoice.amount || 0)}</span>
                 </>
-              )}
+              ) : null}
             </DialogDescription>
           </DialogHeader>
 

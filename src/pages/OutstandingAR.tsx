@@ -52,6 +52,11 @@ export default function OutstandingAR() {
     amount: number | null;
     open_balance: number | null;
   } | null>(null);
+  const [linkingPayment, setLinkingPayment] = useState<{
+    id: string;
+    check_number: string | null;
+    amount: number | null;
+  } | null>(null);
 
   const { invoicesWithAging, orphanPayments, isLoading } = useProductionAnalytics({
     dateRange: undefined,
@@ -146,6 +151,7 @@ export default function OutstandingAR() {
                     size="sm"
                     className="h-7 text-xs border-amber-500/30 hover:bg-amber-500/10"
                     onClick={() => {
+                      setLinkingPayment(null);
                       setLinkingInvoice({
                         id: inv.id,
                         invoice_number: inv.invoice_number,
@@ -184,7 +190,13 @@ export default function OutstandingAR() {
                     size="sm"
                     className="h-7 text-xs border-blue-500/30 hover:bg-blue-500/10"
                     onClick={() => {
-                      // Future: Open a LinkPaymentToProjectDialog
+                      setLinkingPayment({
+                        id: pmt.id,
+                        check_number: pmt.check_number || null,
+                        amount: pmt.payment_amount || null,
+                      });
+                      setLinkingInvoice(null);
+                      setLinkDialogOpen(true);
                     }}
                   >
                     <DollarSign className="h-3 w-3 mr-1" />
@@ -240,6 +252,7 @@ export default function OutstandingAR() {
                         onClick={() => {
                           if (!inv.project_id) {
                             // Open link dialog for unlinked invoices
+                            setLinkingPayment(null);
                             setLinkingInvoice({
                               id: inv.id,
                               invoice_number: inv.invoice_number,
@@ -299,11 +312,15 @@ export default function OutstandingAR() {
         </DataListCard>
       </div>
 
-      {/* Link Invoice to Project Dialog */}
+      {/* Link Invoice/Payment to Project Dialog */}
       <LinkInvoiceToProjectDialog
         open={linkDialogOpen}
-        onOpenChange={setLinkDialogOpen}
+        onOpenChange={(open) => {
+          setLinkDialogOpen(open);
+          if (!open) { setLinkingInvoice(null); setLinkingPayment(null); }
+        }}
         invoice={linkingInvoice}
+        payment={linkingPayment}
         isQBConnected={isQBConnected}
       />
     </AppLayout>
