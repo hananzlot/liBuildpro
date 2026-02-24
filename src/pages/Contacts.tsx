@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Database, HardDrive, Merge, Contact as ContactIcon } from "lucide-react";
+import { Database, HardDrive, Merge, Search, Contact as ContactIcon } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
 import { ContactsTable } from "@/components/dashboard/ContactsTable";
 import { ContactDetailSheet } from "@/components/dashboard/ContactDetailSheet";
 import { MergeContactsDialog } from "@/components/dashboard/MergeContactsDialog";
+import { DuplicateContactsDialog } from "@/components/dashboard/DuplicateContactsDialog";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -20,6 +21,8 @@ const Contacts = () => {
   const { isAdmin } = useAuth();
   const { isGHLEnabled } = useGHLMode();
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [mergePreselected, setMergePreselected] = useState<{ contactA: any; contactB: any } | undefined>();
 
   const {
     data: metrics,
@@ -65,6 +68,19 @@ const Contacts = () => {
     }
   };
 
+  const handleMergeFromDuplicates = (pair: { contactA: any; contactB: any }) => {
+    setDuplicateDialogOpen(false);
+    setMergePreselected(pair);
+    setMergeDialogOpen(true);
+  };
+
+  const handleMergeDialogClose = (open: boolean) => {
+    setMergeDialogOpen(open);
+    if (!open) {
+      setMergePreselected(undefined);
+    }
+  };
+
   const totalCount = metrics?.allContacts?.length ?? 0;
 
   if (error) {
@@ -98,6 +114,15 @@ const Contacts = () => {
           subtitle={isLoading ? "Loading..." : `${totalCount} total`}
           actions={
             <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => setDuplicateDialogOpen(true)}
+              >
+                <Search className="h-3.5 w-3.5 mr-1" />
+                Find Duplicates
+              </Button>
               {isAdmin && (
                 <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setMergeDialogOpen(true)}>
                   <Merge className="h-3.5 w-3.5 mr-1" />
@@ -168,13 +193,24 @@ const Contacts = () => {
         onRefresh={() => refetch()}
       />
 
-      {/* Merge Contacts Dialog */}
-      <MergeContactsDialog
-        open={mergeDialogOpen}
-        onOpenChange={setMergeDialogOpen}
+      {/* Duplicate Detection Dialog */}
+      <DuplicateContactsDialog
+        open={duplicateDialogOpen}
+        onOpenChange={setDuplicateDialogOpen}
         contacts={metrics?.allContacts || []}
         opportunities={metrics?.allOpportunities || []}
         appointments={metrics?.allAppointments || []}
+        onMerge={handleMergeFromDuplicates}
+      />
+
+      {/* Merge Contacts Dialog */}
+      <MergeContactsDialog
+        open={mergeDialogOpen}
+        onOpenChange={handleMergeDialogClose}
+        contacts={metrics?.allContacts || []}
+        opportunities={metrics?.allOpportunities || []}
+        appointments={metrics?.allAppointments || []}
+        preselectedContacts={mergePreselected}
       />
     </AppLayout>
   );
