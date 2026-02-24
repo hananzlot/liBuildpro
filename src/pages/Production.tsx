@@ -1882,14 +1882,14 @@ export default function Production() {
 
           {/* Projects Table */}
           <DataListCard>
-            <DataListCardHeader className="sticky top-14 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex flex-row items-center justify-between space-y-0 border-b border-border/50">
-              <div>
+            <DataListCardHeader className="sticky top-14 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex flex-row items-center justify-between space-y-0 border-b border-border/50 min-h-[52px]">
+              <div className="flex-shrink-0">
                 <h3 className="text-sm font-semibold text-foreground">Projects</h3>
                 <p className="text-xs text-muted-foreground">
                   {sortedAndFilteredProjects.length} project{sortedAndFilteredProjects.length !== 1 ? "s" : ""} found
                 </p>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {isAdmin && (
                   <Button
                     variant={showArchived ? "secondary" : "outline"}
