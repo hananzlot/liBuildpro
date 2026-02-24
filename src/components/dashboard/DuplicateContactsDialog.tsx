@@ -245,7 +245,7 @@ export function DuplicateContactsDialog({
             </p>
           </div>
         ) : (
-          <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
+          <div className="overflow-y-auto max-h-[60vh] -mx-6 px-6">
             <div className="space-y-3 pb-4">
               {duplicatePairs.map((pair, idx) => (
                 <div
@@ -323,7 +323,7 @@ export function DuplicateContactsDialog({
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </DialogContent>
     </Dialog>
