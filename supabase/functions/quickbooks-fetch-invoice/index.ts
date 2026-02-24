@@ -234,6 +234,7 @@ Deno.serve(async (req) => {
           total_expected: qbInvoice.TotalAmt || 0,
           payments_received: paymentsReceived,
           open_balance: openBalance,
+          qb_customer_name: customerName || null,
         })
         .select()
         .single();

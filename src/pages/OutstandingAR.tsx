@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProductionAnalytics } from "@/hooks/useProductionAnalytics";
 import { useAppTabs } from "@/contexts/AppTabsContext";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/ui/page-header";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { DataListCard, DataListCardHeader, DataListCardBody } from "@/components/ui/data-list-card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,8 +20,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn, formatCurrency } from "@/lib/utils";
-import { Printer, Search } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { Printer, Search, AlertTriangle, Link2 } from "lucide-react";
+import { LinkInvoiceToProjectDialog } from "@/components/production/analytics/LinkInvoiceToProjectDialog";
 
 function AgingBadge({ bucket }: { bucket: string }) {
   const intentMap: Record<string, "success" | "warning" | "danger"> = {
@@ -39,7 +41,16 @@ function AgingBadge({ bucket }: { bucket: string }) {
 export default function OutstandingAR() {
   const navigate = useNavigate();
   const { openTab } = useAppTabs();
+  const { companyId } = useCompanyContext();
   const [search, setSearch] = useState("");
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkingInvoice, setLinkingInvoice] = useState<{
+    id: string;
+    invoice_number: string | null;
+    qb_customer_name: string | null;
+    amount: number | null;
+    open_balance: number | null;
+  } | null>(null);
 
   const { invoicesWithAging, isLoading } = useProductionAnalytics({
     dateRange: undefined,
@@ -47,13 +58,34 @@ export default function OutstandingAR() {
     selectedSalespeople: [],
   });
 
+  // Check QB connection status
+  const { data: qbConnection } = useQuery({
+    queryKey: ["qb-connection-status", companyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("quickbooks_connections")
+        .select("is_active")
+        .eq("company_id", companyId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!companyId,
+  });
+  const isQBConnected = !!qbConnection?.is_active;
+
+  // Unlinked invoices (no project assigned)
+  const unlinkedInvoices = useMemo(() =>
+    invoicesWithAging.filter(inv => !inv.project_id),
+  [invoicesWithAging]);
+
   const filtered = useMemo(() => {
     const lower = search.toLowerCase();
     return invoicesWithAging.filter((inv) =>
       !search ||
       inv.project_name.toLowerCase().includes(lower) ||
       inv.phase_description?.toLowerCase().includes(lower) ||
-      String(inv.project_number).includes(lower)
+      String(inv.project_number).includes(lower) ||
+      inv.qb_customer_name?.toLowerCase().includes(lower)
     );
   }, [invoicesWithAging, search]);
 
@@ -87,6 +119,44 @@ export default function OutstandingAR() {
             Print
           </Button>
         </PageHeader>
+
+        {/* Unlinked Invoices Banner */}
+        {unlinkedInvoices.length > 0 && (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">
+                {unlinkedInvoices.length} invoice{unlinkedInvoices.length > 1 ? 's' : ''} synced from QuickBooks without a project link
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                These invoices need to be assigned to a project for proper tracking and collection management.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {unlinkedInvoices.map((inv) => (
+                  <Button
+                    key={inv.id}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs border-amber-500/30 hover:bg-amber-500/10"
+                    onClick={() => {
+                      setLinkingInvoice({
+                        id: inv.id,
+                        invoice_number: inv.invoice_number,
+                        qb_customer_name: inv.qb_customer_name,
+                        amount: inv.amount,
+                        open_balance: inv.open_balance,
+                      });
+                      setLinkDialogOpen(true);
+                    }}
+                  >
+                    <Link2 className="h-3 w-3 mr-1" />
+                    {inv.qb_customer_name || inv.invoice_number || 'Unknown'} — {formatCurrency(inv.open_balance || 0)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <DataListCard>
           <DataListCardHeader>
@@ -128,12 +198,35 @@ export default function OutstandingAR() {
                     {filtered.map((inv) => (
                       <TableRow
                         key={inv.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => inv.project_id && handleProjectClick(inv.project_id, inv.id)}
+                        className={`cursor-pointer hover:bg-muted/50 ${!inv.project_id ? 'bg-amber-500/5' : ''}`}
+                        onClick={() => {
+                          if (!inv.project_id) {
+                            // Open link dialog for unlinked invoices
+                            setLinkingInvoice({
+                              id: inv.id,
+                              invoice_number: inv.invoice_number,
+                              qb_customer_name: inv.qb_customer_name,
+                              amount: inv.amount,
+                              open_balance: inv.open_balance,
+                            });
+                            setLinkDialogOpen(true);
+                          } else {
+                            handleProjectClick(inv.project_id, inv.id);
+                          }
+                        }}
                       >
                         <TableCell className="font-medium">{inv.primary_salesperson || '-'}</TableCell>
                         <TableCell className="max-w-[200px]">
-                          <div className="truncate font-medium">{inv.project_name}</div>
+                          <div className="truncate font-medium">
+                            {!inv.project_id ? (
+                              <span className="text-amber-600 flex items-center gap-1">
+                                <Link2 className="h-3 w-3" />
+                                {inv.qb_customer_name || 'Unlinked'}
+                              </span>
+                            ) : (
+                              inv.project_name
+                            )}
+                          </div>
                           {inv.project_address && (
                             <div className="truncate text-xs text-muted-foreground">{inv.project_address}</div>
                           )}
@@ -167,6 +260,14 @@ export default function OutstandingAR() {
           </DataListCardBody>
         </DataListCard>
       </div>
+
+      {/* Link Invoice to Project Dialog */}
+      <LinkInvoiceToProjectDialog
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+        invoice={linkingInvoice}
+        isQBConnected={isQBConnected}
+      />
     </AppLayout>
   );
 }

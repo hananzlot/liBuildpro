@@ -4671,6 +4671,7 @@ export type Database = {
           payment_phase_id: string | null
           payments_received: number | null
           project_id: string | null
+          qb_customer_name: string | null
           total_expected: number | null
           updated_at: string | null
         }
@@ -4688,6 +4689,7 @@ export type Database = {
           payment_phase_id?: string | null
           payments_received?: number | null
           project_id?: string | null
+          qb_customer_name?: string | null
           total_expected?: number | null
           updated_at?: string | null
         }
@@ -4705,6 +4707,7 @@ export type Database = {
           payment_phase_id?: string | null
           payments_received?: number | null
           project_id?: string | null
+          qb_customer_name?: string | null
           total_expected?: number | null
           updated_at?: string | null
         }
