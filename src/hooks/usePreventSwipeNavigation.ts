@@ -7,8 +7,9 @@ import { useEffect } from "react";
 export function usePreventSwipeNavigation() {
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      // If this is a predominantly horizontal scroll (trackpad swipe)
-      if (Math.abs(e.deltaX) > 0) {
+      // Only intercept predominantly horizontal scrolls (trackpad swipe gestures).
+      // If deltaY is larger than deltaX this is a normal vertical scroll — leave it alone.
+      if (Math.abs(e.deltaX) > 0 && Math.abs(e.deltaX) >= Math.abs(e.deltaY)) {
         // Always prevent default to stop browser navigation gestures
         // The browser will still scroll horizontally within scrollable elements
         // because we only prevent the navigation, not the scroll
