@@ -85,6 +85,7 @@ const Index = () => {
   const [initialTaskGhlId, setInitialTaskGhlId] = useState<string | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [appointmentDetailSheetOpen, setAppointmentDetailSheetOpen] = useState(false);
+  const [openedFromActivity, setOpenedFromActivity] = useState(false);
   const [sourceManagementOpen, setSourceManagementOpen] = useState(false);
   const [adminCleanupOpen, setAdminCleanupOpen] = useState(false);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
@@ -648,6 +649,7 @@ const Index = () => {
             location_id: opp.location_id,
           });
           setInitialTaskGhlId(null);
+          setOpenedFromActivity(true);
           setActivitySheetOpen(false);
           setOppDetailSheetOpen(true);
         }} 
@@ -672,11 +674,13 @@ const Index = () => {
             location_id: opp.location_id,
           });
           setInitialTaskGhlId(task.ghl_id);
+          setOpenedFromActivity(true);
           setActivitySheetOpen(false);
           setOppDetailSheetOpen(true);
         }} 
         onAppointmentClick={appt => {
           setSelectedAppointment(appt);
+          setOpenedFromActivity(true);
           setActivitySheetOpen(false);
           setAppointmentDetailSheetOpen(true);
         }} 
@@ -691,8 +695,14 @@ const Index = () => {
         open={oppDetailSheetOpen} 
         onOpenChange={open => {
           setOppDetailSheetOpen(open);
-          if (!open) setInitialTaskGhlId(null);
-        }} 
+          if (!open) {
+            setInitialTaskGhlId(null);
+            if (openedFromActivity) {
+              setOpenedFromActivity(false);
+              setActivitySheetOpen(true);
+            }
+          }
+        }}
         allOpportunities={metrics?.allOpportunities || []} 
         initialTaskGhlId={initialTaskGhlId} 
       />
@@ -736,7 +746,13 @@ const Index = () => {
         contacts={metrics?.allContacts || []} 
         users={metrics?.users || []} 
         open={appointmentDetailSheetOpen} 
-        onOpenChange={setAppointmentDetailSheetOpen} 
+        onOpenChange={open => {
+          setAppointmentDetailSheetOpen(open);
+          if (!open && openedFromActivity) {
+            setOpenedFromActivity(false);
+            setActivitySheetOpen(true);
+          }
+        }}
         opportunities={metrics?.allOpportunities || []} 
       />
 
