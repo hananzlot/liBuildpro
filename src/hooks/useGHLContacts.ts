@@ -102,6 +102,7 @@ interface DBTask {
   id: string;
   ghl_id: string;
   contact_id: string;
+  contact_uuid: string | null;
   title: string;
   body: string | null;
   due_date: string | null;

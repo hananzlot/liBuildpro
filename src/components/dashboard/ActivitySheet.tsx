@@ -46,6 +46,7 @@ interface DBTask {
   id: string;
   ghl_id: string;
   contact_id: string;
+  contact_uuid?: string | null;
   title: string;
   body: string | null;
   due_date: string | null;
@@ -157,6 +158,43 @@ const getContactName = (contact: DBContact | undefined): string => {
     "Unknown";
 };
 
+const stripLocalPrefix = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  return value.replace(/^local_(?:contact|opp|opportunity)_/i, "");
+};
+
+const resolveContact = (
+  contacts: DBContact[],
+  refs: Array<string | null | undefined>
+): DBContact | undefined => {
+  for (const ref of refs) {
+    if (!ref) continue;
+    const normalizedRef = stripLocalPrefix(ref) || ref;
+    const found = findContactByIdOrGhlId(contacts, normalizedRef, ref)
+      || findContactByIdOrGhlId(contacts, normalizedRef, normalizedRef);
+    if (found) return found;
+  }
+  return undefined;
+};
+
+const resolveTaskOpportunity = (
+  task: DBTask,
+  opportunities: DBOpportunity[],
+  contact?: DBContact
+): DBOpportunity | undefined => {
+  const rawContactId = task.contact_id;
+  const normalizedContactId = stripLocalPrefix(rawContactId);
+  const contactUuid = task.contact_uuid || contact?.id || null;
+  const contactGhlId = contact?.ghl_id || rawContactId;
+
+  return opportunities.find(opp => {
+    if (contactUuid && (opp.contact_uuid === contactUuid || opp.contact_id === contactUuid)) return true;
+    if (contactGhlId && opp.contact_id === contactGhlId) return true;
+    if (normalizedContactId && (opp.contact_uuid === normalizedContactId || opp.contact_id === normalizedContactId)) return true;
+    return false;
+  });
+};
+
 const getUserName = (userId: string | null, users: DBUser[], profiles?: DBProfile[], salespeople?: DBSalesperson[]): string => {
   if (!userId) return "Unassigned";
   // Try GHL users first (by ghl_id or UUID)
@@ -175,6 +213,12 @@ const getUserName = (userId: string | null, users: DBUser[], profiles?: DBProfil
     const profile = profiles.find(p => p.id === userId);
     if (profile) return profile.full_name || profile.email?.split('@')[0] || "Unknown";
   }
+
+  // If a plain-text assignee was saved, show it instead of "Unknown"
+  if (/\s|@/.test(userId)) {
+    return userId;
+  }
+
   return "Unknown";
 };
 
@@ -930,11 +974,11 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   taskActivityItems.map(({ task, activity }) => {
-                    const contact = findContactByIdOrGhlId(contacts, task.contact_id, task.contact_id);
+                    const contact = resolveContact(contacts, [task.contact_uuid, task.contact_id]);
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
-                    const relatedOpp = findContactByIdOrGhlId(editedOpportunities, undefined, task.contact_id) as DBOpportunity | undefined
-                      || allOpportunities.find(o => o.contact_id === task.contact_id);
+                    const relatedOpp = resolveTaskOpportunity(task, editedOpportunities, contact)
+                      || resolveTaskOpportunity(task, allOpportunities, contact);
                     const actorName = getCreatorName(activity.editedBy, profiles, users);
                     return (
                       <Card 
