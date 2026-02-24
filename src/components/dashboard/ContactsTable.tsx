@@ -191,16 +191,7 @@ export function ContactsTable({
                   <SortIcon field="email" />
                 </div>
               </TableHead>
-              <TableHead 
-                className="w-[16%] cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('phone')}
-              >
-                <div className="flex items-end gap-0.5">
-                  Phone
-                  <SortIcon field="phone" />
-                </div>
-              </TableHead>
-              <TableHead className="w-[18%]">Address</TableHead>
+              <TableHead className="w-[18%]">Address / Phone</TableHead>
               <TableHead 
                 className="w-[12%] cursor-pointer hover:bg-muted/50"
                 onClick={() => handleSort('source')}
@@ -216,7 +207,7 @@ export function ContactsTable({
           <TableBody>
             {sortedContacts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isUnified ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={isUnified ? 6 : 5} className="text-center py-8 text-muted-foreground">
                   No contacts found
                 </TableCell>
               </TableRow>
@@ -256,29 +247,28 @@ export function ContactsTable({
                       )}
                     </TableCell>
                     <TableCell>
-                      {contact.phone ? (
-                        <a 
-                          href={`tel:${contact.phone}`}
-                          className="flex items-center gap-1.5 text-primary hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Phone className="h-3.5 w-3.5" />
-                          {formatPhoneNumber(contact.phone)}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                      <div className="space-y-0.5">
+                        {address ? (
+                          <div className="flex items-center gap-1.5 text-sm max-w-[200px] truncate">
+                            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            {address}
+                          </div>
+                        ) : null}
+                        {contact.phone ? (
+                          <a 
+                            href={`tel:${contact.phone}`}
+                            className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Phone className="h-3 w-3 shrink-0" />
+                            {formatPhoneNumber(contact.phone)}
+                          </a>
+                        ) : null}
+                        {!address && !contact.phone && (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </div>
                     </TableCell>
-                   <TableCell className="whitespace-nowrap">
-                       {address ? (
-                         <div className="flex items-center gap-1.5 text-sm max-w-[200px] truncate">
-                           <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                           {address}
-                         </div>
-                       ) : (
-                         <span className="text-muted-foreground">—</span>
-                       )}
-                     </TableCell>
                     <TableCell>
                       {contact.source ? (
                         <BadgePill intent="info">
