@@ -64,6 +64,7 @@ export interface InvoiceWithAging {
   daysOutstanding: number;
   agingBucket: '0-30' | '31-60' | '61-90' | '90+';
   phase_description: string | null;
+  qb_customer_name: string | null;
 }
 
 export interface BankTransaction {
@@ -188,7 +189,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         const { data, error } = await supabase
           .from("project_invoices")
           .select(`
-            id, project_id, invoice_number, invoice_date, amount, payments_received, open_balance,
+            id, project_id, invoice_number, invoice_date, amount, payments_received, open_balance, qb_customer_name,
             payment_phase:project_payment_phases(phase_name, description)
           `)
           .eq("company_id", companyId)
@@ -455,9 +456,12 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     const filteredProjectIds = new Set(filteredProjects.map(p => p.id));
     
     return invoices
-      .filter(inv => inv.project_id && filteredProjectIds.has(inv.project_id) && (inv.open_balance || 0) > 0)
+      .filter(inv => (inv.open_balance || 0) > 0 && (
+        // Include invoices linked to filtered projects OR unlinked invoices (no project_id)
+        (inv.project_id && filteredProjectIds.has(inv.project_id)) || !inv.project_id
+      ))
       .map(inv => {
-        const project = projects.find(p => p.id === inv.project_id);
+        const project = inv.project_id ? projects.find(p => p.id === inv.project_id) : null;
         const daysOutstanding = inv.invoice_date 
           ? Math.floor((Date.now() - new Date(inv.invoice_date).getTime()) / (1000 * 60 * 60 * 24))
           : 0;
@@ -472,7 +476,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         return {
           id: inv.id,
           project_id: inv.project_id,
-          project_name: project?.project_name || 'Unknown',
+          project_name: project?.project_name || (inv.project_id ? 'Unknown' : 'Unlinked Invoice'),
           project_number: project?.project_number || 0,
           project_address: project?.project_address || null,
           primary_salesperson: project?.primary_salesperson || null,
@@ -484,6 +488,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
           daysOutstanding,
           agingBucket,
           phase_description: paymentPhase?.description || paymentPhase?.phase_name || null,
+          qb_customer_name: (inv as any).qb_customer_name || null,
         };
       })
       .sort((a, b) => b.daysOutstanding - a.daysOutstanding);
