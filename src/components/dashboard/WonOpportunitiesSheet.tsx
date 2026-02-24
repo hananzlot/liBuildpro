@@ -82,6 +82,7 @@ interface DBContact {
 }
 
 interface DBUser {
+  id?: string;
   ghl_id: string;
   name: string | null;
   first_name: string | null;
@@ -134,7 +135,8 @@ export function WonOpportunitiesSheet({
   const userMap = new Map<string, string>();
   users.forEach((u) => {
     const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
-    userMap.set(u.ghl_id, displayName);
+    if (u.ghl_id) userMap.set(u.ghl_id, displayName);
+    if (u.id) userMap.set(u.id, displayName); // UUID fallback
   });
 
   const contactMap = new Map<string, DBContact>();
