@@ -213,6 +213,14 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     if (linkEl.closest('[data-sidebar="menu-button"], [data-sidebar="menu-sub-button"]')) closeSidebar();
   };
 
+  const handleSidebarContentWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    const container = event.currentTarget;
+    // Reverse scroll direction for the side menu only:
+    // wheel down scrolls up, wheel up scrolls down.
+    container.scrollTop -= event.deltaY;
+    event.preventDefault();
+  };
+
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
   const handleLogout = async () => { await signOut(); toast.success("Signed out successfully"); };
@@ -562,7 +570,11 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       </SidebarHeader>
 
       {/* ─── Main navigation ─── */}
-      <SidebarContent onClickCapture={handleSidebarContentClickCapture} className="py-1">
+      <SidebarContent
+        onClickCapture={handleSidebarContentClickCapture}
+        onWheel={handleSidebarContentWheel}
+        className="py-1"
+      >
         {visibleSections.map((section) => {
           const items = section.items.filter(canViewItem);
           if (!items.length) return null;
