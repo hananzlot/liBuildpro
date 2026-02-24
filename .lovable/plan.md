@@ -1,68 +1,68 @@
 
 
-## Plan: Backfill `created_at` from `ghl_date_added` + Use `created_at` as Primary Date
+## Why Demo Co #1's KPI Shows No Records
 
-### Step 1: Data Backfill (SQL — run via data update tool)
+**Root Cause**: All 1,176 opportunities for Demo Co #1 have `contact_uuid` (the internal UUID) but **zero** have `contact_id` (the GHL ID). The source chart and opportunity-by-source logic in `processMetrics` maps opportunities to contacts using `o.contact_id` matched against `c.ghl_id`. Since `contact_id` is null for all Demo Co #1 opportunities, every opportunity fails the `if (o.contact_id)` check and is skipped entirely.
 
-Update `created_at` on all three tables (opportunities, contacts, appointments) to match `ghl_date_added` where `ghl_date_added` is not null. This ensures legacy records have accurate `created_at` values reflecting the original creation date rather than the sync import date.
+CA Pro Builders works because its opportunities were synced from GHL and have `contact_id` populated.
 
-```sql
--- Opportunities
-UPDATE opportunities SET created_at = ghl_date_added WHERE ghl_date_added IS NOT NULL;
+---
 
--- Contacts  
-UPDATE contacts SET created_at = ghl_date_added WHERE ghl_date_added IS NOT NULL;
+## Plan: Fix Source Attribution to Use Both `contact_id` and `contact_uuid`
 
--- Appointments
-UPDATE appointments SET created_at = ghl_date_added WHERE ghl_date_added IS NOT NULL;
+### File: `src/hooks/useGHLContacts.ts`
+
+**Change 1: Expand `contactSourceMap` to include UUID-based lookups** (~line 933-936)
+
+Currently:
+```typescript
+const contactSourceMap = new Map<string, string>();
+contacts.forEach((c) => {
+  contactSourceMap.set(c.ghl_id, normalizeSourceName(c.source || "Direct"));
+});
 ```
 
-### Step 2: Code Changes
+Update to also map by contact UUID (`c.id`):
+```typescript
+const contactSourceMap = new Map<string, string>();
+contacts.forEach((c) => {
+  const normalized = normalizeSourceName(c.source || "Direct");
+  contactSourceMap.set(c.ghl_id, normalized);
+  contactSourceMap.set(c.id, normalized);  // Also map by UUID
+});
+```
 
-**File: `src/hooks/useGHLContacts.ts`**
+**Change 2: Update all opportunity source lookups to fall back to `contact_uuid`**
 
-1. **Add `created_at` to `DBOpportunity` interface** (~line 30-51): Add `created_at?: string | null` field (it's missing, unlike DBContact and DBAppointment which already have it).
+There are ~6 places in `processMetrics` where opportunities are grouped by source using `o.contact_id`. Each needs a fallback to `o.contact_uuid`:
 
-2. **Update `filterByDateRange` helper** (~line 502-519): Change the generic constraint and default logic to use `created_at` with fallback to `ghl_date_added`:
-   ```typescript
-   function filterByDateRange<T extends { created_at?: string | null; ghl_date_added?: string | null }>(
-     items: T[],
-     dateRange?: DateRange,
-   ): T[] {
-     if (!dateRange?.from) return items;
-     const startDate = dateRange.from;
-     const endDate = dateRange.to || new Date();
-     endDate.setHours(23, 59, 59, 999);
-     return items.filter((item) => {
-       const dateValue = item.created_at || item.ghl_date_added;
-       if (!dateValue) return false;
-       const date = new Date(dateValue as string);
-       return date >= startDate && date <= endDate;
-     });
-   }
-   ```
+- **Won by source** (~line 940): `const source = contactSourceMap.get(o.contact_id) || ...`
+- **Opportunities by source** (~line 960): same pattern
+- **Appointments by source** lookups
+- **Opps without appointments by source**
 
-3. **Update opportunity date filtering** (~line 564-574): Use `created_at || ghl_date_added`:
-   ```typescript
-   const oppDate = opp.created_at || opp.ghl_date_added;
-   ```
+For each, change the pattern from:
+```typescript
+if (o.contact_id) {
+  const source = contactSourceMap.get(o.contact_id) || "Direct";
+```
+To:
+```typescript
+const contactKey = o.contact_id || o.contact_uuid;
+if (contactKey) {
+  const source = contactSourceMap.get(contactKey) || "Direct";
+```
 
-4. **Update contact date map** (~line 559-561): Use `created_at` with fallback:
-   ```typescript
-   contactDateMap.set(c.ghl_id, c.created_at || c.ghl_date_added || null);
-   ```
+**Change 3: Update contact-based appointment lookups** similarly, so `contactAssignmentMap` and `appointmentAssignmentMap` also index by UUID.
 
-**File: `src/components/dashboard/SalesRepDetailSheet.tsx`**
+### Technical Detail
 
-5. **Add `created_at` to Opportunity interface** (~line 22-37): Add `created_at?: string | null`.
+This affects the following computed metrics:
+- `opportunitiesBySource` (the "Opportunities by Source" chart)
+- `wonBySource` (the "Won By Source" chart)
+- `appointmentsBySource`
+- `oppsWithoutAppointmentsBySource`
+- `salesRepPerformance` (where effective assignment uses contact lookups)
 
-6. **Add `created_at` to Appointment interface** (~line 39-51): Add `created_at?: string | null`.
-
-7. **Update opportunity date filter** (~line 157): Change from `isInDateRange(o.ghl_date_added)` to `isInDateRange(o.created_at || o.ghl_date_added)`.
-
-8. **Update appointment date filter** (~line 166): Change from `isInDateRange(a.start_time)` to `isInDateRange(a.created_at || a.start_time)`.
-
-### Summary
-
-After the backfill, `created_at` will equal `ghl_date_added` for all existing records. Going forward, new records will get `created_at` set at insert time (by DB default), and `ghl_date_added` from GHL sync. The code will always prefer `created_at`, falling back to `ghl_date_added` only when `created_at` is null.
+No database changes needed. No migration required. This is purely a code-level fix to support contacts/opportunities that were created locally (without GHL sync) and therefore only have UUIDs.
 
