@@ -120,7 +120,10 @@ export function OpportunitiesSheet({
   });
 
   const contactMap = new Map<string, DBContact>();
-  contacts.forEach((c) => contactMap.set(c.ghl_id, c));
+  contacts.forEach((c) => {
+    if (c.ghl_id) contactMap.set(c.ghl_id, c);
+    contactMap.set(c.id, c); // UUID fallback
+  });
 
   // Calculate status counts
   const statusCounts = useMemo(() => ({
@@ -142,7 +145,7 @@ export function OpportunitiesSheet({
     if (searchFilter.trim()) {
       const searchTerm = searchFilter.toLowerCase().trim();
       filtered = filtered.filter((opp) => {
-        const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+        const contact = (opp.contact_id && contactMap.get(opp.contact_id)) || (opp.contact_uuid && contactMap.get(opp.contact_uuid)) || null;
         const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
         const source = contact?.source || "";
         const oppName = opp.name || "";
@@ -215,7 +218,7 @@ export function OpportunitiesSheet({
               </p>
             ) : (
               filteredOpportunities.map((opp) => {
-                const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+                const contact = (opp.contact_id && contactMap.get(opp.contact_id)) || (opp.contact_uuid && contactMap.get(opp.contact_uuid)) || null;
                 const salesPerson = opp.assigned_to ? userMap.get(opp.assigned_to) : null;
                 const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
                 const scopeOfWork = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK) : null;
