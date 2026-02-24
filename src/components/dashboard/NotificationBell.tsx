@@ -24,7 +24,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNotifications } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 
-type NotificationType = "reminder" | "overdue_invoice" | "overdue_task" | "stale_opportunity" | "bill_due" | "proposal_activity";
+type NotificationType = "reminder" | "overdue_invoice" | "overdue_task" | "stale_opportunity" | "bill_due" | "proposal_activity" | "unlinked_bill";
 type FilterTab = "all" | "appointments" | "financial" | "tasks";
 
 const typeConfig: Record<NotificationType, { icon: typeof Bell; bg: string; text: string }> = {
@@ -34,16 +34,17 @@ const typeConfig: Record<NotificationType, { icon: typeof Bell; bg: string; text
   stale_opportunity: { icon: AlertTriangle, bg: "bg-yellow-500/20", text: "text-yellow-600" },
   bill_due: { icon: Receipt, bg: "bg-violet-500/20", text: "text-violet-500" },
   proposal_activity: { icon: FileText, bg: "bg-emerald-500/20", text: "text-emerald-500" },
+  unlinked_bill: { icon: AlertTriangle, bg: "bg-destructive/20", text: "text-destructive" },
 };
 
 const tabFilters: Record<FilterTab, NotificationType[]> = {
   all: [],
   appointments: ["reminder"],
-  financial: ["overdue_invoice", "bill_due", "proposal_activity"],
+  financial: ["overdue_invoice", "bill_due", "proposal_activity", "unlinked_bill"],
   tasks: ["overdue_task", "stale_opportunity"],
 };
 
-const actionableTypes: NotificationType[] = ["stale_opportunity", "overdue_task", "overdue_invoice", "bill_due"];
+const actionableTypes: NotificationType[] = ["stale_opportunity", "overdue_task", "overdue_invoice", "bill_due", "unlinked_bill"];
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
