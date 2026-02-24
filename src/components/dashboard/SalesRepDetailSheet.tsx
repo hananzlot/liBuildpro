@@ -28,6 +28,7 @@ interface Opportunity {
   contact_id: string | null;
   contact_uuid?: string | null;
   assigned_to: string | null;
+  created_at?: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
   stage_name: string | null;
@@ -47,6 +48,7 @@ interface Appointment {
   contact_id: string | null;
   contact_uuid?: string | null;
   assigned_user_id: string | null;
+  created_at?: string | null;
   address?: string | null;
 }
 
@@ -154,7 +156,7 @@ export function SalesRepDetailSheet({
   // Get opportunities directly assigned to this rep (no fallback chain)
   const repOpportunities = useMemo(() => {
     return opportunities.filter(o => 
-      o.assigned_to === repId && isInDateRange(o.ghl_date_added)
+      o.assigned_to === repId && isInDateRange(o.created_at || o.ghl_date_added)
     );
   }, [opportunities, repId, dateRange]);
 
@@ -164,7 +166,7 @@ export function SalesRepDetailSheet({
   }, [contacts, repId, dateRange]);
 
   const repAppointments = useMemo(() => {
-    return appointments.filter(a => a.assigned_user_id === repId && isInDateRange(a.start_time));
+    return appointments.filter(a => a.assigned_user_id === repId && isInDateRange(a.created_at || a.start_time));
   }, [appointments, repId, dateRange]);
 
   // Calculate unique contacts across all activities (opportunities + appointments)

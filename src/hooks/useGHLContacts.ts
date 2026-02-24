@@ -43,6 +43,7 @@ interface DBOpportunity {
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
+  created_at: string | null;
   updated_at: string | null;
   won_at: string | null;
   address: string | null;
@@ -499,10 +500,9 @@ async function syncGHL2(): Promise<{ contactsImported: number; opportunitiesImpo
   };
 }
 
-function filterByDateRange<T extends { ghl_date_added?: string | null }>(
+function filterByDateRange<T extends { created_at?: string | null; ghl_date_added?: string | null }>(
   items: T[],
   dateRange?: DateRange,
-  dateField: keyof T = "ghl_date_added" as keyof T,
 ): T[] {
   if (!dateRange?.from) return items;
 
@@ -511,7 +511,7 @@ function filterByDateRange<T extends { ghl_date_added?: string | null }>(
   endDate.setHours(23, 59, 59, 999);
 
   return items.filter((item) => {
-    const dateValue = item[dateField];
+    const dateValue = item.created_at || item.ghl_date_added;
     if (!dateValue) return false;
     const date = new Date(dateValue as string);
     return date >= startDate && date <= endDate;
@@ -557,13 +557,13 @@ function processMetrics(
   // Create contact date lookup map for filtering opportunities by contact date
   const contactDateMap = new Map<string, string | null>();
   contacts.forEach((c) => {
-    contactDateMap.set(c.ghl_id, c.ghl_date_added || null);
+    contactDateMap.set(c.ghl_id, c.created_at || c.ghl_date_added || null);
   });
 
   // Filter opportunities by their own creation date (ghl_date_added)
   const filteredOpportunities = dateRange?.from
     ? opportunities.filter((opp) => {
-        const oppDate = opp.ghl_date_added;
+        const oppDate = opp.created_at || opp.ghl_date_added;
         if (!oppDate) return false;
         const date = new Date(oppDate);
         const startDate = dateRange.from!;
