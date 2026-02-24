@@ -112,11 +112,23 @@ export function LinkInvoiceToProjectDialog({ open, onOpenChange, invoice, isQBCo
   const linkMutation = useMutation({
     mutationFn: async (projectId: string) => {
       if (!invoice) return;
+      // Link invoice to project
       const { error } = await supabase
         .from("project_invoices")
         .update({ project_id: projectId })
         .eq("id", invoice.id);
       if (error) throw error;
+
+      // Auto-link any payments tied to this invoice
+      const { error: paymentError } = await supabase
+        .from("project_payments")
+        .update({ project_id: projectId })
+        .eq("invoice_id", invoice.id)
+        .is("project_id", null);
+      if (paymentError) {
+        console.warn("Failed to auto-link payments:", paymentError.message);
+      }
+
       return projectId;
     },
     onSuccess: (projectId) => {

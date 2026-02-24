@@ -208,7 +208,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       return fetchAllPages(async (from, to) => {
         const { data, error } = await supabase
           .from("project_payments")
-          .select("id, project_id, payment_amount, payment_status, bank_name, bank_id, projected_received_date, payment_schedule")
+          .select("id, project_id, invoice_id, payment_amount, payment_status, bank_name, bank_id, projected_received_date, payment_schedule, check_number")
           .eq("company_id", companyId)
           .range(from, to);
         if (error) throw error;
@@ -780,12 +780,18 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     return timeline;
   }, [totals.cashPosition, scheduledPayments, payments, projects]);
 
+  // Orphan payments: payments with no project_id (unlinked)
+  const orphanPayments = useMemo(() => {
+    return payments.filter(p => !p.project_id && p.payment_status === 'Received');
+  }, [payments]);
+
   return {
     isLoading: loadingProjects,
     projects: projectsWithFinancials,
     allProjects: projects,
     allSalespeople,
     invoicesWithAging,
+    orphanPayments,
     bankTransactions,
     commissionSummary,
     commissionPayments: commissionPayments.filter(cp => 
