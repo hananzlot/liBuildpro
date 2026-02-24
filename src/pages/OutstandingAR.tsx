@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useProductionAnalytics } from "@/hooks/useProductionAnalytics";
 import { useAppTabs } from "@/contexts/AppTabsContext";
@@ -42,6 +42,7 @@ export default function OutstandingAR() {
   const navigate = useNavigate();
   const { openTab } = useAppTabs();
   const { companyId } = useCompanyContext();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkingInvoice, setLinkingInvoice] = useState<{
@@ -57,6 +58,11 @@ export default function OutstandingAR() {
     selectedProjects: [],
     selectedSalespeople: [],
   });
+
+  // Force fresh data on mount to avoid stale persistent cache
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["analytics-invoices"] });
+  }, [queryClient]);
 
   // Check QB connection status
   const { data: qbConnection } = useQuery({
