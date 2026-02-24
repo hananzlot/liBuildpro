@@ -1,20 +1,34 @@
 
 
-## Backfill Single Conversation Record
+## Add Debug Button to Contact Detail Sheet
 
-**What we'll do**: Update one row in `conversations` to set `contact_uuid` from the matching contact.
+**What**: Add the same "Debug" button (super admin only) to the Contact Detail Sheet header, matching the pattern used in the Opportunity Detail Sheet. It will copy the contact's key IDs to the clipboard.
 
-**SQL (data update via insert tool)**:
-```sql
-UPDATE conversations
-SET contact_uuid = 'c44d5dd3-1c2c-4bc4-8465-bb347a2ef6ec'
-WHERE id = '0ed5ad82-eb3f-411d-ade4-b9ae2464a7fd';
+**Where**: `src/components/dashboard/ContactDetailSheet.tsx`, in the header area (around line 601), alongside the existing action buttons.
+
+**Changes**:
+
+1. **Import `Copy` icon** from lucide-react (if not already imported)
+2. **Destructure `isSuperAdmin`** from `useAuth()` (line 261 — currently only destructures `isAdmin, user, companyId`)
+3. **Add Debug button** in the header actions div (line 601), before the "Create Opportunity" button:
+
+```tsx
+{isSuperAdmin && (
+  <Button
+    variant="ghost"
+    size="sm"
+    className="h-7 px-2 text-muted-foreground"
+    onClick={() => {
+      const debugInfo = `UUID: ${localContact.id}\nGHL ID: ${localContact.ghl_id}\nEmail: ${localContact.email}\nPhone: ${localContact.phone}\nAssigned To: ${localContact.assigned_to}`;
+      navigator.clipboard.writeText(debugInfo);
+      toast({ title: "Debug info copied to clipboard" });
+    }}
+  >
+    <Copy className="h-3.5 w-3.5 mr-1" />
+    Debug
+  </Button>
+)}
 ```
 
-**Record being updated**:
-- **Conversation ID**: `0ed5ad82-eb3f-411d-ade4-b9ae2464a7fd`
-- **Legacy contact_id**: `BqPEbSOXMSQjxQw0Pqx0`
-- **New contact_uuid**: `c44d5dd3-1c2c-4bc4-8465-bb347a2ef6ec` (Jj Rod)
-
-**No code changes** — this is a single data update so you can verify the UI behavior.
+**Debug info copied**: UUID, GHL ID, email, phone, and assigned_to — the key identifiers needed to trace mapping issues like the conversation backfill.
 
