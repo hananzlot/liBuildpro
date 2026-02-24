@@ -258,7 +258,7 @@ export function ContactDetailSheet({
 }: ContactDetailSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAdmin, user, companyId } = useAuth();
+  const { isAdmin, isSuperAdmin, user, companyId } = useAuth();
   const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ contact: true });
   const [isDeleting, setIsDeleting] = useState(false);
@@ -599,6 +599,21 @@ export function ContactDetailSheet({
                 {contactName}
               </SheetTitle>
               <div className="flex items-center gap-2">
+                {isSuperAdmin && localContact && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-muted-foreground"
+                    onClick={() => {
+                      const debugInfo = `UUID: ${localContact.id}\nGHL ID: ${localContact.ghl_id}\nEmail: ${localContact.email}\nPhone: ${localContact.phone}\nAssigned To: ${localContact.assigned_to}`;
+                      navigator.clipboard.writeText(debugInfo);
+                      toast({ title: "Debug info copied to clipboard" });
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1" />
+                    Debug
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   size="sm" 
