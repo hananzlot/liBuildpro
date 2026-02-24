@@ -975,7 +975,18 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   taskActivityItems.map(({ task, activity }) => {
-                    const contact = resolveContact(contacts, [task.contact_uuid, task.contact_id]);
+                    let contact = resolveContact(contacts, [task.contact_uuid, task.contact_id]);
+                    // For orphan tasks, try to find contact by name extracted from title
+                    if (!contact && task.title) {
+                      const nameMatch = task.title.match(/^Follow up:\s*(.+)/i);
+                      if (nameMatch) {
+                        const nameFromTitle = nameMatch[1].trim().toLowerCase();
+                        contact = contacts.find(c => {
+                          const fullName = (c.contact_name || `${c.first_name || ""} ${c.last_name || ""}`.trim()).toLowerCase();
+                          return fullName === nameFromTitle;
+                        });
+                      }
+                    }
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
                     const relatedOpp = resolveTaskOpportunity(task, editedOpportunities, contact)
