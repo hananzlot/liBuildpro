@@ -38,7 +38,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn, formatCurrencyWithDecimals } from "@/lib/utils";
-import { Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2, Info, ChevronUp, ChevronDown, RotateCcw, AlertTriangle } from "lucide-react";
+import { Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2, Info, ChevronUp, ChevronDown, RotateCcw, AlertTriangle, Link2 } from "lucide-react";
 import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import { SchedulePaymentDialog } from "@/components/production/analytics/SchedulePaymentDialog";
@@ -46,6 +46,7 @@ import { MarkAsPaidDialog } from "@/components/production/analytics/MarkAsPaidDi
 import { EditBillPaymentDialog } from "@/components/production/analytics/EditBillPaymentDialog";
 import { QBBillSelectionDialog } from "@/components/production/analytics/QBBillSelectionDialog";
 import { QBCustomerMappingDialog } from "@/components/production/analytics/QBCustomerMappingDialog";
+import { LinkBillToProjectDialog } from "@/components/production/analytics/LinkBillToProjectDialog";
 
 // Type for voided bill records
 interface VoidedBillRecord {
@@ -159,6 +160,8 @@ export default function OutstandingAP() {
     customerName: string | null;
     projectAddress: string | null;
   } | null>(null);
+  const [linkBillDialogOpen, setLinkBillDialogOpen] = useState(false);
+  const [linkingBill, setLinkingBill] = useState<{ id: string; vendor: string | null; bill_ref: string | null; amount_due: number; total_bill: number } | null>(null);
 
   const { payablesWithCashImpact, isLoading } = useProductionAnalytics({
     dateRange: undefined,
@@ -441,6 +444,11 @@ export default function OutstandingAP() {
   // Calculate scheduled count for tab badge
   const scheduledCount = useMemo(() => 
     payablesWithCashImpact.filter(p => p.scheduled_payment_date).length,
+  [payablesWithCashImpact]);
+
+  // Unlinked bills (no project assigned)
+  const unlinkedBills = useMemo(() => 
+    payablesWithCashImpact.filter(p => !p.project_id),
   [payablesWithCashImpact]);
 
   // Group payables by project when groupByProject is true
@@ -927,6 +935,44 @@ export default function OutstandingAP() {
             Print
           </Button>
         </PageHeader>
+
+        {/* Unlinked Bills Banner */}
+        {unlinkedBills.length > 0 && (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">
+                {unlinkedBills.length} bill{unlinkedBills.length > 1 ? 's' : ''} synced from QuickBooks without a project link
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                These bills need to be assigned to a project for proper tracking and cash impact calculations.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {unlinkedBills.map((bill) => (
+                  <Button
+                    key={bill.id}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs border-amber-500/30 hover:bg-amber-500/10"
+                    onClick={() => {
+                      setLinkingBill({
+                        id: bill.id,
+                        vendor: bill.vendor,
+                        bill_ref: bill.bill_ref,
+                        amount_due: bill.amount_due,
+                        total_bill: bill.total_bill,
+                      });
+                      setLinkBillDialogOpen(true);
+                    }}
+                  >
+                    <Link2 className="h-3 w-3 mr-1" />
+                    {bill.vendor || 'Unknown'} — {formatCurrencyWithDecimals(bill.amount_due)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'all' | 'scheduled' | 'paid' | 'voided')} className="w-full">
           <TabsList className="mb-4">
@@ -1880,6 +1926,13 @@ export default function OutstandingAP() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Link Bill to Project Dialog */}
+      <LinkBillToProjectDialog
+        open={linkBillDialogOpen}
+        onOpenChange={setLinkBillDialogOpen}
+        bill={linkingBill}
+      />
     </AppLayout>
   );
 }
