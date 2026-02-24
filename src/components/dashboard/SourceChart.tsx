@@ -30,6 +30,7 @@ interface Opportunity {
   status: string | null;
   monetary_value: number | null;
   contact_id: string | null;
+  contact_uuid: string | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
@@ -49,6 +50,7 @@ interface Appointment {
   end_time: string | null;
   notes: string | null;
   contact_id: string | null;
+  contact_uuid: string | null;
   assigned_user_id: string | null;
 }
 

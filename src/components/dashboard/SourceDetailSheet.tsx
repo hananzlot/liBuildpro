@@ -77,6 +77,7 @@ interface Opportunity {
   status: string | null;
   monetary_value: number | null;
   contact_id: string | null;
+  contact_uuid: string | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
@@ -98,6 +99,7 @@ interface Appointment {
   end_time: string | null;
   notes: string | null;
   contact_id: string | null;
+  contact_uuid: string | null;
   assigned_user_id: string | null;
 }
 
@@ -299,7 +301,7 @@ export function SourceDetailSheet({
   const openTaskDialog = (opp: Opportunity, e: React.MouseEvent) => {
     e.stopPropagation();
     setTaskOpp(opp);
-    const contact = findContactByIdOrGhlId(contacts, undefined, opp.contact_id);
+    const contact = findContactByIdOrGhlId(contacts, opp.contact_uuid, opp.contact_id);
     const contactName = contact?.contact_name || 
       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
     setTaskTitle(`Follow up: ${opp.name || contactName || "Opportunity"}`);
@@ -319,7 +321,7 @@ export function SourceDetailSheet({
     setIsCreatingTask(true);
     try {
       // Get location_id from contact
-      const contact = findContactByIdOrGhlId(contacts, undefined, taskOpp.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, taskOpp.contact_uuid, taskOpp.contact_id);
       const locationId = contact?.location_id || "pVeFrqvtYWNIPRIi0Fmr";
 
       const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
@@ -388,24 +390,29 @@ export function SourceDetailSheet({
 
   const sourceContactIdsInDateRange = useMemo(() => {
     // For "won" mode, get contact IDs from won opportunities that match this source
-    // This ensures we show won opportunities even if the contact was added before the date range
     if (mode === "won") {
-      const contactIdsFromWonOpps = new Set(
+      const contactKeysFromWonOpps = new Set(
         filteredOpportunities
           .filter(o => o.status?.toLowerCase() === "won")
-          .map(o => o.contact_id)
-          .filter(Boolean) as string[]
+          .flatMap(o => [o.contact_id, o.contact_uuid].filter(Boolean) as string[])
       );
-      const matchingContactIds = new Set<string>();
+      const matchingContactKeys = new Set<string>();
       contacts.forEach(c => {
-        if (contactIdsFromWonOpps.has(c.ghl_id) && normalizeSourceName(c.source || "Direct") === source) {
-          matchingContactIds.add(c.ghl_id);
+        const hasMatch = (c.ghl_id && contactKeysFromWonOpps.has(c.ghl_id)) || contactKeysFromWonOpps.has(c.id);
+        if (hasMatch && normalizeSourceName(c.source || "Direct") === source) {
+          if (c.ghl_id) matchingContactKeys.add(c.ghl_id);
+          matchingContactKeys.add(c.id);
         }
       });
-      return matchingContactIds;
+      return matchingContactKeys;
     }
     // For opportunities mode, use contacts filtered by date range
-    return new Set(sourceContactsInDateRange.map(c => c.ghl_id));
+    const keys = new Set<string>();
+    sourceContactsInDateRange.forEach(c => {
+      if (c.ghl_id) keys.add(c.ghl_id);
+      keys.add(c.id);
+    });
+    return keys;
   }, [mode, filteredOpportunities, contacts, source, sourceContactsInDateRange]);
 
   // Keep all contacts for "No Appointments" check (need to know if contact EVER had appointments)
@@ -414,21 +421,33 @@ export function SourceDetailSheet({
   }, [contacts, source]);
 
   const allSourceContactIds = useMemo(() => {
-    return new Set(allSourceContacts.map(c => c.ghl_id));
+    const keys = new Set<string>();
+    allSourceContacts.forEach(c => {
+      if (c.ghl_id) keys.add(c.ghl_id);
+      keys.add(c.id);
+    });
+    return keys;
   }, [allSourceContacts]);
 
   // Get appointments for this source - match appointments by contact AND by start_time within date range
   // Use ALL appointments (not just filteredAppointments) and filter by contact in source
   const sourceAppointments = useMemo(() => {
-    // Include appointments where the contact is from this source
     return appointments
-      .filter(a => a.contact_id && sourceContactIdsInDateRange.has(a.contact_id))
+      .filter(a => {
+        const key = a.contact_id || a.contact_uuid;
+        return key && sourceContactIdsInDateRange.has(key);
+      })
       .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled');
   }, [appointments, sourceContactIdsInDateRange]);
 
   // Get contact IDs that have appointments (for "Appointments" view - use filtered)
   const contactIdsWithFilteredAppointments = useMemo(() => {
-    return new Set(sourceAppointments.map(a => a.contact_id).filter(Boolean));
+    const ids = new Set<string>();
+    sourceAppointments.forEach(a => {
+      if (a.contact_id) ids.add(a.contact_id);
+      if (a.contact_uuid) ids.add(a.contact_uuid);
+    });
+    return ids;
   }, [sourceAppointments]);
 
   // Get contact IDs that have ANY appointments ever (for "No Appointments" view - use all appointments)
@@ -438,6 +457,7 @@ export function SourceDetailSheet({
       .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled')
       .forEach(a => {
         if (a.contact_id) ids.add(a.contact_id);
+        if (a.contact_uuid) ids.add(a.contact_uuid);
       });
     return ids;
   }, [appointments]);
@@ -445,7 +465,10 @@ export function SourceDetailSheet({
   // Get opportunities for this source (use filtered opportunities, filtered by contacts in date range)
   const sourceOpportunities = useMemo(() => {
     return filteredOpportunities
-      .filter(o => o.contact_id && sourceContactIdsInDateRange.has(o.contact_id))
+      .filter(o => {
+        const key = o.contact_id || o.contact_uuid;
+        return key && sourceContactIdsInDateRange.has(key);
+      })
       .filter(o => o.stage_name?.toLowerCase() !== 'quickbase');
   }, [filteredOpportunities, sourceContactIdsInDateRange]);
 
@@ -462,12 +485,18 @@ export function SourceDetailSheet({
     
     // When viewing appointments tab, only show contacts that have appointments (in date range)
     if (showAppointments) {
-      opps = opps.filter(o => o.contact_id && contactIdsWithFilteredAppointments.has(o.contact_id));
+      opps = opps.filter(o => {
+        const key = o.contact_id || o.contact_uuid;
+        return key && contactIdsWithFilteredAppointments.has(key);
+      });
     }
     
     // When viewing no appointments tab, only show contacts WITHOUT ANY appointments ever
     if (showNoAppointments) {
-      opps = opps.filter(o => o.contact_id && !contactIdsWithAnyAppointments.has(o.contact_id));
+      opps = opps.filter(o => {
+        const key = o.contact_id || o.contact_uuid;
+        return key && !contactIdsWithAnyAppointments.has(key);
+      });
     }
     
     if (mode === "won") {
@@ -499,7 +528,7 @@ export function SourceDetailSheet({
     if (searchFilter.trim()) {
       const term = searchFilter.toLowerCase();
       opps = opps.filter(o => {
-        const contact = findContactByIdOrGhlId(contacts, undefined, o.contact_id);
+        const contact = findContactByIdOrGhlId(contacts, o.contact_uuid, o.contact_id);
         const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
         return o.name?.toLowerCase().includes(term) || contactName.toLowerCase().includes(term);
       });
@@ -782,7 +811,7 @@ export function SourceDetailSheet({
                   </p>
                 ) : (
                   displayOpportunities.map((opp) => {
-                    const contact = findContactByIdOrGhlId(contacts, undefined, opp.contact_id);
+                    const contact = findContactByIdOrGhlId(contacts, opp.contact_uuid, opp.contact_id);
                     const contactName = contact?.contact_name || 
                       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown";
                     
