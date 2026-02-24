@@ -38,6 +38,7 @@ export interface LeadsBySource {
 
 export interface SalesRepPerformance {
   assignedTo: string;
+  userGhlId: string | null;          // the raw ID used in assigned_to / assigned_user_id
   uniqueAppointments: number;
   wonOpportunities: number;          // wins from appointments in range
   wonOpportunitiesFromWonAt: number; // additional wins from won_at date

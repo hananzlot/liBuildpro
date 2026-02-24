@@ -111,24 +111,16 @@ export function SalesRepLeaderboard({
   users = [],
   dateRange,
 }: SalesRepLeaderboardProps) {
-  const [selectedRep, setSelectedRep] = useState<{ name: string; ghlId: string | null } | null>(null);
+  const [selectedRep, setSelectedRep] = useState<{ name: string; repId: string | null } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
-
-  // Create reverse lookup from display name to ghl_id
-  const nameToGhlId = new Map<string, string>();
-  users.forEach(u => {
-    const displayName = u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.ghl_id;
-    nameToGhlId.set(displayName, u.ghl_id);
-  });
 
   const handleRepClick = (rep: SalesRepPerformance) => {
     if (rep.assignedTo === "Unknown Rep") {
       setReassignDialogOpen(true);
       return;
     }
-    const ghlId = nameToGhlId.get(rep.assignedTo) || null;
-    setSelectedRep({ name: rep.assignedTo, ghlId });
+    setSelectedRep({ name: rep.assignedTo, repId: rep.userGhlId });
     setSheetOpen(true);
   };
 
@@ -261,7 +253,7 @@ export function SalesRepLeaderboard({
 
       <SalesRepDetailSheet
         repName={selectedRep?.name || ''}
-        repId={selectedRep?.ghlId || null}
+        repId={selectedRep?.repId || null}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         opportunities={opportunities}
