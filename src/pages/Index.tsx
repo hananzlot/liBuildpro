@@ -511,7 +511,8 @@ const Index = () => {
         contacts={metrics?.allContacts || []} 
         users={metrics?.users || []} 
         appointments={metrics?.allAppointments || []} 
-        dateRange={dateRange} 
+        dateRange={dateRange}
+        salesRepPerformance={metrics?.salesRepPerformance || []}
         onOpportunityClick={opp => {
           setSelectedOpportunity({
             id: opp.id,
