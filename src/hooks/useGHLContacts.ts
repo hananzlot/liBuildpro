@@ -847,9 +847,31 @@ function processMetrics(
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(name) ||
     /^[A-Za-z0-9]{20,}$/.test(name);
 
-  // Convert to array, filter out unresolved IDs, and sort by total won value descending
+  // Consolidate unresolved IDs into "Unknown Rep" so no revenue is hidden
+  mergedPerformanceMap.forEach((rep, key) => {
+    if (isUnresolvedId(rep.assignedTo)) {
+      const unknownKey = "Unknown Rep";
+      const existing = mergedPerformanceMap.get(unknownKey);
+      if (existing) {
+        existing.uniqueAppointments += rep.uniqueAppointments;
+        existing.wonOpportunities += rep.wonOpportunities;
+        existing.wonOpportunitiesFromWonAt += rep.wonOpportunitiesFromWonAt;
+        existing.totalOpportunities += rep.totalOpportunities;
+        existing.wonValue += rep.wonValue;
+        existing.wonValueFromWonAt += rep.wonValueFromWonAt;
+        // Recalculate conversion rate
+        existing.conversionRate = existing.uniqueAppointments > 0
+          ? (existing.wonOpportunities / existing.uniqueAppointments) * 100
+          : 0;
+      } else {
+        mergedPerformanceMap.set(unknownKey, { ...rep, assignedTo: unknownKey });
+      }
+      mergedPerformanceMap.delete(key);
+    }
+  });
+
+  // Convert to array and sort by total won value descending
   const salesRepPerformance: SalesRepPerformance[] = Array.from(mergedPerformanceMap.values())
-    .filter((rep) => !isUnresolvedId(rep.assignedTo))
     .sort((a, b) => (b.wonValue + b.wonValueFromWonAt) - (a.wonValue + a.wonValueFromWonAt));
 
   // Recent leads with resolved names
