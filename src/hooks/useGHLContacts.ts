@@ -393,10 +393,10 @@ async function fetchProfilesFromDB(companyIds?: string[]): Promise<DBProfile[]> 
   return data || [];
 }
 
-async function fetchSalespeopleFromDB(_companyIds?: string[]): Promise<DBSalesperson[]> {
-  // Fetch ALL salespeople without company filter — needed for name resolution
-  // since opportunities may reference salespeople from other companies in the same corporation
-  const { data, error } = await supabase.from("salespeople").select("id, name, email, phone, ghl_user_id, is_active");
+async function fetchSalespeopleFromDB(companyIds?: string[]): Promise<DBSalesperson[]> {
+  let query = supabase.from("salespeople").select("id, name, email, phone, ghl_user_id, is_active");
+  query = applyCompanyFilter(query, companyIds);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -842,8 +842,14 @@ function processMetrics(
     }
   });
 
-  // Convert to array and sort by total won value (appointments + won_at) descending
+  // Helper: detect raw UUIDs/GHL IDs that failed name resolution
+  const isUnresolvedId = (name: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(name) ||
+    /^[A-Za-z0-9]{20,}$/.test(name);
+
+  // Convert to array, filter out unresolved IDs, and sort by total won value descending
   const salesRepPerformance: SalesRepPerformance[] = Array.from(mergedPerformanceMap.values())
+    .filter((rep) => !isUnresolvedId(rep.assignedTo))
     .sort((a, b) => (b.wonValue + b.wonValueFromWonAt) - (a.wonValue + a.wonValueFromWonAt));
 
   // Recent leads with resolved names
