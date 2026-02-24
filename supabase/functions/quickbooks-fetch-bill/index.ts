@@ -324,6 +324,21 @@ Deno.serve(async (req) => {
 
       log("info", "Created bill successfully", { billId: newBill.id, matchMethod, projectId, subcontractorId });
 
+      // If bill has no project match, create a notification for manual review
+      if (!projectId) {
+        log("warn", "Bill created without project link - flagging for review", { billId: newBill.id, vendor: vendorName });
+        const amount = qbBill.TotalAmt || 0;
+        const formattedAmount = `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        await supabase.from("notifications").insert({
+          company_id: companyId,
+          title: "Unlinked Bill from QuickBooks",
+          message: `A ${formattedAmount} bill from ${vendorName || 'Unknown Vendor'} (Ref: ${qbBill.DocNumber || 'N/A'}) was synced from QuickBooks but could not be matched to a project. Please link it manually.`,
+          type: "unlinked_bill",
+          reference_url: `/outstanding-ap?tab=all`,
+          read: false,
+        });
+      }
+
       const duration = Date.now() - startTime;
       return new Response(
         JSON.stringify({ 
