@@ -261,7 +261,7 @@ export function SalesRepLeaderboard({
 
       <SalesRepDetailSheet
         repName={selectedRep?.name || ''}
-        repGhlId={selectedRep?.ghlId || null}
+        repId={selectedRep?.ghlId || null}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         opportunities={opportunities}

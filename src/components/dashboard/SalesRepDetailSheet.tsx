@@ -75,7 +75,7 @@ interface GHLUser {
 
 interface SalesRepDetailSheetProps {
   repName: string;
-  repGhlId: string | null;
+  repId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   opportunities: Opportunity[];
@@ -94,7 +94,7 @@ const STATUS_ORDER: Record<string, number> = {
 
 export function SalesRepDetailSheet({
   repName,
-  repGhlId,
+  repId,
   open,
   onOpenChange,
   opportunities,
@@ -150,54 +150,22 @@ export function SalesRepDetailSheet({
     return true;
   };
 
-  // Create lookup maps for hybrid opportunity attribution (same logic as leaderboard)
-  const contactAssignmentMap = useMemo(() => {
-    const map = new Map<string, string>();
-    contacts.forEach(c => {
-      if (c.ghl_id && c.assigned_to) {
-        map.set(c.ghl_id, c.assigned_to);
-      }
-    });
-    return map;
-  }, [contacts]);
 
-  const appointmentAssignmentMap = useMemo(() => {
-    const map = new Map<string, string>();
-    appointments.forEach(a => {
-      if (a.contact_id && a.assigned_user_id && !map.has(a.contact_id)) {
-        map.set(a.contact_id, a.assigned_user_id);
-      }
-    });
-    return map;
-  }, [appointments]);
-
-  // Helper: Get effective assignment for an opportunity using fallback chain
-  const getEffectiveAssignment = (opportunity: Opportunity): string | null => {
-    if (opportunity.assigned_to) return opportunity.assigned_to;
-    if (opportunity.contact_id) {
-      const contactAssignment = contactAssignmentMap.get(opportunity.contact_id);
-      if (contactAssignment) return contactAssignment;
-      const appointmentAssignment = appointmentAssignmentMap.get(opportunity.contact_id);
-      if (appointmentAssignment) return appointmentAssignment;
-    }
-    return null;
-  };
-
-  // Get opportunities using hybrid attribution (matches leaderboard logic) + date filter
+  // Get opportunities directly assigned to this rep (no fallback chain)
   const repOpportunities = useMemo(() => {
     return opportunities.filter(o => 
-      getEffectiveAssignment(o) === repGhlId && isInDateRange(o.ghl_date_added)
+      o.assigned_to === repId && isInDateRange(o.ghl_date_added)
     );
-  }, [opportunities, repGhlId, contactAssignmentMap, appointmentAssignmentMap, dateRange]);
+  }, [opportunities, repId, dateRange]);
 
   // Get contacts directly assigned to this rep
   const repContacts = useMemo(() => {
-    return contacts.filter(c => c.assigned_to === repGhlId && isInDateRange(c.created_at || c.ghl_date_added));
-  }, [contacts, repGhlId, dateRange]);
+    return contacts.filter(c => c.assigned_to === repId && isInDateRange(c.created_at || c.ghl_date_added));
+  }, [contacts, repId, dateRange]);
 
   const repAppointments = useMemo(() => {
-    return appointments.filter(a => a.assigned_user_id === repGhlId && isInDateRange(a.start_time));
-  }, [appointments, repGhlId, dateRange]);
+    return appointments.filter(a => a.assigned_user_id === repId && isInDateRange(a.start_time));
+  }, [appointments, repId, dateRange]);
 
   // Calculate unique contacts across all activities (opportunities + appointments)
   const uniqueContactsCount = useMemo(() => {
