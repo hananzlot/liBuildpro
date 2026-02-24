@@ -1,68 +1,63 @@
 
 
-## Why Demo Co #1's KPI Shows No Records
+# Marketing Deck for Your CRM Platform
 
-**Root Cause**: All 1,176 opportunities for Demo Co #1 have `contact_uuid` (the internal UUID) but **zero** have `contact_id` (the GHL ID). The source chart and opportunity-by-source logic in `processMetrics` maps opportunities to contacts using `o.contact_id` matched against `c.ghl_id`. Since `contact_id` is null for all Demo Co #1 opportunities, every opportunity fails the `if (o.contact_id)` check and is skipped entirely.
-
-CA Pro Builders works because its opportunities were synced from GHL and have `contact_id` populated.
+Based on my exploration of the codebase, your platform is a comprehensive, multi-tenant CRM built for home services / contracting companies. Here is what I propose building as a slide deck — a new in-app page at `/deck` that uses scaled 1920x1080 slides with fullscreen presentation mode.
 
 ---
 
-## Plan: Fix Source Attribution to Use Both `contact_id` and `contact_uuid`
+## Deck Structure (10 Slides)
 
-### File: `src/hooks/useGHLContacts.ts`
+### Slide 1 — Title
+"Your All-in-One Contractor CRM" — tagline, logo placeholder, clean hero layout.
 
-**Change 1: Expand `contactSourceMap` to include UUID-based lookups** (~line 933-936)
+### Slide 2 — The Problem
+Pain points: scattered tools, no visibility into pipeline, manual project tracking, lost revenue from missed follow-ups.
 
-Currently:
-```typescript
-const contactSourceMap = new Map<string, string>();
-contacts.forEach((c) => {
-  contactSourceMap.set(c.ghl_id, normalizeSourceName(c.source || "Direct"));
-});
-```
+### Slide 3 — Dispatch Dashboard
+Lead tracking, appointment management, sales rep leaderboards, source analytics, follow-up management — all in one view. Highlights the GHL integration for automatic lead sync.
 
-Update to also map by contact UUID (`c.id`):
-```typescript
-const contactSourceMap = new Map<string, string>();
-contacts.forEach((c) => {
-  const normalized = normalizeSourceName(c.source || "Direct");
-  contactSourceMap.set(c.ghl_id, normalized);
-  contactSourceMap.set(c.id, normalized);  // Also map by UUID
-});
-```
+### Slide 4 — Estimates & Proposals
+AI-powered estimate builder, line-item pricing, proposal generation with PDF preview, digital sending, and contract printing. Scope-to-estimate workflow.
 
-**Change 2: Update all opportunity source lookups to fall back to `contact_uuid`**
+### Slide 5 — Production Management
+Full project lifecycle: kanban/table views, project editor, finance tracking (bills, invoices, deposits), photo/document management, notes, subcontractor management with vendor mapping.
 
-There are ~6 places in `processMetrics` where opportunities are grouped by source using `o.contact_id`. Each needs a fallback to `o.contact_uuid`:
+### Slide 6 — Financial Analytics
+Profitability analysis, cash flow tracking, P&L statements, balance sheets, accounts receivable/payable, commission reports, QuickBooks integration.
 
-- **Won by source** (~line 940): `const source = contactSourceMap.get(o.contact_id) || ...`
-- **Opportunities by source** (~line 960): same pattern
-- **Appointments by source** lookups
-- **Opps without appointments by source**
+### Slide 7 — Client Portal
+Customer-facing portal with passcode access: view project status, sign documents, chat with staff (portal + SMS), review estimates and compliance documents.
 
-For each, change the pattern from:
-```typescript
-if (o.contact_id) {
-  const source = contactSourceMap.get(o.contact_id) || "Direct";
-```
-To:
-```typescript
-const contactKey = o.contact_id || o.contact_uuid;
-if (contactKey) {
-  const source = contactSourceMap.get(contactKey) || "Direct";
-```
+### Slide 8 — Salesperson Portal
+Dedicated rep portal: scope submissions for pricing, estimate creation, file uploads, proposal management, calendar access — all tied to assigned projects.
 
-**Change 3: Update contact-based appointment lookups** similarly, so `contactAssignmentMap` and `appointmentAssignmentMap` also index by UUID.
+### Slide 9 — Document Signing & Multi-Tenant
+Digital signature flows with multi-signer support, signature templates. Multi-tenant architecture with per-company feature gating, subscription plans, and super-admin controls.
 
-### Technical Detail
+### Slide 10 — CTA / Pricing
+Call to action, feature tier summary (from your subscription/feature gate system), contact info.
 
-This affects the following computed metrics:
-- `opportunitiesBySource` (the "Opportunities by Source" chart)
-- `wonBySource` (the "Won By Source" chart)
-- `appointmentsBySource`
-- `oppsWithoutAppointmentsBySource`
-- `salesRepPerformance` (where effective assignment uses contact lookups)
+---
 
-No database changes needed. No migration required. This is purely a code-level fix to support contacts/opportunities that were created locally (without GHL sync) and therefore only have UUIDs.
+## Technical Approach
+
+- **New page**: `src/pages/Deck.tsx` — standalone, no auth required (public marketing page)
+- **Slide components**: Each slide is a React component rendered at 1920x1080, scaled to fit viewport
+- **Fullscreen mode**: Browser Fullscreen API with arrow key navigation
+- **Thumbnail strip**: Left sidebar with slide previews for quick navigation
+- **Design**: Dark gradient backgrounds, feature icons from lucide-react, clean typography, accent colors matching your existing design system
+- **No external dependencies**: Uses your existing UI primitives (Card, Badge, Button) plus custom slide layout CSS
+
+---
+
+## Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/pages/Deck.tsx` | Main deck page with scaling, navigation, fullscreen |
+| `src/components/deck/SlideLayout.tsx` | 1920x1080 scaled wrapper |
+| `src/components/deck/slides/` | Individual slide components (10 files) |
+| `src/components/deck/DeckNavigation.tsx` | Thumbnail sidebar + keyboard nav |
+| Route entry in `App.tsx` | Public `/deck` route |
 
