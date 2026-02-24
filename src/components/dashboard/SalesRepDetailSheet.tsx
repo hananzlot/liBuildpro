@@ -298,7 +298,7 @@ export function SalesRepDetailSheet({
                 <div>
                   <SheetTitle className="text-lg font-semibold">{repName}</SheetTitle>
                   <p className="text-sm text-muted-foreground">
-                    {uniqueContactsCount} contacts ({repContacts.length} directly assigned)
+                    {repOpportunities.length} opportunities
                   </p>
                 </div>
               </div>
