@@ -31,6 +31,7 @@ interface DBAppointment {
   id: string;
   ghl_id: string;
   contact_id: string | null;
+  contact_uuid?: string | null;
   title: string | null;
   appointment_status: string | null;
   assigned_user_id: string | null;
@@ -837,7 +838,7 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   appointmentActivityItems.map(({ appointment: appt, activity }) => {
-                    const contact = findContactByIdOrGhlId(contacts, appt.contact_id, appt.contact_id);
+                    const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid || appt.contact_id, appt.contact_id);
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     const actorName = getCreatorName(activity.editedBy, profiles, users);
                     return (
