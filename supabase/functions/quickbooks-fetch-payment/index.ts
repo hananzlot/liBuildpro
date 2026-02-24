@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
         if (invoiceSyncLog?.record_id) {
           invoiceId = invoiceSyncLog.record_id;
           
-          // Get project from invoice
+          // Get project from invoice (may be null for unlinked invoices)
           const { data: invoice } = await supabase
             .from("project_invoices")
             .select("project_id")
@@ -184,6 +184,9 @@ Deno.serve(async (req) => {
             projectId = invoice.project_id;
             matchMethod = "linked_invoice";
             log("info", "Matched via linked invoice", { invoiceId, projectId });
+          } else {
+            matchMethod = "linked_invoice_unlinked_project";
+            log("warn", "Matched invoice but invoice has no project — saving payment as unlinked", { invoiceId });
           }
         }
       }
@@ -232,20 +235,7 @@ Deno.serve(async (req) => {
       }
 
       if (!projectId) {
-        log("warn", "Could not match payment to a local project", { customerId, customerName });
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: "No matching project found",
-            payment: {
-              qb_id: qbPayment.Id,
-              ref_num: qbPayment.PaymentRefNum,
-              customer_name: customerName,
-              amount: qbPayment.TotalAmt,
-            }
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        log("warn", "Could not match payment to a local project — saving as unlinked", { customerId, customerName });
       }
 
       // Check if payment already exists in our DB

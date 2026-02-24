@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
-import { Printer, Search, AlertTriangle, Link2 } from "lucide-react";
+import { Printer, Search, AlertTriangle, Link2, DollarSign } from "lucide-react";
 import { LinkInvoiceToProjectDialog } from "@/components/production/analytics/LinkInvoiceToProjectDialog";
 
 function AgingBadge({ bucket }: { bucket: string }) {
@@ -53,7 +53,7 @@ export default function OutstandingAR() {
     open_balance: number | null;
   } | null>(null);
 
-  const { invoicesWithAging, isLoading } = useProductionAnalytics({
+  const { invoicesWithAging, orphanPayments, isLoading } = useProductionAnalytics({
     dateRange: undefined,
     selectedProjects: [],
     selectedSalespeople: [],
@@ -62,6 +62,7 @@ export default function OutstandingAR() {
   // Force fresh data on mount to avoid stale persistent cache
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ["analytics-invoices"] });
+    queryClient.invalidateQueries({ queryKey: ["analytics-payments"] });
   }, [queryClient]);
 
   // Check QB connection status
@@ -157,6 +158,37 @@ export default function OutstandingAR() {
                   >
                     <Link2 className="h-3 w-3 mr-1" />
                     {inv.qb_customer_name || inv.invoice_number || 'Unknown'} — {formatCurrency(inv.open_balance || 0)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Orphan Payments Banner — only visible when no unlinked invoices remain */}
+        {unlinkedInvoices.length === 0 && orphanPayments.length > 0 && (
+          <div className="rounded-lg border border-blue-500/50 bg-blue-500/10 p-3 flex items-start gap-3">
+            <DollarSign className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">
+                {orphanPayments.length} payment{orphanPayments.length > 1 ? 's' : ''} received without a project link
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                These payments were synced from QuickBooks but couldn't be matched to a project. Link them to the correct project for accurate tracking.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {orphanPayments.map((pmt) => (
+                  <Button
+                    key={pmt.id}
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs border-blue-500/30 hover:bg-blue-500/10"
+                    onClick={() => {
+                      // Future: Open a LinkPaymentToProjectDialog
+                    }}
+                  >
+                    <DollarSign className="h-3 w-3 mr-1" />
+                    {pmt.check_number ? `#${pmt.check_number}` : 'Payment'} — {formatCurrency(pmt.payment_amount || 0)}
                   </Button>
                 ))}
               </div>
