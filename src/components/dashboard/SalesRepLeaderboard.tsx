@@ -54,6 +54,7 @@ interface Contact {
   source: string | null;
   assigned_to: string | null;
   custom_fields?: unknown;
+  ghl_date_added?: string | null;
 }
 
 interface GHLUser {
@@ -70,6 +71,7 @@ interface SalesRepLeaderboardProps {
   appointments?: Appointment[];
   contacts?: Contact[];
   users?: GHLUser[];
+  dateRange?: { from: Date; to?: Date };
 }
 
 function formatCurrency(value: number | undefined | null): string {
@@ -107,6 +109,7 @@ export function SalesRepLeaderboard({
   appointments = [],
   contacts = [],
   users = [],
+  dateRange,
 }: SalesRepLeaderboardProps) {
   const [selectedRep, setSelectedRep] = useState<{ name: string; ghlId: string | null } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -265,6 +268,7 @@ export function SalesRepLeaderboard({
         appointments={appointments}
         contacts={contacts}
         users={users}
+        dateRange={dateRange}
       />
 
       <UnknownRepReassignDialog

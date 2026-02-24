@@ -448,6 +448,7 @@ const Index = () => {
                 appointments={metrics?.filteredAppointmentsList || []} 
                 contacts={metrics?.allContacts || []} 
                 users={metrics?.users || []} 
+                dateRange={dateRange}
               />
               <RecentWonDeals 
                 wonOpportunities={metrics?.wonOpportunities || []} 
