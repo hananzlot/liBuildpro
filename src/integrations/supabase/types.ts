@@ -582,6 +582,7 @@ export type Database = {
           call_date: string | null
           company_id: string | null
           contact_id: string
+          contact_uuid: string | null
           conversation_id: string
           created_at: string
           direction: string | null
@@ -596,6 +597,7 @@ export type Database = {
           call_date?: string | null
           company_id?: string | null
           contact_id: string
+          contact_uuid?: string | null
           conversation_id: string
           created_at?: string
           direction?: string | null
@@ -610,6 +612,7 @@ export type Database = {
           call_date?: string | null
           company_id?: string | null
           contact_id?: string
+          contact_uuid?: string | null
           conversation_id?: string
           created_at?: string
           direction?: string | null
@@ -626,6 +629,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_logs_contact_uuid_fkey"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -1417,6 +1427,7 @@ export type Database = {
         Row: {
           company_id: string | null
           contact_id: string | null
+          contact_uuid: string | null
           created_at: string
           external_id: string | null
           ghl_date_added: string | null
@@ -1438,6 +1449,7 @@ export type Database = {
         Insert: {
           company_id?: string | null
           contact_id?: string | null
+          contact_uuid?: string | null
           created_at?: string
           external_id?: string | null
           ghl_date_added?: string | null
@@ -1459,6 +1471,7 @@ export type Database = {
         Update: {
           company_id?: string | null
           contact_id?: string | null
+          contact_uuid?: string | null
           created_at?: string
           external_id?: string | null
           ghl_date_added?: string | null
@@ -1483,6 +1496,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_contact_uuid_fkey"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -4417,6 +4437,7 @@ export type Database = {
           id: string
           notes: string | null
           opportunity_id: string
+          opportunity_uuid: string | null
           updated_at: string
         }
         Insert: {
@@ -4427,6 +4448,7 @@ export type Database = {
           id?: string
           notes?: string | null
           opportunity_id: string
+          opportunity_uuid?: string | null
           updated_at?: string
         }
         Update: {
@@ -4437,6 +4459,7 @@ export type Database = {
           id?: string
           notes?: string | null
           opportunity_id?: string
+          opportunity_uuid?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4452,6 +4475,13 @@ export type Database = {
             columns: ["entered_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_costs_opportunity_uuid_fkey"
+            columns: ["opportunity_uuid"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
@@ -6531,6 +6561,7 @@ export type Database = {
           assigned_to: string | null
           company_id: string | null
           contact_id: string | null
+          contact_uuid: string | null
           created_at: string
           created_by: string | null
           due_date: string | null
@@ -6539,6 +6570,7 @@ export type Database = {
           location_id: string
           notes: string | null
           opportunity_id: string
+          opportunity_uuid: string | null
           status: string
           title: string
           updated_at: string
@@ -6547,6 +6579,7 @@ export type Database = {
           assigned_to?: string | null
           company_id?: string | null
           contact_id?: string | null
+          contact_uuid?: string | null
           created_at?: string
           created_by?: string | null
           due_date?: string | null
@@ -6555,6 +6588,7 @@ export type Database = {
           location_id: string
           notes?: string | null
           opportunity_id: string
+          opportunity_uuid?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -6563,6 +6597,7 @@ export type Database = {
           assigned_to?: string | null
           company_id?: string | null
           contact_id?: string | null
+          contact_uuid?: string | null
           created_at?: string
           created_by?: string | null
           due_date?: string | null
@@ -6571,6 +6606,7 @@ export type Database = {
           location_id?: string
           notes?: string | null
           opportunity_id?: string
+          opportunity_uuid?: string | null
           status?: string
           title?: string
           updated_at?: string
@@ -6581,6 +6617,20 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_contact_uuid_fkey"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_opportunity_uuid_fkey"
+            columns: ["opportunity_uuid"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
