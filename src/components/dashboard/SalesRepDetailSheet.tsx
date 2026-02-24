@@ -61,6 +61,7 @@ interface Contact {
   source: string | null;
   assigned_to: string | null;
   custom_fields?: unknown;
+  created_at?: string | null;
   ghl_date_added?: string | null;
 }
 
@@ -191,7 +192,7 @@ export function SalesRepDetailSheet({
 
   // Get contacts directly assigned to this rep
   const repContacts = useMemo(() => {
-    return contacts.filter(c => c.assigned_to === repGhlId && isInDateRange(c.ghl_date_added));
+    return contacts.filter(c => c.assigned_to === repGhlId && isInDateRange(c.created_at || c.ghl_date_added));
   }, [contacts, repGhlId, dateRange]);
 
   const repAppointments = useMemo(() => {
