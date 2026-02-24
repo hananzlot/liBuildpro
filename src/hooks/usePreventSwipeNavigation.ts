@@ -1,19 +1,41 @@
 import { useEffect } from "react";
 
 /**
- * Prevents horizontal trackpad swipes from triggering browser back/forward navigation.
- * Uses the CSS overscroll-behavior property which is the modern, non-invasive approach.
- * This avoids interfering with normal scroll behavior (mouse wheel, trackpad vertical scroll).
+ * Prevents horizontal trackpad swipes from triggering browser back/forward navigation
+ * and inverts vertical scroll direction globally (wheel down → scroll up).
  */
 export function usePreventSwipeNavigation() {
   useEffect(() => {
-    // The CSS overscroll-behavior-x: none property prevents the browser from
-    // interpreting horizontal overscroll as a back/forward navigation gesture.
-    // This is the recommended approach — no JS wheel/touch interception needed.
+    // Prevent swipe-back navigation via CSS
     document.documentElement.style.overscrollBehaviorX = "none";
     document.body.style.overscrollBehaviorX = "none";
 
+    // Invert vertical scroll direction globally
+    const handleWheel = (e: WheelEvent) => {
+      // Find the nearest vertically scrollable ancestor
+      let el = e.target as HTMLElement | null;
+      while (el && el !== document.documentElement) {
+        const style = window.getComputedStyle(el);
+        const overflowY = style.overflowY;
+        const isScrollable = overflowY === "auto" || overflowY === "scroll";
+        const hasVerticalScroll = el.scrollHeight > el.clientHeight;
+        if (isScrollable && hasVerticalScroll) {
+          el.scrollTop -= e.deltaY;
+          e.preventDefault();
+          return;
+        }
+        el = el.parentElement;
+      }
+
+      // Fallback: scroll documentElement
+      document.documentElement.scrollTop -= e.deltaY;
+      e.preventDefault();
+    };
+
+    document.addEventListener("wheel", handleWheel, { passive: false });
+
     return () => {
+      document.removeEventListener("wheel", handleWheel);
       document.documentElement.style.overscrollBehaviorX = "";
       document.body.style.overscrollBehaviorX = "";
     };
