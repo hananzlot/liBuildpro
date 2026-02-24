@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSyncTimestamps } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatDistanceToNow } from "date-fns";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -13,10 +16,29 @@ interface SyncDropdownProps {
 
 export function SyncDropdown({ onSyncGHL, isSyncingGHL }: SyncDropdownProps) {
   const { isGHLEnabled } = useGHLMode();
+  const { companyId } = useCompanyContext();
   const { data: timestamps } = useSyncTimestamps();
+
+  // Check if the company has at least one GHL integration
+  const { data: hasGhlIntegration } = useQuery({
+    queryKey: ["has-ghl-integration", companyId],
+    queryFn: async () => {
+      if (!companyId) return false;
+      const { data, error } = await supabase
+        .from("company_integrations")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("provider", "ghl")
+        .limit(1);
+      if (error) return false;
+      return (data?.length ?? 0) > 0;
+    },
+    enabled: !!companyId,
+    staleTime: 30 * 60 * 1000,
+  });
   
-  // Hide sync button when GHL integration is disabled
-  if (!isGHLEnabled) {
+  // Hide sync buttons when GHL integration is disabled OR no GHL integrations exist
+  if (!isGHLEnabled || hasGhlIntegration === false) {
     return null;
   }
   
