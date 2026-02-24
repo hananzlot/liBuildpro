@@ -747,8 +747,8 @@ function processMetrics(
     .map(([assignedTo, { userGhlId, uniqueContactIds }]) => {
       const uniqueAppointments = uniqueContactIds.size;
 
-      // Get opportunities using hybrid attribution chain
-      const repOpportunities = filteredOpportunities.filter((o) => getEffectiveAssignment(o) === userGhlId);
+      // Get opportunities directly assigned to this rep (by UUID)
+      const repOpportunities = filteredOpportunities.filter((o) => o.assigned_to === userGhlId);
 
       const totalOpportunities = repOpportunities.length;
       const wonOpportunities = repOpportunities.filter((o) => o.status?.toLowerCase() === "won").length;
