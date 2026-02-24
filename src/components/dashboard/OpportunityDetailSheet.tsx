@@ -749,7 +749,10 @@ export function OpportunityDetailSheet({
     }
   }, [initialTaskGhlId, tasks, open]);
   const handleRefreshConversations = async () => {
-    if (!opportunity?.contact_id) return;
+    if (!opportunity?.contact_id) {
+      toast.info("No contact linked to this opportunity");
+      return;
+    }
     setIsLoadingConversations(true);
     try {
       const {
@@ -3707,10 +3710,29 @@ export function OpportunityDetailSheet({
           };
 
           // Flatten all messages from all conversations and sort by date
-          const allMessages = liveConversations.flatMap(conv => (conv.messages || []).map(msg => ({
-            ...msg,
-            conversationType: conv.type
-          }))).sort((a, b) => {
+          // When messages array is empty but conversation has last_message_body, create a synthetic message
+          const allMessages = liveConversations.flatMap(conv => {
+            const messages = conv.messages || [];
+            if (messages.length > 0) {
+              return messages.map(msg => ({
+                ...msg,
+                conversationType: conv.type
+              }));
+            }
+            // Fallback: show last_message_body as a synthetic message if available
+            if (conv.last_message_body) {
+              return [{
+                id: `synthetic-${conv.ghl_id || conv.contact_id}`,
+                body: conv.last_message_body,
+                direction: conv.last_message_direction || 'inbound',
+                status: 'delivered',
+                type: conv.last_message_type || conv.type || 'SMS',
+                dateAdded: conv.last_message_date || new Date().toISOString(),
+                conversationType: conv.type,
+              }];
+            }
+            return [];
+          }).sort((a, b) => {
             const dateA = new Date(a.dateAdded).getTime();
             const dateB = new Date(b.dateAdded).getTime();
             return dateB - dateA; // Most recent first
