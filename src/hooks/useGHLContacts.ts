@@ -773,7 +773,7 @@ function processMetrics(
 
   // Get won opportunities based on won_at date within the date range
   const wonAtByRep = (() => {
-    if (!dateRange?.from) return new Map<string, { count: number; value: number }>();
+    if (!dateRange?.from) return new Map<string, { count: number; value: number; userGhlId: string }>();
 
     const startDate = new Date(dateRange.from);
     const endDate = dateRange.to ? new Date(dateRange.to) : new Date();
@@ -787,16 +787,17 @@ function processMetrics(
     });
 
     // Group by assigned rep name
-    const repWonMap = new Map<string, { count: number; value: number }>();
+    const repWonMap = new Map<string, { count: number; value: number; userGhlId: string }>();
     wonInRange.forEach((o) => {
       const effectiveAssignment = getEffectiveAssignment(o);
       if (!effectiveAssignment) return;
       
       const repName = userMap.get(effectiveAssignment) || effectiveAssignment;
-      const existing = repWonMap.get(repName) || { count: 0, value: 0 };
+      const existing = repWonMap.get(repName) || { count: 0, value: 0, userGhlId: effectiveAssignment };
       repWonMap.set(repName, {
         count: existing.count + 1,
         value: existing.value + (o.monetary_value || 0),
+        userGhlId: existing.userGhlId,
       });
     });
 
@@ -816,6 +817,7 @@ function processMetrics(
     
     mergedPerformanceMap.set(rep.assignedTo, {
       assignedTo: rep.assignedTo,
+      userGhlId: rep.userGhlId,
       uniqueAppointments: rep.uniqueAppointments,
       wonOpportunities: rep.wonOpportunities,
       wonOpportunitiesFromWonAt: additionalWonFromWonAt,
@@ -831,6 +833,7 @@ function processMetrics(
     if (!mergedPerformanceMap.has(repName)) {
       mergedPerformanceMap.set(repName, {
         assignedTo: repName,
+        userGhlId: wonAtData.userGhlId,
         uniqueAppointments: 0,
         wonOpportunities: 0,
         wonOpportunitiesFromWonAt: wonAtData.count,
