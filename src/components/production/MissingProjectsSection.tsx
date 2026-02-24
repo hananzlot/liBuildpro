@@ -126,9 +126,10 @@ export function MissingProjectsSection() {
       if (!companyId) return [];
       const { data, error } = await supabase
         .from("projects")
-        .select("opportunity_id")
+        .select("opportunity_id, opportunity_uuid")
         .eq("company_id", companyId)
-        .not("opportunity_id", "is", null);
+        .is("deleted_at", null)
+        .or("opportunity_id.not.is.null,opportunity_uuid.not.is.null");
       if (error) throw error;
       return data;
     },
@@ -150,11 +151,12 @@ export function MissingProjectsSection() {
     enabled: !!companyId,
   });
 
-  // Calculate missing opportunities
-  const existingOpportunityIds = new Set(existingProjects.map(p => p.opportunity_id));
+  // Calculate missing opportunities - check both opportunity_id (GHL) and opportunity_uuid
+  const existingByGhlId = new Set(existingProjects.map(p => p.opportunity_id).filter(Boolean));
+  const existingByUuid = new Set(existingProjects.map(p => p.opportunity_uuid).filter(Boolean));
   
   const missingOpportunities: WonOpportunity[] = wonOpportunities
-    .filter(opp => !existingOpportunityIds.has(opp.ghl_id))
+    .filter(opp => !existingByGhlId.has(opp.ghl_id) && !existingByUuid.has(opp.id))
     .map(opp => {
       const contact = findContactByIdOrGhlId(contacts, undefined, opp.contact_id);
       return {
