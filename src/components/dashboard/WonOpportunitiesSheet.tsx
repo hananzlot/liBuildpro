@@ -138,7 +138,10 @@ export function WonOpportunitiesSheet({
   });
 
   const contactMap = new Map<string, DBContact>();
-  contacts.forEach((c) => contactMap.set(c.ghl_id, c));
+  contacts.forEach((c) => {
+    if (c.ghl_id) contactMap.set(c.ghl_id, c);
+    contactMap.set(c.id, c); // Also map by UUID
+  });
 
   // Get unique salespeople with counts for filter chips
   const repCounts = useMemo(() => {
@@ -185,7 +188,7 @@ export function WonOpportunitiesSheet({
 
     const searchTerm = sourceFilter.toLowerCase().trim();
     return result.filter((opp) => {
-      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+      const contact = contactMap.get(opp.contact_id!) || contactMap.get(opp.contact_uuid!) || null;
       const source = (contact?.source || "").toLowerCase();
       const words = source.split(/\s+/);
       return words.some((word) => word.startsWith(searchTerm)) || source.startsWith(searchTerm);
@@ -197,10 +200,10 @@ export function WonOpportunitiesSheet({
   // Prepare enriched data for both views
   const enrichedOpportunities = useMemo(() => {
     return filteredOpportunities.map((opp) => {
-      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+      const contact = contactMap.get(opp.contact_id!) || contactMap.get(opp.contact_uuid!) || null;
       const salesPerson = opp.assigned_to ? userMap.get(opp.assigned_to) : null;
       // Use getAddressFromContact with appointments fallback
-      const address = getAddressFromContact(contact, appointments, opp.contact_id);
+      const address = getAddressFromContact(contact, appointments, opp.contact_id || opp.contact_uuid);
       const scopeFromCustomField = contact
         ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK)
         : null;
