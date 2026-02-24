@@ -673,9 +673,12 @@ export function OpportunityDetailSheet({
           }
 
           // Fetch from tasks table (ghl_tasks) - scoped to company
+          // Use OR filter to match tasks by contact_uuid OR contact_id, since locally-created
+          // tasks may store the UUID in contact_id instead of contact_uuid
           let tasksQuery = supabase.from("ghl_tasks").select("*");
-          if (opportunity.contact_uuid) {
-            tasksQuery = tasksQuery.eq("contact_uuid", opportunity.contact_uuid);
+          const contactRef = opportunity.contact_uuid || opportunity.contact_id;
+          if (contactRef) {
+            tasksQuery = tasksQuery.or(`contact_uuid.eq.${contactRef},contact_id.eq.${contactRef}`);
           } else {
             tasksQuery = tasksQuery.eq("contact_id", opportunity.contact_id);
           }
@@ -740,9 +743,10 @@ export function OpportunityDetailSheet({
   }, [open, opportunity?.contact_id, opportunity?.ghl_id]);
 
   // Auto-open task edit dialog when initialTaskGhlId is provided and tasks are loaded
+  // initialTaskGhlId can be a ghl_id OR a task UUID (for locally-created tasks)
   useEffect(() => {
     if (initialTaskGhlId && tasks.length > 0 && open) {
-      const taskToEdit = tasks.find(t => t.ghl_id === initialTaskGhlId);
+      const taskToEdit = tasks.find(t => t.ghl_id === initialTaskGhlId || t.id === initialTaskGhlId);
       if (taskToEdit) {
         openEditTaskDialog(taskToEdit);
       }

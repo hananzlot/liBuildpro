@@ -673,7 +673,7 @@ const Index = () => {
             company_id: opp.company_id,
             location_id: opp.location_id,
           });
-          setInitialTaskGhlId(task.ghl_id);
+          setInitialTaskGhlId(task.ghl_id || task.id);
           setOpenedFromActivity(true);
           setActivitySheetOpen(false);
           setOppDetailSheetOpen(true);
