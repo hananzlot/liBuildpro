@@ -6761,6 +6761,14 @@ export type Database = {
         }[]
       }
       backfill_contact_uuids: { Args: never; Returns: undefined }
+      backfill_ghl_ids_to_salesperson_uuids: {
+        Args: never
+        Returns: {
+          appointments_updated: number
+          contacts_updated: number
+          opportunities_updated: number
+        }[]
+      }
       bulk_delete_junk_contacts: {
         Args: { p_company_id: string; p_contact_ids: string[] }
         Returns: Json
