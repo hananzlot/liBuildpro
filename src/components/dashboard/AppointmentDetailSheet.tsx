@@ -681,23 +681,22 @@ export function AppointmentDetailSheet({
     
     setIsUpdatingAssignee(true);
     try {
-      // Update via edge function (syncs to GHL if connected) - use ghl_user_id if available
-      if (appointment?.ghl_id && selectedSalesperson?.ghl_user_id) {
+      // Update via edge function - use internal salesperson UUID
+      if (appointment?.ghl_id) {
         const { error: ghlError } = await supabase.functions.invoke('update-ghl-appointment', {
-          body: { ghl_id: appointment.ghl_id, assignedUserId: selectedSalesperson.ghl_user_id }
+          body: { ghl_id: appointment.ghl_id, assignedUserId: effectiveSalespersonId }
         });
         if (ghlError) {
-          console.warn("GHL sync failed, updating locally:", ghlError);
+          console.warn("Update failed, updating locally:", ghlError);
         }
       }
 
-      // Update in Supabase with edit tracking - now using salesperson_id
+      // Update in Supabase with edit tracking - using salesperson UUID
       let query = supabase
         .from('appointments')
         .update({ 
           salesperson_id: effectiveSalespersonId,
-          // Also update assigned_user_id for backward compatibility if salesperson has ghl_user_id
-          assigned_user_id: selectedSalesperson?.ghl_user_id || null, 
+          assigned_user_id: effectiveSalespersonId, 
           edited_by: user?.id || null,
           edited_at: new Date().toISOString(),
         });

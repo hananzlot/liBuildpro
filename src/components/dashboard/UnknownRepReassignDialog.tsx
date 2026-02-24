@@ -103,8 +103,8 @@ export function UnknownRepReassignDialog({
 
     setSaving(opp.id);
     try {
-      // Update the opportunity's assigned_to to the salesperson's ghl_user_id (or UUID if no ghl mapping)
-      const newAssignedTo = salesperson.ghl_user_id || salesperson.id;
+      // Update the opportunity's assigned_to to the salesperson's internal UUID
+      const newAssignedTo = salesperson.id;
 
       const { error } = await supabase
         .from("opportunities")

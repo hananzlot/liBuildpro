@@ -1222,10 +1222,8 @@ export function OpportunityDetailSheet({
       const selectedSalesperson = appointmentAssignee && appointmentAssignee !== "__unassigned__"
         ? activeSalespeople.find(sp => sp.id === appointmentAssignee)
         : null;
-      // For GHL sync, use ghl_user_id if available
-      const assignedToForGhl = selectedSalesperson?.ghl_user_id || null;
-      // Internal salesperson ID for our database
-      const salespersonId = selectedSalesperson?.id || null;
+      // Use internal salesperson UUID
+      const assignedToUuid = selectedSalesperson?.id || null;
 
       // Treat input as PST
       const timeStr = appointmentTime || "09:00";
@@ -1242,8 +1240,8 @@ export function OpportunityDetailSheet({
           title: appointmentTitle.trim(),
           startTime: utcDate.toISOString(),
           calendarId: null,
-          assignedUserId: assignedToForGhl,
-          salespersonId: salespersonId, // Internal UUID for database
+          assignedUserId: assignedToUuid,
+          salespersonId: assignedToUuid, // Internal UUID for database
           address: appointmentAddress.trim() || null,
           notes: appointmentNotes.trim() || null,
           enteredBy: user?.id || null,
@@ -1955,12 +1953,10 @@ export function OpportunityDetailSheet({
         : (pipelineData.find(p => p.ghl_id === editedPipeline)?.name || allOpportunities.find(o => o.pipeline_id === editedPipeline)?.pipeline_name || opportunity.pipeline_name);
       const monetaryValue = parseFloat(editedMonetaryValue) || 0;
 
-      // Call edge function to update GHL first, then Supabase
-      // Convert internal salesperson ID to GHL user ID for GHL sync
-      let assignedToForGhl: string | null = null;
+      // Use internal salesperson UUID for assigned_to
+      let assignedToUuid: string | null = null;
       if (editedAssignedTo && editedAssignedTo !== "__unassigned__") {
-        const selectedSalesperson = activeSalespeople.find(sp => sp.id === editedAssignedTo);
-        assignedToForGhl = selectedSalesperson?.ghl_user_id || editedAssignedTo;
+        assignedToUuid = editedAssignedTo; // Always use internal salesperson UUID
       }
 
       const {
@@ -1976,7 +1972,7 @@ export function OpportunityDetailSheet({
           pipeline_name: pipeline_name,
           pipeline_stage_id: pipeline_stage_id,
           monetary_value: monetaryValue,
-          assigned_to: assignedToForGhl,
+          assigned_to: assignedToUuid,
           edited_by: user?.id || null
         }
       });
