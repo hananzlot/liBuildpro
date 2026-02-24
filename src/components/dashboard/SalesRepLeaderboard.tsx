@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Calendar, Trophy } from "lucide-react";
 import type { SalesRepPerformance } from "@/types/ghl";
 import { SalesRepDetailSheet } from "./SalesRepDetailSheet";
+import { UnknownRepReassignDialog } from "./UnknownRepReassignDialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -109,6 +110,7 @@ export function SalesRepLeaderboard({
 }: SalesRepLeaderboardProps) {
   const [selectedRep, setSelectedRep] = useState<{ name: string; ghlId: string | null } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
 
   // Create reverse lookup from display name to ghl_id
   const nameToGhlId = new Map<string, string>();
@@ -118,6 +120,10 @@ export function SalesRepLeaderboard({
   });
 
   const handleRepClick = (rep: SalesRepPerformance) => {
+    if (rep.assignedTo === "Unknown Rep") {
+      setReassignDialogOpen(true);
+      return;
+    }
     const ghlId = nameToGhlId.get(rep.assignedTo) || null;
     setSelectedRep({ name: rep.assignedTo, ghlId });
     setSheetOpen(true);
@@ -259,6 +265,12 @@ export function SalesRepLeaderboard({
         appointments={appointments}
         contacts={contacts}
         users={users}
+      />
+
+      <UnknownRepReassignDialog
+        open={reassignDialogOpen}
+        onOpenChange={setReassignDialogOpen}
+        opportunities={opportunities}
       />
     </>
   );
