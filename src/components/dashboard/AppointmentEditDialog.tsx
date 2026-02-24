@@ -166,12 +166,10 @@ export function AppointmentEditDialog({
 
     setIsUpdating(true);
     try {
-      // Convert internal salesperson ID to ghl_user_id for GHL sync (if available)
+      // Use internal salesperson UUID for assigned_user_id
       let assignedToValue: string | null = null;
       if (assignee && assignee !== "__unassigned__") {
-        const selectedSalesperson = salespeople.find(sp => sp.id === assignee);
-        // Use ghl_user_id for GHL sync if available, otherwise use internal ID
-        assignedToValue = selectedSalesperson?.ghl_user_id || assignee;
+        assignedToValue = assignee; // Always use internal salesperson UUID
       }
 
       const updateBody: Record<string, unknown> = {
