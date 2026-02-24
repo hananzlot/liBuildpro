@@ -19,6 +19,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAddressFromContact, findContactByIdOrGhlId } from "@/lib/utils";
 import { formatCurrencyWithDecimals as formatCurrencyUtil } from "@/lib/utils";
 
+/** Capitalize each word in a name string */
+const capitalizeName = (name: string | null | undefined): string => {
+  if (!name) return "";
+  return name.replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
 interface Opportunity {
   id: string;
   ghl_id: string;
@@ -686,12 +692,11 @@ export function GlobalAdminSearch() {
     if (!contact && contactId) {
       contact = findContactByIdOrGhlId(contacts, undefined, contactId);
     }
-    return (
-      contact?.contact_name ||
+    const raw = contact?.contact_name ||
       (contact?.first_name && contact?.last_name
         ? `${contact.first_name} ${contact.last_name}`
-        : contact?.first_name || contact?.last_name || "Unknown")
-    );
+        : contact?.first_name || contact?.last_name || "Unknown");
+    return capitalizeName(raw);
   };
 
   const formatCurrency = (value: number | null) => {
@@ -801,10 +806,11 @@ export function GlobalAdminSearch() {
   };
 
   const getContactDisplayName = (contact: Contact) => {
-    return contact.contact_name || 
+    const raw = contact.contact_name || 
       (contact.first_name && contact.last_name 
         ? `${contact.first_name} ${contact.last_name}` 
         : contact.first_name || contact.last_name || "Unknown");
+    return capitalizeName(raw);
   };
 
   const totalResults = filteredOpportunities.length + filteredProjects.length + filteredEstimates.length + filteredProposals.length + filteredContacts.length;
@@ -945,8 +951,8 @@ export function GlobalAdminSearch() {
                                   #{proj.project_number} - {proj.project_address || proj.project_name}
                                 </div>
                                 <div className="text-xs text-muted-foreground truncate">
-                                  {proj.customer_first_name} {proj.customer_last_name}
-                                  {proj.primary_salesperson && ` • ${proj.primary_salesperson}`}
+                                  {capitalizeName(`${proj.customer_first_name || ''} ${proj.customer_last_name || ''}`.trim())}
+                                  {proj.primary_salesperson && ` • ${capitalizeName(proj.primary_salesperson)}`}
                                 </div>
                                 {finMatches && finMatches.map((fm, i) => (
                                   <div
@@ -1003,11 +1009,11 @@ export function GlobalAdminSearch() {
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <div className="font-medium truncate text-sm">
-                                {est.job_address || est.customer_name || "No address"}
+                                {est.job_address || capitalizeName(est.customer_name) || "No address"}
                               </div>
                               <div className="text-xs text-muted-foreground truncate">
                                 {est.estimate_number && `#${est.estimate_number} • `}
-                                {est.customer_name}
+                                {capitalizeName(est.customer_name)}
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1 shrink-0">
@@ -1045,11 +1051,11 @@ export function GlobalAdminSearch() {
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <div className="font-medium truncate text-sm">
-                                {est.job_address || est.customer_name || "No address"}
+                                {est.job_address || capitalizeName(est.customer_name) || "No address"}
                               </div>
                               <div className="text-xs text-muted-foreground truncate">
                                 {est.estimate_number && `#${est.estimate_number} • `}
-                                {est.customer_name}
+                                {capitalizeName(est.customer_name)}
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1 shrink-0">
