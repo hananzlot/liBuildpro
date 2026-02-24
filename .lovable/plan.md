@@ -1,37 +1,53 @@
 
 
-## Why the $5K Record Disappeared
+## Phase 1a: Add 5 Missing UUID Columns
 
-The 5th record ($5K, "David F") was assigned via UUID `652d0c5d-71a8-4e33-ae99-e2dcdd1c516b`, which is a salesperson belonging to **CA Pro Builders** (a different company). With strict company isolation restored, Demo Co.'s salesperson lookup can't resolve that UUID to a name, so it stays as a raw UUID. The `isUnresolvedId` filter we just added then removes it entirely - hiding $5K in revenue.
+### Current State (confirmed via database query)
 
-## Plan
+| Table | Has `contact_uuid`? | Has `opportunity_uuid`? |
+|---|---|---|
+| `conversations` | No | N/A |
+| `call_logs` | No | N/A |
+| `tasks` | No | No |
+| `project_costs` | N/A | No |
 
-**Replace the "filter out" logic with a "rename to Unknown Rep" approach** in `src/hooks/useGHLContacts.ts`:
+### Migration SQL
 
-1. **Remove the `isUnresolvedId` filter** (line 852) that drops records from the array.
-2. **Add a rename step** before sorting: iterate through the merged performance map and replace any unresolved UUID/ID names with `"Unknown Rep"`. If "Unknown Rep" already exists, merge the values together.
-3. This ensures no revenue is silently hidden - all won opportunities will appear, attributed to either a resolved name or "Unknown Rep".
+```sql
+-- 1. conversations: add contact_uuid
+ALTER TABLE public.conversations
+  ADD COLUMN IF NOT EXISTS contact_uuid uuid REFERENCES public.contacts(id);
+CREATE INDEX IF NOT EXISTS idx_conversations_contact_uuid ON public.conversations(contact_uuid);
 
-### Technical Detail
+-- 2. call_logs: add contact_uuid
+ALTER TABLE public.call_logs
+  ADD COLUMN IF NOT EXISTS contact_uuid uuid REFERENCES public.contacts(id);
+CREATE INDEX IF NOT EXISTS idx_call_logs_contact_uuid ON public.call_logs(contact_uuid);
 
+-- 3. tasks: add contact_uuid and opportunity_uuid
+ALTER TABLE public.tasks
+  ADD COLUMN IF NOT EXISTS contact_uuid uuid REFERENCES public.contacts(id),
+  ADD COLUMN IF NOT EXISTS opportunity_uuid uuid REFERENCES public.opportunities(id);
+CREATE INDEX IF NOT EXISTS idx_tasks_contact_uuid ON public.tasks(contact_uuid);
+CREATE INDEX IF NOT EXISTS idx_tasks_opportunity_uuid ON public.tasks(opportunity_uuid);
+
+-- 4. project_costs: add opportunity_uuid
+ALTER TABLE public.project_costs
+  ADD COLUMN IF NOT EXISTS opportunity_uuid uuid REFERENCES public.opportunities(id);
+CREATE INDEX IF NOT EXISTS idx_project_costs_opportunity_uuid ON public.project_costs(opportunity_uuid);
 ```
-// Before sorting, consolidate unresolved IDs into "Unknown Rep"
-mergedPerformanceMap.forEach((rep, key) => {
-  if (isUnresolvedId(rep.assignedTo)) {
-    const unknownKey = "Unknown Rep";
-    const existing = mergedPerformanceMap.get(unknownKey);
-    if (existing) {
-      // Merge values into existing Unknown Rep entry
-      existing.wonValue += rep.wonValue;
-      existing.wonValueFromWonAt += rep.wonValueFromWonAt;
-      // ... merge other fields
-    } else {
-      mergedPerformanceMap.set(unknownKey, { ...rep, assignedTo: unknownKey });
-    }
-    mergedPerformanceMap.delete(key);
-  }
-});
-```
 
-**File to edit**: `src/hooks/useGHLContacts.ts` (lines 845-853)
+### What this does
+- Adds 5 nullable UUID columns across 4 tables
+- Each column is a proper foreign key pointing to the parent table's `id` (primary key)
+- Creates indexes on each new column for query performance
+- All columns start as NULL — no data is modified
+
+### What this does NOT do
+- No data backfill (next step)
+- No NOT NULL constraint changes on legacy columns (later step)
+- No code changes
+
+### No code changes needed
+This is schema-only. The new columns will appear in the Supabase types after regeneration but won't affect existing functionality since they're all nullable.
 
