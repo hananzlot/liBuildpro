@@ -379,28 +379,6 @@ export function SalesRepDetailSheet({
                 </div>
               </div>
 
-              {/* Leads by Source */}
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                  <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Leads by Source ({leadsBySource.length})
-                  </span>
-                </div>
-                <div className="divide-y max-h-48 overflow-y-auto">
-                  {leadsBySource.length === 0 ? (
-                    <div className="p-3 text-sm text-muted-foreground text-center">No leads</div>
-                  ) : (
-                    leadsBySource.map(([source, sourceContacts]) => (
-                      <div key={source} className="p-3 flex items-center justify-between">
-                        <span className="text-sm font-medium truncate">{source}</span>
-                        <Badge variant="secondary" className="text-xs">{sourceContacts.length}</Badge>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
               {/* Appointments */}
               <div className="border rounded-lg overflow-hidden">
                 <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
@@ -468,6 +446,28 @@ export function SalesRepDetailSheet({
                           </div>
                         );
                       })
+                  )}
+                </div>
+              </div>
+
+              {/* Leads by Source */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                  <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Leads by Source ({leadsBySource.length})
+                  </span>
+                </div>
+                <div className="divide-y max-h-48 overflow-y-auto">
+                  {leadsBySource.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground text-center">No leads</div>
+                  ) : (
+                    leadsBySource.map(([source, sourceContacts]) => (
+                      <div key={source} className="p-3 flex items-center justify-between">
+                        <span className="text-sm font-medium truncate">{source}</span>
+                        <Badge variant="secondary" className="text-xs">{sourceContacts.length}</Badge>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>
