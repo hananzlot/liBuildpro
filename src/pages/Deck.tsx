@@ -84,7 +84,7 @@ export default function Deck() {
       <div className="w-56 border-r border-border bg-muted/30 flex flex-col shrink-0">
         <div className="p-3 border-b border-border flex items-center justify-between">
           <h1 className="text-sm font-semibold text-foreground truncate">Marketing Deck</h1>
-          <ExportDeckButton slides={SLIDES} />
+          <ExportDeckButton />
         </div>
         <DeckNavigation
           currentSlide={current}
