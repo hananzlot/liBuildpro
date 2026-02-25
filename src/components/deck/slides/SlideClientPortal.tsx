@@ -1,5 +1,6 @@
 import { SlideLayout } from "../SlideLayout";
 import { Globe, Lock, MessageSquare, FileCheck, Eye, Shield } from "lucide-react";
+import screenshotClientPortal from "@/assets/deck/screenshot-client-portal.jpg";
 
 const FEATURES = [
   { icon: Lock, label: "Passcode Access", desc: "Secure, tokenized portal links — no login required for clients." },
@@ -36,15 +37,8 @@ export default function SlideClientPortal() {
           </div>
         </div>
         <div className="w-[45%] flex items-center justify-center p-12">
-          <div className="w-[340px] h-[680px] rounded-[40px] bg-gradient-to-b from-slate-800/90 to-slate-900/90 border-2 border-slate-700/50 p-6 flex flex-col gap-4 shadow-2xl">
-            <div className="w-24 h-6 mx-auto rounded-full bg-slate-700/50" />
-            <div className="flex-1 rounded-2xl bg-slate-700/20 p-4 flex flex-col gap-3">
-              <div className="h-6 w-32 rounded bg-teal-500/20" />
-              <div className="h-24 rounded-lg bg-teal-500/10" />
-              <div className="h-16 rounded-lg bg-slate-600/20" />
-              <div className="h-16 rounded-lg bg-slate-600/20" />
-              <div className="h-10 rounded-lg bg-teal-500/20 mt-auto" />
-            </div>
+          <div className="w-[340px] h-[680px] rounded-[40px] overflow-hidden border-2 border-slate-700/50 shadow-2xl shadow-teal-500/10">
+            <img src={screenshotClientPortal} alt="Mobile client portal showing project status, photo gallery, messaging, and document signing" className="w-full h-full object-cover" />
           </div>
         </div>
       </div>
