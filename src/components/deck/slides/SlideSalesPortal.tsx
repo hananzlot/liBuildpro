@@ -1,6 +1,6 @@
 import { SlideLayout } from "../SlideLayout";
 import { Briefcase, ClipboardList, Upload, FileText, CalendarDays, FolderOpen } from "lucide-react";
-import screenshotFollowup from "@/assets/deck/screenshot-followup.jpg";
+import screenshotFollowup from "@/assets/deck/sc13.png";
 
 const FEATURES = [
   { icon: ClipboardList, label: "Scope Submissions", desc: "Reps submit job scopes from the field for office pricing." },

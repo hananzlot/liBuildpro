@@ -1,6 +1,6 @@
 import { SlideLayout } from "../SlideLayout";
 import { Globe, Lock, MessageSquare, FileCheck, Eye, Shield } from "lucide-react";
-import screenshotClientPortal from "@/assets/deck/screenshot-client-portal.jpg";
+import screenshotClientPortal from "@/assets/deck/sc11.png";
 
 const FEATURES = [
   { icon: Lock, label: "Passcode Access", desc: "Secure, tokenized portal links — no login required for clients." },
