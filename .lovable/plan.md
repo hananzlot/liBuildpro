@@ -1,63 +1,85 @@
 
 
-# Marketing Deck for Your CRM Platform
+# Plan: Embed All Real Screenshots into the Marketing Deck
 
-Based on my exploration of the codebase, your platform is a comprehensive, multi-tenant CRM built for home services / contracting companies. Here is what I propose building as a slide deck — a new in-app page at `/deck` that uses scaled 1920x1080 slides with fullscreen presentation mode.
+## Screenshot Mapping
 
----
+Between the previous 10 uploads and these new 10 uploads, we now have 20 real screenshots covering every feature area. Here is the complete mapping of new uploads to slides:
 
-## Deck Structure (10 Slides)
+| Upload | Content | Destination |
+|---|---|---|
+| `4.18.15 PM` | Welcome/Home screen (collapsed sidebar) | `screenshot-home.png` — new, for potential Title slide background or skip |
+| `4.19.29 PM` | Welcome/Home screen (expanded sidebar, quick create bar) | Skip — similar to above |
+| `4.20.26 PM` | **Dispatch Dashboard** — KPIs, Opportunities by Source, Won by Source, Sales Rep Performance, Won Deals | `screenshot-dashboard.png` — **replace existing** in SlideDashboard |
+| `4.20.53 PM` | **Calendar** — Monthly view with color-coded appointments, rep filters | `screenshot-calendar.png` — new asset, enhance SlideDashboard or add to features |
+| `4.21.07 PM` | **Follow-up Management** — Buckets (Close to Sale, Stale Notes, Tasks Helper, etc.) | `screenshot-followup.png` — **replace existing** in SlideSalesPortal |
+| `4.22.10 PM` | **Estimates list** — 44 total, tabs for Estimates/Proposals/Contracts/Declined | `screenshot-estimates.png` — **replace existing** in SlideEstimates |
+| `4.22.45 PM` | **Client Portal** — Project status stepper, customer info, team, tabs | `screenshot-client-portal.png` — **replace existing** in SlideClientPortal |
+| `4.23.17-2 PM` | **Customer Proposal Preview** — Branded PDF with $152K ADU proposal | `screenshot-proposal.png` — new asset, add to SlideEstimates as secondary |
+| `4.23.36-2 PM` | **Edit Estimate (AI Builder)** — Scope tab with AI Analysis & Assumptions | `screenshot-ai-estimate.png` — new asset, add to SlideEstimates |
+| `4.23.53-2 PM` | **E-Sign Docs** — Pending/Awaiting/Signed KPIs, document list | `screenshot-esign.png` — new asset, add to SlideDocSigning |
 
-### Slide 1 — Title
-"Your All-in-One Contractor CRM" — tagline, logo placeholder, clean hero layout.
+Combined with the **previous 10 uploads** (which included Production table, Subcontractors, Analytics/Profitability, P&L, Outstanding AR, Outstanding AP), every slide now has real visuals.
 
-### Slide 2 — The Problem
-Pain points: scattered tools, no visibility into pipeline, manual project tracking, lost revenue from missed follow-ups.
+## File Changes
 
-### Slide 3 — Dispatch Dashboard
-Lead tracking, appointment management, sales rep leaderboards, source analytics, follow-up management — all in one view. Highlights the GHL integration for automatic lead sync.
+### 1. Copy 8 new screenshot files to `src/assets/deck/`
 
-### Slide 4 — Estimates & Proposals
-AI-powered estimate builder, line-item pricing, proposal generation with PDF preview, digital sending, and contract printing. Scope-to-estimate workflow.
+Copy these user uploads as PNG files:
+- `screenshot-dashboard.png` (from `4.20.26 PM` — replaces the existing `.jpg`)
+- `screenshot-calendar.png` (from `4.20.53 PM`)
+- `screenshot-followup.png` (from `4.21.07 PM` — replaces existing `.jpg`)
+- `screenshot-estimates.png` (from `4.22.10 PM` — replaces existing `.jpg`)
+- `screenshot-client-portal.png` (from `4.22.45 PM` — replaces existing `.jpg`)
+- `screenshot-proposal.png` (from `4.23.17-2 PM`)
+- `screenshot-ai-estimate.png` (from `4.23.36-2 PM`)
+- `screenshot-esign.png` (from `4.23.53-2 PM`)
 
-### Slide 5 — Production Management
-Full project lifecycle: kanban/table views, project editor, finance tracking (bills, invoices, deposits), photo/document management, notes, subcontractor management with vendor mapping.
+Also copy the previous batch screenshots that haven't been embedded yet:
+- `screenshot-production.png` (Projects table from previous batch)
+- `screenshot-subcontractors.png` (License alerts from previous batch)
+- `screenshot-analytics.png` (Profitability from previous batch)
+- `screenshot-pnl.png` (P&L Statement)
+- `screenshot-ar.png` (Outstanding AR)
+- `screenshot-ap.png` (Outstanding AP)
 
-### Slide 6 — Financial Analytics
-Profitability analysis, cash flow tracking, P&L statements, balance sheets, accounts receivable/payable, commission reports, QuickBooks integration.
+### 2. Update `SlideDashboard.tsx`
+- Replace screenshot import to use the new Dispatch Dashboard image (KPIs, Opportunities by Source, Won Deals, Sales Rep Performance)
+- Update alt text to match real content
 
-### Slide 7 — Client Portal
-Customer-facing portal with passcode access: view project status, sign documents, chat with staff (portal + SMS), review estimates and compliance documents.
+### 3. Update `SlideEstimates.tsx`
+- Use the **Estimates list** screenshot as the primary visual (44 total, $240K estimates, $1M proposals)
+- Could show the AI Estimate Builder or Proposal Preview as a secondary inset or update feature descriptions to reference them
 
-### Slide 8 — Salesperson Portal
-Dedicated rep portal: scope submissions for pricing, estimate creation, file uploads, proposal management, calendar access — all tied to assigned projects.
+### 4. Update `SlideProduction.tsx`
+- Use the **Projects table** screenshot from the previous batch
+- Update alt text
 
-### Slide 9 — Document Signing & Multi-Tenant
-Digital signature flows with multi-signer support, signature templates. Multi-tenant architecture with per-company feature gating, subscription plans, and super-admin controls.
+### 5. Update `SlideAnalytics.tsx`
+- Use the **Profitability** screenshot from the previous batch (KPI cards, Profit by Project/Salesperson charts)
 
-### Slide 10 — CTA / Pricing
-Call to action, feature tier summary (from your subscription/feature gate system), contact info.
+### 6. Update `SlideSalesPortal.tsx`
+- Use the **Follow-up Management** screenshot (buckets with badges: Close to Sale, Tasks Helper, Stale Notes, etc.)
 
----
+### 7. Update `SlideClientPortal.tsx`
+- Use the **Client Portal** screenshot (Project Status stepper, Customer Info, Team section)
+- Change from the phone-frame mockup layout to a full-width desktop screenshot since the real portal is a desktop web view, not mobile
 
-## Technical Approach
+### 8. Update `SlideDocSigning.tsx`
+- Add the **E-Sign Docs** screenshot to the left half (Document Signing section)
+- This slide currently has zero visuals — only text/icons
 
-- **New page**: `src/pages/Deck.tsx` — standalone, no auth required (public marketing page)
-- **Slide components**: Each slide is a React component rendered at 1920x1080, scaled to fit viewport
-- **Fullscreen mode**: Browser Fullscreen API with arrow key navigation
-- **Thumbnail strip**: Left sidebar with slide previews for quick navigation
-- **Design**: Dark gradient backgrounds, feature icons from lucide-react, clean typography, accent colors matching your existing design system
-- **No external dependencies**: Uses your existing UI primitives (Card, Badge, Button) plus custom slide layout CSS
+### 9. Consider expanding the deck
+With the Calendar, AI Estimate Builder, Proposal Preview, and Subcontractors screenshots, we could:
+- Add a secondary visual to SlideDashboard showing the Calendar
+- Add the Proposal Preview as a secondary to SlideEstimates
+- Keep the deck at 10 slides but with richer visuals per slide
 
----
+## Technical Details
 
-## Files to Create
-
-| File | Purpose |
-|------|---------|
-| `src/pages/Deck.tsx` | Main deck page with scaling, navigation, fullscreen |
-| `src/components/deck/SlideLayout.tsx` | 1920x1080 scaled wrapper |
-| `src/components/deck/slides/` | Individual slide components (10 files) |
-| `src/components/deck/DeckNavigation.tsx` | Thumbnail sidebar + keyboard nav |
-| Route entry in `App.tsx` | Public `/deck` route |
+- All imports change from `.jpg` to `.png` since the uploads are PNG format
+- Each component uses `import screenshot from "@/assets/deck/filename.png"`
+- Image styling remains `object-cover object-left-top` to keep KPI headers and key data visible
+- SlideClientPortal layout changes from phone-frame (340x680px rounded rectangle) to a standard screenshot panel since the actual portal is a desktop-class web app
+- No new dependencies needed
 
