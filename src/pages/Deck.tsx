@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { ScaledSlide } from "@/components/deck/SlideLayout";
 import { DeckNavigation } from "@/components/deck/DeckNavigation";
+import { ExportDeckButton } from "@/components/deck/ExportDeck";
 
 import SlideTitle from "@/components/deck/slides/SlideTitle";
 import SlideProblem from "@/components/deck/slides/SlideProblem";
@@ -70,10 +71,20 @@ export default function Deck() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
+      {/* Hidden full-size slides for export capture */}
+      <div className="fixed left-[-9999px] top-0" aria-hidden="true">
+        {SLIDES.map((slide, i) => (
+          <div key={i} data-export-slide="true" style={{ width: 1920, height: 1080, overflow: "hidden" }}>
+            {slide}
+          </div>
+        ))}
+      </div>
+
       {/* Sidebar */}
       <div className="w-56 border-r border-border bg-muted/30 flex flex-col shrink-0">
-        <div className="p-3 border-b border-border">
+        <div className="p-3 border-b border-border flex items-center justify-between">
           <h1 className="text-sm font-semibold text-foreground truncate">Marketing Deck</h1>
+          <ExportDeckButton slides={SLIDES} />
         </div>
         <DeckNavigation
           currentSlide={current}
