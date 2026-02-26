@@ -30,7 +30,7 @@ type ProductionFilters = {
 const initialState = {
   hasHydrated: false,
   searchQuery: "",
-  selectedStatuses: ["New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"],
+  selectedStatuses: ["New Job", "Awaiting Finance", "In-Progress", "Completed", "Cancelled"],
   sortColumn: "project_number" as SortColumn,
   sortDirection: "desc" as SortDirection,
   showAlternatingColors: true,
