@@ -5,7 +5,22 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-const Sheet = SheetPrimitive.Root;
+const Sheet = React.forwardRef<
+  React.ElementRef<typeof SheetPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Root>
+>(({ onOpenChange, ...props }, _ref) => (
+  <SheetPrimitive.Root
+    onOpenChange={(open) => {
+      // Prevent Radix from closing sheets when the browser tab loses focus.
+      if (!open && typeof document !== "undefined" && (document.visibilityState === "hidden" || !document.hasFocus())) {
+        return;
+      }
+      onOpenChange?.(open);
+    }}
+    {...props}
+  />
+));
+Sheet.displayName = "Sheet";
 
 const SheetTrigger = SheetPrimitive.Trigger;
 
