@@ -295,8 +295,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
         .from("project_feedback")
         .select("*")
         .eq("project_id", project.id)
-        .single();
-      if (error && error.code !== "PGRST116") throw error;
+        .maybeSingle();
+      if (error) throw error;
       return data;
     },
     enabled: !!project?.id && open,
