@@ -110,6 +110,7 @@ interface AuditLog {
   new_values: Record<string, unknown> | null;
   changes: Record<string, unknown> | null;
   description: string | null;
+  archived_at?: string;
 }
 
 export default function AdminSettings() {
@@ -311,55 +312,60 @@ export default function AdminSettings() {
     enabled: isAdmin && activeTab === "cleanup" && !!companyId,
   });
   
-  // Audit log retention setting
-  const { data: retentionSetting, isLoading: retentionLoading } = useQuery({
-    queryKey: ["audit-retention-setting"],
+  // Audit log max records setting
+  const { data: maxRecordsSetting, isLoading: maxRecordsLoading } = useQuery({
+    queryKey: ["audit-max-records-setting"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("app_settings")
         .select("setting_value")
-        .eq("setting_key", "audit_log_retention_days")
+        .eq("setting_key", "audit_log_max_records")
         .single();
       if (error) throw error;
-      return data?.setting_value || "7";
+      return data?.setting_value || "50000";
     },
     enabled: isAdmin && activeTab === "audit",
   });
 
-  const [retentionDays, setRetentionDays] = useState("7");
+  const [maxRecords, setMaxRecords] = useState("50000");
   useEffect(() => {
-    if (retentionSetting) setRetentionDays(retentionSetting);
-  }, [retentionSetting]);
+    if (maxRecordsSetting) setMaxRecords(maxRecordsSetting);
+  }, [maxRecordsSetting]);
 
-  const updateRetentionMutation = useMutation({
-    mutationFn: async (days: string) => {
+  const updateMaxRecordsMutation = useMutation({
+    mutationFn: async (val: string) => {
       const { error } = await supabase
         .from("app_settings")
-        .update({ setting_value: days, updated_at: new Date().toISOString() })
-        .eq("setting_key", "audit_log_retention_days");
+        .update({ setting_value: val, updated_at: new Date().toISOString() })
+        .eq("setting_key", "audit_log_max_records");
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["audit-retention-setting"] });
-      toast.success("Retention setting updated");
+      queryClient.invalidateQueries({ queryKey: ["audit-max-records-setting"] });
+      toast.success("Max records setting updated");
     },
-    onError: () => toast.error("Failed to update retention setting"),
+    onError: () => toast.error("Failed to update setting"),
   });
 
   const archiveNowMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.rpc("archive_old_audit_logs", {
-        p_retention_days: parseInt(retentionDays, 10),
+        p_max_records: parseInt(maxRecords, 10),
       });
       if (error) throw error;
       return data;
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ["audit-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["archived-audit-logs"] });
       toast.success(`Archived ${count} log records`);
     },
     onError: () => toast.error("Failed to archive logs"),
   });
+
+  // Archived audit logs state
+  const [archivedPage, setArchivedPage] = useState(0);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Audit log queries
   const { data: auditResult, isLoading: logsLoading } = useQuery({
@@ -404,7 +410,38 @@ export default function AdminSettings() {
   // Reset page when filters change
   useEffect(() => {
     setAuditPage(0);
+    setArchivedPage(0);
   }, [startDate, endDate, tableFilter, actionFilter, userFilter]);
+
+  // Archived audit logs query
+  const { data: archivedResult, isLoading: archivedLoading } = useQuery({
+    queryKey: ["archived-audit-logs", companyId, startDate, endDate, tableFilter, actionFilter, userFilter, archivedPage],
+    queryFn: async () => {
+      const from = archivedPage * AUDIT_PAGE_SIZE;
+      const to = from + AUDIT_PAGE_SIZE - 1;
+      let query = supabase
+        .from("archived_audit_logs")
+        .select("*", { count: "exact" })
+        .eq("company_id", companyId)
+        .order("changed_at", { ascending: false })
+        .range(from, to);
+
+      if (startDate) query = query.gte("changed_at", `${startDate}T00:00:00`);
+      if (endDate) query = query.lte("changed_at", `${endDate}T23:59:59`);
+      if (tableFilter && tableFilter !== "all") query = query.eq("table_name", tableFilter);
+      if (actionFilter && actionFilter !== "all") query = query.eq("action", actionFilter);
+      if (userFilter) query = query.ilike("user_email", `%${userFilter}%`);
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+      return { logs: data as AuditLog[], total: count || 0 };
+    },
+    enabled: isAdmin && activeTab === "audit" && !!companyId && showArchived,
+  });
+
+  const archivedLogs = archivedResult?.logs;
+  const archivedTotal = archivedResult?.total || 0;
+  const archivedTotalPages = Math.ceil(archivedTotal / AUDIT_PAGE_SIZE);
 
   const { data: distinctTables } = useQuery({
     queryKey: ["audit-log-tables", companyId],
@@ -1894,37 +1931,38 @@ export default function AdminSettings() {
 
           {/* Audit Log Tab */}
           <TabsContent value="audit" className="mt-6 space-y-6">
-            {/* Retention Settings */}
+             {/* Max Records Settings */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Settings className="h-4 w-4" /> Auto-Archive Settings
                 </CardTitle>
                 <CardDescription>
-                  Audit logs older than the retention period are automatically archived daily at 3 AM UTC.
+                  When the active audit log exceeds the max record limit, the oldest records are moved to the archive.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-end gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="retention-days">Retention Period (days)</Label>
+                    <Label htmlFor="max-records">Max Active Records</Label>
                     <Input
-                      id="retention-days"
+                      id="max-records"
                       type="number"
-                      min={1}
-                      max={365}
-                      value={retentionDays}
-                      onChange={(e) => setRetentionDays(e.target.value)}
-                      className="w-32"
-                      disabled={retentionLoading}
+                      min={1000}
+                      max={500000}
+                      step={1000}
+                      value={maxRecords}
+                      onChange={(e) => setMaxRecords(e.target.value)}
+                      className="w-40"
+                      disabled={maxRecordsLoading}
                     />
                   </div>
                   <Button
                     size="sm"
-                    onClick={() => updateRetentionMutation.mutate(retentionDays)}
-                    disabled={updateRetentionMutation.isPending || retentionDays === retentionSetting}
+                    onClick={() => updateMaxRecordsMutation.mutate(maxRecords)}
+                    disabled={updateMaxRecordsMutation.isPending || maxRecords === maxRecordsSetting}
                   >
-                    {updateRetentionMutation.isPending ? (
+                    {updateMaxRecordsMutation.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin mr-1" />
                     ) : (
                       <Save className="h-4 w-4 mr-1" />
@@ -1947,7 +1985,7 @@ export default function AdminSettings() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Logs older than {retentionDays} day{retentionDays !== "1" ? "s" : ""} will be moved to the archive table.
+                  When active logs exceed {parseInt(maxRecords).toLocaleString()} records, the oldest will be archived automatically.
                 </p>
               </CardContent>
             </Card>
@@ -2137,6 +2175,110 @@ export default function AdminSettings() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Archived Logs */}
+            <Collapsible open={showArchived} onOpenChange={setShowArchived}>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between cursor-pointer">
+                      <div>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Database className="h-4 w-4" /> Archived Logs
+                          <ChevronRight className={`h-4 w-4 transition-transform ${showArchived ? "rotate-90" : ""}`} />
+                        </CardTitle>
+                        <CardDescription>
+                          {showArchived
+                            ? `Showing ${archivedTotal > 0 ? (archivedPage * AUDIT_PAGE_SIZE) + 1 : 0}–${Math.min((archivedPage + 1) * AUDIT_PAGE_SIZE, archivedTotal)} of ${archivedTotal} archived records`
+                            : "Click to view archived audit logs"}
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CollapsibleTrigger>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent>
+                    {archivedLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                      </div>
+                    ) : (
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Date/Time</TableHead>
+                              <TableHead>Archived At</TableHead>
+                              <TableHead>User</TableHead>
+                              <TableHead>Table</TableHead>
+                              <TableHead>Action</TableHead>
+                              <TableHead>Description</TableHead>
+                              <TableHead></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {archivedLogs?.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                  No archived logs found
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              archivedLogs?.map((log) => (
+                                <TableRow key={log.id}>
+                                  <TableCell className="whitespace-nowrap">
+                                    {format(new Date(log.changed_at), "MMM d, yyyy h:mm a")}
+                                  </TableCell>
+                                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                                    {log.archived_at ? format(new Date(log.archived_at), "MMM d, yyyy h:mm a") : "-"}
+                                  </TableCell>
+                                  <TableCell className="max-w-[200px] truncate">
+                                    {log.user_email || "System"}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="outline">{log.table_name}</Badge>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={getActionBadgeVariant(log.action) as any}>
+                                      {log.action}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="max-w-[300px] truncate">
+                                    {log.description || "-"}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setSelectedLog(log)}
+                                    >
+                                      <FileText className="h-4 w-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                    {archivedTotalPages > 1 && (
+                      <div className="flex items-center justify-between pt-4">
+                        <p className="text-sm text-muted-foreground">
+                          Page {archivedPage + 1} of {archivedTotalPages}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setArchivedPage(0)} disabled={archivedPage === 0}>First</Button>
+                          <Button variant="outline" size="sm" onClick={() => setArchivedPage((p) => Math.max(0, p - 1))} disabled={archivedPage === 0}>Previous</Button>
+                          <Button variant="outline" size="sm" onClick={() => setArchivedPage((p) => Math.min(archivedTotalPages - 1, p + 1))} disabled={archivedPage >= archivedTotalPages - 1}>Next</Button>
+                          <Button variant="outline" size="sm" onClick={() => setArchivedPage(archivedTotalPages - 1)} disabled={archivedPage >= archivedTotalPages - 1}>Last</Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           </TabsContent>
 
           {/* Edge Function Logs Tab */}

@@ -17,28 +17,28 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get retention days from app_settings
+    // Get max records from app_settings
     const { data: setting } = await supabase
       .from("app_settings")
       .select("setting_value")
-      .eq("setting_key", "audit_log_retention_days")
+      .eq("setting_key", "audit_log_max_records")
       .single();
 
-    const retentionDays = setting?.setting_value
+    const maxRecords = setting?.setting_value
       ? parseInt(setting.setting_value, 10)
-      : 7;
+      : 50000;
 
     // Call the archive function
     const { data, error } = await supabase.rpc("archive_old_audit_logs", {
-      p_retention_days: retentionDays,
+      p_max_records: maxRecords,
     });
 
     if (error) throw error;
 
-    console.log(`Archived ${data} audit log records (retention: ${retentionDays} days)`);
+    console.log(`Archived ${data} audit log records (max records: ${maxRecords})`);
 
     return new Response(
-      JSON.stringify({ archived: data, retention_days: retentionDays }),
+      JSON.stringify({ archived: data, max_records: maxRecords }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
