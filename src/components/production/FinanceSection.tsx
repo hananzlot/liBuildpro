@@ -3309,9 +3309,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                             )}
                                             {(() => {
                                               // Find all invoices with open balance for this phase
-                                              const unpaidInvoices = invoices.filter(inv => 
-                                                inv.payment_phase_id === phase.id && (inv.open_balance || 0) > 0
-                                              );
+                                              const unpaidInvoices = invoices
+                                                .filter(inv => inv.payment_phase_id === phase.id)
+                                                .map(inv => ({
+                                                  ...inv,
+                                                  open_balance: (inv.amount || 0) - (inv.payments_received || 0),
+                                                }))
+                                                .filter(inv => inv.open_balance > 0);
                                               if (unpaidInvoices.length === 0) return null;
                                               return (
                                                 <Button 
