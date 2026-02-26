@@ -1277,6 +1277,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
       queryClient.invalidateQueries({ queryKey: ["pending-deposits"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-deposits-count"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-deposits-count-tab"] });
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });

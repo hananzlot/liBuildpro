@@ -89,6 +89,8 @@ export function PendingDepositsSheet({ open, onOpenChange, onOpenProject }: Pend
       queryClient.invalidateQueries({ queryKey: ["pending-deposits"] });
       queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
       queryClient.invalidateQueries({ queryKey: ["project-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-deposits-count"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-deposits-count-tab"] });
       setSelectedPayments([]);
     },
     onError: (error) => {
