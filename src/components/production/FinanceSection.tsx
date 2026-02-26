@@ -243,11 +243,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   };
   
   // Dialog states
-  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const { open: invoiceDialogOpen, setOpen: setInvoiceDialogOpen } = usePersistedDialog("finance-invoice-dialog", projectId);
+  const { open: paymentDialogOpen, setOpen: setPaymentDialogOpen } = usePersistedDialog("finance-payment-dialog", projectId);
   const { open: billDialogOpen, setOpen: setBillDialogOpen } = usePersistedDialog("finance-bill-dialog", projectId);
   const { open: agreementDialogOpen, setOpen: setAgreementDialogOpen } = usePersistedDialog("finance-agreement-dialog", projectId);
-  const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
+  const { open: phaseDialogOpen, setOpen: setPhaseDialogOpen } = usePersistedDialog("finance-phase-dialog", projectId);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quickPayDialogOpen, setQuickPayDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
@@ -4000,7 +4000,13 @@ function InvoiceDialog({
     };
   };
 
-  const [formData, setFormData] = useState(getInitialFormData);
+  const initialFormData = getInitialFormData();
+  const { draft: formData, updateDraft: updateFormData, setFullDraft: setFormData, clearDraft } = usePersistentDraft(
+    "invoice-dialog",
+    initialFormData,
+    invoice?.id || "new",
+    open
+  );
   const [amountError, setAmountError] = useState("");
   const [phaseError, setPhaseError] = useState("");
   const { companyId: dialogCompanyId } = useCompanyContext();
@@ -4036,22 +4042,33 @@ function InvoiceDialog({
     staleTime: 0, // Always fetch fresh
   });
 
-  // Reset form when dialog opens or invoice/prePopulatedData changes
-  // Use JSON.stringify to ensure we detect object content changes
+  // Auto-fill invoice number for new invoices when nextInvoiceNumber loads
+  useEffect(() => {
+    if (open && !invoice && !prePopulatedData && nextInvoiceNumber && !formData.invoice_number) {
+      updateFormData({ invoice_number: nextInvoiceNumber, invoice_date: formData.invoice_date || new Date().toISOString().split('T')[0] });
+    }
+  }, [open, invoice, prePopulatedData, nextInvoiceNumber]);
+
+  // Reset form when invoice identity changes (not on every open — draft handles persistence)
+  const lastInvoiceIdRef = useRef<string | null | undefined>(undefined);
   const prePopulatedKey = prePopulatedData ? JSON.stringify(prePopulatedData) : null;
   
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      lastInvoiceIdRef.current = undefined;
+      return;
+    }
+    const currentId = invoice?.id ?? (prePopulatedKey ?? null);
+    if (lastInvoiceIdRef.current === currentId) return;
+    lastInvoiceIdRef.current = currentId;
     
     if (invoice) {
-      // Derive agreement_id from payment phase if not set on invoice
       let agreementId = invoice.agreement_id || "";
       if (!agreementId && invoice.payment_phase_id) {
         const phase = paymentPhases.find(p => p.id === invoice.payment_phase_id);
-        if (phase) {
-          agreementId = phase.agreement_id || "";
-        }
+        if (phase) agreementId = phase.agreement_id || "";
       }
+      clearDraft();
       setFormData({
         invoice_number: invoice.invoice_number || "",
         invoice_date: invoice.invoice_date || "",
@@ -4060,7 +4077,7 @@ function InvoiceDialog({
         payment_phase_id: invoice.payment_phase_id || "",
       });
     } else if (prePopulatedData) {
-      // Pre-populate from payment phase with auto-generated invoice number
+      clearDraft();
       setFormData({
         invoice_number: nextInvoiceNumber || "",
         invoice_date: prePopulatedData.invoice_date || new Date().toISOString().split('T')[0],
@@ -4068,16 +4085,8 @@ function InvoiceDialog({
         agreement_id: prePopulatedData.agreement_id || "",
         payment_phase_id: prePopulatedData.payment_phase_id || "",
       });
-    } else {
-      // New invoice with auto-generated number
-      setFormData({ 
-        invoice_number: nextInvoiceNumber || "", 
-        invoice_date: new Date().toISOString().split('T')[0], 
-        amount: "", 
-        agreement_id: "", 
-        payment_phase_id: "" 
-      });
     }
+    // For new invoices, draft will auto-load from sessionStorage — no reset needed
     setAmountError("");
     setPhaseError("");
   }, [open, invoice, prePopulatedKey, paymentPhases, nextInvoiceNumber]);
@@ -4114,19 +4123,25 @@ function InvoiceDialog({
 
   // Clear payment phase when agreement changes
   const handleAgreementChange = (value: string) => {
-    setFormData(p => ({ ...p, agreement_id: value, payment_phase_id: "" }));
+    updateFormData({ agreement_id: value, payment_phase_id: "" });
     setAmountError("");
   };
 
   const handlePhaseChange = (value: string) => {
-    setFormData(p => ({ ...p, payment_phase_id: value }));
+    updateFormData({ payment_phase_id: value });
     setAmountError("");
     setPhaseError("");
   };
 
   const handleAmountChange = (value: string) => {
-    setFormData(p => ({ ...p, amount: value }));
+    updateFormData({ amount: value });
     setAmountError("");
+  };
+
+  // Wrap onOpenChange to clear draft when closing
+  const handleOpenChange = (value: boolean) => {
+    if (!value) clearDraft();
+    onOpenChange(value);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -4165,7 +4180,7 @@ function InvoiceDialog({
   const openBalance = invoiceAmount - paymentsReceivedForInvoice;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{invoice ? "Edit Invoice" : "Add Invoice"}</DialogTitle>
@@ -4175,11 +4190,11 @@ function InvoiceDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Invoice Number</Label>
-              <Input value={formData.invoice_number} onChange={(e) => setFormData(p => ({ ...p, invoice_number: e.target.value }))} />
+              <Input value={formData.invoice_number} onChange={(e) => updateFormData({ invoice_number: e.target.value })} />
             </div>
             <div>
               <Label>Invoice Date</Label>
-              <Input type="date" value={formData.invoice_date} onChange={(e) => setFormData(p => ({ ...p, invoice_date: e.target.value }))} />
+              <Input type="date" value={formData.invoice_date} onChange={(e) => updateFormData({ invoice_date: e.target.value })} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -4294,7 +4309,7 @@ function PaymentDialog({
   invoices: Invoice[];
 }) {
   const { companyId } = useCompanyContext();
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     bank_id: "",
     projected_received_date: "",
     payment_schedule: "",
@@ -4305,7 +4320,13 @@ function PaymentDialog({
     payment_method: "",
     invoice_id: "",
     deposit_verified: false,
-  });
+  };
+  const { draft: formData, updateDraft: updateFormData, setFullDraft: setFormData, clearDraft } = usePersistentDraft(
+    "payment-dialog",
+    initialFormData,
+    payment?.id || "new",
+    open
+  );
   const [amountError, setAmountError] = useState("");
   const [bankSearch, setBankSearch] = useState("");
   const [bankOpen, setBankOpen] = useState(false);
@@ -4343,7 +4364,7 @@ function PaymentDialog({
     onSuccess: (newBankId) => {
       queryClient.invalidateQueries({ queryKey: ["banks-with-id", companyId] });
       if (newBankId) {
-        setFormData(p => ({ ...p, bank_id: newBankId }));
+        updateFormData({ bank_id: newBankId });
       }
     },
   });
@@ -4360,11 +4381,19 @@ function PaymentDialog({
 
   const selectedBank = existingBanks.find(b => b.id === formData.bank_id);
 
-  // Initialize form data when dialog opens or payment changes
+  // Reset form when payment identity changes (not on every open — draft handles persistence)
+  const lastPaymentIdRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (!open) return;
-    
+    if (!open) {
+      lastPaymentIdRef.current = undefined;
+      return;
+    }
+    const currentId = payment?.id ?? (prePopulatedData ? JSON.stringify(prePopulatedData) : null);
+    if (lastPaymentIdRef.current === currentId) return;
+    lastPaymentIdRef.current = currentId;
+
     if (payment) {
+      clearDraft();
       setFormData({
         bank_id: payment.bank_id || "",
         projected_received_date: payment.projected_received_date || "",
@@ -4378,6 +4407,7 @@ function PaymentDialog({
         deposit_verified: payment.deposit_verified ?? false,
       });
     } else if (prePopulatedData) {
+      clearDraft();
       setFormData({
         bank_id: "",
         projected_received_date: new Date().toISOString().split('T')[0],
@@ -4388,16 +4418,16 @@ function PaymentDialog({
         check_number: "",
         payment_method: "",
         invoice_id: prePopulatedData.invoice_id || "",
-        deposit_verified: false, // New payments default to not deposited
+        deposit_verified: false,
       });
-    } else {
-      setFormData({ bank_id: "", projected_received_date: "", payment_schedule: "", payment_status: "Received", payment_amount: "", payment_fee: "", check_number: "", payment_method: "", invoice_id: "", deposit_verified: false });
     }
+    // For new payments, draft will auto-load from sessionStorage — no reset needed
     setAmountError("");
     setBankSearch("");
   }, [open, payment, prePopulatedData]);
 
   const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) clearDraft();
     onOpenChange(newOpen);
   };
 
@@ -4500,7 +4530,7 @@ function PaymentDialog({
                             key={bank.id}
                             value={bank.name}
                             onSelect={() => {
-                              setFormData(p => ({ ...p, bank_id: bank.id }));
+                              updateFormData({ bank_id: bank.id });
                               setBankOpen(false);
                               setBankSearch("");
                             }}
@@ -4524,7 +4554,7 @@ function PaymentDialog({
               <Input 
                 type="date" 
                 value={formData.projected_received_date} 
-                onChange={(e) => setFormData(p => ({ ...p, projected_received_date: e.target.value }))} 
+                onChange={(e) => updateFormData({ projected_received_date: e.target.value })} 
                 className={cn(!formData.projected_received_date && "border-destructive")}
               />
               {!formData.projected_received_date && (
@@ -4534,7 +4564,7 @@ function PaymentDialog({
           </div>
           <div>
             <Label>Invoice</Label>
-            <Select value={formData.invoice_id} onValueChange={(v) => { setFormData(p => ({ ...p, invoice_id: v })); setAmountError(""); }}>
+            <Select value={formData.invoice_id} onValueChange={(v) => { updateFormData({ invoice_id: v }); setAmountError(""); }}>
               <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
               <SelectContent>
                 {invoices.map((inv) => (
@@ -4555,7 +4585,7 @@ function PaymentDialog({
                 onChange={(e) => {
                   const raw = e.target.value.replace(/[^0-9.]/g, '');
                   if (raw === '' || /^\d*\.?\d{0,2}$/.test(raw)) {
-                    setFormData(p => ({ ...p, payment_amount: raw }));
+                    updateFormData({ payment_amount: raw });
                     setAmountError("");
                   }
                 }}
@@ -4563,12 +4593,12 @@ function PaymentDialog({
                   const raw = formData.payment_amount.replace(/[^0-9.]/g, '');
                   const num = parseFloat(raw);
                   if (!isNaN(num) && num > 0) {
-                    setFormData(p => ({ ...p, payment_amount: num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }));
+                    updateFormData({ payment_amount: num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
                   }
                 }}
                 onFocus={() => {
                   const raw = formData.payment_amount.replace(/[^0-9.]/g, '');
-                  setFormData(p => ({ ...p, payment_amount: raw }));
+                  updateFormData({ payment_amount: raw });
                 }}
                 className={!formData.payment_amount ? "border-destructive" : ""}
               />
@@ -4577,7 +4607,7 @@ function PaymentDialog({
             </div>
             <div>
               <Label>Status</Label>
-              <Select value={formData.payment_status} onValueChange={(v) => setFormData(p => ({ ...p, payment_status: v }))}>
+              <Select value={formData.payment_status} onValueChange={(v) => updateFormData({ payment_status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Received">Received</SelectItem>
@@ -4590,11 +4620,11 @@ function PaymentDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Fee ($)</Label>
-              <Input type="text" inputMode="decimal" value={formData.payment_fee} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, payment_fee: val })); }} />
+              <Input type="text" inputMode="decimal" value={formData.payment_fee} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateFormData({ payment_fee: val }); }} />
             </div>
             <div>
               <Label>Payment Method</Label>
-              <Select value={formData.payment_method} onValueChange={(v) => setFormData(p => ({ ...p, payment_method: v, ...(v === "Zelle/ACH" || v === "Wire" ? { check_number: "" } : {}) }))}>
+              <Select value={formData.payment_method} onValueChange={(v) => updateFormData({ payment_method: v, ...(v === "Zelle/ACH" || v === "Wire" ? { check_number: "" } : {}) })}>
                 <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Check">Check</SelectItem>
@@ -4609,7 +4639,7 @@ function PaymentDialog({
               <Label>Check #</Label>
               <Input 
                 value={formData.check_number} 
-                onChange={(e) => setFormData(p => ({ ...p, check_number: e.target.value }))} 
+                onChange={(e) => updateFormData({ check_number: e.target.value })} 
                 disabled={formData.payment_method === "Zelle/ACH" || formData.payment_method === "Wire"}
                 placeholder={formData.payment_method === "Zelle/ACH" || formData.payment_method === "Wire" ? "N/A" : ""}
               />
@@ -4621,7 +4651,7 @@ function PaymentDialog({
               <Checkbox 
                 id="deposit_verified" 
                 checked={formData.deposit_verified} 
-                onCheckedChange={(checked) => setFormData(p => ({ ...p, deposit_verified: !!checked }))} 
+                onCheckedChange={(checked) => updateFormData({ deposit_verified: !!checked })} 
               />
               <Label htmlFor="deposit_verified" className="text-sm font-normal cursor-pointer">
                 Deposit Verified
@@ -5130,14 +5160,20 @@ function AgreementDialog({
   companyId: string;
   onPhasesExtracted?: (phases: ExtractedPhase[], agreementId: string | null) => void;
 }) {
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     agreement_number: "",
     agreement_type: "",
     agreement_signed_date: "",
     total_price: "",
     description_of_work: "",
     attachment_url: null as string | null,
-  });
+  };
+  const { draft: formData, updateDraft: updateFormData, setFullDraft: setFormData, clearDraft } = usePersistentDraft(
+    "agreement-dialog",
+    initialFormData,
+    agreement?.id || "new",
+    open
+  );
 
   const [isExtracting, setIsExtracting] = useState(false);
 
@@ -5165,9 +5201,26 @@ function AgreementDialog({
     enabled: open && !agreement, // Only fetch when creating new agreement
   });
 
-  // Populate form when agreement changes or dialog opens
+  // Auto-fill agreement number for new agreements when nextAgreementNumber loads
   useEffect(() => {
-    if (open && agreement) {
+    if (open && !agreement && nextAgreementNumber && !formData.agreement_number) {
+      updateFormData({ agreement_number: nextAgreementNumber });
+    }
+  }, [open, agreement, nextAgreementNumber]);
+
+  // Reset form when agreement identity changes (not on every open — draft handles persistence)
+  const lastAgreementIdRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!open) {
+      lastAgreementIdRef.current = undefined;
+      return;
+    }
+    const currentId = agreement?.id ?? null;
+    if (lastAgreementIdRef.current === currentId) return;
+    lastAgreementIdRef.current = currentId;
+
+    if (agreement) {
+      clearDraft();
       setFormData({
         agreement_number: agreement.agreement_number || "",
         agreement_type: agreement.agreement_type || "",
@@ -5176,18 +5229,9 @@ function AgreementDialog({
         description_of_work: agreement.description_of_work || "",
         attachment_url: agreement.attachment_url || null,
       });
-    } else if (open && !agreement) {
-      // Auto-fill the next agreement number for new agreements
-      setFormData({ 
-        agreement_number: nextAgreementNumber || "1201", 
-        agreement_type: "", 
-        agreement_signed_date: "", 
-        total_price: "", 
-        description_of_work: "", 
-        attachment_url: null 
-      });
     }
-  }, [open, agreement, nextAgreementNumber]);
+    // For new agreements, draft will auto-load from sessionStorage
+  }, [open, agreement]);
 
   const [dateError, setDateError] = useState("");
 
@@ -5267,8 +5311,14 @@ function AgreementDialog({
     }
   };
 
+  // Wrap onOpenChange to clear draft when closing
+  const handleOpenChange = (value: boolean) => {
+    if (!value) clearDraft();
+    onOpenChange(value);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{agreement ? "Edit Agreement" : "Add Agreement"}</DialogTitle>
@@ -5286,7 +5336,7 @@ function AgreementDialog({
             </div>
             <div>
               <Label>Type</Label>
-              <Select value={formData.agreement_type} onValueChange={(v) => setFormData(p => ({ ...p, agreement_type: v }))}>
+              <Select value={formData.agreement_type} onValueChange={(v) => updateFormData({ agreement_type: v })}>
                 <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Contract">Contract</SelectItem>
@@ -5304,14 +5354,14 @@ function AgreementDialog({
               <Input 
                 type="date" 
                 value={formData.agreement_signed_date} 
-                onChange={(e) => { setFormData(p => ({ ...p, agreement_signed_date: e.target.value })); setDateError(""); }} 
+                onChange={(e) => { updateFormData({ agreement_signed_date: e.target.value }); setDateError(""); }} 
                 required 
               />
               {dateError && <p className="text-xs text-destructive mt-1">{dateError}</p>}
             </div>
             <div>
               <Label>Total Value ($)</Label>
-              <Input type="text" inputMode="decimal" value={formData.total_price} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, total_price: val })); }} />
+              <Input type="text" inputMode="decimal" value={formData.total_price} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateFormData({ total_price: val }); }} />
             </div>
           </div>
           {/* Warning when contract amount doesn't match phases total */}
@@ -5334,14 +5384,14 @@ function AgreementDialog({
           })()}
           <div>
             <Label>Description of Work</Label>
-            <Input value={formData.description_of_work} onChange={(e) => setFormData(p => ({ ...p, description_of_work: e.target.value }))} placeholder="Scope of work covered" />
+            <Input value={formData.description_of_work} onChange={(e) => updateFormData({ description_of_work: e.target.value })} placeholder="Scope of work covered" />
           </div>
           <div>
             <Label>Contract Document</Label>
             <FileUpload
               projectId={projectId}
               currentUrl={formData.attachment_url}
-              onUpload={(url) => setFormData(p => ({ ...p, attachment_url: url }))}
+              onUpload={(url) => updateFormData({ attachment_url: url })}
               folder="agreements"
             />
           </div>
@@ -5396,13 +5446,19 @@ function PhaseDialog({
   agreements: Agreement[];
   paymentPhases: PaymentPhase[];
 }) {
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     phase_name: "",
     description: "",
     due_date: "",
     amount: "",
     agreement_id: "",
-  });
+  };
+  const { draft: formData, updateDraft: updateFormData, setFullDraft: setFormData, clearDraft } = usePersistentDraft(
+    "phase-dialog",
+    initialFormData,
+    phase?.id || "new",
+    open
+  );
   const [validationWarning, setValidationWarning] = useState("");
   const [agreementError, setAgreementError] = useState("");
   const [phaseNameError, setPhaseNameError] = useState("");
@@ -5424,9 +5480,19 @@ function PhaseDialog({
 
   const availableAgreements = getAvailableAgreements();
 
-  // Initialize form data when dialog opens or phase changes
+  // Reset form when phase identity changes (not on every open — draft handles persistence)
+  const lastPhaseIdRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (open && phase) {
+    if (!open) {
+      lastPhaseIdRef.current = undefined;
+      return;
+    }
+    const currentId = phase?.id ?? null;
+    if (lastPhaseIdRef.current === currentId) return;
+    lastPhaseIdRef.current = currentId;
+
+    if (phase) {
+      clearDraft();
       setFormData({
         phase_name: phase.phase_name || "",
         description: phase.description || "",
@@ -5434,9 +5500,8 @@ function PhaseDialog({
         amount: phase.amount?.toString() || "",
         agreement_id: phase.agreement_id || "",
       });
-    } else if (open && !phase) {
-      setFormData({ phase_name: "", description: "", due_date: "", amount: "", agreement_id: "" });
     }
+    // For new phases, draft will auto-load from sessionStorage
     setValidationWarning("");
     setAgreementError("");
     setPhaseNameError("");
@@ -5444,6 +5509,7 @@ function PhaseDialog({
   }, [open, phase]);
 
   const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) clearDraft();
     setValidationWarning("");
     setAgreementError("");
     setPhaseNameError("");
@@ -5527,7 +5593,7 @@ function PhaseDialog({
             <Select 
               value={formData.agreement_id} 
               onValueChange={(v) => {
-                setFormData(p => ({ ...p, agreement_id: v }));
+                updateFormData({ agreement_id: v });
                 setAgreementError("");
               }}
             >
@@ -5554,18 +5620,18 @@ function PhaseDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Progress Payment Name <span className="text-destructive">*</span></Label>
-              <Input value={formData.phase_name} onChange={(e) => { setFormData(p => ({ ...p, phase_name: e.target.value })); setPhaseNameError(""); }} placeholder="e.g., Deposit, Progress, Final" />
+              <Input value={formData.phase_name} onChange={(e) => { updateFormData({ phase_name: e.target.value }); setPhaseNameError(""); }} placeholder="e.g., Deposit, Progress, Final" />
               {phaseNameError && <p className="text-xs text-destructive mt-1">{phaseNameError}</p>}
             </div>
             <div>
               <Label>Due Date <span className="text-destructive">*</span></Label>
-              <Input type="date" value={formData.due_date} onChange={(e) => { setFormData(p => ({ ...p, due_date: e.target.value })); setDueDateError(""); }} />
+              <Input type="date" value={formData.due_date} onChange={(e) => { updateFormData({ due_date: e.target.value }); setDueDateError(""); }} />
               {dueDateError && <p className="text-xs text-destructive mt-1">{dueDateError}</p>}
             </div>
           </div>
           <div>
             <Label>Amount ($)</Label>
-            <Input type="text" inputMode="decimal" value={formData.amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, amount: val })); }} />
+            <Input type="text" inputMode="decimal" value={formData.amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateFormData({ amount: val }); }} />
           </div>
           {validationWarning && (
             <div className={cn(
@@ -5578,7 +5644,7 @@ function PhaseDialog({
           )}
           <div>
             <Label>Description</Label>
-            <Input value={formData.description} onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))} placeholder="Additional details about this phase" />
+            <Input value={formData.description} onChange={(e) => updateFormData({ description: e.target.value })} placeholder="Additional details about this phase" />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
