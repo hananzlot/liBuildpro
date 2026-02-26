@@ -1875,8 +1875,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
         queryClient.invalidateQueries({ queryKey: ["all-project-invoices"] });
         queryClient.invalidateQueries({ queryKey: ["sidebar-ar-total"] });
-        // Only warn if QB void failed - if it succeeded, we already showed success message
-        if (!result?.qbSynced) {
+        // Only warn when QuickBooks is connected and QB void failed
+        if (isQBConnectedMain && !result?.qbSynced) {
           toast.warning("Payment could not be voided in QuickBooks. Please void or delete this payment manually in QuickBooks.", {
             duration: 8000,
           });
