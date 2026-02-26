@@ -69,9 +69,12 @@ import {
   Download,
   Eye,
   Sparkles,
+  ExternalLink,
+  X,
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { VendorMappingDialog } from "./VendorMappingDialog";
 import { SalespersonVendorMappingDialog } from "./SalespersonVendorMappingDialog";
 import { QBDuplicateReviewDialog, type QBDuplicateCandidate } from "./analytics/QBDuplicateReviewDialog";
@@ -2168,8 +2171,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     return bills.find(b => b.id === offsetBillId);
   };
 
-  return (
-    <div className="space-y-4 max-w-6xl mx-auto">
+  const financeContent = (
+    <div className="space-y-4 max-w-6xl mx-auto overflow-auto h-full">
       {/* Profitability by Contract Dialog */}
       <Dialog open={profitabilityDialogOpen} onOpenChange={setProfitabilityDialogOpen}>
         <DialogContent className="max-w-3xl">
@@ -3877,18 +3880,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* PDF/Image Viewer Dialog */}
-      <PdfViewerDialog
-        open={pdfViewerOpen}
-        onOpenChange={(open) => {
-          setPdfViewerOpen(open);
-          if (!open) {
-            setSelectedAttachment(null);
-          }
-        }}
-        fileUrl={selectedAttachment?.url || ""}
-        fileName={selectedAttachment?.name || ""}
-      />
+      {/* PDF viewer is now inline split-panel, not a dialog */}
 
       {/* QuickBooks New Entity Confirmation Dialog */}
       <AlertDialog open={qbConfirmDialogOpen} onOpenChange={(open) => {
@@ -3950,6 +3942,62 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       </AlertDialog>
     </div>
   );
+
+  // If PDF viewer is open, render split-panel layout
+  if (pdfViewerOpen && selectedAttachment) {
+    return (
+      <ResizablePanelGroup direction="horizontal" className="h-full min-h-0">
+        <ResizablePanel defaultSize={45} minSize={25} maxSize={65}>
+          <div className="h-full flex flex-col border-r">
+            <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm font-medium truncate">{selectedAttachment.name}</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => window.open(selectedAttachment.url, "_blank")}
+                  title="Open in new tab"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => {
+                    setPdfViewerOpen(false);
+                    setSelectedAttachment(null);
+                  }}
+                  title="Close preview"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">
+              <iframe
+                src={`${selectedAttachment.url}#toolbar=0&navpanes=0`}
+                className="w-full h-full border-0 bg-white"
+                title={selectedAttachment.name}
+              />
+            </div>
+          </div>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={55} minSize={35}>
+          <div className="h-full overflow-auto p-4">
+            {financeContent}
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    );
+  }
+
+  return financeContent;
 }
 
 // Invoice Dialog Component
