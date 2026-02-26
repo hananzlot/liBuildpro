@@ -2253,7 +2253,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         <div className="flex gap-2 flex-wrap items-center">
           <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1.5 border border-emerald-500/30">
             <DollarSign className="h-3 w-3 text-emerald-600" />
-            <span className="text-[10px] text-emerald-600">Sold:</span>
+            <span className="text-[10px] text-emerald-600 font-bold">Sold:</span>
             <span className="text-xs font-semibold text-emerald-700">{formatCurrency(totalAgreementsValue)}</span>
           </div>
           <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5 border">
