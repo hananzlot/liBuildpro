@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { PROJECT_STATUSES } from "@/components/production/AdminKPIFilters";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAppTabs } from "@/contexts/AppTabsContext";
@@ -885,9 +886,12 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                   </PopoverTrigger>
                   <PopoverContent className="w-[200px] p-1 z-50 bg-popover" align="start">
                     <div className="flex flex-col">
-                      {projectStatuses.map((status) => (
+                      {(projectStatuses.length > 0
+                        ? projectStatuses.map(s => ({ key: s.id, name: s.name }))
+                        : PROJECT_STATUSES.map(s => ({ key: s, name: s }))
+                      ).map((status) => (
                         <button
-                          key={status.id}
+                          key={status.key}
                           className={cn(
                             "flex items-center gap-2 px-2 py-1.5 text-xs rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors text-left",
                             fullProject?.project_status === status.name && "bg-accent"
@@ -906,9 +910,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                           {status.name}
                         </button>
                       ))}
-                      {projectStatuses.length === 0 && (
-                        <p className="text-xs text-muted-foreground px-2 py-1.5">No statuses configured</p>
-                      )}
                       {(isAdmin || isSuperAdmin) && (
                         <>
                           <div className="border-t my-1" />
