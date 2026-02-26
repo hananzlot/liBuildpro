@@ -5172,6 +5172,7 @@ export type Database = {
           is_voided: boolean
           payment_amount: number | null
           payment_fee: number | null
+          payment_method: string | null
           payment_phase_id: string | null
           payment_schedule: string | null
           payment_status: string | null
@@ -5196,6 +5197,7 @@ export type Database = {
           is_voided?: boolean
           payment_amount?: number | null
           payment_fee?: number | null
+          payment_method?: string | null
           payment_phase_id?: string | null
           payment_schedule?: string | null
           payment_status?: string | null
@@ -5220,6 +5222,7 @@ export type Database = {
           is_voided?: boolean
           payment_amount?: number | null
           payment_fee?: number | null
+          payment_method?: string | null
           payment_phase_id?: string | null
           payment_schedule?: string | null
           payment_status?: string | null

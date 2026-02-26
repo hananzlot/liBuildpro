@@ -28,6 +28,7 @@ interface PendingPayment {
   project_id: string | null;
   bank_name: string | null;
   payment_amount: number | null;
+  payment_method: string | null;
   projected_received_date: string | null;
   check_number: string | null;
   deposit_verified: boolean | null;
@@ -55,6 +56,7 @@ export default function PendingDeposits() {
           project_id,
           bank_name,
           payment_amount,
+          payment_method,
           projected_received_date,
           check_number,
           deposit_verified,
@@ -183,6 +185,7 @@ export default function PendingDeposits() {
                 </TableHead>
                 <TableHead className="text-xs">Project</TableHead>
                 <TableHead className="text-xs">Bank</TableHead>
+                <TableHead className="text-xs">Method</TableHead>
                 <TableHead className="text-xs">Date</TableHead>
                 <TableHead className="text-xs">Check #</TableHead>
                 <TableHead className="text-xs text-right">Amount</TableHead>
@@ -211,6 +214,9 @@ export default function PendingDeposits() {
                   </TableCell>
                   <TableCell className="text-xs">
                     {payment.bank_name || "-"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {payment.payment_method || "-"}
                   </TableCell>
                   <TableCell className="text-xs">
                     {payment.projected_received_date
