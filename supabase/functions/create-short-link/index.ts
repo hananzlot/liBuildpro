@@ -199,24 +199,48 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Insert the short link
-      const { data: newLink, error: insertError } = await supabase
-        .from("short_links")
-        .insert({
-          company_id: companyId,
-          created_by_type: createdByType,
-          created_by_id: createdById,
-          long_url,
-          short_code: shortCode!,
-          custom_alias: custom_alias || null,
-          title: title || null,
-          expires_at: expires_at || null,
-          max_clicks: max_clicks || null,
-        })
-        .select()
-        .single();
+      // Insert the short link with retry on duplicate custom_alias
+      let finalAlias = custom_alias || null;
+      let insertAttempts = 0;
+      let newLink: any = null;
+      let insertError: any = null;
 
-      if (insertError) {
+      while (insertAttempts < 3) {
+        const { data, error } = await supabase
+          .from("short_links")
+          .insert({
+            company_id: companyId,
+            created_by_type: createdByType,
+            created_by_id: createdById,
+            long_url,
+            short_code: shortCode!,
+            custom_alias: finalAlias,
+            title: title || null,
+            expires_at: expires_at || null,
+            max_clicks: max_clicks || null,
+          })
+          .select()
+          .single();
+
+        if (!error) {
+          newLink = data;
+          insertError = null;
+          break;
+        }
+
+        if (error.code === "23505" && error.message?.includes("custom_alias")) {
+          const suffix = generateShortCode(4);
+          finalAlias = finalAlias ? `${finalAlias}-${suffix}` : null;
+          shortCode = generateShortCode(8);
+          insertAttempts++;
+          continue;
+        }
+
+        insertError = error;
+        break;
+      }
+
+      if (insertError || !newLink) {
         console.error("Insert error:", insertError);
         return new Response(JSON.stringify({ error: "Failed to create short link" }), {
           status: 500,
@@ -226,7 +250,7 @@ Deno.serve(async (req) => {
 
       // Get company domain for short URL
       const baseDomain = await getCompanyDomain(supabase, companyId);
-      const code = custom_alias || shortCode!;
+      const code = finalAlias || shortCode!;
       const shortUrl = baseDomain ? `${baseDomain}/r/${code}` : `/r/${code}`;
 
       return new Response(
@@ -343,24 +367,50 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Insert the short link
-    const { data: newLink, error: insertError } = await supabaseService
-      .from("short_links")
-      .insert({
-        company_id: companyId,
-        created_by_type: createdByType,
-        created_by_id: createdById,
-        long_url,
-        short_code: shortCode!,
-        custom_alias: custom_alias || null,
-        title: title || null,
-        expires_at: expires_at || null,
-        max_clicks: max_clicks || null,
-      })
-      .select()
-      .single();
+    // Insert the short link with retry on duplicate custom_alias
+    let finalAlias = custom_alias || null;
+    let insertAttempts = 0;
+    let newLink: any = null;
+    let insertError: any = null;
 
-    if (insertError) {
+    while (insertAttempts < 3) {
+      const { data, error } = await supabaseService
+        .from("short_links")
+        .insert({
+          company_id: companyId,
+          created_by_type: createdByType,
+          created_by_id: createdById,
+          long_url,
+          short_code: shortCode!,
+          custom_alias: finalAlias,
+          title: title || null,
+          expires_at: expires_at || null,
+          max_clicks: max_clicks || null,
+        })
+        .select()
+        .single();
+
+      if (!error) {
+        newLink = data;
+        insertError = null;
+        break;
+      }
+
+      // If duplicate custom_alias, append random suffix and retry
+      if (error.code === "23505" && error.message?.includes("custom_alias")) {
+        const suffix = generateShortCode(4);
+        finalAlias = finalAlias ? `${finalAlias}-${suffix}` : null;
+        // Also regenerate short_code in case that's the conflict
+        shortCode = generateShortCode(8);
+        insertAttempts++;
+        continue;
+      }
+
+      insertError = error;
+      break;
+    }
+
+    if (insertError || !newLink) {
       console.error("Insert error:", insertError);
       return new Response(JSON.stringify({ error: "Failed to create short link" }), {
         status: 500,
@@ -370,7 +420,7 @@ Deno.serve(async (req) => {
 
     // Get company domain for short URL
     const baseDomain = await getCompanyDomain(supabaseService, companyId);
-    const code = custom_alias || shortCode!;
+    const code = finalAlias || shortCode!;
     const shortUrl = baseDomain ? `${baseDomain}/r/${code}` : `/r/${code}`;
 
     return new Response(
