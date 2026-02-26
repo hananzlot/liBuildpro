@@ -13,7 +13,8 @@ import { BankActivitiesTab } from "./analytics/BankActivitiesTab";
 import { CommissionReportTab } from "./analytics/CommissionReportTab";
 import { useProductionAnalytics } from "@/hooks/useProductionAnalytics";
 import { useAuth } from "@/contexts/AuthContext";
-import { TrendingUp, Wallet, FileText, Building, Users } from "lucide-react";
+import { TrendingUp, Wallet, FileText, Building, Users, ClipboardList } from "lucide-react";
+import { ProjectSummaryTab } from "./analytics/ProjectSummaryTab";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -47,6 +48,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
   const canViewReceivables = !visibleReports || visibleReports.includes('receivables');
   const canViewBank = !visibleReports || visibleReports.includes('bank');
   const canViewCommission = !visibleReports || visibleReports.includes('commission');
+  const canViewProjectSummary = !visibleReports || visibleReports.includes('project_summary');
   
   // Build ordered list of permitted tabs
   const permittedTabs = useMemo(() => {
@@ -56,9 +58,10 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
       { key: "receivables", allowed: canViewReceivables },
       { key: "bank", allowed: canViewBank },
       { key: "commission", allowed: canViewCommission },
+      { key: "project_summary", allowed: canViewProjectSummary },
     ];
     return all.filter(t => t.allowed).map(t => t.key);
-  }, [canViewProfitability, canViewCashflow, canViewReceivables, canViewBank, canViewCommission]);
+  }, [canViewProfitability, canViewCashflow, canViewReceivables, canViewBank, canViewCommission, canViewProjectSummary]);
 
   // Determine initial tab - use prop if provided and permitted, otherwise first permitted tab
   const getDefaultTab = useCallback(() => {
@@ -326,6 +329,9 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
       commissionSummary.forEach(s => {
         csvContent += `"${s.name}",${s.calculated},${s.paid},${s.balance},${s.projectCount}\n`;
       });
+    } else if (activeTab === "project_summary") {
+      // Project Summary tab manages its own export
+      return;
     }
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -375,7 +381,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className={`grid w-full`} style={{ gridTemplateColumns: `repeat(${[canViewProfitability, canViewCashflow, canViewReceivables, canViewBank, canViewCommission].filter(Boolean).length}, minmax(0, 1fr))` }}>
+        <TabsList className={`grid w-full`} style={{ gridTemplateColumns: `repeat(${[canViewProfitability, canViewCashflow, canViewReceivables, canViewBank, canViewCommission, canViewProjectSummary].filter(Boolean).length}, minmax(0, 1fr))` }}>
           {canViewProfitability && (
             <TabsTrigger value="profitability" className="flex items-center gap-1.5">
               <TrendingUp className="h-4 w-4" />
@@ -404,6 +410,12 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             <TabsTrigger value="commission" className="flex items-center gap-1.5">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Commission</span>
+            </TabsTrigger>
+          )}
+          {canViewProjectSummary && (
+            <TabsTrigger value="project_summary" className="flex items-center gap-1.5">
+              <ClipboardList className="h-4 w-4" />
+              <span className="hidden sm:inline">Project Summary</span>
             </TabsTrigger>
           )}
         </TabsList>
@@ -489,6 +501,12 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
               commissionPayments={commissionPayments}
               totals={totals}
             />
+          </TabsContent>
+        )}
+
+        {canViewProjectSummary && (
+          <TabsContent value="project_summary" className="mt-6">
+            <ProjectSummaryTab onProjectClick={onProjectClick} />
           </TabsContent>
         )}
       </Tabs>
