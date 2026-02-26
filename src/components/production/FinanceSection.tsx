@@ -2281,6 +2281,15 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                             )}
                             <TableCell>
                               <div className="flex gap-1">
+                                {(inv.open_balance || 0) > 0 && (
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Record Payment" onClick={() => { 
+                                    setEditingPayment(null); 
+                                    setPrePopulatedPayment({ invoice_id: inv.id, payment_amount: inv.open_balance || 0 }); 
+                                    setPaymentDialogOpen(true); 
+                                  }}>
+                                    <DollarSign className="h-3 w-3" />
+                                  </Button>
+                                )}
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
                                   <Pencil className="h-3 w-3" />
                                 </Button>
