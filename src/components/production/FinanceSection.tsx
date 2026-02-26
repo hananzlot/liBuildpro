@@ -2155,14 +2155,14 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           <TabsTrigger value="phases" className="text-xs">
             Progress Payments
           </TabsTrigger>
-          <TabsTrigger value="statements" className="text-xs">
-            Statements
-          </TabsTrigger>
           <TabsTrigger value="invoices" className="text-xs">
             Invoices
           </TabsTrigger>
           <TabsTrigger value="bills" className="text-xs">
             Bills
+          </TabsTrigger>
+          <TabsTrigger value="statements" className="text-xs">
+            Financial Statements
           </TabsTrigger>
           <TabsTrigger value="commission" className="text-xs">
             Commission
