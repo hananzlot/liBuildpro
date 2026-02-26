@@ -6,11 +6,11 @@ import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RotateCcw, Search, Filter } from "lucide-react";
 
-// All available project statuses
-export const PROJECT_STATUSES = ["Estimate", "Pre-Estimate", "Proposal", "New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"];
+// All available project statuses (fallback when no DB statuses exist)
+export const PROJECT_STATUSES = ["Estimate", "Pre-Estimate", "Proposal", "New Job", "Awaiting Finance", "In-Progress", "On-Hold", "Completed", "Cancelled"];
 
 // Default statuses - excludes Estimate, Pre-Estimate and Proposal
-export const DEFAULT_PROJECT_STATUSES = ["New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"];
+export const DEFAULT_PROJECT_STATUSES = ["New Job", "Awaiting Finance", "In-Progress", "Completed", "Cancelled"];
 
 interface AdminKPIFiltersProps {
   dateRange: DateRange | undefined;
@@ -19,6 +19,7 @@ interface AdminKPIFiltersProps {
   onSearchChange?: (query: string) => void;
   selectedStatuses?: string[];
   onStatusesChange?: (statuses: string[]) => void;
+  dynamicStatuses?: string[];
 }
 
 export function AdminKPIFilters({
@@ -28,8 +29,10 @@ export function AdminKPIFilters({
   onSearchChange,
   selectedStatuses = DEFAULT_PROJECT_STATUSES,
   onStatusesChange,
+  dynamicStatuses,
 }: AdminKPIFiltersProps) {
-  const statusOptions = PROJECT_STATUSES.map(status => ({
+  const allStatuses = dynamicStatuses && dynamicStatuses.length > 0 ? dynamicStatuses : PROJECT_STATUSES;
+  const statusOptions = allStatuses.map(status => ({
     value: status,
     label: status,
   }));

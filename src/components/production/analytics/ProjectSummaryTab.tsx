@@ -80,7 +80,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [sortKey, setSortKey] = useState<SortKey>("project_number");
   const [sortAsc, setSortAsc] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["In-Progress"]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["In-Progress", "Awaiting Finance"]);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
 

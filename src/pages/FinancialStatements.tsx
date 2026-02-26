@@ -36,7 +36,7 @@ export default function FinancialStatements() {
   const [activeTab, setActiveTab] = useState(getDefaultTab());
   const [viewMode, setViewMode] = useState<"aggregate" | "per-project">("aggregate");
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["New Job", "In-Progress", "Completed"]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["New Job", "Awaiting Finance", "In-Progress", "Completed"]);
   const statusOptionsInitialized = useRef(false);
   const printRef = useRef<HTMLDivElement>(null);
 

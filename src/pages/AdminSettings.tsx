@@ -36,6 +36,7 @@ import { InsuranceDocuments } from "@/components/admin/InsuranceDocuments";
 import { LicenseCertificates } from "@/components/admin/LicenseCertificates";
 import { SocialMediaLinks } from "@/components/admin/SocialMediaLinks";
 import { BankManagement } from "@/components/admin/BankManagement";
+import { ProjectStatusesManager } from "@/components/admin/ProjectStatusesManager";
 import { RoleAnalyticsDefaults } from "@/components/admin/RoleAnalyticsDefaults";
 import { OnboardingPromptBanner } from "@/components/onboarding/OnboardingPromptBanner";
 import { EdgeFunctionLogs } from "@/components/admin/EdgeFunctionLogs";
@@ -1227,6 +1228,9 @@ export default function AdminSettings() {
                             <p className="text-xs text-muted-foreground">The default pipeline name for new opportunities</p>
                           </div>
                         )}
+
+                        {/* Project Statuses */}
+                        <ProjectStatusesManager />
 
                         <Separator />
 
