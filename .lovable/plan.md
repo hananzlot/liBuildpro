@@ -1,39 +1,50 @@
 
 
-## Plan: Add "Project Statuses" Admin Management + Update Defaults
+## Plan: Replace Invoice Dialog with Confirmation Prompt + Deferred Save
 
-### What needs to change
+### Current Flow
+1. User clicks the invoice badge (FileText icon) on a progress payment
+2. A full invoice form dialog opens (agreement, phase, amount pre-filled but editable)
+3. User clicks "Save" → invoice is saved to DB immediately → PDF preview opens
 
-1. **Update hardcoded default statuses** across the codebase to: `New Job`, `Awaiting Finance`, `In-Progress`, `Completed`, `Cancelled`
-   - `src/components/production/AdminKPIFilters.tsx` — `PROJECT_STATUSES` and `DEFAULT_PROJECT_STATUSES`
-   - `src/stores/useProductionFilters.ts` — `initialState.selectedStatuses`
-   - `src/components/production/analytics/ProfitabilityTab.tsx` — `DEFAULT_STATUSES`
-   - `src/components/production/analytics/ProjectSummaryTab.tsx` — default useState
-   - `src/pages/FinancialStatements.tsx` — default useState
+### New Flow
+1. User clicks the invoice badge → an **AlertDialog confirmation prompt** appears:
+   - "Do you want to invoice the customer the full progress payment amount of **$XX,XXX**?"
+   - Three options: **Yes, full amount** | **Enter different amount** | **Cancel**
+2. If "Enter different amount" → show an inline input field with validation (max = uninvoiced balance for that phase)
+3. On confirm → show the **InvoicePdfDialog preview** with the invoice data but **do NOT save yet**
+4. The PDF preview buttons change behavior:
+   - **Save & Close** → save to DB, close dialog
+   - **Print & Save** → save to DB, print, close
+   - **Download & Save** → save to DB, trigger download, close
+   - **Email & Save** → save to DB, open mailto, close
+   - **Cancel** → discard, close dialog (no save)
+5. Amount validation: the entered amount cannot exceed `(phase.amount - totalAlreadyInvoiced)` for that phase
 
-2. **Make status filter options dynamic** — Instead of hardcoded `PROJECT_STATUSES`, the Production page and AdminKPIFilters should fetch statuses from the `project_statuses` table for the current company and merge with the hardcoded fallbacks.
+### Implementation Steps
 
-3. **Add a "Project Statuses" management section to Admin Settings** — A new card/section (likely under the General tab) where admins can:
-   - View all statuses for their company
-   - Add new statuses
-   - Edit existing status names
-   - Delete statuses (with confirmation)
-   - Reorder statuses via sort_order
+1. **Create an `InvoiceConfirmDialog` component** — a new AlertDialog-based component that:
+   - Receives phase name, full amount (uninvoiced balance), and callbacks
+   - Shows the confirmation question with the amount
+   - Has a "different amount" mode with an input field + validation
+   - Returns the confirmed amount to the parent
 
-### Files to modify
-- `src/components/production/AdminKPIFilters.tsx` — Update constants, optionally accept dynamic statuses
-- `src/stores/useProductionFilters.ts` — Update default selectedStatuses
-- `src/components/production/analytics/ProfitabilityTab.tsx` — Update DEFAULT_STATUSES
-- `src/components/production/analytics/ProjectSummaryTab.tsx` — Update default
-- `src/pages/FinancialStatements.tsx` — Update default
-- `src/pages/AdminSettings.tsx` — Add Project Statuses management section
+2. **Update `InvoicePdfDialog` to accept an `onSave` callback** — instead of just being a read-only preview:
+   - Add an `onSave` prop (optional, for deferred-save mode)
+   - When `onSave` is provided, the toolbar buttons trigger save before their action
+   - Add a "Cancel" button that closes without saving
+   - Rename buttons to include "& Save" suffix
 
-### Files to create
-- `src/components/admin/ProjectStatusesManager.tsx` — New component for CRUD management of project statuses (add, edit, delete, reorder)
+3. **Update `FinanceSection.tsx` invoice badge click handler** — replace the current flow:
+   - Instead of opening `InvoiceDialog`, open the new `InvoiceConfirmDialog`
+   - On confirm, compute invoice data (invoice number, date, amount, phase, agreement)
+   - Open `InvoicePdfDialog` in deferred-save mode (passing `onSave` that calls `saveInvoiceMutation`)
+   - Keep the existing `InvoiceDialog` for the "Add Invoice" button in the Invoices tab and for editing
 
-### Technical details
-- The `project_statuses` table already exists with columns: `id`, `company_id`, `name`, `sort_order`, `is_default`, `created_by`, `created_at`, `updated_at`
-- RLS policies were already updated to allow admin roles
-- The `ProjectDetailSheet` already has inline "Add New" status capability — the new admin section provides a centralized management experience
-- Dynamic status fetching will use `useQuery` with the company's `project_statuses` table, falling back to the hardcoded defaults when no DB records exist
+4. **Wire up the save mutation** — the `onSave` in InvoicePdfDialog triggers `saveInvoiceMutation.mutate(data)` with the prepared invoice data
+
+### Files to Create/Edit
+- **New**: `src/components/production/InvoiceConfirmDialog.tsx`
+- **Edit**: `src/components/production/InvoicePdfDialog.tsx` — add `onSave` prop, cancel button, conditional save logic
+- **Edit**: `src/components/production/FinanceSection.tsx` — new state for confirm dialog, rewire badge click handler
 
