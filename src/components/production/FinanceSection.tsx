@@ -2985,8 +2985,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                     Balanced
                                   </Badge>
                                 ) : (
-                                  <Badge variant="outline" className={`text-xs ${balance > 0 ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-red-500/10 text-red-600 border-red-500/30'}`}>
-                                    {balance > 0 ? `Missing: ${formatCurrency(balance)}` : `Over: ${formatCurrency(Math.abs(balance))}`}
+                                  <Badge variant="outline" className={`text-xs font-bold ${balance > 0 ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-destructive/10 text-destructive border-destructive/30'}`}>
+                                    {balance > 0 ? `⚠ Warning! Missing: ${formatCurrency(balance)}` : `⚠ Warning! Over: ${formatCurrency(Math.abs(balance))}`}
                                   </Badge>
                                 )}
                               </div>
