@@ -4020,11 +4020,13 @@ function PaymentDialog({
     e.preventDefault();
     
     // Validate required fields
-    if (!formData.bank_id || !formData.projected_received_date) {
+    const rawAmount = formData.payment_amount.replace(/[^0-9.]/g, '');
+    const amount = parseFloat(rawAmount) || 0;
+    
+    if (!formData.bank_id || !formData.projected_received_date || amount <= 0) {
+      if (amount <= 0) setAmountError("Amount is required");
       return;
     }
-    
-    const amount = parseFloat(formData.payment_amount) || 0;
     
     // Validate amount doesn't exceed invoice balance (accounting for original payment when editing)
     if (formData.invoice_id && amount > maxAmount) {
@@ -4151,18 +4153,30 @@ function PaymentDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Amount ($)</Label>
+              <Label>Amount ($) <span className="text-destructive">*</span></Label>
               <Input 
                 type="text"
                 inputMode="decimal"
                 value={formData.payment_amount} 
                 onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                    setFormData(p => ({ ...p, payment_amount: val }));
+                  const raw = e.target.value.replace(/[^0-9.]/g, '');
+                  if (raw === '' || /^\d*\.?\d{0,2}$/.test(raw)) {
+                    setFormData(p => ({ ...p, payment_amount: raw }));
                     setAmountError("");
                   }
-                }} 
+                }}
+                onBlur={() => {
+                  const raw = formData.payment_amount.replace(/[^0-9.]/g, '');
+                  const num = parseFloat(raw);
+                  if (!isNaN(num) && num > 0) {
+                    setFormData(p => ({ ...p, payment_amount: num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }));
+                  }
+                }}
+                onFocus={() => {
+                  const raw = formData.payment_amount.replace(/[^0-9.]/g, '');
+                  setFormData(p => ({ ...p, payment_amount: raw }));
+                }}
+                className={!formData.payment_amount ? "border-destructive" : ""}
               />
               {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
               {selectedInvoice && <p className="text-xs text-muted-foreground mt-1">Max: {formatCurrency2(maxAmount)}</p>}
