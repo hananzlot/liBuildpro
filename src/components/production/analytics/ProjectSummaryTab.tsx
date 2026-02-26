@@ -358,7 +358,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       className={cn("cursor-pointer select-none hover:text-foreground transition-colors", className)}
       onClick={() => toggleSort(sortKeyName)}
     >
-      <div className="flex items-center justify-center gap-1">
+      <div className="flex items-center gap-1">
         {label}
         <ArrowUpDown className="h-3 w-3 opacity-50" />
       </div>
@@ -415,8 +415,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  <SortableHeader label="Project #" sortKeyName="project_number" />
-                  <SortableHeader label="Customer" sortKeyName="customer" className="text-left" />
+                  <SortableHeader label="Pro#" sortKeyName="project_number" className="w-16" />
+                  <SortableHeader label="Customer" sortKeyName="customer" />
                   <SortableHeader label="Contract" sortKeyName="contractAmount" />
                   <SortableHeader label="Invoiced" sortKeyName="totalInvoiced" />
                   <SortableHeader label="Collected" sortKeyName="totalCollected" />
@@ -458,7 +458,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                             )}
                           </TableCell>
                           <TableCell
-                            className="text-center font-medium text-primary cursor-pointer hover:underline"
+                            className="w-16 font-medium text-primary cursor-pointer hover:underline"
                             onClick={(e) => {
                               e.stopPropagation();
                               onProjectClick?.(row.id, "finance");
@@ -466,23 +466,23 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                           >
                             {row.project_number}
                           </TableCell>
-                          <TableCell className="text-left">{row.customer}</TableCell>
-                          <TableCell className="text-right tabular-nums">{formatCurrency(row.contractAmount)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{formatCurrency(row.totalInvoiced)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{formatCurrency(row.totalCollected)}</TableCell>
-                          <TableCell className="text-right tabular-nums">
+                          <TableCell>{row.customer}</TableCell>
+                          <TableCell className="tabular-nums">{formatCurrency(row.contractAmount)}</TableCell>
+                          <TableCell className="tabular-nums">{formatCurrency(row.totalInvoiced)}</TableCell>
+                          <TableCell className="tabular-nums">{formatCurrency(row.totalCollected)}</TableCell>
+                          <TableCell className="tabular-nums">
                             <span className={row.outstandingAR > 0 ? "text-amber-500" : ""}>
                               {formatCurrency(row.outstandingAR)}
                             </span>
                           </TableCell>
-                          <TableCell className="text-right tabular-nums">{formatCurrency(row.totalBills)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{formatCurrency(row.billsPaid)}</TableCell>
-                          <TableCell className="text-right tabular-nums">
+                          <TableCell className="tabular-nums">{formatCurrency(row.totalBills)}</TableCell>
+                          <TableCell className="tabular-nums">{formatCurrency(row.billsPaid)}</TableCell>
+                          <TableCell className="tabular-nums">
                             <span className={row.outstandingAP > 0 ? "text-destructive" : ""}>
                               {formatCurrency(row.outstandingAP)}
                             </span>
                           </TableCell>
-                          <TableCell className="text-right tabular-nums font-semibold">
+                          <TableCell className="tabular-nums font-semibold">
                             <span className={row.netCash < 0 ? "text-destructive" : "text-emerald-500"}>
                               {formatCurrency(row.netCash)}
                             </span>
@@ -492,16 +492,16 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                           <TableRow key={phase.id} className="bg-muted/20 hover:bg-muted/30">
                             <TableCell />
                             <TableCell />
-                            <TableCell className="text-left pl-8 text-sm text-muted-foreground">
+                            <TableCell className="pl-8 text-sm text-muted-foreground">
                               {phase.phase_name}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums text-sm">
+                            <TableCell className="tabular-nums text-sm">
                               {formatCurrency(phase.amount)}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums text-sm">
+                            <TableCell className="tabular-nums text-sm">
                               {formatCurrency(phase.invoiced)}
                             </TableCell>
-                            <TableCell className="text-right tabular-nums text-sm">
+                            <TableCell className="tabular-nums text-sm">
                               {formatCurrency(phase.collected)}
                             </TableCell>
                             <TableCell className="text-right text-sm">
@@ -528,16 +528,16 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               <TableFooter>
                 <TableRow className="font-semibold">
                   <TableCell />
-                  <TableCell className="text-center">{rows.length} Projects</TableCell>
+                  <TableCell className="w-16">{rows.length} Pro</TableCell>
                   <TableCell />
-                  <TableCell className="text-right tabular-nums">{formatCurrency(totals.contractAmount)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCurrency(totals.totalInvoiced)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCurrency(totals.totalCollected)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCurrency(totals.outstandingAR)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCurrency(totals.totalBills)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCurrency(totals.billsPaid)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCurrency(totals.outstandingAP)}</TableCell>
-                  <TableCell className="text-right tabular-nums font-bold">
+                  <TableCell className="tabular-nums">{formatCurrency(totals.contractAmount)}</TableCell>
+                  <TableCell className="tabular-nums">{formatCurrency(totals.totalInvoiced)}</TableCell>
+                  <TableCell className="tabular-nums">{formatCurrency(totals.totalCollected)}</TableCell>
+                  <TableCell className="tabular-nums">{formatCurrency(totals.outstandingAR)}</TableCell>
+                  <TableCell className="tabular-nums">{formatCurrency(totals.totalBills)}</TableCell>
+                  <TableCell className="tabular-nums">{formatCurrency(totals.billsPaid)}</TableCell>
+                  <TableCell className="tabular-nums">{formatCurrency(totals.outstandingAP)}</TableCell>
+                  <TableCell className="tabular-nums font-bold">
                     <span className={totals.netCash < 0 ? "text-destructive" : "text-emerald-500"}>
                       {formatCurrency(totals.netCash)}
                     </span>
