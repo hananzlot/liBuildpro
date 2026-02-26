@@ -544,7 +544,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+          <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
