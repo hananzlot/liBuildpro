@@ -6,16 +6,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Track whether the document is currently hidden (tab switched away).
- * We use a module-level flag updated via visibilitychange because
- * document.hasFocus() is unreliable at the exact moment Radix fires events.
+ * Track whether the window currently has focus.
+ * `window.blur` fires synchronously BEFORE Radix dismiss events,
+ * making it more reliable than `visibilitychange` or `document.hasFocus()`.
  */
-let isDocumentHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+let windowHasFocus = typeof document !== "undefined" ? document.hasFocus() : true;
 
-if (typeof document !== "undefined") {
-  document.addEventListener("visibilitychange", () => {
-    isDocumentHidden = document.visibilityState === "hidden";
-  });
+if (typeof window !== "undefined") {
+  window.addEventListener("blur", () => { windowHasFocus = false; });
+  window.addEventListener("focus", () => { windowHasFocus = true; });
 }
 
 const Sheet = React.forwardRef<
@@ -24,8 +23,8 @@ const Sheet = React.forwardRef<
 >(({ onOpenChange, ...props }, _ref) => (
   <SheetPrimitive.Root
     onOpenChange={(open) => {
-      // Block Radix from closing sheets when the browser tab is hidden.
-      if (!open && isDocumentHidden) {
+      // Block Radix from closing sheets when the window doesn't have focus.
+      if (!open && !windowHasFocus) {
         return;
       }
       onOpenChange?.(open);
@@ -101,7 +100,6 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
         }}
         onInteractOutside={(e) => {
           // Always prevent interact-outside from closing sheets.
-          // Users close via X button, Cancel, or explicit actions.
           e.preventDefault();
           onInteractOutside?.(e);
         }}

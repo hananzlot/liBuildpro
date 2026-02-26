@@ -5,16 +5,15 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Track whether the document is currently hidden (tab switched away).
- * We use a module-level flag updated via visibilitychange because
- * document.hasFocus() is unreliable at the exact moment Radix fires events.
+ * Track whether the window currently has focus.
+ * `window.blur` fires synchronously BEFORE Radix dismiss events,
+ * making it more reliable than `visibilitychange` or `document.hasFocus()`.
  */
-let isDocumentHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+let windowHasFocus = typeof document !== "undefined" ? document.hasFocus() : true;
 
-if (typeof document !== "undefined") {
-  document.addEventListener("visibilitychange", () => {
-    isDocumentHidden = document.visibilityState === "hidden";
-  });
+if (typeof window !== "undefined") {
+  window.addEventListener("blur", () => { windowHasFocus = false; });
+  window.addEventListener("focus", () => { windowHasFocus = true; });
 }
 
 const Dialog = React.forwardRef<
@@ -23,8 +22,9 @@ const Dialog = React.forwardRef<
 >(({ onOpenChange, ...props }, _ref) => (
   <DialogPrimitive.Root
     onOpenChange={(open) => {
-      // Block Radix from closing dialogs when the browser tab is hidden.
-      if (!open && isDocumentHidden) {
+      // Block Radix from closing dialogs when the window doesn't have focus
+      // (user switched tabs/windows).
+      if (!open && !windowHasFocus) {
         return;
       }
       onOpenChange?.(open);
@@ -81,7 +81,6 @@ const DialogContent = React.forwardRef<
       }}
       onInteractOutside={(e) => {
         // Always prevent interact-outside from closing dialogs.
-        // Users close via X button, Cancel, or explicit actions.
         e.preventDefault();
         onInteractOutside?.(e);
       }}
