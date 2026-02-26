@@ -3057,12 +3057,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs">Agreement<br />#</TableHead>
+                      <TableHead className="text-xs text-center">Agreement<br />#</TableHead>
                       <TableHead className="text-xs">Type</TableHead>
-                      <TableHead className="text-xs">Date<br />Signed</TableHead>
-                      <TableHead className="text-xs text-right">Contract<br />Value</TableHead>
-                      <TableHead className="text-xs text-right">Progress Payments<br />Total</TableHead>
-                      <TableHead className="text-xs text-right">Total Collected<br />To Date</TableHead>
+                      <TableHead className="text-xs text-center">Date<br />Signed</TableHead>
+                      <TableHead className="text-xs text-center">Contract<br />Value</TableHead>
+                      <TableHead className="text-xs text-center">Progress Payments<br />Total</TableHead>
+                      <TableHead className="text-xs text-center">Total Collected<br />To Date</TableHead>
                       <TableHead className="text-xs w-10"></TableHead>
                       <TableHead className="text-xs w-20"></TableHead>
                     </TableRow>
@@ -3090,14 +3090,14 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                           setActiveSubTab("phases");
                         }}
                       >
-                        <TableCell className="text-xs font-medium text-primary underline">{agreement.agreement_number || "-"}</TableCell>
+                        <TableCell className="text-xs text-center font-medium text-primary underline">{agreement.agreement_number || "-"}</TableCell>
                         <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
-                        <TableCell className="text-xs">{formatDate(agreement.agreement_signed_date)}</TableCell>
-                        <TableCell className="text-xs text-right">{formatCurrencyWithDecimals(agreement.total_price)}</TableCell>
-                        <TableCell className={`text-xs text-right ${isBalanced ? 'text-emerald-600' : phasesTotal > contractValue ? 'text-red-600' : 'text-amber-600'}`}>
+                        <TableCell className="text-xs text-center">{formatDate(agreement.agreement_signed_date)}</TableCell>
+                        <TableCell className="text-xs text-center">{formatCurrencyWithDecimals(agreement.total_price)}</TableCell>
+                        <TableCell className={`text-xs text-center ${isBalanced ? 'text-emerald-600' : phasesTotal > contractValue ? 'text-red-600' : 'text-amber-600'}`}>
                           {formatCurrencyWithDecimals(phasesTotal)}
                         </TableCell>
-                        <TableCell className="text-xs text-right font-medium">
+                        <TableCell className="text-xs text-center font-medium">
                           {formatCurrencyWithDecimals(totalCollected)}
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
