@@ -1034,8 +1034,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   const syncDeleteToQuickBooks = async (recordType: string, recordId: string): Promise<{ synced: boolean; message?: string }> => {
     console.log(`[QB Delete] Starting delete sync for ${recordType} ${recordId}, companyId: ${companyId}`);
-    if (!companyId) {
-      console.log("[QB Delete] No companyId, skipping");
+    if (!companyId || !isQBConnectedMain) {
+      console.log("[QB Delete] No companyId or QB not connected, skipping");
       return { synced: false };
     }
     
