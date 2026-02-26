@@ -114,6 +114,7 @@ interface FinanceSectionProps {
   projectName?: string | null;
   projectAddress?: string | null;
   customerName?: string | null;
+  onPdfPreviewStateChange?: (open: boolean) => void;
 }
 
 interface Invoice {
@@ -219,7 +220,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, autoOpenFinanceDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, onSubTabChange, projectStatus, projectName, projectAddress, customerName }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, autoOpenFinanceDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, onSubTabChange, projectStatus, projectName, projectAddress, customerName, onPdfPreviewStateChange }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
@@ -356,6 +357,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
+
+  useEffect(() => {
+    onPdfPreviewStateChange?.(pdfViewerOpen && !!selectedAttachment);
+    return () => onPdfPreviewStateChange?.(false);
+  }, [onPdfPreviewStateChange, pdfViewerOpen, selectedAttachment]);
   const [invoicePdfDialogOpen, setInvoicePdfDialogOpen] = useState(false);
   const [invoicePdfData, setInvoicePdfData] = useState<{
     invoice_number: string | null;

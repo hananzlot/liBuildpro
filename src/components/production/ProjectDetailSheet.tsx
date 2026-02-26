@@ -155,6 +155,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const [headerPortalLink, setHeaderPortalLink] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
+  const [isFinancePdfPreviewOpen, setIsFinancePdfPreviewOpen] = useState(false);
 
   // Helper to sync the app tab path with inner tab state (only in page mode)
   const syncTabPath = useCallback((tab: string, finSubTab?: string, finBillsSubTab?: 'bills' | 'history') => {
@@ -1916,7 +1917,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           </TabsContent>
 
           {/* Finance Tab */}
-          <TabsContent value="finance" className="mt-4">
+          <TabsContent value="finance" className={cn("mt-4", isFinancePdfPreviewOpen && "overflow-hidden")}>
             {fullProject && (
               <FinanceSection
                 projectId={project.id}
@@ -1946,6 +1947,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 projectName={fullProject.project_name}
                 projectAddress={fullProject.project_address}
                 customerName={`${fullProject.customer_first_name || ''} ${fullProject.customer_last_name || ''}`.trim() || null}
+                onPdfPreviewStateChange={setIsFinancePdfPreviewOpen}
               />
             )}
           </TabsContent>
