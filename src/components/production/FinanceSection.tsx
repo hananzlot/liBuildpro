@@ -1714,7 +1714,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   });
 
   const saveAgreementMutation = useMutation({
-    mutationFn: async (agreement: Partial<Agreement>) => {
+    mutationFn: async ({
+      agreement,
+    }: {
+      agreement: Partial<Agreement>;
+      closeOnSuccess?: boolean;
+    }): Promise<Agreement> => {
       if (editingAgreement?.id) {
         await logAudit({
           tableName: 'project_agreements',
@@ -1724,50 +1729,48 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           newValues: agreement,
           description: `Updated agreement ${agreement.agreement_number || editingAgreement.agreement_number}`,
         });
-        const { error } = await supabase
+        const { data: updatedAgreement, error } = await supabase
           .from("project_agreements")
           .update(agreement)
-          .eq("id", editingAgreement.id);
-        if (error) throw error;
-      } else {
-        const { data: newAgreement, error } = await supabase
-          .from("project_agreements")
-          .insert({ ...agreement, project_id: projectId, company_id: companyId })
+          .eq("id", editingAgreement.id)
           .select()
           .single();
         if (error) throw error;
-        await logAudit({
-          tableName: 'project_agreements',
-          recordId: newAgreement.id,
-          action: 'INSERT',
-          newValues: newAgreement,
-          description: `Created agreement ${agreement.agreement_number}`,
-        });
-        // Link any extracted phases that were saved without an agreement_id
-        if (extractedPhases.length > 0) {
-          const recentCutoff = new Date(Date.now() - 120000).toISOString(); // last 2 minutes
-          const { error: linkError } = await supabase
-            .from("project_payment_phases")
-            .update({ agreement_id: newAgreement.id })
-            .eq("project_id", projectId)
-            .is("agreement_id", null)
-            .eq("company_id", companyId)
-            .gte("created_at", recentCutoff);
-          if (!linkError) {
-            queryClient.invalidateQueries({ queryKey: ["project-payment-phases", projectId] });
-            queryClient.invalidateQueries({ queryKey: ["all-project-phases"] });
-          }
-        }
+        return updatedAgreement as Agreement;
       }
+
+      const { data: newAgreement, error } = await supabase
+        .from("project_agreements")
+        .insert({ ...agreement, project_id: projectId, company_id: companyId })
+        .select()
+        .single();
+      if (error) throw error;
+
+      await logAudit({
+        tableName: 'project_agreements',
+        recordId: newAgreement.id,
+        action: 'INSERT',
+        newValues: newAgreement,
+        description: `Created agreement ${agreement.agreement_number}`,
+      });
+
+      return newAgreement as Agreement;
     },
-    onSuccess: () => {
+    onSuccess: (savedAgreement, variables) => {
+      const shouldClose = variables?.closeOnSuccess !== false;
+
       setExtractedPhases([]);
       setExtractedPhasesAgreementId(null);
       toast.success(editingAgreement?.id ? "Agreement updated" : "Agreement created");
       queryClient.invalidateQueries({ queryKey: ["project-agreements", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-agreements"] });
-      setAgreementDialogOpen(false);
-      setEditingAgreement(null);
+
+      if (shouldClose) {
+        setAgreementDialogOpen(false);
+        setEditingAgreement(null);
+      } else {
+        setEditingAgreement(savedAgreement);
+      }
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
@@ -3565,7 +3568,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         open={agreementDialogOpen}
         onOpenChange={setAgreementDialogOpen}
         agreement={editingAgreement}
-        onSave={(data) => saveAgreementMutation.mutate(data)}
+        onSave={async (data, options) => {
+          const saved = await saveAgreementMutation.mutateAsync({
+            agreement: data,
+            closeOnSuccess: options?.closeOnSuccess,
+          });
+          return saved?.id || null;
+        }}
         isPending={saveAgreementMutation.isPending}
         projectId={projectId}
         paymentPhases={paymentPhases}
@@ -5098,7 +5107,7 @@ function AgreementDialog({
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
   agreement: Agreement | null;
-  onSave: (data: Partial<Agreement>) => void;
+  onSave: (data: Partial<Agreement>, options?: { closeOnSuccess?: boolean }) => Promise<string | null>;
   isPending: boolean;
   projectId: string;
   paymentPhases: PaymentPhase[];
@@ -5166,38 +5175,61 @@ function AgreementDialog({
 
   const [dateError, setDateError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate required date for new agreements
+
     if (!agreement && !formData.agreement_signed_date) {
       setDateError("Date signed is required");
       return;
     }
     setDateError("");
-    
-    onSave({
-      agreement_number: formData.agreement_number || null,
-      agreement_type: formData.agreement_type || null,
-      agreement_signed_date: formData.agreement_signed_date || null,
-      total_price: parseFloat(formData.total_price) || 0,
-      description_of_work: formData.description_of_work || null,
-      attachment_url: formData.attachment_url,
-    });
+
+    await onSave(
+      {
+        agreement_number: formData.agreement_number || null,
+        agreement_type: formData.agreement_type || null,
+        agreement_signed_date: formData.agreement_signed_date || null,
+        total_price: parseFloat(formData.total_price) || 0,
+        description_of_work: formData.description_of_work || null,
+        attachment_url: formData.attachment_url,
+      },
+      { closeOnSuccess: true }
+    );
   };
 
   const handleExtractPhases = async () => {
     if (!formData.attachment_url) return;
-    
-    // Check if the file is a PDF
+
     const isPdf = formData.attachment_url.toLowerCase().includes('.pdf');
     if (!isPdf) {
       toast.error("Phase extraction only works with PDF files");
       return;
     }
 
+    if (!agreement?.id && !formData.agreement_signed_date) {
+      setDateError("Date signed is required before AI extraction");
+      toast.error("Save the contract date first");
+      return;
+    }
+
     setIsExtracting(true);
     try {
+      const ensuredAgreementId = agreement?.id || await onSave(
+        {
+          agreement_number: formData.agreement_number || null,
+          agreement_type: formData.agreement_type || null,
+          agreement_signed_date: formData.agreement_signed_date || null,
+          total_price: parseFloat(formData.total_price) || 0,
+          description_of_work: formData.description_of_work || null,
+          attachment_url: formData.attachment_url,
+        },
+        { closeOnSuccess: false }
+      );
+
+      if (!ensuredAgreementId) {
+        throw new Error("Contract must be saved before extracting phases");
+      }
+
       const { data, error } = await supabase.functions.invoke("extract-contract-phases", {
         body: { pdfUrl: formData.attachment_url },
       });
@@ -5210,7 +5242,7 @@ function AgreementDialog({
       }
 
       toast.success(`Found ${data.phases.length} payment phase(s)`);
-      onPhasesExtracted?.(data.phases, agreement?.id || null);
+      onPhasesExtracted?.(data.phases, ensuredAgreementId);
     } catch (err: any) {
       console.error("Extract phases error:", err);
       toast.error(err.message || "Failed to extract phases from PDF");
@@ -5305,17 +5337,17 @@ function AgreementDialog({
               size="sm"
               className="w-full gap-2"
               onClick={handleExtractPhases}
-              disabled={isExtracting}
+              disabled={isExtracting || isPending}
             >
               {isExtracting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Extracting payment phases...
+                  Saving contract and extracting phases...
                 </>
               ) : (
                 <>
                   <Sparkles className="h-4 w-4" />
-                  Extract Payment Phases from PDF
+                  Save Contract & Generate AI Phases
                 </>
               )}
             </Button>
@@ -7918,109 +7950,113 @@ function ExtractedPhasesReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="max-w-5xl w-[95vw] max-h-[88vh] overflow-hidden p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b bg-muted/30">
+          <DialogTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="h-5 w-5 text-primary" />
             Review Extracted Payment Phases
           </DialogTitle>
           <DialogDescription>
-            The AI extracted these payment phases from your contract. Review, edit, or uncheck any you don't want to import.
+            Contract is saved first. Now review and polish the extracted phases before importing.
           </DialogDescription>
+          <div className="mt-3 flex items-center gap-2">
+            <Badge variant="secondary">{editablePhases.length} extracted</Badge>
+            <Badge variant="outline">{editablePhases.filter((p) => p.enabled).length} selected</Badge>
+            <Badge variant="outline">Total {formatCurrency(total)}</Badge>
+          </div>
         </DialogHeader>
 
         {editablePhases.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4">No phases to review.</p>
+          <div className="px-6 py-10 text-center text-sm text-muted-foreground">No phases to review.</div>
         ) : (
-          <div className="space-y-3">
+          <div className="px-6 py-5 overflow-y-auto max-h-[60vh] space-y-3">
+            <div className="hidden md:grid md:grid-cols-12 text-xs font-medium text-muted-foreground px-3">
+              <div className="col-span-1">Use</div>
+              <div className="col-span-4">Phase Name</div>
+              <div className="col-span-2">Amount</div>
+              <div className="col-span-3">Description</div>
+              <div className="col-span-2">Contract</div>
+            </div>
+
             {editablePhases.map((phase, idx) => (
               <div
                 key={idx}
                 className={cn(
-                  "border rounded-lg p-3 space-y-2 transition-opacity",
-                  !phase.enabled && "opacity-50"
+                  "grid grid-cols-1 md:grid-cols-12 gap-3 rounded-xl border bg-card p-3",
+                  !phase.enabled && "opacity-55"
                 )}
               >
-                <div className="flex items-center gap-2">
+                <div className="md:col-span-1 flex items-center gap-2">
                   <Checkbox
                     checked={phase.enabled}
                     onCheckedChange={(checked) => updatePhase(idx, { enabled: !!checked })}
                   />
-                  <span className="text-xs font-medium text-muted-foreground">Phase {idx + 1}</span>
+                  <span className="md:hidden text-xs text-muted-foreground">Phase {idx + 1}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs">Phase Name</Label>
-                    <Input
-                      value={phase.phase_name}
-                      onChange={(e) => updatePhase(idx, { phase_name: e.target.value })}
-                      disabled={!phase.enabled}
-                      className="h-8 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Amount ($)</Label>
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      value={String(phase.amount || "")}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                          updatePhase(idx, { amount: val === "" ? 0 : parseFloat(val) || 0 });
-                        }
-                      }}
-                      disabled={!phase.enabled}
-                      className="h-8 text-sm"
-                    />
-                  </div>
+
+                <div className="md:col-span-4 space-y-1">
+                  <Label className="text-xs md:hidden">Phase Name</Label>
+                  <Input
+                    value={phase.phase_name}
+                    onChange={(e) => updatePhase(idx, { phase_name: e.target.value })}
+                    disabled={!phase.enabled}
+                    className="h-9"
+                  />
                 </div>
-                <div>
-                  <Label className="text-xs">Description</Label>
+
+                <div className="md:col-span-2 space-y-1">
+                  <Label className="text-xs md:hidden">Amount ($)</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={String(phase.amount || "")}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                        updatePhase(idx, { amount: val === "" ? 0 : parseFloat(val) || 0 });
+                      }
+                    }}
+                    disabled={!phase.enabled}
+                    className="h-9"
+                  />
+                </div>
+
+                <div className="md:col-span-3 space-y-1">
+                  <Label className="text-xs md:hidden">Description</Label>
                   <Input
                     value={phase.description || ""}
                     onChange={(e) => updatePhase(idx, { description: e.target.value })}
                     disabled={!phase.enabled}
-                    className="h-8 text-sm"
-                    placeholder="e.g. Due upon completion of framing"
+                    className="h-9"
+                    placeholder="Milestone description"
                   />
                 </div>
-                {agreements.length > 1 && (
-                  <div>
-                    <Label className="text-xs">Agreement</Label>
-                    <Select
-                      value={phase.agreement_id || ""}
-                      onValueChange={(v) => updatePhase(idx, { agreement_id: v })}
-                      disabled={!phase.enabled}
-                    >
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue placeholder="Select agreement" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {agreements.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            #{a.agreement_number} — {a.agreement_type || "Agreement"}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+
+                <div className="md:col-span-2 space-y-1">
+                  <Label className="text-xs md:hidden">Contract</Label>
+                  <Select
+                    value={phase.agreement_id || ""}
+                    onValueChange={(v) => updatePhase(idx, { agreement_id: v })}
+                    disabled={!phase.enabled || agreements.length === 1}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select contract" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {agreements.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          #{a.agreement_number} — {a.agreement_type || "Agreement"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             ))}
-
-            <div className="flex items-center justify-between pt-2 border-t">
-              <span className="text-sm font-medium">
-                Total: {formatCurrency(total)}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {editablePhases.filter((p) => p.enabled).length} of {editablePhases.length} phases selected
-              </span>
-            </div>
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="px-6 py-4 border-t bg-background">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
