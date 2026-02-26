@@ -67,6 +67,7 @@ import {
   History,
   GripVertical,
   Download,
+  Eye,
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
@@ -3022,6 +3023,21 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   </p>
                                 </div>
                               </div>
+                              {agreement.attachment_url && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs gap-1.5 shrink-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedAttachment({ url: agreement.attachment_url!, name: agreement.agreement_number ? `Agreement #${agreement.agreement_number}` : (agreement.agreement_type || "Agreement") });
+                                    setPdfViewerOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-3 w-3" />
+                                  Preview Contract
+                                </Button>
+                              )}
                               <div className="text-right">
                                 <p className="text-xs text-muted-foreground">
                                   Phases Total: {formatCurrency(phasesTotal)} • 
