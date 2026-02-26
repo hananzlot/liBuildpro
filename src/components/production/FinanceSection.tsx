@@ -3057,11 +3057,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs">Agreement #</TableHead>
+                      <TableHead className="text-xs">Agreement<br />#</TableHead>
                       <TableHead className="text-xs">Type</TableHead>
-                      <TableHead className="text-xs">Date Signed</TableHead>
-                      <TableHead className="text-xs text-right">Value</TableHead>
-                      <TableHead className="text-xs text-right">Progress Payments Total</TableHead>
+                      <TableHead className="text-xs">Date<br />Signed</TableHead>
+                      <TableHead className="text-xs text-right">Contract<br />Value</TableHead>
+                      <TableHead className="text-xs text-right">Progress Payments<br />Total</TableHead>
+                      <TableHead className="text-xs text-right">Total Collected<br />To Date</TableHead>
                       <TableHead className="text-xs w-10"></TableHead>
                       <TableHead className="text-xs w-20"></TableHead>
                     </TableRow>
@@ -3073,6 +3074,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         .reduce((sum, p) => sum + (p.amount || 0), 0);
                       const contractValue = agreement.total_price || 0;
                       const isBalanced = Math.abs(contractValue - phasesTotal) < 0.05;
+                      const agreementPhaseIds = paymentPhases
+                        .filter(p => p.agreement_id === agreement.id)
+                        .map(p => p.id);
+                      const totalCollected = activePayments
+                        .filter(p => p.payment_phase_id && agreementPhaseIds.includes(p.payment_phase_id) && p.payment_status === "Received")
+                        .reduce((sum, p) => sum + (p.payment_amount || 0), 0);
                       
                       return (
                       <TableRow 
@@ -3089,6 +3096,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         <TableCell className="text-xs text-right">{formatCurrencyWithDecimals(agreement.total_price)}</TableCell>
                         <TableCell className={`text-xs text-right ${isBalanced ? 'text-emerald-600' : phasesTotal > contractValue ? 'text-red-600' : 'text-amber-600'}`}>
                           {formatCurrencyWithDecimals(phasesTotal)}
+                        </TableCell>
+                        <TableCell className="text-xs text-right font-medium">
+                          {formatCurrencyWithDecimals(totalCollected)}
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           {agreement.attachment_url && (
