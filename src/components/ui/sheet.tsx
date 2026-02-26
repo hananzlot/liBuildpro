@@ -5,14 +5,27 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Track whether the document is currently hidden (tab switched away).
+ * We use a module-level flag updated via visibilitychange because
+ * document.hasFocus() is unreliable at the exact moment Radix fires events.
+ */
+let isDocumentHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    isDocumentHidden = document.visibilityState === "hidden";
+  });
+}
+
 const Sheet = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Root>
 >(({ onOpenChange, ...props }, _ref) => (
   <SheetPrimitive.Root
     onOpenChange={(open) => {
-      // Prevent Radix from closing sheets when the browser tab loses focus.
-      if (!open && typeof document !== "undefined" && (document.visibilityState === "hidden" || !document.hasFocus())) {
+      // Block Radix from closing sheets when the browser tab is hidden.
+      if (!open && isDocumentHidden) {
         return;
       }
       onOpenChange?.(open);
@@ -70,20 +83,6 @@ interface SheetContentProps
   disablePortal?: boolean;
 }
 
-const shouldPreventDismissOnWindowBlur = (event?: Event) => {
-  // When the user switches browser tabs/windows, Radix can treat it as an
-  // outside interaction and dismiss the sheet. We only want to block dismiss
-  // in that scenario (not on normal outside clicks).
-  if (typeof document === "undefined") return false;
-  
-  // Check if the event target is outside the document (e.g., browser chrome, other tabs)
-  const target = event?.target as Node | null;
-  if (target && !document.body.contains(target)) return true;
-  
-  // Also check visibility state and focus
-  return document.visibilityState === "hidden" || !document.hasFocus();
-};
-
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
   ({ side = "right", className, children, hideCloseButton, disablePortal, onFocusOutside, onInteractOutside, onEscapeKeyDown, ...props }, ref) => {
     const content = (
@@ -95,38 +94,19 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
             : sheetVariants({ side }), 
           className
         )}
-        // Keep sheets open when the browser tab loses focus (Radix considers this
-        // a "focus outside" interaction and will dismiss by default).
         onFocusOutside={(e) => {
-          // In page mode, always prevent default FIRST to stop Radix from closing
-          if (disablePortal) {
-            e.preventDefault();
-            return;
-          }
+          // Always prevent focus-outside from closing sheets.
+          e.preventDefault();
           onFocusOutside?.(e);
-          // Only prevent focus-outside dismissal when the browser actually loses focus
-          // (switching tabs/windows). Allow normal in-app focus changes/clicks.
-          const originalEvent = "detail" in e && e.detail?.originalEvent;
-          if (!e.defaultPrevented && shouldPreventDismissOnWindowBlur(originalEvent as Event | undefined)) {
-            e.preventDefault();
-          }
         }}
         onInteractOutside={(e) => {
-          // In page mode, always prevent default FIRST to stop Radix from closing
-          if (disablePortal) {
-            e.preventDefault();
-            return;
-          }
+          // Always prevent interact-outside from closing sheets.
+          // Users close via X button, Cancel, or explicit actions.
+          e.preventDefault();
           onInteractOutside?.(e);
-          // Prevent dismissal when switching tabs/windows, but allow normal outside clicks
-          const originalEvent = 'detail' in e && e.detail?.originalEvent;
-          if (!e.defaultPrevented && shouldPreventDismissOnWindowBlur(originalEvent as Event | undefined)) {
-            e.preventDefault();
-          }
         }}
         onEscapeKeyDown={(e) => {
           onEscapeKeyDown?.(e);
-          // Prevent Escape key from closing sheets by default
           if (!e.defaultPrevented) e.preventDefault();
         }}
         {...props}
@@ -141,7 +121,6 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
       </SheetPrimitive.Content>
     );
 
-    // In page mode (disablePortal), render content directly without portal/overlay
     if (disablePortal) {
       return content;
     }

@@ -4,6 +4,18 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Track whether the document is currently hidden (tab switched away).
+ * We use a module-level flag updated via visibilitychange because
+ * document.hasFocus() is unreliable at the exact moment Radix fires events.
+ */
+let isDocumentHidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    isDocumentHidden = document.visibilityState === "hidden";
+  });
+}
 
 const Dialog = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Root>,
@@ -11,9 +23,8 @@ const Dialog = React.forwardRef<
 >(({ onOpenChange, ...props }, _ref) => (
   <DialogPrimitive.Root
     onOpenChange={(open) => {
-      // Prevent Radix from closing dialogs when the browser tab loses focus.
-      // Only allow closing (open=false) if the document is visible and focused.
-      if (!open && typeof document !== "undefined" && (document.visibilityState === "hidden" || !document.hasFocus())) {
+      // Block Radix from closing dialogs when the browser tab is hidden.
+      if (!open && isDocumentHidden) {
         return;
       }
       onOpenChange?.(open);
@@ -63,25 +74,19 @@ const DialogContent = React.forwardRef<
           : "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
         className,
       )}
-      // Keep dialogs open when the browser tab loses focus.
       onFocusOutside={(e) => {
         // Always prevent focus-outside from closing dialogs.
-        // This stops Radix from dismissing when switching browser tabs/windows
-        // or when focus moves to browser chrome. Users close via the X button.
         e.preventDefault();
         onFocusOutside?.(e);
       }}
       onInteractOutside={(e) => {
         // Always prevent interact-outside from closing dialogs.
-        // Users close dialogs via the X button, Cancel button, or explicit actions.
-        // This prevents accidental dismissal when switching browser windows/tabs
-        // or clicking on the overlay.
+        // Users close via X button, Cancel, or explicit actions.
         e.preventDefault();
         onInteractOutside?.(e);
       }}
       onEscapeKeyDown={(e) => {
         onEscapeKeyDown?.(e);
-        // Prevent Escape key from closing dialogs by default
         if (!e.defaultPrevented) e.preventDefault();
       }}
       {...props}
@@ -96,7 +101,6 @@ const DialogContent = React.forwardRef<
     </DialogPrimitive.Content>
   );
 
-  // In page mode (disablePortal), render content directly without portal/overlay
   if (disablePortal) {
     return content;
   }
