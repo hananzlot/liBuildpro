@@ -422,7 +422,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
 
         html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px">`;
         html += `<thead><tr style="background:#f9f9f9;border-bottom:1px solid #ddd">`;
-        html += `<th style="padding:5px;text-align:left">Phase</th>`;
+        html += `<th style="padding:5px;text-align:left">Progress Payment</th>`;
         html += `<th style="padding:5px;text-align:left">Amount</th>`;
         html += `<th style="padding:5px;text-align:left">Invoiced</th>`;
         html += `<th style="padding:5px;text-align:left">Collected</th>`;
@@ -443,7 +443,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         });
         
         html += `<tr style="border-top:1px solid #999;font-weight:600;background:#fafafa">`;
-        html += `<td style="padding:4px 5px">Subtotal (${unpaidPhases.length} phases)</td>`;
+        html += `<td style="padding:4px 5px">Subtotal (${unpaidPhases.length} progress payments)</td>`;
         html += `<td style="padding:4px 5px">${formatCurrency(phaseAmount)}</td>`;
         html += `<td style="padding:4px 5px">${formatCurrency(phaseInvoiced)}</td>`;
         html += `<td style="padding:4px 5px">${formatCurrency(phaseCollected)}</td>`;
@@ -456,7 +456,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       html += `<div style="background:#1a1a2e;color:#fff;border-radius:4px;padding:12px;font-size:12px">`;
       html += `<div style="font-weight:700;font-size:14px;margin-bottom:6px">Report Summary — ${projectsWithUnpaid.length} Projects</div>`;
       html += `<div style="display:flex;gap:32px;flex-wrap:wrap">`;
-      html += `<span><b>Total Phase Amount:</b> ${formatCurrency(grandTotalAmount)}</span>`;
+      html += `<span><b>Total Progress Payment Amount:</b> ${formatCurrency(grandTotalAmount)}</span>`;
       html += `<span><b>Total Invoiced:</b> ${formatCurrency(grandTotalInvoiced)}</span>`;
       html += `<span><b>Total Collected:</b> ${formatCurrency(grandTotalCollected)}</span>`;
       html += `<span><b>Total Balance:</b> ${formatCurrency(grandTotalAmount - grandTotalCollected)}</span>`;

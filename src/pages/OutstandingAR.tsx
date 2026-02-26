@@ -235,7 +235,7 @@ export default function OutstandingAR() {
                     <TableRow>
                       <TableHead className="w-[14%]">Salesperson</TableHead>
                       <TableHead className="w-[18%]">Project</TableHead>
-                      <TableHead className="w-[20%]">Phase</TableHead>
+                      <TableHead className="w-[20%]">Progress Payment</TableHead>
                       <TableHead className="w-[10%] whitespace-nowrap">Date</TableHead>
                       <TableHead className="w-[10%] text-right">Amount</TableHead>
                       <TableHead className="w-[10%] text-right">Paid</TableHead>

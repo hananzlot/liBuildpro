@@ -1978,7 +1978,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const addPaymentPhase = () => {
     const newPhase: PaymentPhase = {
       id: generateId(),
-      phase_name: "New Phase",
+      phase_name: "New Progress Payment",
       percent: 0,
       amount: 0,
       due_type: "milestone",
