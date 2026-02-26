@@ -5166,6 +5166,8 @@ function PhaseDialog({
   });
   const [validationWarning, setValidationWarning] = useState("");
   const [agreementError, setAgreementError] = useState("");
+  const [phaseNameError, setPhaseNameError] = useState("");
+  const [dueDateError, setDueDateError] = useState("");
 
   // Calculate which agreements are fully accounted for
   const getAvailableAgreements = () => {
@@ -5198,11 +5200,15 @@ function PhaseDialog({
     }
     setValidationWarning("");
     setAgreementError("");
+    setPhaseNameError("");
+    setDueDateError("");
   }, [open, phase]);
 
   const handleOpenChange = (newOpen: boolean) => {
     setValidationWarning("");
     setAgreementError("");
+    setPhaseNameError("");
+    setDueDateError("");
     onOpenChange(newOpen);
   };
 
@@ -5241,16 +5247,29 @@ function PhaseDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate agreement is selected
+    let hasError = false;
+    
     if (!formData.agreement_id) {
       setAgreementError("Contract/Agreement is required");
-      return;
+      hasError = true;
     }
     
+    if (!formData.phase_name.trim()) {
+      setPhaseNameError("Progress payment name is required");
+      hasError = true;
+    }
+    
+    if (!formData.due_date) {
+      setDueDateError("Due date is required");
+      hasError = true;
+    }
+    
+    if (hasError) return;
+    
     onSave({
-      phase_name: formData.phase_name || "New Phase",
+      phase_name: formData.phase_name.trim(),
       description: formData.description || null,
-      due_date: formData.due_date || null,
+      due_date: formData.due_date,
       amount: parseFloat(formData.amount) || 0,
       agreement_id: formData.agreement_id,
     });
@@ -5265,7 +5284,7 @@ function PhaseDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label>Contract</Label>
+            <Label>Contract <span className="text-destructive">*</span></Label>
             <Select 
               value={formData.agreement_id} 
               onValueChange={(v) => {
@@ -5295,12 +5314,14 @@ function PhaseDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Progress Payment Name</Label>
-              <Input value={formData.phase_name} onChange={(e) => setFormData(p => ({ ...p, phase_name: e.target.value }))} placeholder="e.g., Deposit, Progress, Final" />
+              <Label>Progress Payment Name <span className="text-destructive">*</span></Label>
+              <Input value={formData.phase_name} onChange={(e) => { setFormData(p => ({ ...p, phase_name: e.target.value })); setPhaseNameError(""); }} placeholder="e.g., Deposit, Progress, Final" />
+              {phaseNameError && <p className="text-xs text-destructive mt-1">{phaseNameError}</p>}
             </div>
             <div>
-              <Label>Due Date</Label>
-              <Input type="date" value={formData.due_date} onChange={(e) => setFormData(p => ({ ...p, due_date: e.target.value }))} />
+              <Label>Due Date <span className="text-destructive">*</span></Label>
+              <Input type="date" value={formData.due_date} onChange={(e) => { setFormData(p => ({ ...p, due_date: e.target.value })); setDueDateError(""); }} />
+              {dueDateError && <p className="text-xs text-destructive mt-1">{dueDateError}</p>}
             </div>
           </div>
           <div>
