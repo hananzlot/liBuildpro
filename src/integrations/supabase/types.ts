@@ -6858,7 +6858,7 @@ export type Database = {
         Returns: undefined
       }
       archive_old_audit_logs: {
-        Args: { p_retention_days?: number }
+        Args: { p_max_records?: number }
         Returns: number
       }
       backfill_contact_addresses_from_projects: {
