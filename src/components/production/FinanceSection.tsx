@@ -3275,6 +3275,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         onSave={(data) => saveAgreementMutation.mutate(data)}
         isPending={saveAgreementMutation.isPending}
         projectId={projectId}
+        paymentPhases={paymentPhases}
       />
 
       {/* Phase Dialog */}
@@ -4670,13 +4671,15 @@ function AgreementDialog({
   onSave, 
   isPending,
   projectId,
-}: { 
+  paymentPhases,
+}: {
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
   agreement: Agreement | null;
   onSave: (data: Partial<Agreement>) => void;
   isPending: boolean;
   projectId: string;
+  paymentPhases: PaymentPhase[];
 }) {
   const [formData, setFormData] = useState({
     agreement_number: "",
@@ -4804,6 +4807,24 @@ function AgreementDialog({
               <Input type="text" inputMode="decimal" value={formData.total_price} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, total_price: val })); }} />
             </div>
           </div>
+          {/* Warning when contract amount doesn't match phases total */}
+          {agreement && (() => {
+            const phasesTotal = paymentPhases
+              .filter(p => p.agreement_id === agreement.id)
+              .reduce((sum, p) => sum + (p.amount || 0), 0);
+            const newTotal = parseFloat(formData.total_price) || 0;
+            if (phasesTotal > 0 && Math.abs(newTotal - phasesTotal) >= 0.01) {
+              return (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    Payment phases total <strong>${phasesTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong> doesn't match the contract amount <strong>${newTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong>. Please update the payment phases to match.
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
           <div>
             <Label>Description of Work</Label>
             <Input value={formData.description_of_work} onChange={(e) => setFormData(p => ({ ...p, description_of_work: e.target.value }))} placeholder="Scope of work covered" />
