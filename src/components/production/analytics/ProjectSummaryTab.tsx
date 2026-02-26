@@ -6,6 +6,7 @@ import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -350,21 +351,11 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   }, [showUnpaidOnly, rows]);
 
   const reportRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState("");
 
-  const handleDownloadPDF = useCallback(async (unpaidOnly: boolean) => {
-    const html2canvas = (await import("html2canvas")).default;
-    
-    // Build a hidden table for PDF rendering
-    const container = document.createElement("div");
-    container.style.position = "absolute";
-    container.style.left = "-9999px";
-    container.style.top = "0";
-    container.style.width = "1200px";
-    container.style.background = "white";
-    container.style.padding = "24px";
-    container.style.fontFamily = "system-ui, sans-serif";
-    container.style.color = "#111";
-
+  const buildReportHtml = useCallback((unpaidOnly: boolean) => {
     const title = unpaidOnly ? "Unpaid Phases Report" : "Projects Summary";
     const dateStr = new Date().toLocaleDateString();
     
@@ -387,11 +378,10 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
 
         if (idx > 0) html += `<div style="height:16px"></div>`;
         
-        // Project header with financial summary
         html += `<div style="background:#f0f4f8;border:1px solid #ddd;border-radius:4px;padding:10px 12px;margin-bottom:2px">`;
         html += `<div style="font-weight:700;font-size:13px">Project #${row.project_number} — ${row.customer}</div>`;
         if (row.address) html += `<div style="font-size:11px;color:#555;margin-top:2px">${row.address}</div>`;
-        html += `<div style="display:flex;gap:24px;margin-top:6px;font-size:11px">`;
+        html += `<div style="display:flex;gap:24px;margin-top:6px;font-size:11px;flex-wrap:wrap">`;
         html += `<span><b>Contract:</b> ${formatCurrency(row.contractAmount)}</span>`;
         html += `<span><b>Invoiced:</b> ${formatCurrency(row.totalInvoiced)}</span>`;
         html += `<span><b>Collected:</b> ${formatCurrency(row.totalCollected)}</span>`;
@@ -402,7 +392,6 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         html += `<span><b>Net Cash:</b> ${formatCurrency(row.netCash)}</span>`;
         html += `</div></div>`;
 
-        // Unpaid phases table
         html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px">`;
         html += `<thead><tr style="background:#f9f9f9;border-bottom:1px solid #ddd">`;
         html += `<th style="padding:5px;text-align:left">Phase</th>`;
@@ -425,7 +414,6 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           html += `</tr>`;
         });
         
-        // Project subtotal
         html += `<tr style="border-top:1px solid #999;font-weight:600;background:#fafafa">`;
         html += `<td style="padding:4px 5px">Subtotal (${unpaidPhases.length} phases)</td>`;
         html += `<td style="padding:4px 5px">${formatCurrency(phaseAmount)}</td>`;
@@ -436,11 +424,10 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         html += `</tr></tbody></table>`;
       });
 
-      // Grand total summary
       html += `<div style="height:12px"></div>`;
       html += `<div style="background:#1a1a2e;color:#fff;border-radius:4px;padding:12px;font-size:12px">`;
       html += `<div style="font-weight:700;font-size:14px;margin-bottom:6px">Report Summary — ${projectsWithUnpaid.length} Projects</div>`;
-      html += `<div style="display:flex;gap:32px">`;
+      html += `<div style="display:flex;gap:32px;flex-wrap:wrap">`;
       html += `<span><b>Total Phase Amount:</b> ${formatCurrency(grandTotalAmount)}</span>`;
       html += `<span><b>Total Invoiced:</b> ${formatCurrency(grandTotalInvoiced)}</span>`;
       html += `<span><b>Total Collected:</b> ${formatCurrency(grandTotalCollected)}</span>`;
@@ -468,7 +455,6 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         html += `</tr>`;
       });
       
-      // Totals row
       html += `<tr style="border-top:2px solid #333;font-weight:700">`;
       html += `<td style="padding:5px">${rows.length}</td>`;
       html += `<td style="padding:5px"></td>`;
@@ -483,19 +469,25 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       html += `</tr>`;
       html += `</tbody></table>`;
     }
-    container.innerHTML = html;
-    document.body.appendChild(container);
-
-    try {
-      const canvas = await html2canvas(container, { scale: 2, useCORS: true });
-      const link = document.createElement("a");
-      link.download = `${title.replace(/\s+/g, "_")}_${dateStr}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    } finally {
-      document.body.removeChild(container);
-    }
+    return { html, title, dateStr };
   }, [sortedRows, rows, totals]);
+
+  const handlePreview = useCallback((unpaidOnly: boolean) => {
+    const { html, title } = buildReportHtml(unpaidOnly);
+    setPreviewTitle(title);
+    setPreviewHtml(html);
+  }, [buildReportHtml]);
+
+  const handleDownloadFromPreview = useCallback(async () => {
+    if (!previewRef.current) return;
+    const html2canvas = (await import("html2canvas")).default;
+    const canvas = await html2canvas(previewRef.current, { scale: 2, useCORS: true });
+    const link = document.createElement("a");
+    const dateStr = new Date().toLocaleDateString();
+    link.download = `${previewTitle.replace(/\s+/g, "_")}_${dateStr}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }, [previewTitle]);
 
   if (isLoading) {
     return (
@@ -551,13 +543,13 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           Unpaid phases only
         </label>
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleDownloadPDF(false)}>
+          <Button variant="outline" size="sm" onClick={() => handlePreview(false)}>
             <Download className="h-3.5 w-3.5 mr-1.5" />
-            Summary PDF
+            Summary Report
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleDownloadPDF(true)}>
+          <Button variant="outline" size="sm" onClick={() => handlePreview(true)}>
             <Download className="h-3.5 w-3.5 mr-1.5" />
-            Unpaid Phases PDF
+            Unpaid Phases Report
           </Button>
         </div>
       </div>
@@ -739,6 +731,29 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewHtml} onOpenChange={(open) => { if (!open) setPreviewHtml(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{previewTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto border rounded-md bg-white p-6">
+            <div
+              ref={previewRef}
+              style={{ fontFamily: "system-ui, sans-serif", color: "#111", background: "white" }}
+              dangerouslySetInnerHTML={{ __html: previewHtml || "" }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewHtml(null)}>Close</Button>
+            <Button onClick={handleDownloadFromPreview}>
+              <Download className="h-4 w-4 mr-1.5" />
+              Download
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
