@@ -53,6 +53,7 @@ interface ProjectSummaryRow {
   project_number: number;
   customer: string;
   address: string;
+  salesperson: string;
   contractAmount: number;
   totalInvoiced: number;
   totalCollected: number;
@@ -88,7 +89,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, project_number, customer_first_name, customer_last_name, project_status, project_address")
+        .select("id, project_number, customer_first_name, customer_last_name, project_status, project_address, primary_salesperson")
         .eq("company_id", companyId!)
         .is("deleted_at", null);
       if (error) throw error;
@@ -286,6 +287,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         project_number: p.project_number ?? 0,
         customer,
         address: p.project_address || "",
+        salesperson: p.primary_salesperson || "",
         contractAmount,
         totalInvoiced,
         totalCollected,
@@ -403,6 +405,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         html += `<div style="background:#f0f4f8;border:1px solid #ddd;border-radius:4px;padding:10px 12px;margin-bottom:2px">`;
         html += `<div style="font-weight:700;font-size:13px">Project #${row.project_number} — ${row.customer}</div>`;
         if (row.address) html += `<div style="font-size:11px;color:#555;margin-top:2px">${row.address}</div>`;
+        if (row.salesperson) html += `<div style="font-size:11px;color:#555;margin-top:1px"><b>Sales Rep:</b> ${row.salesperson}</div>`;
         html += `<div style="display:flex;gap:24px;margin-top:6px;font-size:11px;flex-wrap:wrap">`;
         html += `<span><b>Contract:</b> ${formatCurrency(row.contractAmount)}</span>`;
         html += `<span><b>Invoiced:</b> ${formatCurrency(row.totalInvoiced)}</span>`;
