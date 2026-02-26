@@ -143,6 +143,8 @@ export default function AdminSettings() {
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [auditPage, setAuditPage] = useState(0);
+  const AUDIT_PAGE_SIZE = 50;
   
   // Pipeline configuration state - now using UUID-based stages
   interface PipelineStageEdit {
@@ -360,15 +362,17 @@ export default function AdminSettings() {
   });
 
   // Audit log queries
-  const { data: logs, isLoading: logsLoading } = useQuery({
-    queryKey: ["audit-logs", companyId, startDate, endDate, tableFilter, actionFilter, userFilter],
+  const { data: auditResult, isLoading: logsLoading } = useQuery({
+    queryKey: ["audit-logs", companyId, startDate, endDate, tableFilter, actionFilter, userFilter, auditPage],
     queryFn: async () => {
+      const from = auditPage * AUDIT_PAGE_SIZE;
+      const to = from + AUDIT_PAGE_SIZE - 1;
       let query = supabase
         .from("audit_logs")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("company_id", companyId)
         .order("changed_at", { ascending: false })
-        .limit(500);
+        .range(from, to);
 
       if (startDate) {
         query = query.gte("changed_at", `${startDate}T00:00:00`);
@@ -386,12 +390,21 @@ export default function AdminSettings() {
         query = query.ilike("user_email", `%${userFilter}%`);
       }
 
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
-      return data as AuditLog[];
+      return { logs: data as AuditLog[], total: count || 0 };
     },
     enabled: isAdmin && activeTab === "audit" && !!companyId,
   });
+
+  const logs = auditResult?.logs;
+  const auditTotal = auditResult?.total || 0;
+  const auditTotalPages = Math.ceil(auditTotal / AUDIT_PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setAuditPage(0);
+  }, [startDate, endDate, tableFilter, actionFilter, userFilter]);
 
   const { data: distinctTables } = useQuery({
     queryKey: ["audit-log-tables", companyId],
@@ -2016,7 +2029,7 @@ export default function AdminSettings() {
               <CardHeader>
                 <CardTitle>Activity Log</CardTitle>
                 <CardDescription>
-                  Showing {logs?.length || 0} records (max 500)
+                  Showing {(auditPage * AUDIT_PAGE_SIZE) + 1}–{Math.min((auditPage + 1) * AUDIT_PAGE_SIZE, auditTotal)} of {auditTotal} records
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -2078,6 +2091,48 @@ export default function AdminSettings() {
                         )}
                       </TableBody>
                     </Table>
+                  </div>
+                )}
+                {/* Pagination Controls */}
+                {auditTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4">
+                    <p className="text-sm text-muted-foreground">
+                      Page {auditPage + 1} of {auditTotalPages}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAuditPage(0)}
+                        disabled={auditPage === 0}
+                      >
+                        First
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAuditPage((p) => Math.max(0, p - 1))}
+                        disabled={auditPage === 0}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAuditPage((p) => Math.min(auditTotalPages - 1, p + 1))}
+                        disabled={auditPage >= auditTotalPages - 1}
+                      >
+                        Next
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAuditPage(auditTotalPages - 1)}
+                        disabled={auditPage >= auditTotalPages - 1}
+                      >
+                        Last
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
