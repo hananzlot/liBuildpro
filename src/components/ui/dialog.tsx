@@ -4,17 +4,6 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const shouldPreventDismissOnWindowBlur = (event?: Event) => {
-  // Prevent Radix from dismissing dialogs when the user switches browser tabs/windows.
-  if (typeof document === "undefined") return false;
-  
-  // Check if the event target is outside the document (e.g., browser chrome, other tabs)
-  const target = event?.target as Node | null;
-  if (target && !document.body.contains(target)) return true;
-  
-  // Also check visibility state and focus
-  return document.visibilityState === "hidden" || !document.hasFocus();
-};
 
 const Dialog = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Root>,
@@ -83,17 +72,12 @@ const DialogContent = React.forwardRef<
         onFocusOutside?.(e);
       }}
       onInteractOutside={(e) => {
-        // In page mode, always prevent default FIRST to stop Radix from closing
-        if (disablePortal) {
-          e.preventDefault();
-          return;
-        }
+        // Always prevent interact-outside from closing dialogs.
+        // Users close dialogs via the X button, Cancel button, or explicit actions.
+        // This prevents accidental dismissal when switching browser windows/tabs
+        // or clicking on the overlay.
+        e.preventDefault();
         onInteractOutside?.(e);
-        // Prevent dismissal when switching tabs/windows, but allow normal outside clicks
-        const originalEvent = 'detail' in e && e.detail?.originalEvent;
-        if (!e.defaultPrevented && shouldPreventDismissOnWindowBlur(originalEvent as Event | undefined)) {
-          e.preventDefault();
-        }
       }}
       onEscapeKeyDown={(e) => {
         onEscapeKeyDown?.(e);
