@@ -1,10 +1,11 @@
-import { useMemo, useState, useCallback, Fragment } from "react";
+import { useMemo, useState, useCallback, Fragment, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -26,6 +27,7 @@ import {
   ChevronRight,
   ArrowUpDown,
   Filter,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -333,6 +335,116 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     });
   }, []);
 
+  // Auto-expand all projects with unpaid phases when toggle is checked
+  useEffect(() => {
+    if (showUnpaidOnly) {
+      const idsWithUnpaid = rows
+        .filter(r => r.phases.some(p => p.status !== "Paid"))
+        .map(r => r.id);
+      setExpandedRows(new Set(idsWithUnpaid));
+    } else {
+      setExpandedRows(new Set());
+    }
+  }, [showUnpaidOnly, rows]);
+
+  const reportRef = useRef<HTMLDivElement>(null);
+
+  const handleDownloadPDF = useCallback(async (unpaidOnly: boolean) => {
+    const html2canvas = (await import("html2canvas")).default;
+    
+    // Build a hidden table for PDF rendering
+    const container = document.createElement("div");
+    container.style.position = "absolute";
+    container.style.left = "-9999px";
+    container.style.top = "0";
+    container.style.width = "1200px";
+    container.style.background = "white";
+    container.style.padding = "24px";
+    container.style.fontFamily = "system-ui, sans-serif";
+    container.style.color = "#111";
+
+    const title = unpaidOnly ? "Unpaid Phases Report" : "Projects Summary";
+    const dateStr = new Date().toLocaleDateString();
+    
+    let html = `<h2 style="margin:0 0 4px;font-size:18px">${title}</h2>`;
+    html += `<p style="margin:0 0 16px;font-size:12px;color:#666">Generated ${dateStr}</p>`;
+    html += `<table style="width:100%;border-collapse:collapse;font-size:11px">`;
+    html += `<thead><tr style="background:#f5f5f5;border-bottom:2px solid #ddd">`;
+    
+    if (unpaidOnly) {
+      html += `<th style="padding:6px;text-align:left">Pro#</th>`;
+      html += `<th style="padding:6px;text-align:left">Customer</th>`;
+      html += `<th style="padding:6px;text-align:left">Phase</th>`;
+      html += `<th style="padding:6px;text-align:left">Amount</th>`;
+      html += `<th style="padding:6px;text-align:left">Invoiced</th>`;
+      html += `<th style="padding:6px;text-align:left">Collected</th>`;
+      html += `<th style="padding:6px;text-align:left">Status</th>`;
+      html += `</tr></thead><tbody>`;
+      
+      sortedRows.forEach(row => {
+        const unpaidPhases = row.phases.filter(p => p.status !== "Paid");
+        unpaidPhases.forEach((phase, i) => {
+          html += `<tr style="border-bottom:1px solid #eee">`;
+          html += `<td style="padding:5px">${i === 0 ? row.project_number : ""}</td>`;
+          html += `<td style="padding:5px">${i === 0 ? row.customer : ""}</td>`;
+          html += `<td style="padding:5px">${phase.phase_name}</td>`;
+          html += `<td style="padding:5px">${formatCurrency(phase.amount)}</td>`;
+          html += `<td style="padding:5px">${formatCurrency(phase.invoiced)}</td>`;
+          html += `<td style="padding:5px">${formatCurrency(phase.collected)}</td>`;
+          html += `<td style="padding:5px">${phase.status}</td>`;
+          html += `</tr>`;
+        });
+      });
+    } else {
+      const cols = ["Pro#","Customer","Contract","Invoiced","Collected","AR","Bills","Paid","AP","Net Cash"];
+      cols.forEach(c => { html += `<th style="padding:6px;text-align:left">${c}</th>`; });
+      html += `</tr></thead><tbody>`;
+      
+      sortedRows.forEach(row => {
+        html += `<tr style="border-bottom:1px solid #eee">`;
+        html += `<td style="padding:5px">${row.project_number}</td>`;
+        html += `<td style="padding:5px">${row.customer}</td>`;
+        html += `<td style="padding:5px">${formatCurrency(row.contractAmount)}</td>`;
+        html += `<td style="padding:5px">${formatCurrency(row.totalInvoiced)}</td>`;
+        html += `<td style="padding:5px">${formatCurrency(row.totalCollected)}</td>`;
+        html += `<td style="padding:5px">${formatCurrency(row.outstandingAR)}</td>`;
+        html += `<td style="padding:5px">${formatCurrency(row.totalBills)}</td>`;
+        html += `<td style="padding:5px">${formatCurrency(row.billsPaid)}</td>`;
+        html += `<td style="padding:5px">${formatCurrency(row.outstandingAP)}</td>`;
+        html += `<td style="padding:5px;font-weight:600">${formatCurrency(row.netCash)}</td>`;
+        html += `</tr>`;
+      });
+      
+      // Totals row
+      html += `<tr style="border-top:2px solid #333;font-weight:700">`;
+      html += `<td style="padding:5px">${rows.length}</td>`;
+      html += `<td style="padding:5px"></td>`;
+      html += `<td style="padding:5px">${formatCurrency(totals.contractAmount)}</td>`;
+      html += `<td style="padding:5px">${formatCurrency(totals.totalInvoiced)}</td>`;
+      html += `<td style="padding:5px">${formatCurrency(totals.totalCollected)}</td>`;
+      html += `<td style="padding:5px">${formatCurrency(totals.outstandingAR)}</td>`;
+      html += `<td style="padding:5px">${formatCurrency(totals.totalBills)}</td>`;
+      html += `<td style="padding:5px">${formatCurrency(totals.billsPaid)}</td>`;
+      html += `<td style="padding:5px">${formatCurrency(totals.outstandingAP)}</td>`;
+      html += `<td style="padding:5px">${formatCurrency(totals.netCash)}</td>`;
+      html += `</tr>`;
+    }
+    
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    try {
+      const canvas = await html2canvas(container, { scale: 2, useCORS: true });
+      const link = document.createElement("a");
+      link.download = `${title.replace(/\s+/g, "_")}_${dateStr}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } finally {
+      document.body.removeChild(container);
+    }
+  }, [sortedRows, rows, totals]);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -369,7 +481,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   return (
     <div className="space-y-6">
       {/* Status Filter */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <MultiSelectFilter
           options={statusOptions}
           selected={selectedStatuses}
@@ -386,6 +498,16 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           />
           Unpaid phases only
         </label>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleDownloadPDF(false)}>
+            <Download className="h-3.5 w-3.5 mr-1.5" />
+            Summary PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleDownloadPDF(true)}>
+            <Download className="h-3.5 w-3.5 mr-1.5" />
+            Unpaid Phases PDF
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
