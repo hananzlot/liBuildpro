@@ -41,11 +41,10 @@ serve(async (req) => {
     const pdfBuffer = await pdfResp.arrayBuffer();
     const bytes = new Uint8Array(pdfBuffer);
     let binary = "";
-    for (let i = 0; i < bytes.length; i += 8192) {
-      const chunk = bytes.subarray(i, Math.min(i + 8192, bytes.length));
-      for (let j = 0; j < chunk.length; j++) {
-        binary += String.fromCharCode(chunk[j]);
-      }
+    const chunkSize = 65536; // 64KB chunks for speed
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
     }
     const pdfBase64 = btoa(binary);
 
