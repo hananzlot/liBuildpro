@@ -1,0 +1,1 @@
+ALTER TABLE public.project_payments ADD COLUMN payment_method text;

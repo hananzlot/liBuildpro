@@ -129,6 +129,7 @@ interface Payment {
   payment_amount: number | null;
   payment_fee: number | null;
   check_number: string | null;
+  payment_method: string | null;
   deposit_verified: boolean | null;
   invoice_id: string | null;
   payment_phase_id: string | null;
@@ -3908,6 +3909,7 @@ function PaymentDialog({
     payment_amount: "",
     payment_fee: "",
     check_number: "",
+    payment_method: "",
     invoice_id: "",
     deposit_verified: false,
   });
@@ -3978,6 +3980,7 @@ function PaymentDialog({
         payment_amount: payment.payment_amount?.toString() || "",
         payment_fee: payment.payment_fee?.toString() || "",
         check_number: payment.check_number || "",
+        payment_method: payment.payment_method || "",
         invoice_id: payment.invoice_id || "",
         deposit_verified: payment.deposit_verified ?? false,
       });
@@ -3990,11 +3993,12 @@ function PaymentDialog({
         payment_amount: prePopulatedData.payment_amount?.toString() || "",
         payment_fee: "",
         check_number: "",
+        payment_method: "",
         invoice_id: prePopulatedData.invoice_id || "",
         deposit_verified: false, // New payments default to not deposited
       });
     } else {
-      setFormData({ bank_id: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", invoice_id: "", deposit_verified: false });
+      setFormData({ bank_id: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", payment_method: "", invoice_id: "", deposit_verified: false });
     }
     setAmountError("");
     setBankSearch("");
@@ -4042,7 +4046,8 @@ function PaymentDialog({
       payment_status: formData.payment_status,
       payment_amount: amount,
       payment_fee: parseFloat(formData.payment_fee) || 0,
-      check_number: formData.check_number || null,
+      check_number: (formData.payment_method === "Zelle/ACH" || formData.payment_method === "Wire") ? null : (formData.check_number || null),
+      payment_method: formData.payment_method || null,
       invoice_id: formData.invoice_id || null,
       payment_phase_id: paymentPhaseId,
       deposit_verified: formData.deposit_verified,
@@ -4181,9 +4186,28 @@ function PaymentDialog({
               <Input type="text" inputMode="decimal" value={formData.payment_fee} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, payment_fee: val })); }} />
             </div>
             <div>
-              <Label>Check #</Label>
-              <Input value={formData.check_number} onChange={(e) => setFormData(p => ({ ...p, check_number: e.target.value }))} />
+              <Label>Payment Method</Label>
+              <Select value={formData.payment_method} onValueChange={(v) => setFormData(p => ({ ...p, payment_method: v, ...(v === "Zelle/ACH" || v === "Wire" ? { check_number: "" } : {}) }))}>
+                <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Check">Check</SelectItem>
+                  <SelectItem value="Zelle/ACH">Zelle/ACH</SelectItem>
+                  <SelectItem value="Wire">Wire</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Check #</Label>
+              <Input 
+                value={formData.check_number} 
+                onChange={(e) => setFormData(p => ({ ...p, check_number: e.target.value }))} 
+                disabled={formData.payment_method === "Zelle/ACH" || formData.payment_method === "Wire"}
+                placeholder={formData.payment_method === "Zelle/ACH" || formData.payment_method === "Wire" ? "N/A" : ""}
+              />
+            </div>
+            <div />
           </div>
           {formData.payment_status === "Received" && (
             <div className="flex items-center space-x-2">
