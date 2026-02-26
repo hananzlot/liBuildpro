@@ -540,7 +540,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     className?: string;
   }) => (
     <TableHead
-      className={cn("cursor-pointer select-none hover:text-foreground transition-colors", className)}
+      className={cn("cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap", className)}
       onClick={() => toggleSort(sortKeyName)}
     >
       <div className="flex items-center gap-1">
@@ -620,9 +620,9 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
 
       {/* Table */}
       <Card>
-        <CardContent className="p-0 overflow-x-auto">
-          <div className="min-w-[1100px]">
-            <Table>
+        <CardContent className="p-0">
+          <div className="w-full max-w-full overflow-x-auto">
+            <Table className="min-w-[1100px] w-max">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
@@ -683,22 +683,22 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                               <div className="text-xs text-muted-foreground truncate max-w-[200px]">{row.address}</div>
                             )}
                           </TableCell>
-                          <TableCell className="tabular-nums">{formatCurrency(row.contractAmount)}</TableCell>
-                          <TableCell className="tabular-nums">{formatCurrency(row.totalInvoiced)}</TableCell>
-                          <TableCell className="tabular-nums">{formatCurrency(row.totalCollected)}</TableCell>
-                          <TableCell className="tabular-nums">
+                          <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.contractAmount)}</TableCell>
+                          <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.totalInvoiced)}</TableCell>
+                          <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.totalCollected)}</TableCell>
+                          <TableCell className="tabular-nums whitespace-nowrap">
                             <span className={row.outstandingAR > 0 ? "text-amber-500" : ""}>
                               {formatCurrency(row.outstandingAR)}
                             </span>
                           </TableCell>
-                          <TableCell className="tabular-nums">{formatCurrency(row.totalBills)}</TableCell>
-                          <TableCell className="tabular-nums">{formatCurrency(row.billsPaid)}</TableCell>
-                          <TableCell className="tabular-nums">
+                          <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.totalBills)}</TableCell>
+                          <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.billsPaid)}</TableCell>
+                          <TableCell className="tabular-nums whitespace-nowrap">
                             <span className={row.outstandingAP > 0 ? "text-destructive" : ""}>
                               {formatCurrency(row.outstandingAP)}
                             </span>
                           </TableCell>
-                          <TableCell className="tabular-nums font-semibold">
+                          <TableCell className="tabular-nums font-semibold whitespace-nowrap">
                             <span className={row.netCash < 0 ? "text-destructive" : "text-emerald-500"}>
                               {formatCurrency(row.netCash)}
                             </span>
@@ -748,14 +748,14 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                   <TableCell />
                   <TableCell className="w-16">{rows.length} Pro</TableCell>
                   <TableCell />
-                  <TableCell className="tabular-nums">{formatCurrency(totals.contractAmount)}</TableCell>
-                  <TableCell className="tabular-nums">{formatCurrency(totals.totalInvoiced)}</TableCell>
-                  <TableCell className="tabular-nums">{formatCurrency(totals.totalCollected)}</TableCell>
-                  <TableCell className="tabular-nums">{formatCurrency(totals.outstandingAR)}</TableCell>
-                  <TableCell className="tabular-nums">{formatCurrency(totals.totalBills)}</TableCell>
-                  <TableCell className="tabular-nums">{formatCurrency(totals.billsPaid)}</TableCell>
-                  <TableCell className="tabular-nums">{formatCurrency(totals.outstandingAP)}</TableCell>
-                  <TableCell className="tabular-nums font-bold">
+                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.contractAmount)}</TableCell>
+                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalInvoiced)}</TableCell>
+                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalCollected)}</TableCell>
+                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.outstandingAR)}</TableCell>
+                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalBills)}</TableCell>
+                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.billsPaid)}</TableCell>
+                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.outstandingAP)}</TableCell>
+                  <TableCell className="tabular-nums font-bold whitespace-nowrap">
                     <span className={totals.netCash < 0 ? "text-destructive" : "text-emerald-500"}>
                       {formatCurrency(totals.netCash)}
                     </span>
