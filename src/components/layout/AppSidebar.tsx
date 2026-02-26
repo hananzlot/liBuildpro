@@ -379,7 +379,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       if (item.dynamicSuffix === 'pendingDeposits') {
         return <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none">{dynamicAmount}</span>;
       }
-      const color = item.dynamicSuffix === 'ar' ? "text-green-400" : item.dynamicSuffix === 'ap' ? "text-orange-400" : item.dynamicSuffix === 'pendingScopes' ? "text-amber-400" : "text-sidebar-primary";
+      const color = item.dynamicSuffix === 'ar' ? "text-green-400" : item.dynamicSuffix === 'ap' ? "text-blue-400" : item.dynamicSuffix === 'pendingScopes' ? "text-blue-300" : "text-sidebar-primary";
       return <span className={cn("ml-auto text-[11px] tabular-nums", color)}>{dynamicAmount}</span>;
     };
 
@@ -465,7 +465,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           className={cn(
             "flex items-center gap-2.5 px-3 py-2.5 transition-colors",
             collapsed ? "justify-center" : "",
-            isViewingOtherCompany && "bg-amber-500/10",
+            isViewingOtherCompany && "bg-blue-500/10",
             noCompanyContext && "bg-destructive/10",
           )}
           onClick={() => { if (collapsed) setOpen(true); }}
@@ -477,7 +477,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
             <div className={cn(
               "h-7 w-7 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0",
               noCompanyContext ? "bg-destructive/20 text-destructive"
-                : isViewingOtherCompany ? "bg-amber-500 text-white"
+                : isViewingOtherCompany ? "bg-blue-500 text-white"
                 : "bg-sidebar-primary text-sidebar-primary-foreground"
             )}>
               {noCompanyContext ? "?" : (company?.name || "CO").substring(0, 2).toUpperCase()}
@@ -493,7 +493,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                     {noCompanyContext ? "Select Company" : company?.name || "Company"}
                   </span>
                   {isViewingOtherCompany && (
-                    <span className="inline-flex items-center h-4 px-1.5 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    <span className="inline-flex items-center h-4 px-1.5 rounded text-[9px] font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
                       Working
                     </span>
                   )}
@@ -501,7 +501,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                 <div className="flex items-center gap-1">
                   <span className="text-[11px] text-sidebar-muted-foreground">{versionString}</span>
                   {isAdmin && <VersionBumpDialog currentVersion={version} />}
-                  {isSimulating && <span className="inline-flex items-center h-4 px-1 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400">Sim</span>}
+                  {isSimulating && <span className="inline-flex items-center h-4 px-1 rounded text-[9px] font-medium bg-blue-500/20 text-blue-400">Sim</span>}
                 </div>
               </div>
 
@@ -623,7 +623,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                             {!collapsed && (
                               <span className="flex items-center gap-2 truncate">
                                 Simulate Role
-                                {isSimulating && <span className="inline-flex items-center h-4 px-1 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400">{simulatedRole}</span>}
+                                {isSimulating && <span className="inline-flex items-center h-4 px-1 rounded text-[9px] font-medium bg-blue-500/20 text-blue-400">{simulatedRole}</span>}
                               </span>
                             )}
                           </SidebarMenuButton>
