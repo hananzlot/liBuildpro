@@ -872,7 +872,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
             </div>
             <div className="flex-1">
               <SheetTitle className="flex items-center gap-2">
-                #{project.project_number} - {project.project_name}
+                #{project.project_number} - {toTitleCase(project.project_name)}
                 <Popover>
                   <PopoverTrigger asChild>
                     <Badge 
@@ -912,7 +912,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 </Popover>
               </SheetTitle>
               <SheetDescription>
-                {project.customer_first_name} {project.customer_last_name}
+                {toTitleCase(`${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim())}
               </SheetDescription>
             </div>
             {isAdmin && (

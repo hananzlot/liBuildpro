@@ -113,7 +113,7 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
                 </Avatar>
                 <div>
                   <p className="font-bold text-lg text-slate-900">
-                    {project.customer_first_name} {project.customer_last_name}
+                    {`${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
                   </p>
                   <p className="text-sm text-slate-500">Project Owner</p>
                 </div>
