@@ -115,7 +115,7 @@ export function CompanySwitcher() {
             className={cn(
               "w-full justify-between text-left font-normal h-auto py-2 bg-sidebar-surface-hover border-sidebar-border text-sidebar-foreground hover:bg-sidebar-surface-active hover:text-sidebar-foreground",
               noCompanySelected && "border-destructive/50 bg-destructive/10",
-              isOverriding && "border-amber-500/50 bg-amber-500/10"
+              isOverriding && "border-blue-500/50 bg-blue-500/10"
             )}
           >
             <div className="flex items-center gap-2 min-w-0">
@@ -136,7 +136,7 @@ export function CompanySwitcher() {
               {isOverriding && (
                 <Badge 
                   variant="outline" 
-                  className="h-5 px-1.5 text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30 cursor-pointer hover:bg-amber-500/20"
+                  className="h-5 px-1.5 text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/30 cursor-pointer hover:bg-blue-500/20"
                   onClick={handleReset}
                 >
                   <X className="h-3 w-3" />
