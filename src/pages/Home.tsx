@@ -52,7 +52,7 @@ const Home = () => {
       color: "bg-blue-500/10 text-blue-600 dark:text-blue-400"
     },
     {
-      title: "Production",
+      title: "Operations",
       description: "Manage projects, analytics, and subcontractors",
       icon: FolderKanban,
       path: "/production",
