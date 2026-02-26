@@ -46,6 +46,8 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
   const { isShortLinksEnabled, createPortalShortLink } = useShortLinks();
   const [copied, setCopied] = useState(false);
   const [showRefreshWarning, setShowRefreshWarning] = useState(false);
+  const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+  const [deleteShortLink, setDeleteShortLink] = useState(true);
   const [displayLink, setDisplayLink] = useState<string | null>(null);
 
   // Fetch company name for display (try company_settings first)
@@ -207,14 +209,23 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
   });
 
   const toggleActiveMutation = useMutation({
-    mutationFn: async (isActive: boolean) => {
+    mutationFn: async ({ isActive, shouldDeleteShortLink }: { isActive: boolean; shouldDeleteShortLink?: boolean }) => {
       const { error } = await supabase
         .from('client_portal_tokens')
         .update({ is_active: isActive })
         .eq('id', portalToken?.id);
       if (error) throw error;
+
+      // Delete associated short links if deactivating and user opted in
+      if (!isActive && shouldDeleteShortLink && portalToken?.token) {
+        const longUrl = `%/portal?token=${portalToken.token}%`;
+        await supabase
+          .from('short_links')
+          .delete()
+          .like('long_url', longUrl);
+      }
     },
-    onSuccess: (_, isActive) => {
+    onSuccess: (_, { isActive }) => {
       toast.success(isActive ? 'Portal activated' : 'Portal deactivated');
       queryClient.invalidateQueries({ queryKey: ['project-portal-token', projectId] });
     },
@@ -307,7 +318,13 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
                 <Switch
                   id="portal-active"
                   checked={portalToken.is_active}
-                  onCheckedChange={(checked) => toggleActiveMutation.mutate(checked)}
+                  onCheckedChange={(checked) => {
+                    if (!checked) {
+                      setShowDeactivateConfirm(true);
+                    } else {
+                      toggleActiveMutation.mutate({ isActive: true });
+                    }
+                  }}
                   disabled={toggleActiveMutation.isPending}
                   className="scale-75"
                 />
@@ -439,6 +456,51 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
               className="bg-amber-600 hover:bg-amber-700"
             >
               Regenerate Link
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Deactivate Portal Confirmation */}
+      <AlertDialog open={showDeactivateConfirm} onOpenChange={setShowDeactivateConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Deactivate Customer Portal
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                The customer will no longer be able to access their portal using the existing link.
+              </p>
+              <div className="flex items-start gap-3 rounded-lg border p-3 bg-muted/50">
+                <input
+                  type="checkbox"
+                  id="delete-short-link"
+                  checked={deleteShortLink}
+                  onChange={(e) => setDeleteShortLink(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-input"
+                />
+                <label htmlFor="delete-short-link" className="text-sm leading-snug cursor-pointer">
+                  <span className="font-medium text-foreground">Also delete the short link</span>
+                  <br />
+                  <span className="text-muted-foreground text-xs">
+                    Recommended to prevent duplicate link conflicts when reactivating later.
+                  </span>
+                </label>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                toggleActiveMutation.mutate({ isActive: false, shouldDeleteShortLink: deleteShortLink });
+                setShowDeactivateConfirm(false);
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              Deactivate Portal
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
