@@ -2266,16 +2266,30 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             <span className="text-[10px] text-muted-foreground">Received:</span>
             <span className="text-xs font-semibold text-emerald-600">{formatCurrency(totalPaymentsReceived)}</span>
           </div>
+          {totalInvoiced > totalPaymentsReceived && (
+            <div className="flex items-center gap-1.5 bg-destructive/10 rounded-md px-2 py-1.5 border border-destructive/30">
+              <AlertCircle className="h-3 w-3 text-destructive" />
+              <span className="text-[10px] text-destructive">Outstanding AR:</span>
+              <span className="text-xs font-semibold text-destructive">{formatCurrency(totalInvoiced - totalPaymentsReceived)}</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5 border">
             <Receipt className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground">Bills:</span>
             <span className="text-xs font-semibold">{formatCurrency(totalBills)}</span>
           </div>
-          <div className="flex items-center gap-1.5 bg-amber-500/10 rounded-md px-2 py-1.5 border border-amber-200">
-            <AlertCircle className="h-3 w-3 text-amber-600" />
-            <span className="text-[10px] text-muted-foreground">Outstanding:</span>
-            <span className="text-xs font-semibold text-amber-600">{formatCurrency(totalBills - totalBillsPaid)}</span>
+          <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1.5 border border-emerald-200">
+            <CreditCard className="h-3 w-3 text-emerald-600" />
+            <span className="text-[10px] text-muted-foreground">Bills Paid:</span>
+            <span className="text-xs font-semibold text-emerald-600">{formatCurrency(totalBillsPaid)}</span>
           </div>
+          {totalBills > totalBillsPaid && (
+            <div className="flex items-center gap-1.5 bg-amber-500/10 rounded-md px-2 py-1.5 border border-amber-200">
+              <AlertCircle className="h-3 w-3 text-amber-600" />
+              <span className="text-[10px] text-amber-600">Outstanding AP:</span>
+              <span className="text-xs font-semibold text-amber-600">{formatCurrency(totalBills - totalBillsPaid)}</span>
+            </div>
+          )}
         </div>
       </div>
 
