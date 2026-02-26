@@ -12,6 +12,7 @@ export const ANALYTICS_REPORTS = [
   { key: "commission", label: "Commission Report", route: "/analytics/commission" },
   { key: "pnl", label: "P&L Statement", route: "/analytics/pnl" },
   { key: "balance_sheet", label: "Balance Sheet", route: "/analytics/balance-sheet" },
+  { key: "project_summary", label: "Project Summary", route: "/analytics/project_summary" },
   { key: "outstanding_ap", label: "Outstanding AP", route: "/outstanding-ap" },
   { key: "outstanding_ar", label: "Outstanding AR", route: "/outstanding-ar" },
 ] as const;
@@ -20,7 +21,12 @@ export type AnalyticsReportKey = typeof ANALYTICS_REPORTS[number]["key"];
 
 // Admin and super_admin see all reports by default
 const ADMIN_DEFAULT_REPORTS: AnalyticsReportKey[] = [
-  "profitability", "cashflow", "receivables", "bank", "commission", "pnl", "balance_sheet", "outstanding_ap", "outstanding_ar"
+  "profitability", "cashflow", "receivables", "bank", "commission", "pnl", "balance_sheet", "project_summary", "outstanding_ap", "outstanding_ar"
+];
+
+// Default reports for production role when no company setting has been saved
+const PRODUCTION_DEFAULT_REPORTS: AnalyticsReportKey[] = [
+  "profitability", "cashflow", "receivables", "project_summary"
 ];
 
 interface AnalyticsPermission {
@@ -118,7 +124,12 @@ export function useAnalyticsPermissions() {
           defaults.forEach(k => merged.add(k));
         }
       }
-      return Array.from(merged);
+      if (merged.size > 0) return Array.from(merged);
+    }
+
+    // Code-level defaults for production role when no company setting exists
+    if (userRoles.includes('production')) {
+      return [...PRODUCTION_DEFAULT_REPORTS];
     }
 
     return [];
