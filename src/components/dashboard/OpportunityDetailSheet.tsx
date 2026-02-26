@@ -1765,6 +1765,7 @@ export function OpportunityDetailSheet({
           project_address: address,
           primary_salesperson: assignedUser?.name || assignedUser?.first_name || null,
           estimated_cost: oppData.monetary_value || null,
+          sold_dispatch_value: oppData.monetary_value || null,
           project_status: "New Job",
           contact_id: oppData.contact_id || null,
           contact_uuid: oppData.contact_uuid || null,
