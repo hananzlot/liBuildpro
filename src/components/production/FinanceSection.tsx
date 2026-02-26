@@ -330,6 +330,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [prePopulatedInvoice, setPrePopulatedInvoice] = useState<Partial<Invoice> | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [prePopulatedPayment, setPrePopulatedPayment] = useState<Partial<Payment> | null>(null);
+  const [invoiceSelectForPayment, setInvoiceSelectForPayment] = useState<Invoice[] | null>(null);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [editingAgreement, setEditingAgreement] = useState<Agreement | null>(null);
   const [editingPhase, setEditingPhase] = useState<PaymentPhase | null>(null);
@@ -3307,28 +3308,35 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                               </Button>
                                             )}
                                             {(() => {
-                                              // Find the first invoice with open balance for this phase
-                                              const phaseInvoice = invoices.find(inv => 
+                                              // Find all invoices with open balance for this phase
+                                              const unpaidInvoices = invoices.filter(inv => 
                                                 inv.payment_phase_id === phase.id && (inv.open_balance || 0) > 0
                                               );
-                                              return phaseInvoice ? (
+                                              if (unpaidInvoices.length === 0) return null;
+                                              return (
                                                 <Button 
                                                   variant="ghost" 
                                                   size="icon" 
                                                   className="h-7 w-7 text-emerald-600" 
-                                                  title={`Record Payment for Invoice #${phaseInvoice.invoice_number || 'N/A'}`}
+                                                  title={unpaidInvoices.length === 1 
+                                                    ? `Record Payment for Invoice #${unpaidInvoices[0].invoice_number || 'N/A'}` 
+                                                    : `Record Payment (${unpaidInvoices.length} unpaid invoices)`}
                                                   onClick={() => { 
-                                                    setEditingPayment(null);
-                                                    setPrePopulatedPayment({
-                                                      invoice_id: phaseInvoice.id,
-                                                      payment_amount: phaseInvoice.open_balance || 0,
-                                                    });
-                                                    setPaymentDialogOpen(true); 
+                                                    if (unpaidInvoices.length === 1) {
+                                                      setEditingPayment(null);
+                                                      setPrePopulatedPayment({
+                                                        invoice_id: unpaidInvoices[0].id,
+                                                        payment_amount: unpaidInvoices[0].open_balance || 0,
+                                                      });
+                                                      setPaymentDialogOpen(true);
+                                                    } else {
+                                                      setInvoiceSelectForPayment(unpaidInvoices);
+                                                    }
                                                   }}
                                                 >
                                                   <DollarSign className="h-3 w-3" />
                                                 </Button>
-                                              ) : null;
+                                              );
                                             })()}
                                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}>
                                               <Pencil className="h-3 w-3" />
@@ -3440,6 +3448,42 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         maxAmount={invoiceConfirmPhase?.maxAmount || 0}
         onConfirm={handleInvoiceConfirm}
       />
+
+      {/* Invoice Selection for Payment (multi-invoice phase) */}
+      <Dialog open={!!invoiceSelectForPayment} onOpenChange={(open) => { if (!open) setInvoiceSelectForPayment(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Which invoice was paid?</DialogTitle>
+            <DialogDescription>This progress payment has multiple invoices. Select the one to record payment against.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {invoiceSelectForPayment?.map(inv => (
+              <Button
+                key={inv.id}
+                variant="outline"
+                className="w-full justify-between h-auto py-3"
+                onClick={() => {
+                  setInvoiceSelectForPayment(null);
+                  setEditingPayment(null);
+                  setPrePopulatedPayment({
+                    invoice_id: inv.id,
+                    payment_amount: inv.open_balance || 0,
+                  });
+                  setPaymentDialogOpen(true);
+                }}
+              >
+                <div className="text-left">
+                  <div className="font-medium">Invoice #{inv.invoice_number}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Amount: {formatCurrency(inv.amount)} · Balance: {formatCurrency(inv.open_balance || 0)}
+                  </div>
+                </div>
+                <DollarSign className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Dialog */}
       <PaymentDialog
