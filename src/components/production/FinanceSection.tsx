@@ -2310,7 +2310,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                     <DollarSign className="h-3 w-3" />
                                   </Button>
                                 )}
-                                <Button variant="ghost" size="icon" className="h-7 w-7" title="Preview Invoice" onClick={() => {
+                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => {
                                   const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
                                   const agreement = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
                                   setInvoicePdfData({
@@ -2325,6 +2325,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   setInvoicePdfDialogOpen(true);
                                 }}>
                                   <FileText className="h-3 w-3" />
+                                  Preview Invoice
                                 </Button>
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
                                   <Pencil className="h-3 w-3" />
