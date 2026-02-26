@@ -4866,7 +4866,7 @@ function AgreementDialog({
                 <div className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
                   <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                   <span>
-                    Payment phases total <strong>${phasesTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong> doesn't match the contract amount <strong>${newTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong>. Please update the payment phases to match.
+                    Progress payments total <strong>${phasesTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong> doesn't match the contract amount <strong>${newTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</strong>. Please update the progress payments to match.
                   </span>
                 </div>
               );
