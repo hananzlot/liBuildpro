@@ -3097,12 +3097,14 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                             >
                                               {isFullyInvoiced ? "Invoiced" : invoiceStatus.totalInvoiced > 0 ? `Invoiced: ${formatCurrency(invoiceStatus.totalInvoiced)}` : "Not Invoiced"}
                                             </Badge>
+                                            {(isFullyPaid || paymentStatus.totalReceived > 0 || invoiceStatus.totalInvoiced > 0) && (
                                             <Badge 
                                               variant="outline" 
-                                              className={isFullyPaid ? "bg-emerald-500/10 text-emerald-500" : paymentStatus.totalReceived > 0 ? "bg-amber-500/10 text-amber-500" : "bg-muted text-muted-foreground"}
+                                              className={isFullyPaid ? "bg-emerald-500/10 text-emerald-500" : paymentStatus.totalReceived > 0 ? "bg-amber-500/10 text-amber-500" : "bg-destructive/10 text-destructive"}
                                             >
                                               {isFullyPaid ? "Paid" : paymentStatus.totalReceived > 0 ? `Paid: ${formatCurrency(paymentStatus.totalReceived)}` : "Unpaid"}
                                             </Badge>
+                                            )}
                                           </div>
                                         </TableCell>
                                         <TableCell>
