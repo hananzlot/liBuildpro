@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MetricCard } from "./MetricCard";
+import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
 import {
   DollarSign,
   FileText,
@@ -24,6 +25,7 @@ import {
   Receipt,
   ChevronRight,
   ArrowUpDown,
+  Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,16 +74,16 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [sortKey, setSortKey] = useState<SortKey>("project_number");
   const [sortAsc, setSortAsc] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["In-Progress"]);
 
-  // Fetch all data in parallel
-  const { data: projects, isLoading: projectsLoading } = useQuery({
+  // Fetch ALL non-deleted projects (filter client-side by status)
+  const { data: allProjects, isLoading: projectsLoading } = useQuery({
     queryKey: ["project-summary-projects", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
         .select("id, project_number, customer_first_name, customer_last_name, project_status")
         .eq("company_id", companyId!)
-        .eq("project_status", "In-Progress")
         .is("deleted_at", null);
       if (error) throw error;
       return data;
@@ -90,7 +92,21 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     staleTime: 0,
   });
 
-  const projectIds = useMemo(() => projects?.map((p) => p.id) || [], [projects]);
+  // Derive unique statuses for the filter
+  const statusOptions = useMemo(() => {
+    if (!allProjects) return [];
+    const unique = [...new Set(allProjects.map(p => p.project_status).filter(Boolean))] as string[];
+    return unique.sort().map(s => ({ value: s, label: s }));
+  }, [allProjects]);
+
+  // Filter projects by selected statuses
+  const projects = useMemo(() => {
+    if (!allProjects) return [];
+    if (selectedStatuses.length === 0) return allProjects;
+    return allProjects.filter(p => selectedStatuses.includes(p.project_status || ""));
+  }, [allProjects, selectedStatuses]);
+
+  const projectIds = useMemo(() => projects.map((p) => p.id), [projects]);
 
   const { data: agreements, isLoading: agreementsLoading } = useQuery({
     queryKey: ["project-summary-agreements", companyId, projectIds],
@@ -351,6 +367,17 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Status Filter */}
+      <div className="flex items-center gap-2">
+        <MultiSelectFilter
+          options={statusOptions}
+          selected={selectedStatuses}
+          onChange={setSelectedStatuses}
+          placeholder="All Statuses"
+          icon={<Filter className="h-3.5 w-3.5" />}
+        />
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <MetricCard
