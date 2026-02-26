@@ -3946,7 +3946,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   // If PDF viewer is open, render split-panel layout
   if (pdfViewerOpen && selectedAttachment) {
     return (
-      <ResizablePanelGroup direction="horizontal" className="h-full min-h-0">
+      <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-8rem)] min-h-[400px]">
         <ResizablePanel defaultSize={45} minSize={25} maxSize={65}>
           <div className="h-full flex flex-col border-r">
             <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 shrink-0">
