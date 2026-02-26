@@ -156,6 +156,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [isFinancePdfPreviewOpen, setIsFinancePdfPreviewOpen] = useState(false);
+  const [financeSummary, setFinanceSummary] = useState<{ outstandingAR: number; outstandingAP: number }>({ outstandingAR: 0, outstandingAP: 0 });
 
   // Helper to sync the app tab path with inner tab state (only in page mode)
   const syncTabPath = useCallback((tab: string, finSubTab?: string, finBillsSubTab?: 'bills' | 'history') => {
@@ -968,42 +969,56 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           </div>
           {/* Portal Link & Auto-Sync Toggle Row */}
           <div className="flex items-center justify-between mt-1">
-            {headerPortalLink ? (
-              <div className="flex items-center gap-2">
-                <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                <a 
-                  href={headerPortalLink} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline truncate max-w-[250px]"
-                >
-                  {headerPortalLink}
-                </a>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(headerPortalLink);
-                    setPortalLinkCopied(true);
-                    toast.success("Portal link copied!");
-                    setTimeout(() => setPortalLinkCopied(false), 2000);
-                  }}
-                >
-                  {portalLinkCopied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => window.open(headerPortalLink, "_blank")}
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </Button>
-              </div>
-            ) : (
-              <div />
-            )}
+            <div className="flex items-center gap-2">
+              {headerPortalLink && (
+                <>
+                  <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <a 
+                    href={headerPortalLink} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline truncate max-w-[250px]"
+                  >
+                    {headerPortalLink}
+                  </a>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(headerPortalLink);
+                      setPortalLinkCopied(true);
+                      toast.success("Portal link copied!");
+                      setTimeout(() => setPortalLinkCopied(false), 2000);
+                    }}
+                  >
+                    {portalLinkCopied ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => window.open(headerPortalLink, "_blank")}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </Button>
+                </>
+              )}
+              {financeSummary.outstandingAR > 0 && (
+                <div className="flex items-center gap-1.5 bg-destructive/10 rounded-md px-2 py-1 border border-destructive/30">
+                  <AlertCircle className="h-3 w-3 text-destructive" />
+                  <span className="text-[10px] text-destructive">Outstanding AR:</span>
+                  <span className="text-xs font-semibold text-destructive">{formatCurrency(financeSummary.outstandingAR)}</span>
+                </div>
+              )}
+              {financeSummary.outstandingAP > 0 && (
+                <div className="flex items-center gap-1.5 bg-amber-500/10 rounded-md px-2 py-1 border border-amber-200">
+                  <AlertCircle className="h-3 w-3 text-amber-600" />
+                  <span className="text-[10px] text-amber-600">Outstanding AP:</span>
+                  <span className="text-xs font-semibold text-amber-600">{formatCurrency(financeSummary.outstandingAP)}</span>
+                </div>
+              )}
+            </div>
             {activeTab === "finance" && hasQbConnection && (
               <div className="flex items-center gap-1.5">
                 <Label 
@@ -1948,6 +1963,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 projectAddress={fullProject.project_address}
                 customerName={`${fullProject.customer_first_name || ''} ${fullProject.customer_last_name || ''}`.trim() || null}
                 onPdfPreviewStateChange={setIsFinancePdfPreviewOpen}
+                onFinanceSummaryChange={setFinanceSummary}
               />
             )}
           </TabsContent>

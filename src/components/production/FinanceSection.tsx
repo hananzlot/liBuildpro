@@ -115,6 +115,7 @@ interface FinanceSectionProps {
   projectAddress?: string | null;
   customerName?: string | null;
   onPdfPreviewStateChange?: (open: boolean) => void;
+  onFinanceSummaryChange?: (summary: { outstandingAR: number; outstandingAP: number }) => void;
 }
 
 interface Invoice {
@@ -220,7 +221,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, autoOpenFinanceDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, onSubTabChange, projectStatus, projectName, projectAddress, customerName, onPdfPreviewStateChange }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, autoOpenFinanceDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, onSubTabChange, projectStatus, projectName, projectAddress, customerName, onPdfPreviewStateChange, onFinanceSummaryChange }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
@@ -812,6 +813,15 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const totalBills = activeBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
   const totalBillsPaid = activeBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
   const totalAgreementsValue = agreements.reduce((sum, a) => sum + (a.total_price || 0), 0);
+
+  // Report financial summary to parent
+  useEffect(() => {
+    onFinanceSummaryChange?.({
+      outstandingAR: Math.max(0, totalInvoiced - totalPaymentsReceived),
+      outstandingAP: Math.max(0, totalBills - totalBillsPaid),
+    });
+  }, [totalInvoiced, totalPaymentsReceived, totalBills, totalBillsPaid, onFinanceSummaryChange]);
+
   // Helper functions to check phase status
   const getPhaseInvoiceStatus = (phaseId: string) => {
     const phaseInvoices = invoices.filter(inv => inv.payment_phase_id === phaseId);
