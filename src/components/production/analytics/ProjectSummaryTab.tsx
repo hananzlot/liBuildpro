@@ -75,6 +75,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [sortAsc, setSortAsc] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["In-Progress"]);
+  const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
 
   // Fetch ALL non-deleted projects (filter client-side by status)
   const { data: allProjects, isLoading: projectsLoading } = useQuery({
@@ -368,7 +369,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   return (
     <div className="space-y-6">
       {/* Status Filter */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <MultiSelectFilter
           options={statusOptions}
           selected={selectedStatuses}
@@ -376,6 +377,15 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           placeholder="All Statuses"
           icon={<Filter className="h-3.5 w-3.5" />}
         />
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showUnpaidOnly}
+            onChange={(e) => setShowUnpaidOnly(e.target.checked)}
+            className="rounded border-border"
+          />
+          Unpaid phases only
+        </label>
       </div>
 
       {/* KPI Cards */}
@@ -488,7 +498,9 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                             </span>
                           </TableCell>
                         </TableRow>
-                        {isExpanded && row.phases.map((phase) => (
+                        {isExpanded && row.phases
+                          .filter(phase => !showUnpaidOnly || phase.status !== "Paid")
+                          .map((phase) => (
                           <TableRow key={phase.id} className="bg-muted/20 hover:bg-muted/30">
                             <TableCell />
                             <TableCell />
