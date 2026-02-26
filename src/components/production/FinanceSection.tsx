@@ -78,6 +78,7 @@ import { QBDuplicateReviewDialog, type QBDuplicateCandidate } from "./analytics/
 import { InvoicePdfDialog } from "./InvoicePdfDialog";
 import { InvoiceConfirmDialog } from "./InvoiceConfirmDialog";
 import { usePersistedDialog } from "@/hooks/usePersistedDialog";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 
 interface SalespersonData {
   name: string | null;
@@ -4659,7 +4660,7 @@ function BillDialog({
   allBills: Bill[];
   onAddSubcontractor?: () => void;
 }) {
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     installer_company: "",
     category: "",
     bill_ref: "",
@@ -4668,7 +4669,14 @@ function BillDialog({
     attachment_url: null as string | null,
     agreement_id: "",
     offset_bill_id: "",
-  });
+  };
+
+  const { draft: formData, updateDraft: updateFormData, setFullDraft: setFormData, clearDraft } = usePersistentDraft(
+    "bill-dialog",
+    initialFormData,
+    bill?.id || projectId,
+    open
+  );
   const [categorySearch, setCategorySearch] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [vendorMappingDialogOpen, setVendorMappingDialogOpen] = useState(false);
@@ -4772,39 +4780,38 @@ function BillDialog({
     staleTime: 30000,
   });
 
-  // Reset form when dialog opens
+  // Reset form when dialog opens with a bill to edit (not on every open — draft handles persistence)
+  const lastBillIdRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (open) {
-      if (bill) {
-        setFormData({
-          installer_company: bill.installer_company || "",
-          category: bill.category || "",
-          bill_ref: bill.bill_ref || "",
-          bill_amount: bill.bill_amount?.toString() || "",
-          memo: bill.memo || "",
-          attachment_url: bill.attachment_url || null,
-          agreement_id: bill.agreement_id || "",
-          offset_bill_id: bill.offset_bill_id || "",
-        });
-      } else {
-        setFormData({ 
-          installer_company: "", 
-          category: "", 
-          bill_ref: "", 
-          bill_amount: "", 
-          memo: "", 
-          attachment_url: null, 
-          agreement_id: "",
-          offset_bill_id: "",
-        });
-      }
+    if (!open) {
+      lastBillIdRef.current = undefined;
+      return;
     }
+    // Only reset if bill identity changed (new open or different bill)
+    const currentBillId = bill?.id ?? null;
+    if (lastBillIdRef.current === currentBillId) return;
+    lastBillIdRef.current = currentBillId;
+
+    if (bill) {
+      clearDraft();
+      setFormData({
+        installer_company: bill.installer_company || "",
+        category: bill.category || "",
+        bill_ref: bill.bill_ref || "",
+        bill_amount: bill.bill_amount?.toString() || "",
+        memo: bill.memo || "",
+        attachment_url: bill.attachment_url || null,
+        agreement_id: bill.agreement_id || "",
+        offset_bill_id: bill.offset_bill_id || "",
+      });
+    }
+    // For new bills, draft will auto-load from sessionStorage — no reset needed
   }, [open, bill]);
 
   // Clear offset_bill_id when category changes to non-eligible
   useEffect(() => {
     if (!isOffsetEligible && formData.offset_bill_id) {
-      setFormData(p => ({ ...p, offset_bill_id: "" }));
+      updateFormData({ offset_bill_id: "" });
     }
   }, [isOffsetEligible, formData.offset_bill_id]);
 
@@ -4853,9 +4860,17 @@ function BillDialog({
     }
   };
 
+  // Wrap onOpenChange to clear draft when dialog closes
+  const handleOpenChange = (value: boolean) => {
+    if (!value) {
+      clearDraft();
+    }
+    onOpenChange(value);
+  };
+
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{bill ? "Edit Bill" : "Add Bill"}</DialogTitle>
@@ -4872,7 +4887,7 @@ function BillDialog({
                     onOpenChange(false);
                     onAddSubcontractor?.();
                   } else {
-                    setFormData(p => ({ ...p, installer_company: value }));
+                    updateFormData({ installer_company: value });
                   }
                 }}
               >
@@ -4937,8 +4952,8 @@ function BillDialog({
                         {categorySearch && !existingCategories.some(c => c.toLowerCase() === categorySearch.toLowerCase()) && (
                           <CommandItem
                             value={categorySearch}
-                            onSelect={() => {
-                              setFormData(p => ({ ...p, category: categorySearch }));
+                          onSelect={() => {
+                            updateFormData({ category: categorySearch });
                               setCategorySearch("");
                               setCategoryOpen(false);
                             }}
@@ -4952,8 +4967,8 @@ function BillDialog({
                           <CommandItem
                             key={cat}
                             value={cat}
-                            onSelect={() => {
-                              setFormData(p => ({ ...p, category: cat }));
+                          onSelect={() => {
+                            updateFormData({ category: cat });
                               setCategorySearch("");
                               setCategoryOpen(false);
                             }}
@@ -4980,7 +4995,7 @@ function BillDialog({
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Label>Contract <span className="text-destructive">*</span></Label>
-              <Select value={formData.agreement_id} onValueChange={(v) => setFormData(p => ({ ...p, agreement_id: v }))}>
+              <Select value={formData.agreement_id} onValueChange={(v) => updateFormData({ agreement_id: v })}>
                 <SelectTrigger className={!formData.agreement_id ? "border-destructive" : ""}>
                   <SelectValue placeholder="Select contract (required)" />
                 </SelectTrigger>
@@ -5004,11 +5019,11 @@ function BillDialog({
             </div>
             <div>
               <Label>Bill Amount ($)</Label>
-              <Input type="text" inputMode="decimal" value={formData.bill_amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, bill_amount: val })); }} />
+              <Input type="text" inputMode="decimal" value={formData.bill_amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateFormData({ bill_amount: val }); }} />
             </div>
             <div>
               <Label>Bill Reference</Label>
-              <Input value={formData.bill_ref} onChange={(e) => setFormData(p => ({ ...p, bill_ref: e.target.value }))} placeholder="Invoice/PO number" />
+              <Input value={formData.bill_ref} onChange={(e) => updateFormData({ bill_ref: e.target.value })} placeholder="Invoice/PO number" />
             </div>
           </div>
           
@@ -5021,7 +5036,7 @@ function BillDialog({
               </p>
               <Select 
                 value={formData.offset_bill_id} 
-                onValueChange={(v) => setFormData(p => ({ ...p, offset_bill_id: v === "__none__" ? "" : v }))}
+                onValueChange={(v) => updateFormData({ offset_bill_id: v === "__none__" ? "" : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select subcontractor invoice to offset..." />
@@ -5045,7 +5060,7 @@ function BillDialog({
             <Label>Memo/Description <span className="text-destructive">*</span></Label>
             <Input 
               value={formData.memo} 
-              onChange={(e) => setFormData(p => ({ ...p, memo: e.target.value }))} 
+              onChange={(e) => updateFormData({ memo: e.target.value })} 
               placeholder="Describe the work or expense"
               className={!formData.memo.trim() ? "border-destructive" : ""}
             />
@@ -5058,7 +5073,7 @@ function BillDialog({
             <FileUpload
               projectId={projectId}
               currentUrl={formData.attachment_url}
-              onUpload={(url) => setFormData(p => ({ ...p, attachment_url: url }))}
+              onUpload={(url) => updateFormData({ attachment_url: url })}
               folder="bills"
             />
           </div>
