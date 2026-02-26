@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { usePersistentDraft } from '@/hooks/usePersistentDraft';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanyContext } from '@/hooks/useCompanyContext';
@@ -75,7 +76,20 @@ export function SalespeopleManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [editingSalesperson, setEditingSalesperson] = useState<Salesperson | null>(null);
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
+  const INITIAL_SP_FORM = { name: '', phone: '', email: '' };
+  const { draft: formData, updateDraft: setFormDataDraft, clearDraft: clearSpDraft, isDirty: isSpDirty } = usePersistentDraft(
+    'salesperson',
+    INITIAL_SP_FORM,
+    editingSalesperson?.id,
+    dialogOpen
+  );
+  const setFormData = (updater: ((prev: typeof INITIAL_SP_FORM) => typeof INITIAL_SP_FORM) | typeof INITIAL_SP_FORM) => {
+    if (typeof updater === 'function') {
+      setFormDataDraft(updater(formData));
+    } else {
+      setFormDataDraft(updater);
+    }
+  };
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [selectedForMerge, setSelectedForMerge] = useState<Set<string>>(new Set());
@@ -269,6 +283,7 @@ export function SalespeopleManagement() {
     onSuccess: () => {
       toast.success('Salesperson added');
       queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
+      clearSpDraft();
       setDialogOpen(false);
       resetForm();
     },
@@ -292,6 +307,7 @@ export function SalespeopleManagement() {
     onSuccess: () => {
       toast.success('Salesperson updated');
       queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
+      clearSpDraft();
       setDialogOpen(false);
       resetForm();
     },
@@ -554,17 +570,21 @@ export function SalespeopleManagement() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', phone: '', email: '' });
+    clearSpDraft();
     setEditingSalesperson(null);
   };
 
   const handleEdit = (salesperson: Salesperson) => {
     setEditingSalesperson(salesperson);
-    setFormData({
-      name: salesperson.name,
-      phone: salesperson.phone || '',
-      email: salesperson.email || '',
-    });
+    // Only set form data if no draft exists for this salesperson
+    const existingDraft = sessionStorage.getItem(`draft:salesperson:${salesperson.id}`);
+    if (!existingDraft) {
+      setFormDataDraft({
+        name: salesperson.name,
+        phone: salesperson.phone || '',
+        email: salesperson.email || '',
+      });
+    }
     setDialogOpen(true);
   };
 
