@@ -5,6 +5,7 @@ import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { toast } from "sonner";
 
 export const ANALYTICS_REPORTS = [
+  { key: "project_summary", label: "Projects Summary", route: "/analytics/project_summary" },
   { key: "profitability", label: "Profitability", route: "/analytics/profitability" },
   { key: "cashflow", label: "Cash Flow", route: "/analytics/cashflow" },
   { key: "receivables", label: "Accounts Receivable", route: "/analytics/receivables" },
@@ -12,7 +13,6 @@ export const ANALYTICS_REPORTS = [
   { key: "commission", label: "Commission Report", route: "/analytics/commission" },
   { key: "pnl", label: "P&L Statement", route: "/analytics/pnl" },
   { key: "balance_sheet", label: "Balance Sheet", route: "/analytics/balance-sheet" },
-  { key: "project_summary", label: "Projects Summary", route: "/analytics/project_summary" },
   { key: "outstanding_ap", label: "Outstanding AP", route: "/outstanding-ap" },
   { key: "outstanding_ar", label: "Outstanding AR", route: "/outstanding-ar" },
 ] as const;
