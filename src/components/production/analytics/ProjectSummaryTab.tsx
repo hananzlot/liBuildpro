@@ -79,6 +79,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [sortAsc, setSortAsc] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["In-Progress"]);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
 
   // Fetch ALL non-deleted projects (filter client-side by status)
@@ -104,11 +105,32 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     return unique.sort().map(s => ({ value: s, label: s }));
   }, [allProjects]);
 
-  // Filter projects by selected statuses
+  // Filter projects by selected statuses, then by selected projects
   const projects = useMemo(() => {
     if (!allProjects) return [];
-    if (selectedStatuses.length === 0) return allProjects;
-    return allProjects.filter(p => selectedStatuses.includes(p.project_status || ""));
+    let filtered = allProjects;
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter(p => selectedStatuses.includes(p.project_status || ""));
+    }
+    if (selectedProjectIds.length > 0) {
+      filtered = filtered.filter(p => selectedProjectIds.includes(p.id));
+    }
+    return filtered;
+  }, [allProjects, selectedStatuses, selectedProjectIds]);
+
+  // Project filter options (based on status-filtered list)
+  const projectFilterOptions = useMemo(() => {
+    if (!allProjects) return [];
+    let filtered = allProjects;
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter(p => selectedStatuses.includes(p.project_status || ""));
+    }
+    return filtered
+      .sort((a, b) => (a.project_number ?? 0) - (b.project_number ?? 0))
+      .map(p => {
+        const name = [p.customer_first_name, p.customer_last_name].filter(Boolean).join(" ").trim();
+        return { value: p.id, label: `#${p.project_number} ${name}` };
+      });
   }, [allProjects, selectedStatuses]);
 
   const projectIds = useMemo(() => projects.map((p) => p.id), [projects]);
@@ -531,6 +553,13 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           selected={selectedStatuses}
           onChange={setSelectedStatuses}
           placeholder="All Statuses"
+          icon={<Filter className="h-3.5 w-3.5" />}
+        />
+        <MultiSelectFilter
+          options={projectFilterOptions}
+          selected={selectedProjectIds}
+          onChange={setSelectedProjectIds}
+          placeholder="All Projects"
           icon={<Filter className="h-3.5 w-3.5" />}
         />
         <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
