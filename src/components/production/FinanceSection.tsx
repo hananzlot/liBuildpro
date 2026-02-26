@@ -4316,7 +4316,8 @@ function PaymentDialog({
   // When editing an existing payment, add back the original payment amount to the available balance
   // since the current open_balance already has this payment deducted
   const originalPaymentAmount = payment?.invoice_id === formData.invoice_id ? (payment?.payment_amount || 0) : 0;
-  const maxAmount = (selectedInvoice?.open_balance || 0) + originalPaymentAmount;
+  const computedOpenBalance = selectedInvoice ? (selectedInvoice.amount || 0) - (selectedInvoice.payments_received || 0) : 0;
+  const maxAmount = computedOpenBalance + originalPaymentAmount;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -4447,7 +4448,7 @@ function PaymentDialog({
               <SelectContent>
                 {invoices.map((inv) => (
                   <SelectItem key={inv.id} value={inv.id}>
-                    {inv.invoice_number} - Balance: {formatCurrency2(inv.open_balance)}
+                    {inv.invoice_number} - Balance: {formatCurrency2((inv.amount || 0) - (inv.payments_received || 0))}
                   </SelectItem>
                 ))}
               </SelectContent>
