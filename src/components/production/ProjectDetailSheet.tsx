@@ -955,11 +955,57 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 {toTitleCase(`${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim())}
               </SheetDescription>
             </div>
+            {financeSummary.hasAgreements && (
+              <div className="flex items-center gap-1.5 flex-wrap ml-auto shrink-0">
+                {financeSummary.sold > 0 && (
+                  <div className="flex items-center gap-1 bg-emerald-500/10 rounded-md px-1.5 py-0.5 border border-emerald-500/30">
+                    <span className="text-[10px] text-emerald-600 font-bold">Sold:</span>
+                    <span className="text-[11px] font-semibold text-emerald-700">{formatCurrency(financeSummary.sold)}</span>
+                  </div>
+                )}
+                {financeSummary.invoiced > 0 && (
+                  <div className="flex items-center gap-1 bg-muted/50 rounded-md px-1.5 py-0.5 border">
+                    <span className="text-[10px] text-muted-foreground">Inv:</span>
+                    <span className="text-[11px] font-semibold">{formatCurrency(financeSummary.invoiced)}</span>
+                  </div>
+                )}
+                {financeSummary.received > 0 && (
+                  <div className="flex items-center gap-1 bg-emerald-500/10 rounded-md px-1.5 py-0.5 border border-emerald-200">
+                    <span className="text-[10px] text-muted-foreground">Rec:</span>
+                    <span className="text-[11px] font-semibold text-emerald-600">{formatCurrency(financeSummary.received)}</span>
+                  </div>
+                )}
+                {financeSummary.outstandingAR > 0 && (
+                  <div className="flex items-center gap-1 bg-destructive/10 rounded-md px-1.5 py-0.5 border border-destructive/30">
+                    <span className="text-[10px] text-destructive">AR:</span>
+                    <span className="text-[11px] font-semibold text-destructive">{formatCurrency(financeSummary.outstandingAR)}</span>
+                  </div>
+                )}
+                {financeSummary.bills > 0 && (
+                  <div className="flex items-center gap-1 bg-muted/50 rounded-md px-1.5 py-0.5 border">
+                    <span className="text-[10px] text-muted-foreground">Bills:</span>
+                    <span className="text-[11px] font-semibold">{formatCurrency(financeSummary.bills)}</span>
+                  </div>
+                )}
+                {financeSummary.billsPaid > 0 && (
+                  <div className="flex items-center gap-1 bg-emerald-500/10 rounded-md px-1.5 py-0.5 border border-emerald-200">
+                    <span className="text-[10px] text-muted-foreground">Paid:</span>
+                    <span className="text-[11px] font-semibold text-emerald-600">{formatCurrency(financeSummary.billsPaid)}</span>
+                  </div>
+                )}
+                {financeSummary.outstandingAP > 0 && (
+                  <div className="flex items-center gap-1 bg-amber-500/10 rounded-md px-1.5 py-0.5 border border-amber-200">
+                    <span className="text-[10px] text-amber-600">AP:</span>
+                    <span className="text-[11px] font-semibold text-amber-600">{formatCurrency(financeSummary.outstandingAP)}</span>
+                  </div>
+                )}
+              </div>
+            )}
             {isAdmin && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 ml-auto shrink-0"
+                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
                 onClick={() => setShowDeleteConfirm(true)}
                 title="Delete project"
               >
@@ -1003,55 +1049,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     <ExternalLink className="h-3 w-3" />
                   </Button>
                 </>
-              )}
-              {financeSummary.sold > 0 && (
-                <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1 border border-emerald-500/30">
-                  <DollarSign className="h-3 w-3 text-emerald-600" />
-                  <span className="text-[10px] text-emerald-600 font-bold">Sold:</span>
-                  <span className="text-xs font-semibold text-emerald-700">{formatCurrency(financeSummary.sold)}</span>
-                </div>
-              )}
-              {financeSummary.invoiced > 0 && (
-                <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1 border">
-                  <FolderOpen className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground">Invoiced:</span>
-                  <span className="text-xs font-semibold">{formatCurrency(financeSummary.invoiced)}</span>
-                </div>
-              )}
-              {financeSummary.received > 0 && (
-                <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1 border border-emerald-200">
-                  <DollarSign className="h-3 w-3 text-emerald-600" />
-                  <span className="text-[10px] text-muted-foreground">Received:</span>
-                  <span className="text-xs font-semibold text-emerald-600">{formatCurrency(financeSummary.received)}</span>
-                </div>
-              )}
-              {financeSummary.outstandingAR > 0 && (
-                <div className="flex items-center gap-1.5 bg-destructive/10 rounded-md px-2 py-1 border border-destructive/30">
-                  <AlertCircle className="h-3 w-3 text-destructive" />
-                  <span className="text-[10px] text-destructive">Outstanding AR:</span>
-                  <span className="text-xs font-semibold text-destructive">{formatCurrency(financeSummary.outstandingAR)}</span>
-                </div>
-              )}
-              {financeSummary.bills > 0 && (
-                <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1 border">
-                  <FolderOpen className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground">Bills:</span>
-                  <span className="text-xs font-semibold">{formatCurrency(financeSummary.bills)}</span>
-                </div>
-              )}
-              {financeSummary.billsPaid > 0 && (
-                <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1 border border-emerald-200">
-                  <DollarSign className="h-3 w-3 text-emerald-600" />
-                  <span className="text-[10px] text-muted-foreground">Bills Paid:</span>
-                  <span className="text-xs font-semibold text-emerald-600">{formatCurrency(financeSummary.billsPaid)}</span>
-                </div>
-              )}
-              {financeSummary.outstandingAP > 0 && (
-                <div className="flex items-center gap-1.5 bg-amber-500/10 rounded-md px-2 py-1 border border-amber-200">
-                  <AlertCircle className="h-3 w-3 text-amber-600" />
-                  <span className="text-[10px] text-amber-600">Outstanding AP:</span>
-                  <span className="text-xs font-semibold text-amber-600">{formatCurrency(financeSummary.outstandingAP)}</span>
-                </div>
               )}
             </div>
             {activeTab === "finance" && hasQbConnection && (
