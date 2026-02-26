@@ -370,34 +370,85 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     
     let html = `<h2 style="margin:0 0 4px;font-size:18px">${title}</h2>`;
     html += `<p style="margin:0 0 16px;font-size:12px;color:#666">Generated ${dateStr}</p>`;
-    html += `<table style="width:100%;border-collapse:collapse;font-size:11px">`;
-    html += `<thead><tr style="background:#f5f5f5;border-bottom:2px solid #ddd">`;
     
     if (unpaidOnly) {
-      html += `<th style="padding:6px;text-align:left">Pro#</th>`;
-      html += `<th style="padding:6px;text-align:left">Customer</th>`;
-      html += `<th style="padding:6px;text-align:left">Phase</th>`;
-      html += `<th style="padding:6px;text-align:left">Amount</th>`;
-      html += `<th style="padding:6px;text-align:left">Invoiced</th>`;
-      html += `<th style="padding:6px;text-align:left">Collected</th>`;
-      html += `<th style="padding:6px;text-align:left">Status</th>`;
-      html += `</tr></thead><tbody>`;
+      let grandTotalAmount = 0, grandTotalInvoiced = 0, grandTotalCollected = 0;
       
-      sortedRows.forEach(row => {
+      const projectsWithUnpaid = sortedRows.filter(r => r.phases.some(p => p.status !== "Paid"));
+      
+      projectsWithUnpaid.forEach((row, idx) => {
         const unpaidPhases = row.phases.filter(p => p.status !== "Paid");
-        unpaidPhases.forEach((phase, i) => {
+        const phaseAmount = unpaidPhases.reduce((s, p) => s + p.amount, 0);
+        const phaseInvoiced = unpaidPhases.reduce((s, p) => s + p.invoiced, 0);
+        const phaseCollected = unpaidPhases.reduce((s, p) => s + p.collected, 0);
+        grandTotalAmount += phaseAmount;
+        grandTotalInvoiced += phaseInvoiced;
+        grandTotalCollected += phaseCollected;
+
+        if (idx > 0) html += `<div style="height:16px"></div>`;
+        
+        // Project header with financial summary
+        html += `<div style="background:#f0f4f8;border:1px solid #ddd;border-radius:4px;padding:10px 12px;margin-bottom:2px">`;
+        html += `<div style="font-weight:700;font-size:13px">Project #${row.project_number} — ${row.customer}</div>`;
+        if (row.address) html += `<div style="font-size:11px;color:#555;margin-top:2px">${row.address}</div>`;
+        html += `<div style="display:flex;gap:24px;margin-top:6px;font-size:11px">`;
+        html += `<span><b>Contract:</b> ${formatCurrency(row.contractAmount)}</span>`;
+        html += `<span><b>Invoiced:</b> ${formatCurrency(row.totalInvoiced)}</span>`;
+        html += `<span><b>Collected:</b> ${formatCurrency(row.totalCollected)}</span>`;
+        html += `<span><b>AR:</b> ${formatCurrency(row.outstandingAR)}</span>`;
+        html += `<span><b>Bills:</b> ${formatCurrency(row.totalBills)}</span>`;
+        html += `<span><b>Paid:</b> ${formatCurrency(row.billsPaid)}</span>`;
+        html += `<span><b>AP:</b> ${formatCurrency(row.outstandingAP)}</span>`;
+        html += `<span><b>Net Cash:</b> ${formatCurrency(row.netCash)}</span>`;
+        html += `</div></div>`;
+
+        // Unpaid phases table
+        html += `<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:4px">`;
+        html += `<thead><tr style="background:#f9f9f9;border-bottom:1px solid #ddd">`;
+        html += `<th style="padding:5px;text-align:left">Phase</th>`;
+        html += `<th style="padding:5px;text-align:left">Amount</th>`;
+        html += `<th style="padding:5px;text-align:left">Invoiced</th>`;
+        html += `<th style="padding:5px;text-align:left">Collected</th>`;
+        html += `<th style="padding:5px;text-align:left">Balance</th>`;
+        html += `<th style="padding:5px;text-align:left">Status</th>`;
+        html += `</tr></thead><tbody>`;
+        
+        unpaidPhases.forEach(phase => {
+          const balance = phase.amount - phase.collected;
           html += `<tr style="border-bottom:1px solid #eee">`;
-          html += `<td style="padding:5px">${i === 0 ? row.project_number : ""}</td>`;
-          html += `<td style="padding:5px">${i === 0 ? row.customer : ""}</td>`;
-          html += `<td style="padding:5px">${phase.phase_name}</td>`;
-          html += `<td style="padding:5px">${formatCurrency(phase.amount)}</td>`;
-          html += `<td style="padding:5px">${formatCurrency(phase.invoiced)}</td>`;
-          html += `<td style="padding:5px">${formatCurrency(phase.collected)}</td>`;
-          html += `<td style="padding:5px">${phase.status}</td>`;
+          html += `<td style="padding:4px 5px">${phase.phase_name}</td>`;
+          html += `<td style="padding:4px 5px">${formatCurrency(phase.amount)}</td>`;
+          html += `<td style="padding:4px 5px">${formatCurrency(phase.invoiced)}</td>`;
+          html += `<td style="padding:4px 5px">${formatCurrency(phase.collected)}</td>`;
+          html += `<td style="padding:4px 5px;font-weight:600">${formatCurrency(balance)}</td>`;
+          html += `<td style="padding:4px 5px">${phase.status}</td>`;
           html += `</tr>`;
         });
+        
+        // Project subtotal
+        html += `<tr style="border-top:1px solid #999;font-weight:600;background:#fafafa">`;
+        html += `<td style="padding:4px 5px">Subtotal (${unpaidPhases.length} phases)</td>`;
+        html += `<td style="padding:4px 5px">${formatCurrency(phaseAmount)}</td>`;
+        html += `<td style="padding:4px 5px">${formatCurrency(phaseInvoiced)}</td>`;
+        html += `<td style="padding:4px 5px">${formatCurrency(phaseCollected)}</td>`;
+        html += `<td style="padding:4px 5px">${formatCurrency(phaseAmount - phaseCollected)}</td>`;
+        html += `<td style="padding:4px 5px"></td>`;
+        html += `</tr></tbody></table>`;
       });
+
+      // Grand total summary
+      html += `<div style="height:12px"></div>`;
+      html += `<div style="background:#1a1a2e;color:#fff;border-radius:4px;padding:12px;font-size:12px">`;
+      html += `<div style="font-weight:700;font-size:14px;margin-bottom:6px">Report Summary — ${projectsWithUnpaid.length} Projects</div>`;
+      html += `<div style="display:flex;gap:32px">`;
+      html += `<span><b>Total Phase Amount:</b> ${formatCurrency(grandTotalAmount)}</span>`;
+      html += `<span><b>Total Invoiced:</b> ${formatCurrency(grandTotalInvoiced)}</span>`;
+      html += `<span><b>Total Collected:</b> ${formatCurrency(grandTotalCollected)}</span>`;
+      html += `<span><b>Total Balance:</b> ${formatCurrency(grandTotalAmount - grandTotalCollected)}</span>`;
+      html += `</div></div>`;
     } else {
+      html += `<table style="width:100%;border-collapse:collapse;font-size:11px">`;
+      html += `<thead><tr style="background:#f5f5f5;border-bottom:2px solid #ddd">`;
       const cols = ["Pro#","Customer","Contract","Invoiced","Collected","AR","Bills","Paid","AP","Net Cash"];
       cols.forEach(c => { html += `<th style="padding:6px;text-align:left">${c}</th>`; });
       html += `</tr></thead><tbody>`;
@@ -430,9 +481,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       html += `<td style="padding:5px">${formatCurrency(totals.outstandingAP)}</td>`;
       html += `<td style="padding:5px">${formatCurrency(totals.netCash)}</td>`;
       html += `</tr>`;
+      html += `</tbody></table>`;
     }
-    
-    html += `</tbody></table>`;
     container.innerHTML = html;
     document.body.appendChild(container);
 
