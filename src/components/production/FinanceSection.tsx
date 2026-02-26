@@ -2245,7 +2245,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         <TableRow>
                           <TableHead className="text-xs w-[14%]">Invoice #</TableHead>
                           <TableHead className="text-xs w-[14%]">Date</TableHead>
-                          <TableHead className="text-xs w-[22%]">Phase</TableHead>
+                          <TableHead className="text-xs w-[22%]">Progress Payment</TableHead>
                           <TableHead className="text-xs text-right w-[14%]">Amount</TableHead>
                           <TableHead className="text-xs text-right w-[14%]">Balance Due</TableHead>
                           {isQBConnectedMain && <TableHead className="text-xs w-[10%]">QB</TableHead>}
@@ -3026,7 +3026,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                 <TableHeader>
                                   <TableRow>
                                     <TableHead className="text-xs w-8"></TableHead>
-                                    <TableHead className="text-xs">Phase</TableHead>
+                                    <TableHead className="text-xs">Progress Payment</TableHead>
                                     <TableHead className="text-xs">Due Date</TableHead>
                                     <TableHead className="text-xs text-right">Amount</TableHead>
                                     <TableHead className="text-xs">Status</TableHead>
@@ -5047,12 +5047,12 @@ function PhaseDialog({
             </Select>
             {agreementError && <p className="text-xs text-destructive mt-1">{agreementError}</p>}
             {availableAgreements.length === 0 && (
-              <p className="text-xs text-muted-foreground mt-1">All contracts are fully accounted for in payment phases.</p>
+              <p className="text-xs text-muted-foreground mt-1">All contracts are fully accounted for in progress payments.</p>
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Phase Name</Label>
+              <Label>Progress Payment Name</Label>
               <Input value={formData.phase_name} onChange={(e) => setFormData(p => ({ ...p, phase_name: e.target.value }))} placeholder="e.g., Deposit, Progress, Final" />
             </div>
             <div>
