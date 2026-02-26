@@ -322,9 +322,10 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   };
 
   const handleDocumentClick = (doc: Document) => {
-    const ext = doc.file_name.split('.').pop()?.toLowerCase() || '';
-    const isPdf = ext === 'pdf' || doc.file_type?.includes('pdf');
-    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || doc.file_type?.startsWith('image');
+    const nameExt = doc.file_name.split('.').pop()?.toLowerCase() || '';
+    const urlExt = doc.file_url.split('.').pop()?.split('?')[0]?.split('#')[0]?.toLowerCase() || '';
+    const isPdf = nameExt === 'pdf' || urlExt === 'pdf' || doc.file_type?.includes('pdf');
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(nameExt) || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(urlExt) || doc.file_type?.startsWith('image');
     
     if (isPdf || isImage) {
       setSelectedDocument(doc);
