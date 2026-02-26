@@ -5442,6 +5442,14 @@ function AgreementDialog({
           </div>
           <div>
             <Label>Contract Document</Label>
+            {!agreement && !formData.attachment_url && (
+              <div className="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm text-muted-foreground mb-2">
+                <Sparkles className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                <span>
+                  Upload a PDF contract and <strong className="text-foreground">AI will automatically generate progress payment phases</strong> from the document — no manual entry needed.
+                </span>
+              </div>
+            )}
             <FileUpload
               projectId={projectId}
               currentUrl={formData.attachment_url}
@@ -5474,7 +5482,10 @@ function AgreementDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
+            {/* Hide Save button for new contracts when a PDF is uploaded (AI button handles save) */}
+            {(agreement || !formData.attachment_url || !formData.attachment_url.toLowerCase().includes('.pdf')) && (
+              <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>
