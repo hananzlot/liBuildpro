@@ -619,7 +619,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       </div>
 
       {/* Table */}
-      <Card className="overflow-hidden">
+      <Card>
         <CardContent className="p-0 overflow-x-auto">
           <div className="min-w-[1100px]">
             <Table>
