@@ -39,9 +39,15 @@ serve(async (req) => {
     }
 
     const pdfBuffer = await pdfResp.arrayBuffer();
-    const pdfBase64 = btoa(
-      String.fromCharCode(...new Uint8Array(pdfBuffer))
-    );
+    const bytes = new Uint8Array(pdfBuffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 8192) {
+      const chunk = bytes.subarray(i, Math.min(i + 8192, bytes.length));
+      for (let j = 0; j < chunk.length; j++) {
+        binary += String.fromCharCode(chunk[j]);
+      }
+    }
+    const pdfBase64 = btoa(binary);
 
     console.log(`PDF fetched, size: ${pdfBuffer.byteLength} bytes`);
 
