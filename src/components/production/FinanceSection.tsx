@@ -77,6 +77,7 @@ import { SalespersonVendorMappingDialog } from "./SalespersonVendorMappingDialog
 import { QBDuplicateReviewDialog, type QBDuplicateCandidate } from "./analytics/QBDuplicateReviewDialog";
 import { InvoicePdfDialog } from "./InvoicePdfDialog";
 import { InvoiceConfirmDialog } from "./InvoiceConfirmDialog";
+import { usePersistedDialog } from "@/hooks/usePersistedDialog";
 
 interface SalespersonData {
   name: string | null;
@@ -243,7 +244,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   // Dialog states
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [billDialogOpen, setBillDialogOpen] = useState(false);
+  const { open: billDialogOpen, setOpen: setBillDialogOpen } = usePersistedDialog("finance-bill-dialog", projectId);
   const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
