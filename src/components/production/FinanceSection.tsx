@@ -1819,6 +1819,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   // Track payments associated with invoice being deleted
   const [invoicePaymentsToDelete, setInvoicePaymentsToDelete] = useState<Payment[]>([]);
+  // Track invoices/payments associated with phase being deleted
+  const [phaseInvoicesToDelete, setPhaseInvoicesToDelete] = useState<Invoice[]>([]);
+  const [phasePaymentsToDelete, setPhasePaymentsToDelete] = useState<Payment[]>([]);
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -1838,6 +1841,37 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       if (["invoice", "payment", "bill"].includes(deleteTarget.type)) {
         const qbResult = await syncDeleteToQuickBooks(deleteTarget.type, deleteTarget.id);
         qbSynced = qbResult.synced;
+      }
+
+      // If deleting a phase, cascade-delete associated invoices and their payments
+      if (deleteTarget.type === "phase" && phaseInvoicesToDelete.length > 0) {
+        for (const phaseInv of phaseInvoicesToDelete) {
+          // Delete payments linked to this invoice first
+          const invPayments = phasePaymentsToDelete.filter(p => p.invoice_id === phaseInv.id);
+          for (const payment of invPayments) {
+            const paymentQbResult = await syncDeleteToQuickBooks("payment", payment.id);
+            if (paymentQbResult.synced) qbSynced = true;
+            await logAudit({
+              tableName: "project_payments",
+              recordId: payment.id,
+              action: 'DELETE',
+              description: `Deleted payment (cascade from phase delete)`,
+            });
+            const { error: paymentError } = await supabase.from("project_payments").delete().eq("id", payment.id);
+            if (paymentError) throw paymentError;
+          }
+          // Delete the invoice
+          const invQbResult = await syncDeleteToQuickBooks("invoice", phaseInv.id);
+          if (invQbResult.synced) qbSynced = true;
+          await logAudit({
+            tableName: "project_invoices",
+            recordId: phaseInv.id,
+            action: 'DELETE',
+            description: `Deleted invoice #${phaseInv.invoice_number} (cascade from phase delete)`,
+          });
+          const { error: invError } = await supabase.from("project_invoices").delete().eq("id", phaseInv.id);
+          if (invError) throw invError;
+        }
       }
 
       // If deleting an invoice with associated payments, delete payments first
@@ -1961,6 +1995,14 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       // Also invalidate global queries for main list refresh
       if (deleteTarget?.type === "phase") {
         queryClient.invalidateQueries({ queryKey: ["all-project-phases"] });
+        // Also invalidate invoices/payments if we cascade-deleted them
+        if (phaseInvoicesToDelete.length > 0) {
+          queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+          queryClient.invalidateQueries({ queryKey: ["all-project-invoices"] });
+          queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
+          queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
+          queryClient.invalidateQueries({ queryKey: ["next-invoice-number"] });
+        }
       } else if (deleteTarget?.type === "agreement") {
         queryClient.invalidateQueries({ queryKey: ["all-project-agreements"] });
       } else if (deleteTarget?.type === "invoice") {
@@ -1989,6 +2031,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
       setInvoicePaymentsToDelete([]);
+      setPhaseInvoicesToDelete([]);
+      setPhasePaymentsToDelete([]);
     },
     onError: (error) => toast.error(`Failed to delete: ${error.message}`),
   });
@@ -1996,12 +2040,14 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const handleDeleteClick = (type: string, id: string) => {
     // If deleting a phase, check for associated payments first
     if (type === "phase") {
-      const paymentsForPhase = activePayments.filter(p => p.payment_phase_id === id);
-      if (paymentsForPhase.length > 0) {
-        const totalReceived = paymentsForPhase.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
-        toast.error(`Cannot delete progress payment: ${formatCurrency(totalReceived)} in payments have been recorded. Please void or remove payments first.`);
-        return;
-      }
+      const phaseInvs = invoices.filter(inv => inv.payment_phase_id === id);
+      const phaseInvIds = phaseInvs.map(inv => inv.id);
+      const phasePmts = payments.filter(p => p.invoice_id && phaseInvIds.includes(p.invoice_id));
+      setPhaseInvoicesToDelete(phaseInvs);
+      setPhasePaymentsToDelete(phasePmts);
+    } else {
+      setPhaseInvoicesToDelete([]);
+      setPhasePaymentsToDelete([]);
     }
     
     // If deleting an invoice, check for associated payments
@@ -3453,29 +3499,66 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className={invoicePaymentsToDelete.length > 0 ? "flex items-center gap-2" : ""}>
-              {invoicePaymentsToDelete.length > 0 && <AlertCircle className="h-5 w-5 text-amber-600" />}
-              Delete {deleteTarget?.type}?
+            <AlertDialogTitle className={(invoicePaymentsToDelete.length > 0 || phasePaymentsToDelete.length > 0 || phaseInvoicesToDelete.length > 0) ? "flex items-center gap-2" : ""}>
+              {(invoicePaymentsToDelete.length > 0 || phasePaymentsToDelete.length > 0) && <AlertCircle className="h-5 w-5 text-destructive" />}
+              {(phaseInvoicesToDelete.length > 0 && phasePaymentsToDelete.length === 0) && <AlertCircle className="h-5 w-5 text-amber-600" />}
+              Delete {deleteTarget?.type === "phase" ? "progress payment" : deleteTarget?.type}?
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              {invoicePaymentsToDelete.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-amber-600 font-medium">
-                    Warning: This invoice has {invoicePaymentsToDelete.length} payment{invoicePaymentsToDelete.length > 1 ? 's' : ''} recorded against it totaling {formatCurrency(invoicePaymentsToDelete.reduce((sum, p) => sum + (p.payment_amount || 0), 0))}.
-                  </p>
-                  <p>If you proceed, the following payments will also be deleted:</p>
-                  <ul className="list-disc list-inside text-sm">
-                    {invoicePaymentsToDelete.map(p => (
-                      <li key={p.id}>
-                        {formatCurrency(p.payment_amount)} - {p.payment_status} ({formatDate(p.projected_received_date)})
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="font-medium">This action cannot be undone.</p>
-                </div>
-              ) : (
-                "This action cannot be undone."
-              )}
+            <AlertDialogDescription asChild>
+              <div>
+                {/* Phase with payments = strict warning */}
+                {deleteTarget?.type === "phase" && phasePaymentsToDelete.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-destructive font-bold">
+                      ⚠ STRICT WARNING: This progress payment has {phaseInvoicesToDelete.length} invoice{phaseInvoicesToDelete.length > 1 ? 's' : ''} with {phasePaymentsToDelete.length} payment{phasePaymentsToDelete.length > 1 ? 's' : ''} recorded as received, totaling {formatCurrency(phasePaymentsToDelete.reduce((sum, p) => sum + (p.payment_amount || 0), 0))}.
+                    </p>
+                    <p className="text-sm">The following invoices and payments will be permanently deleted:</p>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {phaseInvoicesToDelete.map(inv => (
+                        <li key={inv.id}>
+                          <span className="font-medium">Invoice #{inv.invoice_number}</span> — {formatCurrency(inv.amount)}
+                          {phasePaymentsToDelete.filter(p => p.invoice_id === inv.id).map(p => (
+                            <div key={p.id} className="ml-5 text-destructive">
+                              └ Payment: {formatCurrency(p.payment_amount)} ({p.payment_status})
+                            </div>
+                          ))}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="font-bold text-destructive">This action cannot be undone. All financial records will be lost.</p>
+                  </div>
+                ) : deleteTarget?.type === "phase" && phaseInvoicesToDelete.length > 0 ? (
+                  /* Phase with invoices only = warning */
+                  <div className="space-y-2">
+                    <p className="text-amber-600 font-medium">
+                      Warning: This progress payment has {phaseInvoicesToDelete.length} invoice{phaseInvoicesToDelete.length > 1 ? 's' : ''} that will also be deleted:
+                    </p>
+                    <ul className="list-disc list-inside text-sm">
+                      {phaseInvoicesToDelete.map(inv => (
+                        <li key={inv.id}>Invoice #{inv.invoice_number} — {formatCurrency(inv.amount)}</li>
+                      ))}
+                    </ul>
+                    <p className="font-medium">This action cannot be undone.</p>
+                  </div>
+                ) : invoicePaymentsToDelete.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-amber-600 font-medium">
+                      Warning: This invoice has {invoicePaymentsToDelete.length} payment{invoicePaymentsToDelete.length > 1 ? 's' : ''} recorded against it totaling {formatCurrency(invoicePaymentsToDelete.reduce((sum, p) => sum + (p.payment_amount || 0), 0))}.
+                    </p>
+                    <p>If you proceed, the following payments will also be deleted:</p>
+                    <ul className="list-disc list-inside text-sm">
+                      {invoicePaymentsToDelete.map(p => (
+                        <li key={p.id}>
+                          {formatCurrency(p.payment_amount)} - {p.payment_status} ({formatDate(p.projected_received_date)})
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="font-medium">This action cannot be undone.</p>
+                  </div>
+                ) : (
+                  <p>This action cannot be undone.</p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -3483,12 +3566,26 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               setDeleteDialogOpen(false);
               setDeleteTarget(null);
               setInvoicePaymentsToDelete([]);
+              setPhaseInvoicesToDelete([]);
+              setPhasePaymentsToDelete([]);
             }}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => deleteMutation.mutate()} 
-              className={invoicePaymentsToDelete.length > 0 ? "bg-amber-600 text-white hover:bg-amber-700" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
+              className={
+                phasePaymentsToDelete.length > 0 
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" 
+                  : (invoicePaymentsToDelete.length > 0 || phaseInvoicesToDelete.length > 0) 
+                    ? "bg-amber-600 text-white hover:bg-amber-700" 
+                    : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              }
             >
-              {invoicePaymentsToDelete.length > 0 ? "Delete Invoice & Payments" : "Delete"}
+              {phasePaymentsToDelete.length > 0 
+                ? "Delete Phase, Invoices & Payments" 
+                : phaseInvoicesToDelete.length > 0 
+                  ? "Delete Phase & Invoices"
+                  : invoicePaymentsToDelete.length > 0 
+                    ? "Delete Invoice & Payments" 
+                    : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
