@@ -950,6 +950,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     </div>
                   </PopoverContent>
                 </Popover>
+                {isAdmin && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    title="Delete project"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </SheetTitle>
               <SheetDescription>
                 {toTitleCase(`${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim())}
@@ -1000,17 +1011,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                   </div>
                 )}
               </div>
-            )}
-            {isAdmin && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-                onClick={() => setShowDeleteConfirm(true)}
-                title="Delete project"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
             )}
           </div>
           {/* Portal Link & Auto-Sync Toggle Row */}
