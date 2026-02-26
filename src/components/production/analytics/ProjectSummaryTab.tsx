@@ -51,6 +51,7 @@ interface ProjectSummaryRow {
   id: string;
   project_number: number;
   customer: string;
+  address: string;
   contractAmount: number;
   totalInvoiced: number;
   totalCollected: number;
@@ -85,7 +86,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, project_number, customer_first_name, customer_last_name, project_status")
+        .select("id, project_number, customer_first_name, customer_last_name, project_status, project_address")
         .eq("company_id", companyId!)
         .is("deleted_at", null);
       if (error) throw error;
@@ -261,6 +262,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         id: p.id,
         project_number: p.project_number ?? 0,
         customer,
+        address: p.project_address || "",
         contractAmount,
         totalInvoiced,
         totalCollected,
@@ -598,7 +600,12 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                           >
                             {row.project_number}
                           </TableCell>
-                          <TableCell>{row.customer}</TableCell>
+                          <TableCell>
+                            <div>{row.customer}</div>
+                            {row.address && (
+                              <div className="text-xs text-muted-foreground truncate max-w-[200px]">{row.address}</div>
+                            )}
+                          </TableCell>
                           <TableCell className="tabular-nums">{formatCurrency(row.contractAmount)}</TableCell>
                           <TableCell className="tabular-nums">{formatCurrency(row.totalInvoiced)}</TableCell>
                           <TableCell className="tabular-nums">{formatCurrency(row.totalCollected)}</TableCell>
