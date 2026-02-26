@@ -156,7 +156,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [isFinancePdfPreviewOpen, setIsFinancePdfPreviewOpen] = useState(false);
-  const [financeSummary, setFinanceSummary] = useState<{ outstandingAR: number; outstandingAP: number }>({ outstandingAR: 0, outstandingAP: 0 });
+  const [financeSummary, setFinanceSummary] = useState<{ sold: number; invoiced: number; received: number; outstandingAR: number; bills: number; billsPaid: number; outstandingAP: number; hasAgreements: boolean }>({ sold: 0, invoiced: 0, received: 0, outstandingAR: 0, bills: 0, billsPaid: 0, outstandingAP: 0, hasAgreements: false });
 
   // Helper to sync the app tab path with inner tab state (only in page mode)
   const syncTabPath = useCallback((tab: string, finSubTab?: string, finBillsSubTab?: 'bills' | 'history') => {
@@ -1004,11 +1004,46 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                   </Button>
                 </>
               )}
+              {financeSummary.sold > 0 && (
+                <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1 border border-emerald-500/30">
+                  <DollarSign className="h-3 w-3 text-emerald-600" />
+                  <span className="text-[10px] text-emerald-600 font-bold">Sold:</span>
+                  <span className="text-xs font-semibold text-emerald-700">{formatCurrency(financeSummary.sold)}</span>
+                </div>
+              )}
+              {financeSummary.invoiced > 0 && (
+                <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1 border">
+                  <FolderOpen className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground">Invoiced:</span>
+                  <span className="text-xs font-semibold">{formatCurrency(financeSummary.invoiced)}</span>
+                </div>
+              )}
+              {financeSummary.received > 0 && (
+                <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1 border border-emerald-200">
+                  <DollarSign className="h-3 w-3 text-emerald-600" />
+                  <span className="text-[10px] text-muted-foreground">Received:</span>
+                  <span className="text-xs font-semibold text-emerald-600">{formatCurrency(financeSummary.received)}</span>
+                </div>
+              )}
               {financeSummary.outstandingAR > 0 && (
                 <div className="flex items-center gap-1.5 bg-destructive/10 rounded-md px-2 py-1 border border-destructive/30">
                   <AlertCircle className="h-3 w-3 text-destructive" />
                   <span className="text-[10px] text-destructive">Outstanding AR:</span>
                   <span className="text-xs font-semibold text-destructive">{formatCurrency(financeSummary.outstandingAR)}</span>
+                </div>
+              )}
+              {financeSummary.bills > 0 && (
+                <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1 border">
+                  <FolderOpen className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground">Bills:</span>
+                  <span className="text-xs font-semibold">{formatCurrency(financeSummary.bills)}</span>
+                </div>
+              )}
+              {financeSummary.billsPaid > 0 && (
+                <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1 border border-emerald-200">
+                  <DollarSign className="h-3 w-3 text-emerald-600" />
+                  <span className="text-[10px] text-muted-foreground">Bills Paid:</span>
+                  <span className="text-xs font-semibold text-emerald-600">{formatCurrency(financeSummary.billsPaid)}</span>
                 </div>
               )}
               {financeSummary.outstandingAP > 0 && (
