@@ -1,30 +1,39 @@
 
 
-## Plan: Add Payment Method (Zelle/ACH/Wire) to Payment Received Form
+## Plan: Add "Project Statuses" Admin Management + Update Defaults
 
-### Database Change
-- Add `payment_method` column (text, nullable) to `project_payments` table via migration
+### What needs to change
 
-### UI Changes in `src/components/production/FinanceSection.tsx`
+1. **Update hardcoded default statuses** across the codebase to: `New Job`, `Awaiting Finance`, `In-Progress`, `Completed`, `Cancelled`
+   - `src/components/production/AdminKPIFilters.tsx` — `PROJECT_STATUSES` and `DEFAULT_PROJECT_STATUSES`
+   - `src/stores/useProductionFilters.ts` — `initialState.selectedStatuses`
+   - `src/components/production/analytics/ProfitabilityTab.tsx` — `DEFAULT_STATUSES`
+   - `src/components/production/analytics/ProjectSummaryTab.tsx` — default useState
+   - `src/pages/FinancialStatements.tsx` — default useState
 
-1. **Payment interface** (~line 131): Add `payment_method: string | null` field
+2. **Make status filter options dynamic** — Instead of hardcoded `PROJECT_STATUSES`, the Production page and AdminKPIFilters should fetch statuses from the `project_statuses` table for the current company and merge with the hardcoded fallbacks.
 
-2. **PaymentDialog form state** (~line 3903): Add `payment_method: ""` to formData
+3. **Add a "Project Statuses" management section to Admin Settings** — A new card/section (likely under the General tab) where admins can:
+   - View all statuses for their company
+   - Add new statuses
+   - Edit existing status names
+   - Delete statuses (with confirmation)
+   - Reorder statuses via sort_order
 
-3. **Form initialization** (~line 3968): Load `payment_method` from existing payment when editing
+### Files to modify
+- `src/components/production/AdminKPIFilters.tsx` — Update constants, optionally accept dynamic statuses
+- `src/stores/useProductionFilters.ts` — Update default selectedStatuses
+- `src/components/production/analytics/ProfitabilityTab.tsx` — Update DEFAULT_STATUSES
+- `src/components/production/analytics/ProjectSummaryTab.tsx` — Update default
+- `src/pages/FinancialStatements.tsx` — Update default
+- `src/pages/AdminSettings.tsx` — Add Project Statuses management section
 
-4. **Form UI** (~line 4178, between Fee and Check # row): Add a Select dropdown for Payment Method with options: `Check`, `Zelle/ACH`, `Wire`. When `Zelle/ACH` or `Wire` is selected, disable the Check # input field and clear its value.
+### Files to create
+- `src/components/admin/ProjectStatusesManager.tsx` — New component for CRUD management of project statuses (add, edit, delete, reorder)
 
-5. **handleSubmit** (~line 4037): Include `payment_method` in the saved data
-
-6. **Payment query select** (wherever payments are fetched): Add `payment_method` to the select fields
-
-### Display Changes
-- Show payment method in payment table rows where payments are listed
-- Update `PendingDeposits.tsx` and `PendingDepositsSheet.tsx` to fetch and display `payment_method`
-
-### Technical Details
-- Migration SQL: `ALTER TABLE project_payments ADD COLUMN payment_method text;`
-- When `payment_method` is `Zelle/ACH` or `Wire`, the Check # input is disabled and cleared
-- Default behavior: if no method selected, Check # remains enabled (backward compatible)
+### Technical details
+- The `project_statuses` table already exists with columns: `id`, `company_id`, `name`, `sort_order`, `is_default`, `created_by`, `created_at`, `updated_at`
+- RLS policies were already updated to allow admin roles
+- The `ProjectDetailSheet` already has inline "Add New" status capability — the new admin section provides a centralized management experience
+- Dynamic status fetching will use `useQuery` with the company's `project_statuses` table, falling back to the hardcoded defaults when no DB records exist
 
