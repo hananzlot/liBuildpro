@@ -1229,8 +1229,7 @@ export default function AdminSettings() {
                           </div>
                         )}
 
-                        {/* Project Statuses */}
-                        <ProjectStatusesManager />
+                        
 
                         <Separator />
 
@@ -1346,6 +1345,9 @@ export default function AdminSettings() {
                     </CollapsibleContent>
                   </Card>
                 </Collapsible>
+
+                {/* Project Statuses */}
+                <ProjectStatusesManager />
 
                 {/* Stage Badge Mappings */}
                 <StageBadgeMappingsEditor />
