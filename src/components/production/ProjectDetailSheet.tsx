@@ -1071,7 +1071,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                         <Label className="text-[11px] text-muted-foreground">Project Name</Label>
                         <DebouncedInput
                           className="h-8 text-xs"
-                          value={fullProject?.project_name || ""} 
+                          value={toTitleCase(fullProject?.project_name || "")} 
                           onSave={(value) => updateProjectMutation.mutate({ project_name: value })}
                         />
                       </div>
