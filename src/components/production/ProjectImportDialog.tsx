@@ -71,8 +71,8 @@ const IMPORT_STEPS: ImportStep[] = [
   },
   {
     id: "phases",
-    name: "3. Payment Phases",
-    description: "Payment milestones linked to agreements",
+    name: "3. Progress Payments",
+    description: "Progress payment milestones linked to agreements",
     templateFile: "payment-phases-import-template.csv",
     icon: <ClipboardList className="h-4 w-4" />,
     required: false,

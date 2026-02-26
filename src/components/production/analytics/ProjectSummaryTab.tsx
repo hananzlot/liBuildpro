@@ -382,7 +382,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [previewTitle, setPreviewTitle] = useState("");
 
   const buildReportHtml = useCallback((unpaidOnly: boolean) => {
-    const title = unpaidOnly ? "Unpaid Phases Report" : "Projects Summary";
+    const title = unpaidOnly ? "Unpaid Progress Payments Report" : "Projects Summary";
     const dateStr = new Date().toLocaleDateString();
     
     let html = `<h2 style="margin:0 0 4px;font-size:18px">${title}</h2>`;
@@ -575,7 +575,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
             onChange={(e) => setShowUnpaidOnly(e.target.checked)}
             className="rounded border-border"
           />
-          Unpaid phases only
+          Unpaid progress payments only
         </label>
         <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => handlePreview(false)}>
@@ -584,7 +584,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           </Button>
           <Button variant="outline" size="sm" onClick={() => handlePreview(true)}>
             <Download className="h-3.5 w-3.5 mr-1.5" />
-            Unpaid Phases Report
+            Unpaid Progress Payments Report
           </Button>
         </div>
       </div>

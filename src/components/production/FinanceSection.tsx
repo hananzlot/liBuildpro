@@ -1689,7 +1689,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       }
     },
     onSuccess: () => {
-      toast.success(editingPhase?.id ? "Phase updated" : "Phase created");
+      toast.success(editingPhase?.id ? "Progress payment updated" : "Progress payment created");
       queryClient.invalidateQueries({ queryKey: ["project-payment-phases", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-phases"] });
       setPhaseDialogOpen(false);
@@ -2151,7 +2151,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             Contracts
           </TabsTrigger>
           <TabsTrigger value="phases" className="text-xs">
-            Phases
+            Progress Payments
           </TabsTrigger>
           <TabsTrigger value="statements" className="text-xs">
             Statements
@@ -2854,7 +2854,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                       <TableHead className="text-xs">Type</TableHead>
                       <TableHead className="text-xs">Date Signed</TableHead>
                       <TableHead className="text-xs text-right">Value</TableHead>
-                      <TableHead className="text-xs text-right">Phases Total</TableHead>
+                      <TableHead className="text-xs text-right">Progress Payments Total</TableHead>
                       <TableHead className="text-xs w-10"></TableHead>
                       <TableHead className="text-xs w-20"></TableHead>
                     </TableRow>
@@ -2918,13 +2918,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           </Card>
         </TabsContent>
 
-        {/* Payment Phases Tab */}
+        {/* Progress Payments Tab */}
         <TabsContent value="phases" className="mt-4">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CardTitle className="text-sm">Payment Phases</CardTitle>
+                  <CardTitle className="text-sm">Progress Payments</CardTitle>
                   {selectedAgreementFilter && (
                     <Badge variant="secondary" className="text-xs flex items-center gap-1">
                       {agreements.find(a => a.id === selectedAgreementFilter)?.agreement_number || "Contract"}
@@ -3004,11 +3004,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                             </div>
                           </CollapsibleTrigger>
 
-                          {/* Phases Table - Collapsible Content */}
+                          {/* Progress Payments Table - Collapsible Content */}
                           <CollapsibleContent>
                             {agreementPhases.length === 0 ? (
                               <div className="p-4 text-center">
-                                <p className="text-sm text-muted-foreground">No phases for this contract</p>
+                                <p className="text-sm text-muted-foreground">No progress payments for this contract</p>
                                 <Button 
                                   variant="outline" 
                                   size="sm" 
@@ -3016,7 +3016,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   onClick={() => { setEditingPhase(null); setPhaseDialogOpen(true); }}
                                 >
                                   <Plus className="h-3 w-3 mr-1" />
-                                  Add Phase
+                                  Add Progress Payment
                                 </Button>
                               </div>
                             ) : (
@@ -5015,8 +5015,8 @@ function PhaseDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{phase ? "Edit Payment Phase" : "Add Payment Phase"}</DialogTitle>
-          <DialogDescription>Define a payment milestone for this project.</DialogDescription>
+          <DialogTitle>{phase ? "Edit Progress Payment" : "Add Progress Payment"}</DialogTitle>
+          <DialogDescription>Define a progress payment milestone for this project.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
