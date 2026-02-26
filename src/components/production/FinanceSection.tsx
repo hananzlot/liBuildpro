@@ -73,6 +73,7 @@ import { PdfViewerDialog } from "./PdfViewerDialog";
 import { VendorMappingDialog } from "./VendorMappingDialog";
 import { SalespersonVendorMappingDialog } from "./SalespersonVendorMappingDialog";
 import { QBDuplicateReviewDialog, type QBDuplicateCandidate } from "./analytics/QBDuplicateReviewDialog";
+import { InvoicePdfDialog } from "./InvoicePdfDialog";
 
 interface SalespersonData {
   name: string | null;
@@ -335,6 +336,16 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
+  const [invoicePdfDialogOpen, setInvoicePdfDialogOpen] = useState(false);
+  const [invoicePdfData, setInvoicePdfData] = useState<{
+    invoice_number: string | null;
+    invoice_date: string | null;
+    amount: number | null;
+    payments_received?: number | null;
+    agreement_number?: string | null;
+    phase_name?: string | null;
+    description_of_work?: string | null;
+  } | null>(null);
   const [syncingBillId, setSyncingBillId] = useState<string | null>(null);
 
   // Phase drag-and-drop state
@@ -1075,8 +1086,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   // Invoice mutations
   const saveInvoiceMutation = useMutation({
     mutationFn: async (invoice: Partial<Invoice>) => {
-      let savedRecordId: string | undefined;
+      let savedInvoiceData = { ...invoice };
       let qbMessage: string | undefined;
+      let savedRecordId: string | undefined;
       
       if (editingInvoice?.id) {
         const { data: updatedInvoice, error } = await supabase
@@ -1108,6 +1120,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           .select()
           .single();
         if (error) throw error;
+        savedInvoiceData = { ...newInvoice, ...invoice };
         await logAudit({
           tableName: 'project_invoices',
           recordId: newInvoice.id,
@@ -1132,7 +1145,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         qbMessage = qbResult.message;
       }
 
-      return { qbSynced, isEdit: !!editingInvoice?.id, qbNewEntities, qbMessage };
+      return { qbSynced, isEdit: !!editingInvoice?.id, qbNewEntities, qbMessage, savedInvoiceData };
     },
     onSuccess: (result) => {
       const baseMsg = result?.isEdit ? "Invoice updated" : "Invoice created";
@@ -1155,6 +1168,24 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       queryClient.invalidateQueries({ queryKey: ["next-invoice-number"] });
       setInvoiceDialogOpen(false);
       setEditingInvoice(null);
+      
+      // Show PDF preview for newly created invoices (not edits)
+      if (!result?.isEdit && result?.savedInvoiceData) {
+        const inv = result.savedInvoiceData;
+        const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+        const agreement = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
+        setInvoicePdfData({
+          invoice_number: inv.invoice_number || null,
+          invoice_date: inv.invoice_date || null,
+          amount: typeof inv.amount === 'number' ? inv.amount : (typeof inv.amount === 'string' ? parseFloat(inv.amount) : null),
+          payments_received: 0,
+          agreement_number: agreement?.agreement_number || null,
+          phase_name: phase?.phase_name || null,
+          description_of_work: agreement?.description_of_work || null,
+        });
+        setInvoicePdfDialogOpen(true);
+      }
+      setPrePopulatedInvoice(null);
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
@@ -2279,6 +2310,22 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                     <DollarSign className="h-3 w-3" />
                                   </Button>
                                 )}
+                                <Button variant="ghost" size="icon" className="h-7 w-7" title="Preview Invoice" onClick={() => {
+                                  const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+                                  const agreement = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
+                                  setInvoicePdfData({
+                                    invoice_number: inv.invoice_number,
+                                    invoice_date: inv.invoice_date,
+                                    amount: inv.amount,
+                                    payments_received: inv.payments_received,
+                                    agreement_number: agreement?.agreement_number || null,
+                                    phase_name: phase?.phase_name || null,
+                                    description_of_work: agreement?.description_of_work || null,
+                                  });
+                                  setInvoicePdfDialogOpen(true);
+                                }}>
+                                  <FileText className="h-3 w-3" />
+                                </Button>
                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
                                   <Pencil className="h-3 w-3" />
                                 </Button>
@@ -3236,6 +3283,19 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         paymentPhases={paymentPhases}
         payments={payments}
         existingInvoices={invoices}
+      />
+
+      {/* Invoice PDF Preview Dialog */}
+      <InvoicePdfDialog
+        open={invoicePdfDialogOpen}
+        onOpenChange={setInvoicePdfDialogOpen}
+        invoice={invoicePdfData}
+        project={{
+          project_name: projectName,
+          customer_first_name: customerName?.split(' ')[0] || null,
+          customer_last_name: customerName?.split(' ').slice(1).join(' ') || null,
+          project_address: projectAddress,
+        }}
       />
 
       {/* Payment Dialog */}
