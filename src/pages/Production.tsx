@@ -30,6 +30,7 @@ import {
   Mail,
   ChevronRight,
   Merge,
+  Columns3,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,9 @@ import { FinancialSearchResultsSheet } from "@/components/production/FinancialSe
 import { PendingDepositsSheet } from "@/components/production/PendingDepositsSheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { MergeProjectsDialog } from "@/components/production/MergeProjectsDialog";
-import { useProductionFilters } from "@/stores/useProductionFilters";
+import { useProductionFilters, type ColumnKey } from "@/stores/useProductionFilters";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 interface Project {
@@ -257,12 +260,16 @@ export default function Production() {
     sortDirection,
     showAlternatingColors,
     showArchived,
+    hiddenColumns,
     setSearchQuery,
     setSelectedStatuses,
     setSort,
     setShowAlternatingColors,
     setShowArchived,
+    toggleColumn,
   } = useProductionFilters();
+  
+  const isColumnVisible = (col: ColumnKey) => !hiddenColumns.includes(col);
   
   // selectedProject and detailSheetOpen are now derived from URL
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -1931,6 +1938,39 @@ export default function Production() {
                 >
                   Stripes
                 </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs px-2 gap-1">
+                      <Columns3 className="h-3.5 w-3.5" />
+                      Columns
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-48 p-2">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2 px-1">Toggle columns</p>
+                    {([
+                      { key: 'salesperson' as ColumnKey, label: 'Sales Rep' },
+                      { key: 'source' as ColumnKey, label: 'Source' },
+                      { key: 'sold_amount' as ColumnKey, label: 'Sold' },
+                      { key: 'est_proj_cost' as ColumnKey, label: 'Cost' },
+                      { key: 'bills_received' as ColumnKey, label: 'Bills Recv' },
+                      { key: 'bills_paid' as ColumnKey, label: 'Bills Paid' },
+                      { key: 'inv_collected' as ColumnKey, label: 'Inv Collect' },
+                      { key: 'inv_balance' as ColumnKey, label: 'Inv Bal' },
+                      { key: 'proj_balance' as ColumnKey, label: 'Proj Bal' },
+                      { key: 'expected_profit' as ColumnKey, label: 'Profit' },
+                      { key: 'total_cash' as ColumnKey, label: 'Cash' },
+                    ]).map(col => (
+                      <label key={col.key} className="flex items-center gap-2 px-1 py-1 hover:bg-muted/50 rounded cursor-pointer text-xs">
+                        <Checkbox
+                          checked={isColumnVisible(col.key)}
+                          onCheckedChange={() => toggleColumn(col.key)}
+                          className="h-3.5 w-3.5"
+                        />
+                        {col.label}
+                      </label>
+                    ))}
+                  </PopoverContent>
+                </Popover>
               </div>
           </div>
 
@@ -1967,41 +2007,61 @@ export default function Production() {
                         <TableHead className="w-[9%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('status')}>
                           <div className="flex items-end gap-0.5">Status <SortIcon column="status" /></div>
                         </TableHead>
+                        {isColumnVisible('salesperson') && (
                         <TableHead className="w-[8%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('salesperson')}>
                           <div className="flex items-end gap-0.5">Sales <SortIcon column="salesperson" /></div>
                         </TableHead>
+                        )}
+                        {isColumnVisible('source') && (
                         <TableHead className="w-[7%] text-xs">
                           <div className="flex items-end">Source</div>
                         </TableHead>
+                        )}
+                        {isColumnVisible('sold_amount') && (
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('sold_amount')}>
                           <div className="flex items-end justify-end gap-0.5">Sold <SortIcon column="sold_amount" /></div>
                         </TableHead>
+                        )}
+                        {isColumnVisible('est_proj_cost') && (
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('est_proj_cost')}>
                           <div className="flex items-end justify-end gap-0.5">Cost <SortIcon column="est_proj_cost" /></div>
                         </TableHead>
+                        )}
+                        {isColumnVisible('bills_received') && (
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('bills_received')}>
                           <div className="flex items-end justify-end gap-0.5">Bills Recv <SortIcon column="bills_received" /></div>
                         </TableHead>
+                        )}
+                        {isColumnVisible('bills_paid') && (
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('bills_paid')}>
                           <div className="flex items-end justify-end gap-0.5">Bills Paid <SortIcon column="bills_paid" /></div>
                         </TableHead>
+                        )}
+                        {isColumnVisible('inv_collected') && (
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('inv_collected')}>
                           <div className="flex items-end justify-end gap-0.5">Inv Collect <SortIcon column="inv_collected" /></div>
                         </TableHead>
+                        )}
+                        {isColumnVisible('inv_balance') && (
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('inv_balance')}>
                           <div className="flex items-end justify-end gap-0.5">Inv Bal <SortIcon column="inv_balance" /></div>
                         </TableHead>
+                        )}
+                        {isColumnVisible('proj_balance') && (
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('proj_balance')}>
                           <div className="flex items-end justify-end gap-0.5">Proj Bal <SortIcon column="proj_balance" /></div>
                         </TableHead>
-                        {isAdmin && (
+                        )}
+                        {isAdmin && isColumnVisible('expected_profit') && (
                           <TableHead className="w-[6%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('expected_profit')}>
                             <div className="flex items-end justify-end gap-0.5">Profit <SortIcon column="expected_profit" /></div>
                           </TableHead>
                         )}
+                        {isColumnVisible('total_cash') && (
                         <TableHead className="w-[6%] text-right cursor-pointer hover:bg-muted/50 bg-primary/10 text-xs" onClick={() => handleSort('total_cash')}>
                           <div className="flex items-end justify-end gap-0.5 font-semibold">Cash <SortIcon column="total_cash" /></div>
                         </TableHead>
+                        )}
                         <TableHead className="w-[4%]"></TableHead>
                       </TableRow>
                     </thead>
@@ -2146,6 +2206,7 @@ export default function Production() {
                                 )}
                               </div>
                             </TableCell>
+                            {isColumnVisible('salesperson') && (
                             <TableCell className="text-[10px] truncate" title={`${project.primary_salesperson || ''} / ${project.project_manager || ''}`}>
                               {(() => {
                                 const salesperson = project.primary_salesperson?.trim();
@@ -2157,12 +2218,18 @@ export default function Production() {
                                 return `${salesperson}`;
                               })()}
                             </TableCell>
+                            )}
+                            {isColumnVisible('source') && (
                             <TableCell className="text-[10px] truncate" title={project.lead_source || "-"}>
                               {project.lead_source || "-"}
                             </TableCell>
+                            )}
+                            {isColumnVisible('sold_amount') && (
                             <TableCell className="text-right text-[10px] font-medium truncate">
                               {formatCurrency(financials?.contractsTotal)}
                             </TableCell>
+                            )}
+                            {isColumnVisible('est_proj_cost') && (
                             <TableCell className="text-right text-[10px] truncate">
                               {financials?.contractsTotal > 0 ? (
                                 <span className={(financials?.isCompleted || financials?.exceededExpectedCosts) ? 'text-primary' : ''}>
@@ -2172,26 +2239,38 @@ export default function Production() {
                                 <span className="text-muted-foreground">-</span>
                               )}
                             </TableCell>
+                            )}
+                            {isColumnVisible('bills_received') && (
                             <TableCell className="text-right text-[10px] truncate">
                               {formatCurrency(financials?.totalBillsReceived)}
                             </TableCell>
+                            )}
+                            {isColumnVisible('bills_paid') && (
                             <TableCell className="text-right text-[10px] truncate">
                               {formatCurrency(financials?.totalBillsPaid)}
                             </TableCell>
+                            )}
+                            {isColumnVisible('inv_collected') && (
                             <TableCell className="text-right text-[10px] text-emerald-600 truncate">
                               {formatCurrency(financials?.invoicesCollected)}
                             </TableCell>
+                            )}
+                            {isColumnVisible('inv_balance') && (
                             <TableCell className="text-right text-[10px] text-amber-600 truncate">
                               {formatCurrency(financials?.invoiceBalanceDue)}
                             </TableCell>
+                            )}
+                            {isColumnVisible('proj_balance') && (
                             <TableCell className="text-right text-[10px] text-amber-600 truncate">
                               {formatCurrency(financials?.projectBalanceDue)}
                             </TableCell>
-                            {isAdmin && (
+                            )}
+                            {isAdmin && isColumnVisible('expected_profit') && (
                               <TableCell className={`text-right text-[10px] font-medium truncate ${financials?.contractsTotal > 0 ? ((financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive') : ''}`}>
                                 {financials?.contractsTotal > 0 ? formatCurrency(financials?.expectedFinalProfit) : <span className="text-muted-foreground">-</span>}
                               </TableCell>
                             )}
+                            {isColumnVisible('total_cash') && (
                             <TableCell className={`text-right text-[10px] font-bold ${(() => {
                               const cash = financials?.totalCash || 0;
                               const billsPaid = financials?.totalBillPayments || 0;
@@ -2204,6 +2283,7 @@ export default function Production() {
                             })()}`}>
                               {formatCurrency(financials?.totalCash)}
                             </TableCell>
+                            )}
                             <TableCell className="p-1">
                               <div className="flex gap-0">
                                 {project.customer_email && (
