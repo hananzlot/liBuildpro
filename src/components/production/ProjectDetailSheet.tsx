@@ -883,114 +883,68 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       <ChevronsUpDown className="ml-1 h-2.5 w-2.5 opacity-50" />
                     </Badge>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0 z-50 bg-popover" align="start">
-                    <Command>
-                      <CommandInput 
-                        placeholder={isSuperAdmin ? "Search or add..." : "Search..."} 
-                        value={newStatusValue}
-                        onValueChange={setNewStatusValue}
-                        className="text-xs"
-                      />
-                      <CommandList>
-                        <CommandEmpty>No status found.</CommandEmpty>
-                        <CommandGroup>
-                          {isSuperAdmin && newStatusValue && !projectStatuses.some(s => s.name.toLowerCase() === newStatusValue.toLowerCase()) && (
-                            <CommandItem
-                              value={newStatusValue}
-                              onSelect={() => {
-                                addStatusMutation.mutate(newStatusValue);
-                              }}
-                              className="cursor-pointer text-xs"
-                            >
-                              <Plus className="mr-2 h-3 w-3" />
-                              Add "{newStatusValue}"
-                            </CommandItem>
+                  <PopoverContent className="w-[200px] p-1 z-50 bg-popover" align="start">
+                    <div className="flex flex-col">
+                      {projectStatuses.map((status) => (
+                        <button
+                          key={status.id}
+                          className={cn(
+                            "flex items-center gap-2 px-2 py-1.5 text-xs rounded-sm hover:bg-accent hover:text-accent-foreground transition-colors text-left",
+                            fullProject?.project_status === status.name && "bg-accent"
                           )}
-                          {projectStatuses.map((status) => (
-                            <CommandItem
-                              key={status.id}
-                              value={status.name}
-                              onSelect={() => {
-                                if (editingStatusId !== status.id) {
-                                  updateProjectMutation.mutate({ project_status: status.name });
-                                  setStatusPopoverOpen(false);
-                                  setNewStatusValue("");
-                                }
-                              }}
-                              className="flex items-center justify-between text-xs"
-                            >
-                              <div className="flex items-center">
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-3 w-3",
-                                    fullProject?.project_status === status.name ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {editingStatusId === status.id ? (
-                                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                    <Input
-                                      value={editingStatusName}
-                                      onChange={(e) => setEditingStatusName(e.target.value)}
-                                      className="h-6 w-24 text-xs"
-                                      autoFocus
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && editingStatusName.trim()) {
-                                          updateStatusMutation.mutate({ id: status.id, name: editingStatusName.trim() });
-                                        } else if (e.key === 'Escape') {
-                                          setEditingStatusId(null);
-                                          setEditingStatusName("");
-                                        }
-                                      }}
-                                    />
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-5 w-5"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (editingStatusName.trim()) {
-                                          updateStatusMutation.mutate({ id: status.id, name: editingStatusName.trim() });
-                                        }
-                                      }}
-                                    >
-                                      <Check className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-5 w-5"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setEditingStatusId(null);
-                                        setEditingStatusName("");
-                                      }}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <span>{status.name}</span>
-                                )}
-                              </div>
-                              {isSuperAdmin && editingStatusId !== status.id && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-5 w-5 opacity-50 hover:opacity-100"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingStatusId(status.id);
-                                    setEditingStatusName(status.name);
-                                  }}
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
+                          onClick={() => {
+                            updateProjectMutation.mutate({ project_status: status.name });
+                            setStatusPopoverOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "h-3 w-3 shrink-0",
+                              fullProject?.project_status === status.name ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {status.name}
+                        </button>
+                      ))}
+                      {projectStatuses.length === 0 && (
+                        <p className="text-xs text-muted-foreground px-2 py-1.5">No statuses configured</p>
+                      )}
+                      {(isAdmin || isSuperAdmin) && (
+                        <>
+                          <div className="border-t my-1" />
+                          <div className="px-1 pb-1">
+                            <div className="flex items-center gap-1">
+                              <Input
+                                placeholder="New status..."
+                                value={newStatusValue}
+                                onChange={(e) => setNewStatusValue(e.target.value)}
+                                className="h-7 text-xs"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && newStatusValue.trim()) {
+                                    addStatusMutation.mutate(newStatusValue.trim());
+                                    setNewStatusValue("");
+                                  }
+                                }}
+                              />
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 shrink-0"
+                                disabled={!newStatusValue.trim()}
+                                onClick={() => {
+                                  if (newStatusValue.trim()) {
+                                    addStatusMutation.mutate(newStatusValue.trim());
+                                    setNewStatusValue("");
+                                  }
+                                }}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </PopoverContent>
                 </Popover>
               </SheetTitle>
