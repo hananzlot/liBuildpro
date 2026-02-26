@@ -75,6 +75,7 @@ import { VendorMappingDialog } from "./VendorMappingDialog";
 import { SalespersonVendorMappingDialog } from "./SalespersonVendorMappingDialog";
 import { QBDuplicateReviewDialog, type QBDuplicateCandidate } from "./analytics/QBDuplicateReviewDialog";
 import { InvoicePdfDialog } from "./InvoicePdfDialog";
+import { InvoiceConfirmDialog } from "./InvoiceConfirmDialog";
 
 interface SalespersonData {
   name: string | null;
@@ -347,7 +348,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     phase_name?: string | null;
     description_of_work?: string | null;
   } | null>(null);
+  const [invoicePdfOnSave, setInvoicePdfOnSave] = useState<(() => Promise<void> | void) | undefined>(undefined);
   const [syncingBillId, setSyncingBillId] = useState<string | null>(null);
+
+  // Invoice confirm dialog state (for badge click flow)
+  const [invoiceConfirmOpen, setInvoiceConfirmOpen] = useState(false);
+  const [invoiceConfirmPhase, setInvoiceConfirmPhase] = useState<{ id: string; name: string; agreementId: string | null; maxAmount: number } | null>(null);
 
   // Phase drag-and-drop state
   const [draggedPhaseId, setDraggedPhaseId] = useState<string | null>(null);
@@ -1084,6 +1090,66 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     }
   };
 
+  // Next invoice number for confirm-dialog flow
+  const { data: nextInvoiceNumberForConfirm } = useQuery({
+    queryKey: ["next-invoice-number", companyId],
+    queryFn: async () => {
+      if (!companyId) return "1001";
+      const { data } = await supabase
+        .from("project_invoices")
+        .select("invoice_number")
+        .eq("company_id", companyId)
+        .not("invoice_number", "is", null);
+      if (!data || data.length === 0) return "1001";
+      let maxNumber = 1000;
+      for (const inv of data) {
+        const numMatch = inv.invoice_number?.match(/\d+/);
+        if (numMatch) {
+          const num = parseInt(numMatch[0], 10);
+          if (num > maxNumber) maxNumber = num;
+        }
+      }
+      return (maxNumber + 1).toString();
+    },
+    enabled: !!companyId,
+    staleTime: 0,
+  });
+
+  // Handler for badge-click confirm dialog
+  const handleInvoiceConfirm = (amount: number) => {
+    if (!invoiceConfirmPhase) return;
+    const phase = paymentPhases.find(p => p.id === invoiceConfirmPhase.id);
+    const agreement = agreements.find(a => a.id === (invoiceConfirmPhase.agreementId || phase?.agreement_id));
+    const invoiceNumber = nextInvoiceNumberForConfirm || "1001";
+    const invoiceDate = new Date().toISOString().split('T')[0];
+
+    const invoiceData: Partial<Invoice> = {
+      invoice_number: invoiceNumber,
+      invoice_date: invoiceDate,
+      amount: amount,
+      agreement_id: agreement?.id || null,
+      payment_phase_id: invoiceConfirmPhase.id,
+    };
+
+    setInvoicePdfData({
+      invoice_number: invoiceNumber,
+      invoice_date: invoiceDate,
+      amount: amount,
+      payments_received: 0,
+      agreement_number: agreement?.agreement_number || null,
+      phase_name: invoiceConfirmPhase.name,
+      description_of_work: agreement?.description_of_work || null,
+    });
+
+    // Set the onSave callback that will save to DB when user clicks a save button
+    setInvoicePdfOnSave(() => async () => {
+      setEditingInvoice(null);
+      saveInvoiceMutation.mutate(invoiceData);
+    });
+
+    setInvoicePdfDialogOpen(true);
+  };
+
   // Invoice mutations
   const saveInvoiceMutation = useMutation({
     mutationFn: async (invoice: Partial<Invoice>) => {
@@ -1184,6 +1250,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           phase_name: phase?.phase_name || null,
           description_of_work: agreement?.description_of_work || null,
         });
+        setInvoicePdfOnSave(undefined); // Already saved, no deferred save needed
         setInvoicePdfDialogOpen(true);
       }
       setPrePopulatedInvoice(null);
@@ -3180,14 +3247,14 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                                 className="h-7 w-7" 
                                                 title="Add Invoice from Progress Payment"
                                                 onClick={() => { 
-                                                  setEditingInvoice(null);
-                                                  setPrePopulatedInvoice({
-                                                    agreement_id: phase.agreement_id,
-                                                    payment_phase_id: phase.id,
-                                                    amount: (phase.amount || 0) - invoiceStatus.totalInvoiced,
-                                                    invoice_date: new Date().toISOString().split('T')[0],
+                                                  const remainingAmount = (phase.amount || 0) - invoiceStatus.totalInvoiced;
+                                                  setInvoiceConfirmPhase({
+                                                    id: phase.id,
+                                                    name: phase.phase_name,
+                                                    agreementId: phase.agreement_id,
+                                                    maxAmount: remainingAmount,
                                                   });
-                                                  setInvoiceDialogOpen(true); 
+                                                  setInvoiceConfirmOpen(true); 
                                                 }}
                                               >
                                                 <FileText className="h-3 w-3" />
@@ -3305,7 +3372,10 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       {/* Invoice PDF Preview Dialog */}
       <InvoicePdfDialog
         open={invoicePdfDialogOpen}
-        onOpenChange={setInvoicePdfDialogOpen}
+        onOpenChange={(open) => {
+          setInvoicePdfDialogOpen(open);
+          if (!open) setInvoicePdfOnSave(undefined);
+        }}
         invoice={invoicePdfData}
         project={{
           project_name: projectName,
@@ -3313,6 +3383,16 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           customer_last_name: customerName?.split(' ').slice(1).join(' ') || null,
           project_address: projectAddress,
         }}
+        onSave={invoicePdfOnSave}
+      />
+
+      {/* Invoice Confirm Dialog (badge click flow) */}
+      <InvoiceConfirmDialog
+        open={invoiceConfirmOpen}
+        onOpenChange={setInvoiceConfirmOpen}
+        phaseName={invoiceConfirmPhase?.name || ""}
+        maxAmount={invoiceConfirmPhase?.maxAmount || 0}
+        onConfirm={handleInvoiceConfirm}
       />
 
       {/* Payment Dialog */}

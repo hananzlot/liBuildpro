@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,8 @@ interface InvoicePdfDialogProps {
   onOpenChange: (open: boolean) => void;
   invoice: InvoicePdfData | null;
   project?: ProjectData | null;
+  /** When provided, enables deferred-save mode: buttons trigger save before their action */
+  onSave?: () => Promise<void> | void;
 }
 
 export function InvoicePdfDialog({
@@ -47,6 +49,7 @@ export function InvoicePdfDialog({
   onOpenChange,
   invoice,
   project,
+  onSave,
 }: InvoicePdfDialogProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const { company } = useAuth();
@@ -113,12 +116,19 @@ export function InvoicePdfDialog({
     }, 250);
   };
 
-  const handlePrintAndClose = () => {
+  const handleSaveAndClose = async () => {
+    if (onSave) await onSave();
+    onOpenChange(false);
+  };
+
+  const handlePrintAndClose = async () => {
+    if (onSave) await onSave();
     handlePrint();
     onOpenChange(false);
   };
 
-  const handleDownloadAndClose = () => {
+  const handleDownloadAndClose = async () => {
+    if (onSave) await onSave();
     const html = getInvoiceHtml();
     if (!html) return;
     const printWindow = window.open("", "_blank", "width=800,height=1100");
@@ -132,7 +142,8 @@ export function InvoicePdfDialog({
     onOpenChange(false);
   };
 
-  const handleEmailToCustomer = () => {
+  const handleEmailToCustomer = async () => {
+    if (onSave) await onSave();
     const email = customerEmail;
     const subject = encodeURIComponent(`Invoice #${invoice.invoice_number || ""} - ${companyName}`);
     const body = encodeURIComponent(
@@ -156,6 +167,10 @@ export function InvoicePdfDialog({
     onOpenChange(false);
   };
 
+  const handleCancel = () => {
+    onOpenChange(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto p-0">
@@ -165,24 +180,27 @@ export function InvoicePdfDialog({
             <DialogTitle className="text-base">Invoice Preview</DialogTitle>
           </DialogHeader>
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => onOpenChange(false)}>
+            {onSave && (
+              <Button variant="ghost" size="sm" className="text-xs gap-1.5" onClick={handleCancel}>
+                <X className="h-3.5 w-3.5" />
+                Cancel
+              </Button>
+            )}
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handleSaveAndClose}>
               <CheckCircle className="h-3.5 w-3.5" />
-              Save & Close
+              {onSave ? "Save & Close" : "Close"}
             </Button>
             <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handlePrintAndClose}>
               <Printer className="h-3.5 w-3.5" />
-              Print
+              {onSave ? "Print & Save" : "Print"}
             </Button>
             <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handleDownloadAndClose}>
               <Download className="h-3.5 w-3.5" />
-              Download
+              {onSave ? "Download & Save" : "Download"}
             </Button>
             <Button variant="default" size="sm" className="text-xs gap-1.5" onClick={handleEmailToCustomer}>
               <Mail className="h-3.5 w-3.5" />
-              Email to Customer
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 ml-1" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
+              {onSave ? "Email & Save" : "Email to Customer"}
             </Button>
           </div>
         </div>
