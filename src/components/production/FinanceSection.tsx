@@ -255,6 +255,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [voidPaymentDialogOpen, setVoidPaymentDialogOpen] = useState(false);
   const [voidingPayment, setVoidingPayment] = useState<Payment | null>(null);
   const [voidPaymentReason, setVoidPaymentReason] = useState("");
+  const [profitabilityDialogOpen, setProfitabilityDialogOpen] = useState(false);
   const [extractedPhasesDialogOpen, setExtractedPhasesDialogOpen] = useState(false);
   const [extractedPhases, setExtractedPhases] = useState<ExtractedPhase[]>([]);
   const [extractedPhasesAgreementId, setExtractedPhasesAgreementId] = useState<string | null>(null);
@@ -2147,116 +2148,103 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   return (
     <div className="space-y-4 max-w-6xl mx-auto">
-      {/* Profitability by Agreement - Collapsible */}
-      {agreements.length > 0 && (
-        <Collapsible defaultOpen={false}>
-          <Card>
-            <CollapsibleTrigger asChild>
-              <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50">
-                <CardTitle className="text-sm flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    Profitability by Contract
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
-                </CardTitle>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="pt-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Contract</TableHead>
-                      <TableHead className="text-xs text-right">Sold</TableHead>
-                      <TableHead className="text-xs text-right">Uninvoiced</TableHead>
-                      <TableHead className="text-xs text-right">Uncollected</TableHead>
-                      <TableHead className="text-xs text-right">Collected</TableHead>
-                      <TableHead className="text-xs text-right">Bills</TableHead>
-                      <TableHead className="text-xs text-right">Bills Paid</TableHead>
-                      <TableHead className="text-xs text-right">Profit</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {agreementProfitability.map((ap) => (
-                      <TableRow key={ap.id}>
-                        <TableCell className="text-xs font-medium">
-                          {ap.agreementNumber || ap.agreementType || "Contract"}
-                        </TableCell>
-                        <TableCell className="text-xs text-right font-medium">
-                          {formatCurrency(ap.totalPrice)}
-                        </TableCell>
-                        <TableCell className="text-xs text-right text-amber-600">
-                          {formatCurrency(ap.uninvoiced)}
-                        </TableCell>
-                        <TableCell className="text-xs text-right text-amber-600">
-                          {formatCurrency(ap.uncollected)}
-                        </TableCell>
-                        <TableCell className="text-xs text-right text-emerald-600">
-                          {formatCurrency(ap.collected)}
-                        </TableCell>
-                        <TableCell className="text-xs text-right text-amber-600">
-                          {formatCurrency(ap.billsTotal)}
-                        </TableCell>
-                        <TableCell className="text-xs text-right">
-                          {formatCurrency(ap.billsPaid)}
-                        </TableCell>
-                        <TableCell className={`text-xs text-right font-semibold ${ap.profit >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                          {formatCurrency(ap.profit)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {/* Unassigned bills row */}
-                    {unassignedBillsTotal > 0 && (
-                      <TableRow className="text-muted-foreground">
-                        <TableCell className="text-xs italic">Unassigned Bills</TableCell>
-                        <TableCell className="text-xs text-right">-</TableCell>
-                        <TableCell className="text-xs text-right">-</TableCell>
-                        <TableCell className="text-xs text-right">-</TableCell>
-                        <TableCell className="text-xs text-right">-</TableCell>
-                        <TableCell className="text-xs text-right text-amber-600">
-                          {formatCurrency(unassignedBillsTotal)}
-                        </TableCell>
-                        <TableCell className="text-xs text-right">
-                          {formatCurrency(unassignedBillsPaid)}
-                        </TableCell>
-                        <TableCell className="text-xs text-right font-semibold text-destructive">
-                          {formatCurrency(-unassignedBillsPaid)}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {/* Totals row */}
-                    <TableRow className="font-semibold bg-muted/50">
-                      <TableCell className="text-xs">Total</TableCell>
-                      <TableCell className="text-xs text-right">
-                        {formatCurrency(totalAgreementsValue)}
-                      </TableCell>
-                      <TableCell className="text-xs text-right text-amber-600">
-                        {formatCurrency(totalAgreementsValue - totalInvoiced)}
-                      </TableCell>
-                      <TableCell className="text-xs text-right text-amber-600">
-                        {formatCurrency(totalInvoiced - totalPaymentsReceived)}
-                      </TableCell>
-                      <TableCell className="text-xs text-right text-emerald-600">
-                        {formatCurrency(totalPaymentsReceived)}
-                      </TableCell>
-                      <TableCell className="text-xs text-right text-amber-600">
-                        {formatCurrency(totalBills)}
-                      </TableCell>
-                      <TableCell className="text-xs text-right">
-                        {formatCurrency(totalBillsPaid)}
-                      </TableCell>
-                      <TableCell className={`text-xs text-right font-bold ${totalPaymentsReceived - totalBillsPaid >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                        {formatCurrency(totalPaymentsReceived - totalBillsPaid)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-      )}
+      {/* Profitability by Contract Dialog */}
+      <Dialog open={profitabilityDialogOpen} onOpenChange={setProfitabilityDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              Profitability by Contract
+            </DialogTitle>
+          </DialogHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Contract</TableHead>
+                <TableHead className="text-xs text-right">Sold</TableHead>
+                <TableHead className="text-xs text-right">Uninvoiced</TableHead>
+                <TableHead className="text-xs text-right">Uncollected</TableHead>
+                <TableHead className="text-xs text-right">Collected</TableHead>
+                <TableHead className="text-xs text-right">Bills</TableHead>
+                <TableHead className="text-xs text-right">Bills Paid</TableHead>
+                <TableHead className="text-xs text-right">Profit</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {agreementProfitability.map((ap) => (
+                <TableRow key={ap.id}>
+                  <TableCell className="text-xs font-medium">
+                    {ap.agreementNumber || ap.agreementType || "Contract"}
+                  </TableCell>
+                  <TableCell className="text-xs text-right font-medium">
+                    {formatCurrency(ap.totalPrice)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right text-amber-600">
+                    {formatCurrency(ap.uninvoiced)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right text-amber-600">
+                    {formatCurrency(ap.uncollected)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right text-emerald-600">
+                    {formatCurrency(ap.collected)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right text-amber-600">
+                    {formatCurrency(ap.billsTotal)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right">
+                    {formatCurrency(ap.billsPaid)}
+                  </TableCell>
+                  <TableCell className={`text-xs text-right font-semibold ${ap.profit >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                    {formatCurrency(ap.profit)}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {unassignedBillsTotal > 0 && (
+                <TableRow className="text-muted-foreground">
+                  <TableCell className="text-xs italic">Unassigned Bills</TableCell>
+                  <TableCell className="text-xs text-right">-</TableCell>
+                  <TableCell className="text-xs text-right">-</TableCell>
+                  <TableCell className="text-xs text-right">-</TableCell>
+                  <TableCell className="text-xs text-right">-</TableCell>
+                  <TableCell className="text-xs text-right text-amber-600">
+                    {formatCurrency(unassignedBillsTotal)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right">
+                    {formatCurrency(unassignedBillsPaid)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right font-semibold text-destructive">
+                    {formatCurrency(-unassignedBillsPaid)}
+                  </TableCell>
+                </TableRow>
+              )}
+              <TableRow className="font-semibold bg-muted/50">
+                <TableCell className="text-xs">Total</TableCell>
+                <TableCell className="text-xs text-right">
+                  {formatCurrency(totalAgreementsValue)}
+                </TableCell>
+                <TableCell className="text-xs text-right text-amber-600">
+                  {formatCurrency(totalAgreementsValue - totalInvoiced)}
+                </TableCell>
+                <TableCell className="text-xs text-right text-amber-600">
+                  {formatCurrency(totalInvoiced - totalPaymentsReceived)}
+                </TableCell>
+                <TableCell className="text-xs text-right text-emerald-600">
+                  {formatCurrency(totalPaymentsReceived)}
+                </TableCell>
+                <TableCell className="text-xs text-right text-amber-600">
+                  {formatCurrency(totalBills)}
+                </TableCell>
+                <TableCell className="text-xs text-right">
+                  {formatCurrency(totalBillsPaid)}
+                </TableCell>
+                <TableCell className={`text-xs text-right font-bold ${totalPaymentsReceived - totalBillsPaid >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                  {formatCurrency(totalPaymentsReceived - totalBillsPaid)}
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </DialogContent>
+      </Dialog>
 
       {/* Summary Cards */}
       <div className="flex gap-2 flex-wrap items-center justify-between">
@@ -2300,6 +2288,17 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               <span className="text-[10px] text-amber-600">Outstanding AP:</span>
               <span className="text-xs font-semibold text-amber-600">{formatCurrency(totalBills - totalBillsPaid)}</span>
             </div>
+          )}
+          {agreements.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              onClick={() => setProfitabilityDialogOpen(true)}
+            >
+              <DollarSign className="h-3 w-3" />
+              Profitability
+            </Button>
           )}
         </div>
       </div>
