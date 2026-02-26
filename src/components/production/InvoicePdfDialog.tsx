@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,11 +6,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Printer, Download, X } from "lucide-react";
+import { Printer, Download, X, Mail, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface InvoicePdfData {
   invoice_number: string | null;
@@ -70,90 +70,113 @@ export function InvoicePdfDialog({
     ? format(new Date(invoice.invoice_date), "MMMM d, yyyy")
     : "-";
 
-  const handlePrint = () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
+  const balanceDue = (invoice.amount || 0) - (invoice.payments_received || 0);
 
+  const getInvoiceHtml = () => {
+    const printContent = printRef.current;
+    if (!printContent) return null;
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <title>Invoice #${invoice.invoice_number || ""}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1a1a1a; background: #fff; }
+    .invoice-page { max-width: 800px; margin: 0 auto; padding: 40px; }
+    @media print {
+      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .invoice-page { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  ${printContent.innerHTML}
+</body>
+</html>`;
+  };
+
+  const handlePrint = () => {
+    const html = getInvoiceHtml();
+    if (!html) return;
     const printWindow = window.open("", "_blank", "width=800,height=1100");
     if (!printWindow) return;
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Invoice #${invoice.invoice_number || ""}</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1a1a1a; background: #fff; }
-          .invoice-page { max-width: 800px; margin: 0 auto; padding: 40px; }
-          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
-          .company-info { flex: 1; }
-          .company-logo { max-height: 60px; max-width: 200px; object-fit: contain; margin-bottom: 8px; }
-          .company-name { font-size: 22px; font-weight: 700; color: #111; margin-bottom: 4px; }
-          .company-details { font-size: 12px; color: #666; line-height: 1.6; }
-          .invoice-title-block { text-align: right; }
-          .invoice-title { font-size: 32px; font-weight: 800; color: #2563eb; letter-spacing: 2px; text-transform: uppercase; }
-          .invoice-number { font-size: 14px; color: #555; margin-top: 4px; }
-          .invoice-date { font-size: 13px; color: #888; margin-top: 2px; }
-          .billing-section { display: flex; gap: 40px; margin-bottom: 32px; }
-          .bill-to { flex: 1; }
-          .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #2563eb; margin-bottom: 8px; }
-          .customer-name { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 4px; }
-          .customer-detail { font-size: 12px; color: #666; line-height: 1.6; }
-          .project-info { flex: 1; }
-          .project-label { font-size: 12px; color: #888; margin-bottom: 2px; }
-          .project-value { font-size: 13px; color: #333; font-weight: 500; }
-          .line-items-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-          .line-items-table thead th { background: #2563eb; color: #fff; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; padding: 10px 16px; text-align: left; }
-          .line-items-table thead th:last-child { text-align: right; }
-          .line-items-table tbody td { padding: 14px 16px; font-size: 13px; border-bottom: 1px solid #eee; color: #333; }
-          .line-items-table tbody td:last-child { text-align: right; font-weight: 600; }
-          .totals { display: flex; justify-content: flex-end; margin-bottom: 32px; }
-          .totals-box { width: 280px; }
-          .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; color: #555; }
-          .total-row.grand { border-top: 2px solid #2563eb; padding-top: 12px; margin-top: 4px; }
-          .total-row.grand .total-label, .total-row.grand .total-value { font-size: 18px; font-weight: 700; color: #2563eb; }
-          .total-label { font-weight: 500; }
-          .total-value { font-weight: 600; color: #111; }
-          .footer { text-align: center; padding-top: 32px; border-top: 1px solid #eee; }
-          .footer-text { font-size: 12px; color: #888; line-height: 1.8; }
-          .footer-thanks { font-size: 14px; font-weight: 600; color: #2563eb; margin-bottom: 8px; }
-          .agreement-badge { display: inline-block; background: #eff6ff; color: #2563eb; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 4px; margin-top: 4px; }
-          @media print {
-            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .invoice-page { padding: 20px; }
-          }
-        </style>
-      </head>
-      <body>
-        ${printContent.innerHTML}
-      </body>
-      </html>
-    `);
+    printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
       printWindow.print();
-      printWindow.close();
     }, 250);
   };
 
-  const balanceDue = (invoice.amount || 0) - (invoice.payments_received || 0);
+  const handlePrintAndClose = () => {
+    handlePrint();
+    onOpenChange(false);
+  };
+
+  const handleDownloadAndClose = () => {
+    const html = getInvoiceHtml();
+    if (!html) return;
+    const printWindow = window.open("", "_blank", "width=800,height=1100");
+    if (!printWindow) return;
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+    onOpenChange(false);
+  };
+
+  const handleEmailToCustomer = () => {
+    const email = customerEmail;
+    const subject = encodeURIComponent(`Invoice #${invoice.invoice_number || ""} - ${companyName}`);
+    const body = encodeURIComponent(
+      `Dear ${customerName},\n\nPlease find attached Invoice #${invoice.invoice_number || ""}.\n\n` +
+      `Invoice Date: ${invoiceDate}\n` +
+      `Amount: ${formatCurrency(invoice.amount || 0)}\n` +
+      `Balance Due: ${formatCurrency(Math.max(0, balanceDue))}\n\n` +
+      (invoice.phase_name ? `Payment Phase: ${invoice.phase_name}\n` : '') +
+      (invoice.agreement_number ? `Agreement: #${invoice.agreement_number}\n` : '') +
+      `\nThank you for your business!\n\n${companyName}` +
+      (companyPhone ? `\n${companyPhone}` : '') +
+      (companyEmail ? `\n${companyEmail}` : '')
+    );
+    
+    if (email) {
+      window.open(`mailto:${email}?subject=${subject}&body=${body}`, "_self");
+    } else {
+      window.open(`mailto:?subject=${subject}&body=${body}`, "_self");
+      toast.info("No customer email on file — please enter the recipient manually.");
+    }
+    onOpenChange(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto p-0">
         {/* Toolbar */}
-        <div className="sticky top-0 z-10 flex items-center justify-between bg-background border-b px-6 py-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between bg-background border-b px-4 py-3">
           <DialogHeader className="p-0">
             <DialogTitle className="text-base">Invoice Preview</DialogTitle>
           </DialogHeader>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handlePrint}>
-              <Printer className="h-4 w-4 mr-1" />
-              Print / Save PDF
+          <div className="flex items-center gap-1.5">
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => onOpenChange(false)}>
+              <CheckCircle className="h-3.5 w-3.5" />
+              Save & Close
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handlePrintAndClose}>
+              <Printer className="h-3.5 w-3.5" />
+              Print
+            </Button>
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handleDownloadAndClose}>
+              <Download className="h-3.5 w-3.5" />
+              Download
+            </Button>
+            <Button variant="default" size="sm" className="text-xs gap-1.5" onClick={handleEmailToCustomer}>
+              <Mail className="h-3.5 w-3.5" />
+              Email to Customer
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 ml-1" onClick={() => onOpenChange(false)}>
               <X className="h-4 w-4" />
             </Button>
           </div>
