@@ -2101,22 +2101,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         </Collapsible>
       )}
 
-      {/* Sold Amount, Estimated Costs & Summary Badges - Single row */}
+      {/* Summary Cards */}
       <div className="flex gap-2 flex-wrap items-center justify-between">
-        <div className="flex gap-2 flex-wrap items-center">
-          <SoldAmountOriginalCard 
-            estimatedCost={soldDispatchValue ?? estimatedCost} 
-            contractsTotal={totalAgreementsValue}
-            onSave={(value) => onUpdateProject({ sold_dispatch_value: value })}
-          />
-          <EstimatedProjectCostsCard
-            estimatedProjectCost={estimatedProjectCost}
-            estimatedCost={soldDispatchValue ?? estimatedCost}
-            onSave={(value) => onUpdateProject({ estimated_project_cost: value })}
-          />
-        </div>
-        
-        {/* Summary Cards - Right aligned */}
+        {/* Summary Cards */}
         <div className="flex gap-2 flex-wrap items-center">
           <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5 border">
             <DollarSign className="h-3 w-3 text-muted-foreground" />
