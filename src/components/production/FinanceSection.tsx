@@ -1900,7 +1900,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       const paymentsForPhase = activePayments.filter(p => p.payment_phase_id === id);
       if (paymentsForPhase.length > 0) {
         const totalReceived = paymentsForPhase.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
-        toast.error(`Cannot delete phase: ${formatCurrency(totalReceived)} in payments have been recorded. Please void or remove payments first.`);
+        toast.error(`Cannot delete progress payment: ${formatCurrency(totalReceived)} in payments have been recorded. Please void or remove payments first.`);
         return;
       }
     }
@@ -2949,7 +2949,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               {loadingPhases || loadingAgreements ? (
                 <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
               ) : agreements.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No contracts yet. Add a contract first to create payment phases.</p>
+                <p className="text-sm text-muted-foreground text-center py-4">No contracts yet. Add a contract first to create progress payments.</p>
               ) : (
                 <div className="space-y-6">
                   {agreements
@@ -2983,7 +2983,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                     {agreement.agreement_type && <span className="text-muted-foreground font-normal"> • {agreement.agreement_type}</span>}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
-                                    Contract Total: {formatCurrency(contractTotal)} • {agreementPhases.length} phase{agreementPhases.length !== 1 ? 's' : ''}
+                                    Contract Total: {formatCurrency(contractTotal)} • {agreementPhases.length} progress payment{agreementPhases.length !== 1 ? 's' : ''}
                                   </p>
                                 </div>
                               </div>
@@ -3125,7 +3125,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                                 variant="ghost" 
                                                 size="icon" 
                                                 className="h-7 w-7" 
-                                                title="Add Invoice from Phase"
+                                                title="Add Invoice from Progress Payment"
                                                 onClick={() => { 
                                                   setEditingInvoice(null);
                                                   setPrePopulatedInvoice({
