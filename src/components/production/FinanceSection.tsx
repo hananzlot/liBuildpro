@@ -2405,12 +2405,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs w-[14%]">Invoice #</TableHead>
-                          <TableHead className="text-xs w-[14%]">Date</TableHead>
-                          <TableHead className="text-xs w-[22%]">Progress Payment</TableHead>
-                          <TableHead className="text-xs text-right w-[14%]">Amount</TableHead>
-                          <TableHead className="text-xs text-right w-[14%]">Balance Due</TableHead>
-                          {isQBConnectedMain && <TableHead className="text-xs w-[10%]">QB</TableHead>}
+                          <TableHead className="text-xs text-center w-[14%]">Invoice #</TableHead>
+                          <TableHead className="text-xs text-center w-[14%]">Date</TableHead>
+                          <TableHead className="text-xs text-center w-[22%]">Progress<br />Payment</TableHead>
+                          <TableHead className="text-xs text-center w-[14%]">Amount</TableHead>
+                          <TableHead className="text-xs text-center w-[14%]">Balance<br />Due</TableHead>
+                          {isQBConnectedMain && <TableHead className="text-xs text-center w-[10%]">QB</TableHead>}
                           <TableHead className="text-xs w-[12%]"></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2422,11 +2422,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                               highlightInvoiceId === inv.id && "bg-yellow-100 dark:bg-yellow-900/30 animate-pulse"
                             )}
                           >
-                            <TableCell className="text-xs">{inv.invoice_number || "-"}</TableCell>
-                            <TableCell className="text-xs">{formatDate(inv.invoice_date)}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
-                            <TableCell className="text-xs text-right">{formatCurrency2(inv.amount)}</TableCell>
-                            <TableCell className="text-xs text-right">{formatCurrency2(inv.open_balance)}</TableCell>
+                            <TableCell className="text-xs text-center">{inv.invoice_number || "-"}</TableCell>
+                            <TableCell className="text-xs text-center">{formatDate(inv.invoice_date)}</TableCell>
+                            <TableCell className="text-xs text-center text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
+                            <TableCell className="text-xs text-center">{formatCurrency2(inv.amount)}</TableCell>
+                            <TableCell className="text-xs text-center">{formatCurrency2(inv.open_balance)}</TableCell>
                             {isQBConnectedMain && (
                               <TableCell className="text-xs">
                                 {(() => {
@@ -2496,21 +2496,21 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs w-[12%]">Bank</TableHead>
-                          <TableHead className="text-xs w-[12%]">Date</TableHead>
-                          <TableHead className="text-xs w-[10%]">Ref #</TableHead>
-                          <TableHead className="text-xs w-[22%]">Payment Status</TableHead>
+                          <TableHead className="text-xs text-center w-[12%]">Bank</TableHead>
+                          <TableHead className="text-xs text-center w-[12%]">Date</TableHead>
+                          <TableHead className="text-xs text-center w-[10%]">Ref #</TableHead>
+                          <TableHead className="text-xs text-center w-[22%]">Payment<br />Status</TableHead>
                           <TableHead className="text-xs text-center w-[12%]">Amount</TableHead>
-                          {isQBConnectedMain && <TableHead className="text-xs w-[10%]">QB</TableHead>}
+                          {isQBConnectedMain && <TableHead className="text-xs text-center w-[10%]">QB</TableHead>}
                           <TableHead className="text-xs w-[12%]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {payments.map((pmt) => (
                           <TableRow key={pmt.id} className={pmt.is_voided ? "opacity-50 bg-muted/30" : ""}>
-                            <TableCell className="text-xs">{pmt.bank?.name || pmt.bank_name || "-"}</TableCell>
-                            <TableCell className="text-xs">{formatDate(pmt.projected_received_date)}</TableCell>
-                            <TableCell className="text-xs">{pmt.check_number || "-"}</TableCell>
+                            <TableCell className="text-xs text-center">{pmt.bank?.name || pmt.bank_name || "-"}</TableCell>
+                            <TableCell className="text-xs text-center">{formatDate(pmt.projected_received_date)}</TableCell>
+                            <TableCell className="text-xs text-center">{pmt.check_number || "-"}</TableCell>
                             <TableCell className="text-xs">
               <div className="flex items-center gap-1 flex-wrap">
                                 {pmt.is_voided ? (
@@ -2703,12 +2703,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                 <Table>
                                   <TableHeader>
                                     <TableRow>
-                                      <TableHead className="text-xs">Bill Ref</TableHead>
-                                      <TableHead className="text-xs">Category</TableHead>
-                                      <TableHead className="text-xs text-right">Amount</TableHead>
-                                      <TableHead className="text-xs text-right">Paid</TableHead>
-                                      <TableHead className="text-xs text-right">Balance</TableHead>
-                                      {isQBConnectedMain && <TableHead className="text-xs">QB</TableHead>}
+                                      <TableHead className="text-xs text-center">Bill Ref</TableHead>
+                                      <TableHead className="text-xs text-center">Category</TableHead>
+                                      <TableHead className="text-xs text-center">Amount</TableHead>
+                                      <TableHead className="text-xs text-center">Paid</TableHead>
+                                      <TableHead className="text-xs text-center">Balance</TableHead>
+                                      {isQBConnectedMain && <TableHead className="text-xs text-center">QB</TableHead>}
                                       <TableHead className="text-xs w-10"></TableHead>
                                       <TableHead className="text-xs w-40"></TableHead>
                                     </TableRow>
@@ -2748,7 +2748,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                             )}
                                           </div>
                                         </TableCell>
-                                        <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
+                                        <TableCell className={cn("text-xs text-center", bill.is_voided && "line-through")}>
                                           {hasBeenOffset ? (
                                             <div>
                                               <span className="line-through text-muted-foreground">{formatCurrency2(bill.original_bill_amount)}</span>
@@ -2758,8 +2758,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                             formatCurrency2(bill.bill_amount)
                                           )}
                                         </TableCell>
-                                        <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency2(bill.amount_paid)}</TableCell>
-                                        <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
+                                        <TableCell className={cn("text-xs text-center text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency2(bill.amount_paid)}</TableCell>
+                                        <TableCell className={cn("text-xs text-center", bill.is_voided && "line-through")}>
                                           {formatCurrency2(bill.balance)}
                                         </TableCell>
                                         {isQBConnectedMain && (
@@ -2932,13 +2932,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                 <Table>
                                   <TableHeader>
                                     <TableRow>
-                                      <TableHead className="text-xs">Date</TableHead>
-                                      <TableHead className="text-xs">Bill Ref</TableHead>
-                                      <TableHead className="text-xs text-right">Amount</TableHead>
-                                      <TableHead className="text-xs">Method</TableHead>
-                                      <TableHead className="text-xs">Reference</TableHead>
-                                      <TableHead className="text-xs">Bank</TableHead>
-                                      {isQBConnectedMain && <TableHead className="text-xs">QB</TableHead>}
+                                      <TableHead className="text-xs text-center">Date</TableHead>
+                                      <TableHead className="text-xs text-center">Bill Ref</TableHead>
+                                      <TableHead className="text-xs text-center">Amount</TableHead>
+                                      <TableHead className="text-xs text-center">Method</TableHead>
+                                      <TableHead className="text-xs text-center">Reference</TableHead>
+                                      <TableHead className="text-xs text-center">Bank</TableHead>
+                                      {isQBConnectedMain && <TableHead className="text-xs text-center">QB</TableHead>}
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
@@ -2959,14 +2959,14 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                             }
                                           }}
                                         >
-                                          <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
-                                          <TableCell className="text-xs">{payment.bill?.bill_ref || "-"}</TableCell>
-                                          <TableCell className="text-xs text-right text-emerald-600 font-medium">
+                                          <TableCell className="text-xs text-center">{formatDate(payment.payment_date)}</TableCell>
+                                          <TableCell className="text-xs text-center">{payment.bill?.bill_ref || "-"}</TableCell>
+                                          <TableCell className="text-xs text-center text-emerald-600 font-medium">
                                             {formatCurrency2(payment.payment_amount)}
                                           </TableCell>
-                                          <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
-                                          <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
-                                          <TableCell className="text-xs">{payment.bank?.name || payment.bank_name || "-"}</TableCell>
+                                          <TableCell className="text-xs text-center">{payment.payment_method || "-"}</TableCell>
+                                          <TableCell className="text-xs text-center">{payment.payment_reference || "-"}</TableCell>
+                                          <TableCell className="text-xs text-center">{payment.bank?.name || payment.bank_name || "-"}</TableCell>
                                           {isQBConnectedMain && (
                                             <TableCell className="text-xs">
                                               {syncInfo?.status === "synced" ? (
