@@ -82,6 +82,7 @@ interface SalespersonData {
 interface FinanceSectionProps {
   projectId: string;
   estimatedCost: number | null;
+  soldDispatchValue: number | null;
   estimatedProjectCost: number | null;
   totalPl: number | null;
   leadCostPercent: number;
@@ -201,7 +202,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, autoOpenFinanceDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, onSubTabChange, projectStatus, projectName, projectAddress, customerName }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, autoOpenFinanceDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, onSubTabChange, projectStatus, projectName, projectAddress, customerName }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
@@ -2101,9 +2102,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       <div className="flex gap-2 flex-wrap items-center justify-between">
         <div className="flex gap-2 flex-wrap items-center">
           <SoldAmountOriginalCard 
-            estimatedCost={estimatedCost} 
+            estimatedCost={soldDispatchValue ?? estimatedCost} 
             contractsTotal={totalAgreementsValue}
-            onSave={(value) => onUpdateProject({ estimated_cost: value })}
+            onSave={(value) => onUpdateProject({ sold_dispatch_value: value })}
           />
           <EstimatedProjectCostsCard
             estimatedProjectCost={estimatedProjectCost}
