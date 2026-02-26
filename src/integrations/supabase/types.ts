@@ -325,6 +325,54 @@ export type Database = {
           },
         ]
       }
+      archived_audit_logs: {
+        Row: {
+          action: string
+          archived_at: string
+          changed_at: string
+          changes: Json | null
+          company_id: string | null
+          description: string | null
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          archived_at?: string
+          changed_at?: string
+          changes?: Json | null
+          company_id?: string | null
+          description?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          archived_at?: string
+          changed_at?: string
+          changes?: Json | null
+          company_id?: string | null
+          description?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       archived_sources: {
         Row: {
           archived_at: string
@@ -6808,6 +6856,10 @@ export type Database = {
           target_user_id: string
         }
         Returns: undefined
+      }
+      archive_old_audit_logs: {
+        Args: { p_retention_days?: number }
+        Returns: number
       }
       backfill_contact_addresses_from_projects: {
         Args: never
