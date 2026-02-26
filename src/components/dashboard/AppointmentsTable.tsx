@@ -78,6 +78,12 @@ interface GHLUser {
   email: string | null;
 }
 
+interface Salesperson {
+  id: string;
+  name: string;
+  ghl_user_id: string | null;
+}
+
 type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address' | 'source' | 'oppStatus' | 'oppValue' | 'stage';
 type SortDirection = 'asc' | 'desc';
 
@@ -86,6 +92,7 @@ interface AppointmentsTableProps {
   opportunities?: Opportunity[];
   contacts?: Contact[];
   users?: GHLUser[];
+  salespeople?: Salesperson[];
   onFilteredCountChange?: (count: number) => void;
 }
 
@@ -96,6 +103,7 @@ export function AppointmentsTable({
   opportunities = [], 
   contacts = [], 
   users = [],
+  salespeople = [],
   onFilteredCountChange
 }: AppointmentsTableProps) {
   const { openTab } = useAppTabs();
@@ -171,6 +179,10 @@ export function AppointmentsTable({
 
   const getUserName = (userId: string | null): string => {
     if (!userId) return 'Unassigned';
+    // Check salespeople first (by UUID or ghl_user_id)
+    const sp = salespeople.find(s => s.id === userId || s.ghl_user_id === userId);
+    if (sp) return sp.name;
+    // Fall back to GHL users
     const user = findUserByIdOrGhlId(users, undefined, userId);
     return user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unknown';
   };

@@ -143,6 +143,7 @@ const Appointments = () => {
               opportunities={metrics?.allOpportunities || []} 
               contacts={metrics?.allContacts || []} 
               users={metrics?.users || []} 
+              salespeople={metrics?.salespeople || []}
               onFilteredCountChange={setFilteredCount}
             />
           )}
