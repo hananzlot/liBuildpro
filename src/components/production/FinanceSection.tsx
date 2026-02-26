@@ -1237,8 +1237,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       setInvoiceDialogOpen(false);
       setEditingInvoice(null);
       
-      // Show PDF preview for newly created invoices (not edits)
-      if (!result?.isEdit && result?.savedInvoiceData) {
+      // Show PDF preview for newly created invoices (not edits, not deferred-save flow)
+      if (!result?.isEdit && result?.savedInvoiceData && !invoicePdfDialogOpen) {
         const inv = result.savedInvoiceData;
         const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
         const agreement = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
