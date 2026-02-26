@@ -309,6 +309,56 @@ export default function AdminSettings() {
     enabled: isAdmin && activeTab === "cleanup" && !!companyId,
   });
   
+  // Audit log retention setting
+  const { data: retentionSetting, isLoading: retentionLoading } = useQuery({
+    queryKey: ["audit-retention-setting"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("setting_value")
+        .eq("setting_key", "audit_log_retention_days")
+        .single();
+      if (error) throw error;
+      return data?.setting_value || "7";
+    },
+    enabled: isAdmin && activeTab === "audit",
+  });
+
+  const [retentionDays, setRetentionDays] = useState("7");
+  useEffect(() => {
+    if (retentionSetting) setRetentionDays(retentionSetting);
+  }, [retentionSetting]);
+
+  const updateRetentionMutation = useMutation({
+    mutationFn: async (days: string) => {
+      const { error } = await supabase
+        .from("app_settings")
+        .update({ setting_value: days, updated_at: new Date().toISOString() })
+        .eq("setting_key", "audit_log_retention_days");
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit-retention-setting"] });
+      toast.success("Retention setting updated");
+    },
+    onError: () => toast.error("Failed to update retention setting"),
+  });
+
+  const archiveNowMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("archive_old_audit_logs", {
+        p_retention_days: parseInt(retentionDays, 10),
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["audit-logs"] });
+      toast.success(`Archived ${count} log records`);
+    },
+    onError: () => toast.error("Failed to archive logs"),
+  });
+
   // Audit log queries
   const { data: logs, isLoading: logsLoading } = useQuery({
     queryKey: ["audit-logs", companyId, startDate, endDate, tableFilter, actionFilter, userFilter],
@@ -1831,6 +1881,63 @@ export default function AdminSettings() {
 
           {/* Audit Log Tab */}
           <TabsContent value="audit" className="mt-6 space-y-6">
+            {/* Retention Settings */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Settings className="h-4 w-4" /> Auto-Archive Settings
+                </CardTitle>
+                <CardDescription>
+                  Audit logs older than the retention period are automatically archived daily at 3 AM UTC.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="retention-days">Retention Period (days)</Label>
+                    <Input
+                      id="retention-days"
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={retentionDays}
+                      onChange={(e) => setRetentionDays(e.target.value)}
+                      className="w-32"
+                      disabled={retentionLoading}
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => updateRetentionMutation.mutate(retentionDays)}
+                    disabled={updateRetentionMutation.isPending || retentionDays === retentionSetting}
+                  >
+                    {updateRetentionMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-1" />
+                    )}
+                    Save
+                  </Button>
+                  <Separator orientation="vertical" className="h-9" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => archiveNowMutation.mutate()}
+                    disabled={archiveNowMutation.isPending}
+                  >
+                    {archiveNowMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <Database className="h-4 w-4 mr-1" />
+                    )}
+                    Archive Now
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Logs older than {retentionDays} day{retentionDays !== "1" ? "s" : ""} will be moved to the archive table.
+                </p>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
