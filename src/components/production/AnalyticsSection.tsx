@@ -373,11 +373,12 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
 
   return (
     <div className="space-y-6">
-      {/* Filters - portal into header if container provided, otherwise inline */}
-      {filtersContainerRef?.current
-        ? createPortal(filtersElement, filtersContainerRef.current)
-        : filtersElement
-      }
+      {/* Filters - hidden on project_summary tab (has its own filters) */}
+      {activeTab !== "project_summary" && (
+        filtersContainerRef?.current
+          ? createPortal(filtersElement, filtersContainerRef.current)
+          : filtersElement
+      )}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
