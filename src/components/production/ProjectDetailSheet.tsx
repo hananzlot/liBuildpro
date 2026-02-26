@@ -1480,7 +1480,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                         <Label className="text-[11px] text-muted-foreground">First Name</Label>
                         <DebouncedInput
                           className="h-8 text-xs"
-                          value={fullProject?.customer_first_name || ""} 
+                          value={toTitleCase(fullProject?.customer_first_name || "")} 
                           onSave={(value) => updateProjectMutation.mutate({ customer_first_name: value })}
                         />
                       </div>
@@ -1488,7 +1488,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                         <Label className="text-[11px] text-muted-foreground">Last Name</Label>
                         <DebouncedInput
                           className="h-8 text-xs"
-                          value={fullProject?.customer_last_name || ""} 
+                          value={toTitleCase(fullProject?.customer_last_name || "")} 
                           onSave={(value) => updateProjectMutation.mutate({ customer_last_name: value })}
                         />
                       </div>
