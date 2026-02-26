@@ -68,6 +68,7 @@ import {
   GripVertical,
   Download,
   Eye,
+  Sparkles,
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
@@ -200,6 +201,13 @@ interface Agreement {
   attachment_url: string | null;
 }
 
+interface ExtractedPhase {
+  phase_name: string;
+  description: string | null;
+  amount: number | string | null;
+  display_order: number;
+}
+
 
 const formatDate = (date: string | null) => {
   if (!date) return "-";
@@ -247,6 +255,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [voidPaymentDialogOpen, setVoidPaymentDialogOpen] = useState(false);
   const [voidingPayment, setVoidingPayment] = useState<Payment | null>(null);
   const [voidPaymentReason, setVoidPaymentReason] = useState("");
+  const [extractedPhasesDialogOpen, setExtractedPhasesDialogOpen] = useState(false);
+  const [extractedPhases, setExtractedPhases] = useState<ExtractedPhase[]>([]);
+  const [extractedPhasesAgreementId, setExtractedPhasesAgreementId] = useState<string | null>(null);
   
   // QuickBooks new entity confirmation state
   const [qbConfirmDialogOpen, setQbConfirmDialogOpen] = useState(false);
@@ -3542,6 +3553,45 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         isPending={saveAgreementMutation.isPending}
         projectId={projectId}
         paymentPhases={paymentPhases}
+        companyId={companyId}
+        onPhasesExtracted={(phases, agreementId) => {
+          setExtractedPhases(phases);
+          setExtractedPhasesAgreementId(agreementId);
+          setExtractedPhasesDialogOpen(true);
+        }}
+      />
+
+      {/* Extracted Phases Review Dialog */}
+      <ExtractedPhasesReviewDialog
+        open={extractedPhasesDialogOpen}
+        onOpenChange={setExtractedPhasesDialogOpen}
+        phases={extractedPhases}
+        agreementId={extractedPhasesAgreementId}
+        agreements={agreements}
+        onSave={async (phasesToSave) => {
+          try {
+            const inserts = phasesToSave.map((p, idx) => ({
+              project_id: projectId,
+              phase_name: p.phase_name,
+              description: p.description || null,
+              amount: typeof p.amount === 'number' ? p.amount : parseFloat(String(p.amount)) || 0,
+              agreement_id: p.agreement_id || extractedPhasesAgreementId || null,
+              company_id: companyId,
+              display_order: idx + 1,
+            }));
+            const { error } = await supabase
+              .from("project_payment_phases")
+              .insert(inserts);
+            if (error) throw error;
+            toast.success(`${phasesToSave.length} payment phase(s) created`);
+            queryClient.invalidateQueries({ queryKey: ["project-payment-phases", projectId] });
+            queryClient.invalidateQueries({ queryKey: ["all-project-phases"] });
+            setExtractedPhasesDialogOpen(false);
+            setExtractedPhases([]);
+          } catch (err: any) {
+            toast.error(err.message || "Failed to save phases");
+          }
+        }}
       />
 
       {/* Phase Dialog */}
@@ -5026,6 +5076,8 @@ function AgreementDialog({
   isPending,
   projectId,
   paymentPhases,
+  companyId,
+  onPhasesExtracted,
 }: {
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -5034,6 +5086,8 @@ function AgreementDialog({
   isPending: boolean;
   projectId: string;
   paymentPhases: PaymentPhase[];
+  companyId: string;
+  onPhasesExtracted?: (phases: ExtractedPhase[], agreementId: string | null) => void;
 }) {
   const [formData, setFormData] = useState({
     agreement_number: "",
@@ -5043,6 +5097,8 @@ function AgreementDialog({
     description_of_work: "",
     attachment_url: null as string | null,
   });
+
+  const [isExtracting, setIsExtracting] = useState(false);
 
   // Query to get the next agreement number (starting from 1201)
   const { data: nextAgreementNumber } = useQuery({
@@ -5112,6 +5168,39 @@ function AgreementDialog({
       description_of_work: formData.description_of_work || null,
       attachment_url: formData.attachment_url,
     });
+  };
+
+  const handleExtractPhases = async () => {
+    if (!formData.attachment_url) return;
+    
+    // Check if the file is a PDF
+    const isPdf = formData.attachment_url.toLowerCase().includes('.pdf');
+    if (!isPdf) {
+      toast.error("Phase extraction only works with PDF files");
+      return;
+    }
+
+    setIsExtracting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-contract-phases", {
+        body: { pdfUrl: formData.attachment_url },
+      });
+
+      if (error) throw error;
+
+      if (!data?.phases || data.phases.length === 0) {
+        toast.info(data?.notes || "No payment phases found in this document");
+        return;
+      }
+
+      toast.success(`Found ${data.phases.length} payment phase(s)`);
+      onPhasesExtracted?.(data.phases, agreement?.id || null);
+    } catch (err: any) {
+      console.error("Extract phases error:", err);
+      toast.error(err.message || "Failed to extract phases from PDF");
+    } finally {
+      setIsExtracting(false);
+    }
   };
 
   return (
@@ -5192,6 +5281,29 @@ function AgreementDialog({
               folder="agreements"
             />
           </div>
+          {/* Extract Phases from PDF button */}
+          {formData.attachment_url && formData.attachment_url.toLowerCase().includes('.pdf') && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full gap-2"
+              onClick={handleExtractPhases}
+              disabled={isExtracting}
+            >
+              {isExtracting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Extracting payment phases...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Extract Payment Phases from PDF
+                </>
+              )}
+            </Button>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
@@ -7729,5 +7841,185 @@ function ProjectFinancialStatements({
         </Card>
       </div>
     </div>
+  );
+}
+
+// Extracted Phases Review Dialog — lets users review/edit AI-extracted phases before saving
+function ExtractedPhasesReviewDialog({
+  open,
+  onOpenChange,
+  phases,
+  agreementId,
+  agreements,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  phases: ExtractedPhase[];
+  agreementId: string | null;
+  agreements: Agreement[];
+  onSave: (phases: (ExtractedPhase & { agreement_id?: string | null })[]) => void;
+}) {
+  const [editablePhases, setEditablePhases] = useState<(ExtractedPhase & { agreement_id?: string | null; enabled: boolean })[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (open && phases.length > 0) {
+      setEditablePhases(
+        phases.map((p) => ({
+          ...p,
+          amount: typeof p.amount === 'string' ? (parseFloat(p.amount) || 0) : (p.amount || 0),
+          agreement_id: agreementId,
+          enabled: true,
+        }))
+      );
+    }
+  }, [open, phases, agreementId]);
+
+  const updatePhase = (idx: number, updates: Partial<typeof editablePhases[number]>) => {
+    setEditablePhases((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, ...updates } : p))
+    );
+  };
+
+  const total = editablePhases
+    .filter((p) => p.enabled)
+    .reduce((sum, p) => sum + (typeof p.amount === 'number' ? p.amount : parseFloat(String(p.amount)) || 0), 0);
+
+  const handleSave = async () => {
+    const toSave = editablePhases.filter((p) => p.enabled);
+    if (toSave.length === 0) {
+      onOpenChange(false);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onSave(toSave);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Review Extracted Payment Phases
+          </DialogTitle>
+          <DialogDescription>
+            The AI extracted these payment phases from your contract. Review, edit, or uncheck any you don't want to import.
+          </DialogDescription>
+        </DialogHeader>
+
+        {editablePhases.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">No phases to review.</p>
+        ) : (
+          <div className="space-y-3">
+            {editablePhases.map((phase, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  "border rounded-lg p-3 space-y-2 transition-opacity",
+                  !phase.enabled && "opacity-50"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={phase.enabled}
+                    onCheckedChange={(checked) => updatePhase(idx, { enabled: !!checked })}
+                  />
+                  <span className="text-xs font-medium text-muted-foreground">Phase {idx + 1}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Phase Name</Label>
+                    <Input
+                      value={phase.phase_name}
+                      onChange={(e) => updatePhase(idx, { phase_name: e.target.value })}
+                      disabled={!phase.enabled}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Amount ($)</Label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={String(phase.amount || "")}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                          updatePhase(idx, { amount: val === "" ? 0 : parseFloat(val) || 0 });
+                        }
+                      }}
+                      disabled={!phase.enabled}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Description</Label>
+                  <Input
+                    value={phase.description || ""}
+                    onChange={(e) => updatePhase(idx, { description: e.target.value })}
+                    disabled={!phase.enabled}
+                    className="h-8 text-sm"
+                    placeholder="e.g. Due upon completion of framing"
+                  />
+                </div>
+                {agreements.length > 1 && (
+                  <div>
+                    <Label className="text-xs">Agreement</Label>
+                    <Select
+                      value={phase.agreement_id || ""}
+                      onValueChange={(v) => updatePhase(idx, { agreement_id: v })}
+                      disabled={!phase.enabled}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Select agreement" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agreements.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            #{a.agreement_number} — {a.agreement_type || "Agreement"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className="text-sm font-medium">
+                Total: {formatCurrency(total)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {editablePhases.filter((p) => p.enabled).length} of {editablePhases.length} phases selected
+              </span>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving || editablePhases.filter((p) => p.enabled).length === 0}>
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              `Import ${editablePhases.filter((p) => p.enabled).length} Phase(s)`
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
