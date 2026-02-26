@@ -2108,7 +2108,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           />
           <EstimatedProjectCostsCard
             estimatedProjectCost={estimatedProjectCost}
-            estimatedCost={estimatedCost}
+            estimatedCost={soldDispatchValue ?? estimatedCost}
             onSave={(value) => onUpdateProject({ estimated_project_cost: value })}
           />
         </div>
