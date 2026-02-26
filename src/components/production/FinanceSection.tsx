@@ -3905,7 +3905,7 @@ function PaymentDialog({
     bank_id: "",
     projected_received_date: "",
     payment_schedule: "",
-    payment_status: "Pending",
+    payment_status: "Received",
     payment_amount: "",
     payment_fee: "",
     check_number: "",
@@ -3998,7 +3998,7 @@ function PaymentDialog({
         deposit_verified: false, // New payments default to not deposited
       });
     } else {
-      setFormData({ bank_id: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", payment_method: "", invoice_id: "", deposit_verified: false });
+      setFormData({ bank_id: "", projected_received_date: "", payment_schedule: "", payment_status: "Received", payment_amount: "", payment_fee: "", check_number: "", payment_method: "", invoice_id: "", deposit_verified: false });
     }
     setAmountError("");
     setBankSearch("");
@@ -4172,7 +4172,6 @@ function PaymentDialog({
               <Select value={formData.payment_status} onValueChange={(v) => setFormData(p => ({ ...p, payment_status: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Pending">Pending</SelectItem>
                   <SelectItem value="Received">Received</SelectItem>
                   <SelectItem value="Anticipated">Anticipated</SelectItem>
                   <SelectItem value="Deposit">Deposit</SelectItem>
