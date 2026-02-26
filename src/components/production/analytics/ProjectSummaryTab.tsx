@@ -622,7 +622,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[1100px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
