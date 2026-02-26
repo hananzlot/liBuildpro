@@ -245,7 +245,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const { open: billDialogOpen, setOpen: setBillDialogOpen } = usePersistedDialog("finance-bill-dialog", projectId);
-  const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
+  const { open: agreementDialogOpen, setOpen: setAgreementDialogOpen } = usePersistedDialog("finance-agreement-dialog", projectId);
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quickPayDialogOpen, setQuickPayDialogOpen] = useState(false);

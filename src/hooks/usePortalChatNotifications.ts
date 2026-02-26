@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -20,44 +20,15 @@ export function usePortalChatNotifications() {
   const { user, isAdmin, isSuperAdmin, isProduction } = useAuth();
   const { openChatDialog, isDialogOpen, currentProjectId } = usePortalChat();
 
-  const handleNewMessage = useCallback(async (payload: { new: unknown }) => {
-    const message = payload.new as ChatMessage;
-    
-    // Only notify for customer messages
-    if (message.sender_type !== 'customer') return;
+  const isDialogOpenRef = useRef(isDialogOpen);
+  const currentProjectIdRef = useRef(currentProjectId);
+  const openChatDialogRef = useRef(openChatDialog);
 
-    // Don't show toast if chat dialog is already open for this project
-    if (isDialogOpen && currentProjectId === message.project_id) {
-      return;
-    }
-
-    // Fetch project name for the notification
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, project_name, customer_first_name, customer_last_name')
-      .eq('id', message.project_id)
-      .single();
-
-    const projectName = project?.project_name || 
-      `${project?.customer_first_name || ''} ${project?.customer_last_name || ''}`.trim() || 
-      'Unknown Project';
-    const truncatedMessage = message.message.length > 50 
-      ? message.message.substring(0, 50) + '...' 
-      : message.message;
-
-    // Show clickable toast notification that opens the chat dialog
-    toast.message(`New message from ${message.sender_name}`, {
-      description: `Project: ${projectName} - "${truncatedMessage}"`,
-      duration: 10000,
-      icon: React.createElement(MessageSquare, { className: 'h-4 w-4 text-primary' }),
-      action: {
-        label: 'View & Reply',
-        onClick: () => {
-          openChatDialog(message.project_id);
-        },
-      },
-    });
-  }, [openChatDialog, isDialogOpen, currentProjectId]);
+  useEffect(() => {
+    isDialogOpenRef.current = isDialogOpen;
+    currentProjectIdRef.current = currentProjectId;
+    openChatDialogRef.current = openChatDialog;
+  }, [isDialogOpen, currentProjectId, openChatDialog]);
 
   useEffect(() => {
     // Only subscribe for admins and production managers
@@ -74,9 +45,40 @@ export function usePortalChatNotifications() {
           schema: 'public',
           table: 'portal_chat_messages',
         },
-        (payload) => {
+        async (payload) => {
           console.log('New portal chat message received:', payload);
-          handleNewMessage(payload as { new: Record<string, unknown> });
+          const message = payload.new as ChatMessage;
+
+          // Only notify for customer messages
+          if (message.sender_type !== 'customer') return;
+
+          // Don't show toast if chat dialog is already open for this project
+          if (isDialogOpenRef.current && currentProjectIdRef.current === message.project_id) {
+            return;
+          }
+
+          const { data: project } = await supabase
+            .from('projects')
+            .select('id, project_name, customer_first_name, customer_last_name')
+            .eq('id', message.project_id)
+            .single();
+
+          const projectName = project?.project_name || 
+            `${project?.customer_first_name || ''} ${project?.customer_last_name || ''}`.trim() || 
+            'Unknown Project';
+          const truncatedMessage = message.message.length > 50 
+            ? message.message.substring(0, 50) + '...' 
+            : message.message;
+
+          toast.message(`New message from ${message.sender_name}`, {
+            description: `Project: ${projectName} - "${truncatedMessage}"`,
+            duration: 10000,
+            icon: React.createElement(MessageSquare, { className: 'h-4 w-4 text-primary' }),
+            action: {
+              label: 'View & Reply',
+              onClick: () => openChatDialogRef.current(message.project_id),
+            },
+          });
         }
       )
       .subscribe((status) => {
@@ -87,5 +89,5 @@ export function usePortalChatNotifications() {
       console.log('Cleaning up portal chat notifications listener');
       supabase.removeChannel(channel);
     };
-  }, [user, isAdmin, isSuperAdmin, isProduction, handleNewMessage]);
+  }, [user, isAdmin, isSuperAdmin, isProduction]);
 }
