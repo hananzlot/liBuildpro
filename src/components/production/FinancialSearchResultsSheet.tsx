@@ -49,7 +49,7 @@ interface SectionConfigItem {
 const sectionConfig: Record<string, SectionConfigItem> = {
   'Invoiced': { icon: FileText, title: 'Invoiced Amounts', tab: 'finance', subTab: 'invoices' },
   'Payments Received': { icon: CreditCard, title: 'Payments Received', tab: 'finance', subTab: 'invoices' },
-  'Phases': { icon: DollarSign, title: 'Payment Phases', tab: 'finance', subTab: 'agreements' },
+  'Phases': { icon: DollarSign, title: 'Progress Payments', tab: 'finance', subTab: 'agreements' },
   'Contracts': { icon: FileText, title: 'Contract Amounts', tab: 'finance', subTab: 'agreements' },
   'Bills Received': { icon: Receipt, title: 'Bills Received', tab: 'finance', subTab: 'bills' },
   'Bills Paid': { icon: Receipt, title: 'Bills Paid', tab: 'finance', subTab: 'bills' },

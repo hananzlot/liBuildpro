@@ -2882,7 +2882,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       clarification: "Clarification",
       photos: "Photos",
       files: "Files",
-      payments: "Phases",
+      payments: "Progress Payments",
       terms: "T&C",
     };
 
@@ -4399,13 +4399,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       <CardTitle className="text-sm font-medium">Payment Schedule</CardTitle>
                       <Button onClick={addPaymentPhase} size="sm" variant="outline" className="h-7 text-xs">
                         <Plus className="mr-1 h-3 w-3" />
-                        Add Phase
+                        Add Progress Payment
                       </Button>
                     </CardHeader>
                     <CardContent>
                       {paymentSchedule.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">
-                          No payment phases defined. Add phases or use AI to generate.
+                          No progress payments defined. Add progress payments or use AI to generate.
                         </p>
                       ) : (
                         <div className="space-y-3">

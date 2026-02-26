@@ -1644,8 +1644,8 @@ export default function Production() {
 
   const warningSheetTitle: Record<string, string> = {
     missingContract: 'Missing Contract',
-    missingPhases: 'Missing Payment Phases',
-    phaseMismatch: 'Phase Amount Mismatch',
+    missingPhases: 'Missing Progress Payments',
+    phaseMismatch: 'Progress Payment Amount Mismatch',
     contractMismatch: 'Contract Mismatch Dispatch Reported $ Sold',
     missingSalesperson: 'Missing Salesperson',
     missingCompletionDate: 'Missing Completion Date',
@@ -2101,7 +2101,7 @@ export default function Production() {
                                       </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p>Payment phases not entered</p>
+                                      <p>Progress payments not entered</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
