@@ -53,6 +53,11 @@ export function InvoicePdfDialog({
 
   if (!invoice) return null;
 
+  const toTitleCase = (str: string | null | undefined): string => {
+    if (!str) return "";
+    return str.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
+  };
+
   const companyName = company?.name || "Company";
   const companyAddress = company?.address || "";
   const companyPhone = company?.phone || "";
@@ -60,7 +65,7 @@ export function InvoicePdfDialog({
   const companyLogo = company?.logo_url || "";
 
   const customerName = project
-    ? `${project.customer_first_name || ""} ${project.customer_last_name || ""}`.trim() || project.project_name || "Customer"
+    ? `${toTitleCase(project.customer_first_name)} ${toTitleCase(project.customer_last_name)}`.trim() || toTitleCase(project.project_name) || "Customer"
     : "Customer";
   const customerAddress = project?.job_address || project?.project_address || "";
   const customerEmail = project?.customer_email || "";
@@ -233,7 +238,7 @@ export function InvoicePdfDialog({
                     {project?.project_name && (
                       <div style={{ marginBottom: 6 }}>
                         <div style={{ fontSize: 12, color: "#888" }}>Project</div>
-                        <div style={{ fontSize: 13, color: "#333", fontWeight: 500 }}>{project.project_name}</div>
+                        <div style={{ fontSize: 13, color: "#333", fontWeight: 500 }}>{toTitleCase(project.project_name)}</div>
                       </div>
                     )}
                     {invoice.agreement_number && (
@@ -245,7 +250,7 @@ export function InvoicePdfDialog({
                     {invoice.phase_name && (
                       <div>
                         <div style={{ fontSize: 12, color: "#888" }}>Payment Phase</div>
-                        <div style={{ fontSize: 13, color: "#333", fontWeight: 500 }}>{invoice.phase_name}</div>
+                        <div style={{ fontSize: 13, color: "#333", fontWeight: 500 }}>{toTitleCase(invoice.phase_name)}</div>
                       </div>
                     )}
                   </div>
@@ -267,10 +272,10 @@ export function InvoicePdfDialog({
                 <tbody>
                   <tr>
                     <td style={{ padding: "14px 16px", fontSize: 13, borderBottom: "1px solid #eee", color: "#333" }}>
-                      {invoice.description_of_work || invoice.phase_name || `Invoice #${invoice.invoice_number}`}
+                      {toTitleCase(invoice.description_of_work) || toTitleCase(invoice.phase_name) || `Invoice #${invoice.invoice_number}`}
                       {invoice.phase_name && invoice.description_of_work && (
                         <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>
-                          Phase: {invoice.phase_name}
+                          Phase: {toTitleCase(invoice.phase_name)}
                         </div>
                       )}
                     </td>
