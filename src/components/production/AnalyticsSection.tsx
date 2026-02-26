@@ -53,12 +53,12 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
   // Build ordered list of permitted tabs
   const permittedTabs = useMemo(() => {
     const all = [
+      { key: "project_summary", allowed: canViewProjectSummary },
       { key: "profitability", allowed: canViewProfitability },
       { key: "cashflow", allowed: canViewCashflow },
       { key: "receivables", allowed: canViewReceivables },
       { key: "bank", allowed: canViewBank },
       { key: "commission", allowed: canViewCommission },
-      { key: "project_summary", allowed: canViewProjectSummary },
     ];
     return all.filter(t => t.allowed).map(t => t.key);
   }, [canViewProfitability, canViewCashflow, canViewReceivables, canViewBank, canViewCommission, canViewProjectSummary]);
@@ -382,6 +382,12 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className={`grid w-full`} style={{ gridTemplateColumns: `repeat(${[canViewProfitability, canViewCashflow, canViewReceivables, canViewBank, canViewCommission, canViewProjectSummary].filter(Boolean).length}, minmax(0, 1fr))` }}>
+          {canViewProjectSummary && (
+            <TabsTrigger value="project_summary" className="flex items-center gap-1.5">
+              <ClipboardList className="h-4 w-4" />
+              <span className="hidden sm:inline">Projects Summary</span>
+            </TabsTrigger>
+          )}
           {canViewProfitability && (
             <TabsTrigger value="profitability" className="flex items-center gap-1.5">
               <TrendingUp className="h-4 w-4" />
@@ -410,12 +416,6 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             <TabsTrigger value="commission" className="flex items-center gap-1.5">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Commission</span>
-            </TabsTrigger>
-          )}
-          {canViewProjectSummary && (
-            <TabsTrigger value="project_summary" className="flex items-center gap-1.5">
-              <ClipboardList className="h-4 w-4" />
-              <span className="hidden sm:inline">Project Summary</span>
             </TabsTrigger>
           )}
         </TabsList>
