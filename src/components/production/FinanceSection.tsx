@@ -1743,9 +1743,26 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           newValues: newAgreement,
           description: `Created agreement ${agreement.agreement_number}`,
         });
+        // Link any extracted phases that were saved without an agreement_id
+        if (extractedPhases.length > 0) {
+          const recentCutoff = new Date(Date.now() - 120000).toISOString(); // last 2 minutes
+          const { error: linkError } = await supabase
+            .from("project_payment_phases")
+            .update({ agreement_id: newAgreement.id })
+            .eq("project_id", projectId)
+            .is("agreement_id", null)
+            .eq("company_id", companyId)
+            .gte("created_at", recentCutoff);
+          if (!linkError) {
+            queryClient.invalidateQueries({ queryKey: ["project-payment-phases", projectId] });
+            queryClient.invalidateQueries({ queryKey: ["all-project-phases"] });
+          }
+        }
       }
     },
     onSuccess: () => {
+      setExtractedPhases([]);
+      setExtractedPhasesAgreementId(null);
       toast.success(editingAgreement?.id ? "Agreement updated" : "Agreement created");
       queryClient.invalidateQueries({ queryKey: ["project-agreements", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-agreements"] });
