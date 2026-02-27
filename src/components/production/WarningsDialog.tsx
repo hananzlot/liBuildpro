@@ -3,9 +3,8 @@ import { SubcontractorEditDialog } from "./SubcontractorEditDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
-import { useNavigate } from "react-router-dom";
 import { differenceInDays, parseISO, format } from "date-fns";
-import { AlertTriangle, FileWarning, Shield, ShieldAlert, ExternalLink, UserCheck } from "lucide-react";
+import { AlertTriangle, FileWarning, Shield, ShieldAlert, UserCheck } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,7 +61,6 @@ export function WarningsDialog({
   onOpenWarningSheet,
   onOpenPendingDeposits,
 }: WarningsDialogProps) {
-  const navigate = useNavigate();
   const { companyId } = useCompanyContext();
   const [open, setOpen] = useState(false);
   const [editVendorId, setEditVendorId] = useState<string | null>(null);
@@ -344,9 +342,13 @@ export function WarningsDialog({
                 </h4>
                 <div className="space-y-2">
                   {subWarnings.slice(0, 5).map((warning, idx) => (
-                    <div
+                    <button
                       key={`${warning.subcontractor.id}-${warning.type}-${idx}`}
-                      className="flex items-center justify-between py-2 px-3 rounded-md bg-background/80 border border-border/50"
+                      className="flex items-center justify-between w-full py-2 px-3 rounded-md bg-background/80 border border-border/50 hover:bg-accent/50 transition-colors cursor-pointer text-left"
+                      onClick={() => {
+                        setOpen(false);
+                        setEditVendorId(warning.subcontractor.id);
+                      }}
                     >
                       <div className="flex items-center gap-3">
                         {warning.type === 'license' ? (
@@ -362,25 +364,13 @@ export function WarningsDialog({
                         </div>
                       </div>
                       {getSubStatusBadge(warning.daysUntilExpiry)}
-                    </div>
+                    </button>
                   ))}
                   {subWarnings.length > 5 && (
                     <p className="text-xs text-muted-foreground text-center">
                       +{subWarnings.length - 5} more warning{subWarnings.length - 5 > 1 ? 's' : ''}
                     </p>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-2"
-                    onClick={() => {
-                      setOpen(false);
-                      navigate('/production?view=subcontractors');
-                    }}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Manage Subcontractors
-                  </Button>
                 </div>
               </div>
             )}
@@ -424,18 +414,6 @@ export function WarningsDialog({
                       +{unreviewedVendors.length - 5} more vendor{unreviewedVendors.length - 5 > 1 ? 's' : ''}
                     </p>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-2"
-                    onClick={() => {
-                      setOpen(false);
-                      navigate('/production?view=subcontractors');
-                    }}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Review in Vendors & Subs
-                  </Button>
                 </div>
               </div>
             )}
