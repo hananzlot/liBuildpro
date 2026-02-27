@@ -63,6 +63,7 @@ export function QuickAddSubcontractorDialog({
         is_active: true,
         do_not_require_license: subType !== "Subcontractor",
         do_not_require_insurance: subType !== "Subcontractor",
+        needs_compliance_review: true,
         created_by: user?.id,
         company_id: companyId,
       });
