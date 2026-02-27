@@ -916,8 +916,8 @@ export function AppointmentsTable({
           )}
         </CardHeader>
         <CardContent className="p-0">
-         <div className="overflow-auto max-h-[calc(100vh-280px)]">
-          <Table className="table-fixed w-full">
+         <div className="overflow-auto max-h-[calc(100vh-280px)] [&>div]:!w-full [&>div]:!min-w-full">
+          <Table className="w-full table-fixed" style={{ minWidth: '900px' }}>
              <TableHeader>
                <TableRow className="border-border/50 hover:bg-transparent">
                  <TableHead 
