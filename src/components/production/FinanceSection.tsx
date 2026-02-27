@@ -2215,7 +2215,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 aria-current={activeSubTab === tab.value ? "true" : undefined}
                 tabIndex={activeSubTab === tab.value ? 0 : -1}
                 className={cn(
-                  "whitespace-nowrap px-4 py-1.5 text-xs rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                  "relative whitespace-nowrap px-4 py-1.5 text-xs rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                   activeSubTab === tab.value
                     ? "bg-background shadow-sm text-foreground font-medium"
                     : "text-muted-foreground hover:text-foreground"
@@ -2223,6 +2223,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 onClick={() => handleSubTabChange(tab.value)}
               >
                 {tab.label}
+                {activeSubTab === tab.value && (
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-0.5 rounded-full bg-primary" />
+                )}
               </button>
             ))}
           </div>
