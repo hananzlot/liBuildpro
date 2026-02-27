@@ -876,8 +876,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   };
 
   // Helper to check if QB sync will create new entities (customer/vendor)
-  const checkQbSyncEntities = async (recordType: "invoice" | "payment" | "bill" | "bill_payment", recordId: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[] }> => {
-    if (!companyId || !isQBConnectedMain) return { requiresConfirmation: false, pendingEntities: [] };
+  const checkQbSyncEntities = async (recordType: "invoice" | "payment" | "bill" | "bill_payment", recordId: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[]; unmappedEntities: { type: string; name: string }[] }> => {
+    if (!companyId || !isQBConnectedMain) return { requiresConfirmation: false, pendingEntities: [], unmappedEntities: [] };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
@@ -891,16 +891,17 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       
       if (error) {
         console.error("QuickBooks check error:", error);
-        return { requiresConfirmation: false, pendingEntities: [] };
+        return { requiresConfirmation: false, pendingEntities: [], unmappedEntities: [] };
       }
       
       return { 
         requiresConfirmation: data?.requiresConfirmation || false, 
-        pendingEntities: data?.pendingEntities || [] 
+        pendingEntities: data?.pendingEntities || [],
+        unmappedEntities: data?.unmappedEntities || [],
       };
     } catch (err) {
       console.error("Failed to check QuickBooks entities:", err);
-      return { requiresConfirmation: false, pendingEntities: [] };
+      return { requiresConfirmation: false, pendingEntities: [], unmappedEntities: [] };
     }
   };
 
@@ -970,21 +971,24 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     // First check if sync would create new entities
     const check = await checkQbSyncEntities(recordType, recordId);
     
-    if (check.requiresConfirmation && check.pendingEntities.length > 0) {
-      // Check if any pending entity is a customer - show mapping dialog first
-      const customerEntity = check.pendingEntities.find(e => e.type === "customer");
-      const nonCustomerEntities = check.pendingEntities.filter(e => e.type !== "customer");
-      
-      if (customerEntity) {
+    // Combine pending (new) customer entities and unmapped customer entities for the mapping dialog
+    const customerEntity = check.pendingEntities.find(e => e.type === "customer") 
+      || check.unmappedEntities.find(e => e.type === "customer");
+    const nonCustomerPendingEntities = check.pendingEntities.filter(e => e.type !== "customer");
+    const hasCustomerToMap = !!customerEntity;
+    const hasPendingNonCustomer = nonCustomerPendingEntities.length > 0;
+    
+    if (hasCustomerToMap || check.pendingEntities.length > 0) {
+      if (hasCustomerToMap) {
         // Show customer mapping dialog first
         return new Promise((resolve) => {
           const proceedWithSync = async () => {
             // After mapping (or skipping), check if there are still non-customer entities to confirm
-            if (nonCustomerEntities.length > 0) {
+            if (hasPendingNonCustomer) {
               setPendingQbSync({
                 recordType,
                 recordId,
-                pendingEntities: nonCustomerEntities,
+                pendingEntities: nonCustomerPendingEntities,
                 onConfirm: async () => {
                   setQbConfirmDialogOpen(false);
                   setPendingQbSync(null);
@@ -1005,7 +1009,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           };
 
           setQbCustomerMappingContext({
-            customerName: customerEntity.name,
+            customerName: customerEntity!.name,
             onMapped: async () => {
               setQbCustomerMappingOpen(false);
               setQbCustomerMappingContext(null);
@@ -1026,7 +1030,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         });
       }
       
-      // No customer entity - show standard confirmation dialog
+      // No customer entity - show standard confirmation dialog for vendors etc.
       return new Promise((resolve) => {
         setPendingQbSync({
           recordType,
@@ -1048,7 +1052,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       });
     }
     
-    // No new entities - sync directly
+    // No new entities and no unmapped - sync directly
     return syncRecordToQuickBooks(recordType, recordId);
   };
 
