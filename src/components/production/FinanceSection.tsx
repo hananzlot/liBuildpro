@@ -7470,10 +7470,14 @@ function CommissionTab({
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Total Contracts</div>
           <p className="text-lg font-semibold">{formatCurrency(totalContracts)}</p>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Collected to Date</div>
+          <p className="text-lg font-semibold text-primary">{formatCurrency(totalPaymentsReceived)}</p>
         </Card>
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Lead Cost ({leadCostPercent}%)</div>
