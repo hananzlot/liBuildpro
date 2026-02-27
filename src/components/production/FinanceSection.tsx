@@ -5601,21 +5601,19 @@ function PhaseDialog({
   const [dueDateError, setDueDateError] = useState("");
   const [amountError, setAmountError] = useState("");
 
-  // Calculate which agreements are fully accounted for
-  const getAvailableAgreements = () => {
-    return agreements.filter(agreement => {
-      const contractTotal = agreement.total_price || 0;
-      const phasesTotal = paymentPhases
-        .filter(p => p.agreement_id === agreement.id && p.id !== phase?.id)
-        .reduce((sum, p) => sum + (p.amount || 0), 0);
-      
-      // Include if: editing this phase's agreement, or there's remaining balance
-      if (phase?.agreement_id === agreement.id) return true;
-      return phasesTotal < contractTotal;
-    });
+  // Check remaining balance for each agreement
+  const getAgreementRemaining = (agreement: typeof agreements[0]) => {
+    const contractTotal = agreement.total_price || 0;
+    const phasesTotal = paymentPhases
+      .filter(p => p.agreement_id === agreement.id && p.id !== phase?.id)
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    return contractTotal - phasesTotal;
   };
 
-  const availableAgreements = getAvailableAgreements();
+  const isAgreementFullyAllocated = (agreement: typeof agreements[0]) => {
+    if (phase?.agreement_id === agreement.id) return false;
+    return getAgreementRemaining(agreement) <= 0;
+  };
 
   // Reset form when phase identity changes (not on every open — draft handles persistence)
   const lastPhaseIdRef = useRef<string | null | undefined>(undefined);
@@ -5741,22 +5739,21 @@ function PhaseDialog({
             >
               <SelectTrigger><SelectValue placeholder="Select contract" /></SelectTrigger>
               <SelectContent>
-                {availableAgreements.map((a) => {
-                  const phasesTotal = paymentPhases
-                    .filter(p => p.agreement_id === a.id && p.id !== phase?.id)
-                    .reduce((sum, p) => sum + (p.amount || 0), 0);
-                  const remaining = (a.total_price || 0) - phasesTotal;
+                {agreements.map((a) => {
+                  const remaining = getAgreementRemaining(a);
+                  const fullyAllocated = isAgreementFullyAllocated(a);
                   return (
-                    <SelectItem key={a.id} value={a.id}>
+                    <SelectItem key={a.id} value={a.id} className={fullyAllocated ? "opacity-50" : ""}>
                       {a.agreement_number} - {a.agreement_type || "Contract"} ({formatCurrency(a.total_price)}) - Remaining: {formatCurrency(remaining)}
+                      {fullyAllocated && " (Fully Allocated)"}
                     </SelectItem>
                   );
                 })}
               </SelectContent>
             </Select>
             {agreementError && <p className="text-xs text-destructive mt-1">{agreementError}</p>}
-            {availableAgreements.length === 0 && (
-              <p className="text-xs text-muted-foreground mt-1">All contracts are fully accounted for in progress payments.</p>
+            {agreements.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">No contracts found for this project.</p>
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">
