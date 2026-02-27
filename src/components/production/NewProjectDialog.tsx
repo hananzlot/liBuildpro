@@ -56,6 +56,7 @@ const INITIAL_FORM = {
   project_status: "New Job",
   primary_salesperson: "",
   estimated_cost: "",
+  lead_cost_percent: "",
   lead_source: "",
   branch: "",
   install_notes: "",
@@ -93,28 +94,7 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
     }
   }, [open, contextCompanyId]);
 
-  const { data: defaultLeadCostPercent } = useQuery({
-    queryKey: ["default-lead-cost-percent", companyId],
-    queryFn: async () => {
-      if (!companyId) return 18;
-      const { data: companySetting } = await supabase
-        .from("company_settings")
-        .select("setting_value")
-        .eq("company_id", companyId)
-        .eq("setting_key", "default_lead_cost_percent")
-        .maybeSingle();
-      if (companySetting?.setting_value) return parseFloat(companySetting.setting_value);
-      const { data: appSetting } = await supabase
-        .from("app_settings")
-        .select("setting_value")
-        .eq("setting_key", "default_lead_cost_percent")
-        .maybeSingle();
-      if (appSetting?.setting_value) return parseFloat(appSetting.setting_value);
-      return 18;
-    },
-    enabled: !!companyId,
-    staleTime: 30 * 60 * 1000,
-  });
+
 
   // Draft persistence
   const { draft, updateDraft, clearDraft, isDirty } = usePersistentDraft(
@@ -154,7 +134,7 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
           location_id: DEFAULT_LOCATION_ID,
           created_by: user?.id || null,
           company_id: companyId,
-          lead_cost_percent: defaultLeadCostPercent ?? 18,
+          lead_cost_percent: draft.lead_cost_percent ? parseFloat(draft.lead_cost_percent) : 0,
         })
         .select()
         .single();
@@ -187,6 +167,10 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
     e.preventDefault();
     if (!draft.project_name.trim()) {
       toast.error("Project name is required");
+      return;
+    }
+    if (!draft.lead_cost_percent || isNaN(parseFloat(draft.lead_cost_percent))) {
+      toast.error("Lead Cost % is required");
       return;
     }
     createProjectMutation.mutate();
@@ -276,6 +260,18 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                     value={draft.estimated_cost}
                     onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateDraft({ estimated_cost: val }); }}
                     placeholder="0"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lead_cost_percent">Lead Cost % *</Label>
+                  <Input
+                    id="lead_cost_percent"
+                    type="text"
+                    inputMode="decimal"
+                    value={draft.lead_cost_percent}
+                    onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateDraft({ lead_cost_percent: val }); }}
+                    placeholder="Enter lead cost %"
+                    className={!draft.lead_cost_percent ? "border-destructive" : ""}
                   />
                 </div>
                 <div>
