@@ -2762,7 +2762,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                               <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left">
                                 <div className="flex items-center gap-2">
                                   <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [&[data-state=open]]:rotate-0 rotate-[-90deg]" />
-                                  <span className="text-sm font-medium">{company}{subcontractorContactMap[company] ? ` (${subcontractorContactMap[company]})` : ''}</span>
+                                  <span className="text-sm font-medium">{company}{subcontractorContactMap[company] && subcontractorContactMap[company] !== company ? ` (${subcontractorContactMap[company]})` : ''}</span>
                                   <Badge variant="secondary" className="text-[10px]">{companyBills.length}</Badge>
                                 </div>
                                 <div className="flex items-center gap-4 text-xs">
