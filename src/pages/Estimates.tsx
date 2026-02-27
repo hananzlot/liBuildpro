@@ -9,13 +9,14 @@ import { useAppTabs } from "@/contexts/AppTabsContext";
 import { fetchAllPages } from "@/lib/supabasePagination";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload, ChevronDown, Eye, Globe } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload, ChevronDown, ChevronRight, Eye, Globe, Archive, Clock } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
@@ -294,6 +295,33 @@ export default function Estimates() {
   const proposalEstimates = estimates?.filter((e) => ["sent", "viewed", "needs_changes"].includes(e.status)) || [];
   const contractEstimates = estimates?.filter((e) => e.status === "accepted") || [];
   const declinedEstimates = estimates?.filter((e) => e.status === "declined") || [];
+
+  // Split drafts into recent vs old (30+ days)
+  const thirtyDaysAgo = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d;
+  }, []);
+
+  const recentDraftEstimates = useMemo(() => 
+    draftEstimates.filter(e => new Date(e.created_at) >= thirtyDaysAgo), 
+    [draftEstimates, thirtyDaysAgo]
+  );
+  const oldDraftEstimates = useMemo(() => 
+    draftEstimates.filter(e => new Date(e.created_at) < thirtyDaysAgo), 
+    [draftEstimates, thirtyDaysAgo]
+  );
+
+  // Split proposals into live vs expired (by expiration_date)
+  const now = useMemo(() => new Date(), []);
+  const liveProposalEstimates = useMemo(() => 
+    proposalEstimates.filter(e => !e.expiration_date || new Date(e.expiration_date) >= now), 
+    [proposalEstimates, now]
+  );
+  const expiredProposalEstimates = useMemo(() => 
+    proposalEstimates.filter(e => e.expiration_date && new Date(e.expiration_date) < now), 
+    [proposalEstimates, now]
+  );
 
   // Calculate totals for each tab
   const draftTotal = draftEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
@@ -738,19 +766,55 @@ export default function Estimates() {
 
           <TabsContent value="list" className="mt-2">
             {renderEstimateTable(
-              draftEstimates,
+              recentDraftEstimates,
               "No Draft Estimates",
               <Calculator className="h-12 w-12 text-muted-foreground mb-4" />,
               'list'
+            )}
+            {oldDraftEstimates.length > 0 && (
+              <Collapsible className="mt-4">
+                <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 px-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group">
+                  <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                  <Archive className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Old Estimates</span>
+                  <Badge variant="secondary" className="ml-auto text-xs">{oldDraftEstimates.length}</Badge>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  {renderEstimateTable(
+                    oldDraftEstimates,
+                    "No Old Estimates",
+                    <Calculator className="h-12 w-12 text-muted-foreground mb-4" />,
+                    'list'
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
             )}
           </TabsContent>
 
           <TabsContent value="proposals" className="mt-2">
             {renderEstimateTable(
-              proposalEstimates,
+              liveProposalEstimates,
               "No Proposals Sent",
               <Send className="h-12 w-12 text-muted-foreground mb-4" />,
               'proposals'
+            )}
+            {expiredProposalEstimates.length > 0 && (
+              <Collapsible className="mt-4">
+                <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 px-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group">
+                  <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Expired Proposals</span>
+                  <Badge variant="secondary" className="ml-auto text-xs">{expiredProposalEstimates.length}</Badge>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  {renderEstimateTable(
+                    expiredProposalEstimates,
+                    "No Expired Proposals",
+                    <Send className="h-12 w-12 text-muted-foreground mb-4" />,
+                    'proposals'
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
             )}
           </TabsContent>
 
