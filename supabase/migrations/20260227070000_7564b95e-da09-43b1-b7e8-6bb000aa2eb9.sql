@@ -1,0 +1,1 @@
+UPDATE opportunities SET updated_at = ghl_date_updated WHERE ghl_date_updated IS NOT NULL;
