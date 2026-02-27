@@ -3041,6 +3041,39 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 <p className="text-sm text-muted-foreground text-center py-4">No contracts yet. Add a contract first to create progress payments.</p>
               ) : (
                 <div className="space-y-6">
+                  {/* Unlinked/orphan phases warning */}
+                  {(() => {
+                    const orphanPhases = paymentPhases.filter(p => !p.agreement_id);
+                    if (orphanPhases.length === 0) return null;
+                    return (
+                      <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-4 mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="h-4 w-4 text-amber-500" />
+                          <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                            {orphanPhases.length} Unlinked Phase{orphanPhases.length > 1 ? 's' : ''} Found
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          These phases are not linked to any contract. They may have been created from a failed signing flow. You can delete them below.
+                        </p>
+                        <div className="space-y-1">
+                          {orphanPhases.map(phase => (
+                            <div key={phase.id} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-background/50">
+                              <span>{phase.phase_name} — ${(phase.amount || 0).toLocaleString()}</span>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 text-destructive hover:text-destructive" 
+                                onClick={() => handleDeleteClick("phase", phase.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {agreements
                     .filter(a => !selectedAgreementFilter || a.id === selectedAgreementFilter)
                     .map((agreement) => {

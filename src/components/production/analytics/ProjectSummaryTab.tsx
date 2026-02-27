@@ -206,6 +206,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         .select("id, project_id, phase_name, amount, display_order")
         .eq("company_id", companyId!)
         .in("project_id", projectIds)
+        .not("agreement_id", "is", null)
         .order("display_order", { ascending: true });
       if (error) throw error;
       return data;
