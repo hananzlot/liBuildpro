@@ -85,6 +85,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { VendorMappingDialog } from "./VendorMappingDialog";
 import { SalespersonVendorMappingDialog } from "./SalespersonVendorMappingDialog";
 import { QBDuplicateReviewDialog, type QBDuplicateCandidate } from "./analytics/QBDuplicateReviewDialog";
+import { QBCustomerMappingDialog } from "./analytics/QBCustomerMappingDialog";
 import { InvoicePdfDialog } from "./InvoicePdfDialog";
 import { CommissionInvoiceDialog } from "./CommissionInvoiceDialog";
 import { InvoiceConfirmDialog } from "./InvoiceConfirmDialog";
@@ -302,6 +303,15 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     localDate: string;
     localReference: string | null;
     onLink: (qbId: string, qbReference: string | null) => void;
+    onCreateNew: () => void;
+    onCancel: () => void;
+  } | null>(null);
+
+  // QB customer mapping state (shown before creating a new customer in QB)
+  const [qbCustomerMappingOpen, setQbCustomerMappingOpen] = useState(false);
+  const [qbCustomerMappingContext, setQbCustomerMappingContext] = useState<{
+    customerName: string;
+    onMapped: () => void;
     onCreateNew: () => void;
     onCancel: () => void;
   } | null>(null);
@@ -952,7 +962,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     }
   };
 
-  // Helper to sync with confirmation for new entities
+   // Helper to sync with confirmation for new entities
   const syncWithConfirmation = async (
     recordType: "invoice" | "payment" | "bill" | "bill_payment", 
     recordId: string
@@ -961,7 +971,62 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     const check = await checkQbSyncEntities(recordType, recordId);
     
     if (check.requiresConfirmation && check.pendingEntities.length > 0) {
-      // Show confirmation dialog and wait for user response
+      // Check if any pending entity is a customer - show mapping dialog first
+      const customerEntity = check.pendingEntities.find(e => e.type === "customer");
+      const nonCustomerEntities = check.pendingEntities.filter(e => e.type !== "customer");
+      
+      if (customerEntity) {
+        // Show customer mapping dialog first
+        return new Promise((resolve) => {
+          const proceedWithSync = async () => {
+            // After mapping (or skipping), check if there are still non-customer entities to confirm
+            if (nonCustomerEntities.length > 0) {
+              setPendingQbSync({
+                recordType,
+                recordId,
+                pendingEntities: nonCustomerEntities,
+                onConfirm: async () => {
+                  setQbConfirmDialogOpen(false);
+                  setPendingQbSync(null);
+                  const result = await syncRecordToQuickBooks(recordType, recordId);
+                  resolve(result);
+                },
+                onCancel: () => {
+                  setQbConfirmDialogOpen(false);
+                  setPendingQbSync(null);
+                  resolve({ synced: false, message: "Sync cancelled by user" });
+                },
+              });
+              setQbConfirmDialogOpen(true);
+            } else {
+              const result = await syncRecordToQuickBooks(recordType, recordId);
+              resolve(result);
+            }
+          };
+
+          setQbCustomerMappingContext({
+            customerName: customerEntity.name,
+            onMapped: async () => {
+              setQbCustomerMappingOpen(false);
+              setQbCustomerMappingContext(null);
+              await proceedWithSync();
+            },
+            onCreateNew: async () => {
+              setQbCustomerMappingOpen(false);
+              setQbCustomerMappingContext(null);
+              await proceedWithSync();
+            },
+            onCancel: () => {
+              setQbCustomerMappingOpen(false);
+              setQbCustomerMappingContext(null);
+              resolve({ synced: false, message: "Sync cancelled by user" });
+            },
+          });
+          setQbCustomerMappingOpen(true);
+        });
+      }
+      
+      // No customer entity - show standard confirmation dialog
       return new Promise((resolve) => {
         setPendingQbSync({
           recordType,
@@ -3870,6 +3935,33 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           onCreateNew={qbDuplicateState.onCreateNew}
           onCancel={qbDuplicateState.onCancel}
           isLinking={qbDuplicateLinking}
+        />
+      )}
+
+      {/* QB Customer Mapping Dialog (shown before creating a new customer in QB) */}
+      {qbCustomerMappingContext && (
+        <QBCustomerMappingDialog
+          open={qbCustomerMappingOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              qbCustomerMappingContext.onCancel();
+            }
+          }}
+          projectId={projectId}
+          projectName={projectName || ""}
+          customerName={qbCustomerMappingContext.customerName}
+          projectAddress={projectAddress || null}
+          skipLabel="Create New in QB"
+          onMapped={() => {
+            qbCustomerMappingContext.onMapped();
+          }}
+          onSkipSync={() => {
+            // "Skip" means create new customer in QB (don't map to existing)
+            qbCustomerMappingContext.onCreateNew();
+          }}
+          onCancel={() => {
+            qbCustomerMappingContext.onCancel();
+          }}
         />
       )}
 

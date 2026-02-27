@@ -34,6 +34,8 @@ interface QBCustomerMappingDialogProps {
   onMapped: (customerId: string, customerName: string) => void;
   onSkipSync: () => void;
   onCancel: () => void;
+  /** Label for the skip/secondary button (defaults to "Record Locally Only") */
+  skipLabel?: string;
 }
 
 export function QBCustomerMappingDialog({
@@ -46,6 +48,7 @@ export function QBCustomerMappingDialog({
   onMapped,
   onSkipSync,
   onCancel,
+  skipLabel = "Record Locally Only",
 }: QBCustomerMappingDialogProps) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -216,7 +219,7 @@ export function QBCustomerMappingDialog({
             Cancel
           </Button>
           <Button variant="secondary" onClick={handleSkipSync} disabled={isSubmitting}>
-            Record Locally Only
+            {skipLabel}
           </Button>
           <Button onClick={handleSelect} disabled={!selectedCustomer || isSubmitting}>
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
