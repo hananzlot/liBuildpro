@@ -361,6 +361,21 @@ Deno.serve(async (req) => {
           if (existingInvoice) {
             invoiceId = existingInvoice.id;
             log("info", "Found invoice via invoice number (fallback)", { invoiceId, docNumber: qbInvoice.DocNumber });
+          } else {
+            // Check if a match exists in another company (cross-company collision detection)
+            const { data: otherCompanyMatch } = await supabase
+              .from("project_invoices")
+              .select("id, company_id")
+              .eq("invoice_number", qbInvoice.DocNumber)
+              .neq("company_id", companyId)
+              .maybeSingle();
+            if (otherCompanyMatch) {
+              log("warn", "CROSS-COMPANY COLLISION: invoice_number match found in different company", {
+                docNumber: qbInvoice.DocNumber,
+                otherCompanyId: otherCompanyMatch.company_id,
+                otherInvoiceId: otherCompanyMatch.id,
+              });
+            }
           }
         }
         
