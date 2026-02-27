@@ -1501,7 +1501,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               action: 'UPDATE',
               oldValues: { bill_amount: targetBill.bill_amount, balance: targetBill.balance },
               newValues: { bill_amount: newBillAmount, balance: newBalance, original_bill_amount: originalAmount },
-              description: `Applied ${formatCurrency(offsetAmount)} material offset - reduced bill from ${formatCurrency(targetBill.bill_amount)} to ${formatCurrency(newBillAmount)}`,
+              description: `Applied ${formatCurrency(offsetAmount)} credit offset - reduced bill from ${formatCurrency(targetBill.bill_amount)} to ${formatCurrency(newBillAmount)}`,
             });
           }
         }
@@ -1978,7 +1978,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               tableName: 'project_bills',
               recordId: billToDelete.offset_bill_id,
               action: 'UPDATE',
-              description: `Reversed ${formatCurrency(offsetAmount)} material offset - restored bill from ${formatCurrency(targetBill.bill_amount)} to ${formatCurrency(newBillAmount)}`,
+              description: `Reversed ${formatCurrency(offsetAmount)} credit offset - restored bill from ${formatCurrency(targetBill.bill_amount)} to ${formatCurrency(newBillAmount)}`,
             });
           }
         }
@@ -2170,7 +2170,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const unassignedBillsTotal = unassignedBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
   const unassignedBillsPaid = unassignedBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
 
-  // Calculate offsets for each bill (material/equipment bills that offset subcontractor invoices)
+  // Calculate offsets for each bill (bills that offset/credit other bills)
   const billOffsets = useMemo(() => {
     const offsetMap: Record<string, { offsetBills: Bill[]; totalOffset: number }> = {};
     
@@ -2643,7 +2643,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                             )}
                                             {offsets && offsets.offsetBills.length > 0 && (
                                               <p className="text-[10px] text-amber-600">
-                                                Materials offset applied
+                                                Credit offset applied
                                               </p>
                                             )}
                                           </div>
@@ -4687,24 +4687,21 @@ function BillDialog({
   // Predefined categories
   const predefinedCategories = ["Materials", "Labor", "Permits", "Equipment", "Subcontractor"];
 
-  // Categories that can offset subcontractor bills
-  const offsetEligibleCategories = ["Materials", "Equipment"];
-  const isOffsetEligible = offsetEligibleCategories.includes(formData.category);
+  // Any bill can be applied as an offset/credit against another bill
+  const isOffsetEligible = true;
 
-  // Get subcontractor bills for the selected agreement (for offset dropdown)
-  // Only show subcontractor invoices, never if the new bill vendor matches the subcontractor
-  const subcontractorBillsForOffset = useMemo(() => {
-    if (!formData.agreement_id || !isOffsetEligible) return [];
+  // Get bills for the selected agreement that can be offset (any bill from a different vendor)
+  const billsForOffset = useMemo(() => {
+    if (!formData.agreement_id) return [];
     return allBills.filter(b => 
       b.agreement_id === formData.agreement_id && 
-      b.category === "Subcontractor" && // Must be a subcontractor invoice
-      b.installer_company && // Must have a subcontractor name
+      b.installer_company && // Must have a vendor name
       !b.is_voided &&
       b.id !== bill?.id && // Can't offset itself
-      // Never show if the new bill's vendor is the same as the subcontractor
+      // Never show if the new bill's vendor is the same as the target
       (!formData.installer_company || b.installer_company !== formData.installer_company)
     );
-  }, [allBills, formData.agreement_id, isOffsetEligible, bill?.id, formData.installer_company]);
+  }, [allBills, formData.agreement_id, bill?.id, formData.installer_company]);
 
   // Fetch active subcontractors from subcontractors table scoped by company
   const { companyId } = useCompanyContext();
@@ -4810,12 +4807,12 @@ function BillDialog({
     // For new bills, draft will auto-load from sessionStorage — no reset needed
   }, [open, bill]);
 
-  // Clear offset_bill_id when category changes to non-eligible
+  // Clear offset_bill_id when agreement changes and target bill no longer valid
   useEffect(() => {
-    if (!isOffsetEligible && formData.offset_bill_id) {
+    if (formData.offset_bill_id && !billsForOffset.find(b => b.id === formData.offset_bill_id)) {
       updateFormData({ offset_bill_id: "" });
     }
-  }, [isOffsetEligible, formData.offset_bill_id]);
+  }, [billsForOffset, formData.offset_bill_id]);
 
   const billAmount = parseFloat(formData.bill_amount) || 0;
 
@@ -5029,23 +5026,23 @@ function BillDialog({
             </div>
           </div>
           
-          {/* Offset Subcontractor Bill - only show for Materials/Equipment */}
-          {isOffsetEligible && subcontractorBillsForOffset.length > 0 && (
+          {/* Offset/Credit Against Another Bill */}
+          {isOffsetEligible && billsForOffset.length > 0 && (
             <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
-              <Label className="text-sm font-medium">Apply as Offset to Subcontractor Invoice</Label>
+              <Label className="text-sm font-medium">Apply as Credit Against Another Bill</Label>
               <p className="text-xs text-muted-foreground mb-2">
-                This {formData.category.toLowerCase()} cost will reduce what you owe the selected subcontractor
+                This bill will reduce the balance owed on the selected bill
               </p>
               <Select 
                 value={formData.offset_bill_id} 
                 onValueChange={(v) => updateFormData({ offset_bill_id: v === "__none__" ? "" : v })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select subcontractor invoice to offset..." />
+                  <SelectValue placeholder="Select bill to offset..." />
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-50">
                   <SelectItem value="__none__">No offset (standalone bill)</SelectItem>
-                  {subcontractorBillsForOffset.map((b) => {
+                  {billsForOffset.map((b) => {
                     const displayAmount = b.original_bill_amount ?? b.bill_amount;
                     return (
                       <SelectItem key={b.id} value={b.id}>
@@ -5926,7 +5923,7 @@ function QuickPayDialog({
               {offsetBills.length > 0 && (
                 <div className="mt-3 p-3 rounded-lg border border-blue-200 bg-blue-50/50">
                   <p className="text-xs font-semibold text-blue-700 mb-2">
-                    Material/Equipment Offsets Applied ({formatCurrency(totalOffset)} total)
+                    Credit Offsets Applied ({formatCurrency(totalOffset)} total)
                   </p>
                   <div className="space-y-1.5">
                     {offsetBills.map((offsetBill) => (
@@ -6650,13 +6647,13 @@ function BillPaymentHistoryDialog({
                 </CardContent>
               </Card>
 
-              {/* Material Offset Details */}
+              {/* Credit Offset Details */}
               {offsetBills.length > 0 && (
                 <Card className="border border-blue-200">
                   <CardHeader className="pb-2 pt-3 px-4 bg-blue-50/50 dark:bg-blue-950/20">
                     <CardTitle className="text-sm flex items-center gap-2 text-blue-700 dark:text-blue-400">
                       <Receipt className="h-4 w-4" />
-                      Material/Equipment Offsets Applied ({formatCurrency2(offsetBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0))} total)
+                      Credit Offsets Applied ({formatCurrency2(offsetBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0))} total)
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 pb-3 pt-3 space-y-2">
