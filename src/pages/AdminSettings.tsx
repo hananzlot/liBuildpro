@@ -147,6 +147,8 @@ export default function AdminSettings() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [auditPage, setAuditPage] = useState(0);
   const AUDIT_PAGE_SIZE = 50;
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   
   // Pipeline configuration state - now using UUID-based stages
   interface PipelineStageEdit {
@@ -2295,7 +2297,7 @@ export default function AdminSettings() {
       </div>
 
       {/* Audit Log Detail Sheet */}
-      <Sheet open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
+      <Sheet open={!!selectedLog} onOpenChange={(open) => { if (!open) { setSelectedLog(null); setAiSummary(null); } }}>
         <SheetContent className="w-[500px] sm:w-[600px]">
           <SheetHeader>
             <SheetTitle>Audit Log Details</SheetTitle>
@@ -2329,6 +2331,61 @@ export default function AdminSettings() {
                 <div>
                   <Label className="text-muted-foreground">Record ID</Label>
                   <p className="font-mono text-sm">{selectedLog.record_id}</p>
+                </div>
+
+                {/* AI Summary */}
+                <div className="border border-border rounded-lg p-3 bg-muted/30">
+                  {aiSummary ? (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-semibold">AI Summary</Label>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{aiSummary}</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2 text-xs"
+                        onClick={() => setAiSummary(null)}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={aiSummaryLoading}
+                      onClick={async () => {
+                        setAiSummaryLoading(true);
+                        try {
+                          const { data, error } = await supabase.functions.invoke("summarize-audit-log", {
+                            body: { auditLog: selectedLog },
+                          });
+                          if (error) throw error;
+                          if (data?.error) throw new Error(data.error);
+                          setAiSummary(data.summary);
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Failed to generate summary");
+                        } finally {
+                          setAiSummaryLoading(false);
+                        }
+                      }}
+                    >
+                      {aiSummaryLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                          Summarizing…
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-3 w-3" />
+                          Summarize with AI
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
 
                 {selectedLog.changes && Object.keys(selectedLog.changes).length > 0 && (
