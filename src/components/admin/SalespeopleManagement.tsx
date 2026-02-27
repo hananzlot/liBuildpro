@@ -33,7 +33,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle, Eye, EyeOff, RotateCcw, ChevronUp, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle, Eye, EyeOff, RotateCcw, ChevronUp, ChevronDown, MoreHorizontal, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -175,11 +175,21 @@ export function SalespeopleManagement() {
         .update({ is_active: true })
         .eq('id', id);
       if (error) throw error;
+
+      // Create a fresh portal token for the restored salesperson
+      await supabase
+        .from('salesperson_portal_tokens')
+        .insert({
+          salesperson_id: id,
+          company_id: companyId,
+          created_by: user?.id,
+        });
     },
     onSuccess: () => {
-      toast.success('Salesperson restored');
+      toast.success('Salesperson restored with new portal link');
       queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
       queryClient.invalidateQueries({ queryKey: ['salespeople-archived-count', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['salesperson-portal-tokens', companyId] });
     },
     onError: (error: Error) => {
       toast.error(`Failed to restore: ${error.message}`);
@@ -392,6 +402,12 @@ export function SalespeopleManagement() {
 
   const archiveMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Deactivate all portal tokens for this salesperson
+      await supabase
+        .from('salesperson_portal_tokens')
+        .update({ is_active: false })
+        .eq('salesperson_id', id);
+
       const { error } = await supabase
         .from('salespeople')
         .update({ is_active: false })
@@ -399,8 +415,9 @@ export function SalespeopleManagement() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success('Salesperson archived');
+      toast.success('Salesperson archived – portal link deactivated');
       queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['salesperson-portal-tokens', companyId] });
       setDeleteDialogOpen(false);
       setSalespersonToDelete(null);
     },
@@ -570,6 +587,46 @@ export function SalespeopleManagement() {
       toast.success('Portal link generated and copied to clipboard');
     } catch (error) {
       toast.error(`Failed to generate link: ${(error as Error).message}`);
+    } finally {
+      setGeneratingFor(null);
+    }
+  };
+
+  const regeneratePortalLink = async (salesperson: Salesperson) => {
+    setGeneratingFor(salesperson.id);
+    try {
+      // Deactivate existing tokens
+      await supabase
+        .from('salesperson_portal_tokens')
+        .update({ is_active: false })
+        .eq('salesperson_id', salesperson.id);
+
+      // Create new token
+      const { data, error } = await supabase
+        .from('salesperson_portal_tokens')
+        .insert({
+          salesperson_id: salesperson.id,
+          company_id: companyId,
+          created_by: user?.id,
+        })
+        .select('token')
+        .single();
+
+      if (error) throw error;
+
+      const baseUrl = companyBaseUrl || window.location.origin;
+      const longUrl = `${baseUrl}/salesperson-calendar/${data.token}`;
+      const url = isShortLinksEnabled
+        ? await createSalespersonCalendarShortLink(longUrl, salesperson.name)
+        : longUrl;
+      await navigator.clipboard.writeText(url);
+      setCopiedId(salesperson.id);
+      setTimeout(() => setCopiedId(null), 2000);
+
+      queryClient.invalidateQueries({ queryKey: ['salesperson-portal-tokens', companyId] });
+      toast.success('New portal link generated – old link retired');
+    } catch (error) {
+      toast.error(`Failed to regenerate link: ${(error as Error).message}`);
     } finally {
       setGeneratingFor(null);
     }
@@ -1013,6 +1070,12 @@ export function SalespeopleManagement() {
                                   )}
                                   {hasToken ? 'Copy Portal Link' : 'Generate Portal Link'}
                                 </DropdownMenuItem>
+                                {hasToken && (
+                                  <DropdownMenuItem onClick={() => regeneratePortalLink(person)} disabled={isGenerating}>
+                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                    Regenerate Portal Link
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem onClick={() => handleEdit(person)}>
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Edit
