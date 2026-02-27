@@ -21,8 +21,6 @@ const ADMIN_QUICK_MENU = [
     { title: "General", icon: Settings, tab: "settings" },
     { title: "Emails", icon: Mail, tab: "emails" },
     { title: "Compliance", icon: FileSignature, tab: "compliance" },
-    { title: "Insurance", icon: Shield, tab: "insurance" },
-    { title: "Licenses", icon: Award, tab: "licenses" },
     { title: "Chat", icon: MessageSquare, tab: "chat" },
   ]},
   { label: "Integrations", items: [
