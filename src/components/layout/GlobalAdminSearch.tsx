@@ -82,6 +82,14 @@ interface Estimate {
   created_at: string | null;
 }
 
+interface Agreement {
+  id: string;
+  project_id: string;
+  agreement_number: string | null;
+  agreement_type: string | null;
+  total_price: number | null;
+}
+
 async function fetchAllPages<T>(
   fetchPage: (from: number, to: number) => Promise<T[] | null | undefined>,
   pageSize = 1000
@@ -249,7 +257,23 @@ export function GlobalAdminSearch() {
     staleTime: 60 * 1000,
   });
 
-  // Detect if search query looks like a dollar amount (e.g., "1134.71", "$1,134.71")
+  // Fetch agreements for agreement number search
+  const { data: agreements = [] } = useQuery({
+    queryKey: ["global-search-agreements", queryKeySuffix],
+    queryFn: async () => {
+      let query = supabase
+        .from("project_agreements")
+        .select("id, project_id, agreement_number, agreement_type, total_price");
+      query = applyCompanyFilter(query);
+      const { data, error } = await query.limit(1000);
+      if (error) throw error;
+      return data as Agreement[];
+    },
+    enabled: (!!companyId || (isUnified && companyIds.length > 0)) && isOpen,
+    staleTime: 60 * 1000,
+  });
+
+
   const parsedAmount = useMemo(() => {
     const cleaned = searchQuery.replace(/[$,\s]/g, "");
     const num = parseFloat(cleaned);
@@ -559,6 +583,22 @@ export function GlobalAdminSearch() {
     return map;
   }, [allFinancialMatches]);
 
+  // Build a map of project IDs to their matching agreements
+  const agreementMatchesByProject = useMemo(() => {
+    if (!searchQuery.trim()) return new Map<string, Agreement[]>();
+    const queryLower = searchQuery.toLowerCase().trim();
+    const map = new Map<string, Agreement[]>();
+    for (const agr of agreements) {
+      const agrNum = agr.agreement_number?.toLowerCase() || "";
+      if (agrNum.includes(queryLower)) {
+        const existing = map.get(agr.project_id) || [];
+        existing.push(agr);
+        map.set(agr.project_id, existing);
+      }
+    }
+    return map;
+  }, [searchQuery, agreements]);
+
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return [];
     
@@ -598,8 +638,13 @@ export function GlobalAdminSearch() {
     const financialProjectMatches = (projects as Project[])
       .filter(proj => financialMatchesByProject.has(proj.id) && !textMatchIds.has(proj.id));
 
-    return [...textMatches, ...financialProjectMatches].slice(0, 12);
-  }, [searchQuery, projects, financialMatchesByProject]);
+    // Agreement number matches — add projects not already matched
+    const allMatchIds = new Set([...textMatchIds, ...financialProjectMatches.map(p => p.id)]);
+    const agreementProjectMatches = (projects as Project[])
+      .filter(proj => agreementMatchesByProject.has(proj.id) && !allMatchIds.has(proj.id));
+
+    return [...textMatches, ...financialProjectMatches, ...agreementProjectMatches].slice(0, 12);
+  }, [searchQuery, projects, financialMatchesByProject, agreementMatchesByProject]);
 
   const filteredEstimates = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -831,7 +876,7 @@ export function GlobalAdminSearch() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Name, address, phone, project #, contract #, $ amount, check #..."
+              placeholder="Name, address, phone, project #, agreement #, $ amount, check #..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-9"
@@ -942,6 +987,7 @@ export function GlobalAdminSearch() {
                     <div className="p-2">
                       {filteredProjects.map((proj) => {
                         const finMatches = financialMatchesByProject.get(proj.id);
+                        const agrMatches = agreementMatchesByProject.get(proj.id);
                         return (
                           <div
                             key={proj.id}
@@ -979,6 +1025,24 @@ export function GlobalAdminSearch() {
                                         ({new Date(fm.trx_date).toLocaleDateString()})
                                       </span>
                                     )}
+                                  </div>
+                                ))}
+                                {agrMatches && agrMatches.map((agr, i) => (
+                                  <div
+                                    key={`agr-${i}`}
+                                    className="flex items-center gap-1 mt-1 text-xs cursor-pointer hover:underline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSelectProject(proj);
+                                    }}
+                                  >
+                                    <FileText className="h-3 w-3 text-primary" />
+                                    <span className="font-medium text-primary">
+                                      Agreement #{agr.agreement_number}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      — {agr.agreement_type || 'Agreement'}{agr.total_price ? ` • ${formatCurrencyUtil(agr.total_price)}` : ''}
+                                    </span>
                                   </div>
                                 ))}
                               </div>
