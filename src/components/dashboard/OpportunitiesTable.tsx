@@ -1090,7 +1090,7 @@ export function OpportunitiesTable({
         </div>
 
         {/* Data Table */}
-        <div className="overflow-auto max-h-[calc(100vh-280px)] scrollbar-styled">
+        <div className="overflow-auto max-h-[calc(100vh-280px)] scrollbar-styled [&>div]:!w-full [&>div]:!min-w-full">
           <Table className="w-full table-fixed">
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow className="border-border/40 hover:bg-transparent">
