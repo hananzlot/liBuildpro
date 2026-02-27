@@ -2010,17 +2010,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           </TabsContent>
 
           {/* Documents Tab */}
-          <TabsContent value="documents" className="mt-4">
+          <TabsContent value="documents" className="mt-4 max-w-3xl">
             <DocumentsSection projectId={project.id} />
           </TabsContent>
 
           {/* Photos Tab */}
-          <TabsContent value="photos" className="mt-4">
+          <TabsContent value="photos" className="mt-4 max-w-3xl">
             <PhotosSection projectId={project.id} />
           </TabsContent>
 
           {/* Checklist Tab */}
-          <TabsContent value="checklist" className="space-y-3 mt-4">
+          <TabsContent value="checklist" className="space-y-3 mt-4 max-w-3xl">
             <Card>
               <CardHeader className="py-3 px-4">
                 <div className="flex items-center justify-between">
