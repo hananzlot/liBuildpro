@@ -69,6 +69,7 @@ interface Project {
   project_address: string | null;
   primary_salesperson: string | null;
   cell_phone: string | null;
+  contract_number: string | null;
 }
 
 interface Estimate {
@@ -217,7 +218,7 @@ export function GlobalAdminSearch() {
     queryFn: async () => {
       let query = supabase
         .from("projects")
-        .select("id, project_number, project_name, project_status, customer_first_name, customer_last_name, project_address, primary_salesperson, cell_phone, opportunity_id");
+        .select("id, project_number, project_name, project_status, customer_first_name, customer_last_name, project_address, primary_salesperson, cell_phone, contract_number, opportunity_id");
       query = applyCompanyFilter(query);
       const { data, error } = await query
         .is("deleted_at", null)
@@ -573,6 +574,7 @@ export function GlobalAdminSearch() {
         const address = proj.project_address?.toLowerCase() || "";
         const projectNum = proj.project_number?.toString() || "";
         const salesperson = proj.primary_salesperson?.toLowerCase() || "";
+        const contractNum = proj.contract_number?.toLowerCase() || "";
         const phone = normalizePhone(proj.cell_phone);
 
         let phoneMatch = false;
@@ -586,6 +588,7 @@ export function GlobalAdminSearch() {
           address.includes(queryLower) ||
           projectNum.includes(queryLower) ||
           salesperson.includes(queryLower) ||
+          contractNum.includes(queryLower) ||
           phoneMatch
         );
       });
@@ -828,7 +831,7 @@ export function GlobalAdminSearch() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Name, address, phone, project #, $ amount, check #..."
+              placeholder="Name, address, phone, project #, contract #, $ amount, check #..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-9"
@@ -952,6 +955,7 @@ export function GlobalAdminSearch() {
                                 </div>
                                 <div className="text-xs text-muted-foreground truncate">
                                   {capitalizeName(`${proj.customer_first_name || ''} ${proj.customer_last_name || ''}`.trim())}
+                                  {proj.contract_number && ` • Contract #${proj.contract_number}`}
                                   {proj.primary_salesperson && ` • ${capitalizeName(proj.primary_salesperson)}`}
                                 </div>
                                 {finMatches && finMatches.map((fm, i) => (
