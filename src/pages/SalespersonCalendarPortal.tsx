@@ -425,14 +425,17 @@ export default function SalespersonCalendarPortal() {
           onTouchEnd={handleTouchEnd}
         >
           <Card className={`${isToday(currentDate) ? "border-primary" : ""}`}>
-            <CardContent className="pt-4">
+            <CardContent className={appointments.length === 0 ? "pt-3 pb-3" : "pt-4"}>
               {currentDayAppointments.length === 0 ? (
-                <div className="text-center py-12">
-                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">No appointments scheduled</p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Total: {appointments.length} | Today: {currentDayKey}
-                  </p>
+                <div className={`text-center ${appointments.length === 0 ? "py-2" : "py-12"}`}>
+                  {appointments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No appointments scheduled</p>
+                  ) : (
+                    <>
+                      <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-muted-foreground">No appointments today</p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">
