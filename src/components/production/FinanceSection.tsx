@@ -355,6 +355,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [editingPhase, setEditingPhase] = useState<PaymentPhase | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [historyBill, setHistoryBill] = useState<Bill | null>(null);
+  const [offsetDetailsBill, setOffsetDetailsBill] = useState<{ bill: Bill; offsets: { offsetBills: Bill[]; totalOffset: number } } | null>(null);
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
@@ -2666,9 +2667,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                               </p>
                                             )}
                                             {offsets && offsets.offsetBills.length > 0 && (
-                                              <p className="text-[10px] text-amber-600">
-                                                Credit offset applied
-                                              </p>
+                                              <button
+                                                type="button"
+                                                className="text-[10px] text-amber-600 hover:text-amber-800 hover:underline cursor-pointer bg-transparent border-none p-0"
+                                                onClick={(e) => { e.stopPropagation(); setOffsetDetailsBill({ bill, offsets }); }}
+                                              >
+                                                Credit offset applied ({offsets.offsetBills.length})
+                                              </button>
                                             )}
                                           </div>
                                         </TableCell>
@@ -3717,6 +3722,60 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           return { synced: result.synced };
         }}
       />
+
+      {/* Credit Offset Details Dialog */}
+      <Dialog open={!!offsetDetailsBill} onOpenChange={(open) => { if (!open) setOffsetDetailsBill(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Credit Offsets Applied</DialogTitle>
+            {offsetDetailsBill && (
+              <p className="text-sm text-muted-foreground">
+                {offsetDetailsBill.bill.installer_company} — {offsetDetailsBill.bill.bill_ref || "No ref"}
+              </p>
+            )}
+          </DialogHeader>
+          {offsetDetailsBill && (
+            <div className="space-y-3">
+              {offsetDetailsBill.bill.original_bill_amount != null && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Original Amount</span>
+                  <span className="font-medium">{formatCurrency(offsetDetailsBill.bill.original_bill_amount)}</span>
+                </div>
+              )}
+              <div className="border rounded-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Credit From</TableHead>
+                      <TableHead className="text-xs">Ref</TableHead>
+                      <TableHead className="text-xs text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {offsetDetailsBill.offsets.offsetBills.map((ob) => (
+                      <TableRow key={ob.id}>
+                        <TableCell className="text-xs">{ob.installer_company || "-"}</TableCell>
+                        <TableCell className="text-xs">{ob.bill_ref || "-"}</TableCell>
+                        <TableCell className="text-xs text-right font-medium text-amber-600">
+                          -{formatCurrency(ob.bill_amount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex justify-between text-sm pt-1 border-t">
+                <span className="text-muted-foreground">Total Credits</span>
+                <span className="font-medium text-amber-600">-{formatCurrency(offsetDetailsBill.offsets.totalOffset)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Current Bill Amount</span>
+                <span className="font-semibold">{formatCurrency(offsetDetailsBill.bill.bill_amount)}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* QB Duplicate Review Dialog */}
       {qbDuplicateState && (
