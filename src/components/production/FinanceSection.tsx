@@ -3671,6 +3671,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         open={historyDialogOpen}
         onOpenChange={setHistoryDialogOpen}
         bill={historyBill}
+        offsetBills={historyBill ? billOffsets[historyBill.id]?.offsetBills || [] : []}
         projectId={projectId}
         companyId={companyId}
         isAdmin={isAdmin}
@@ -6090,6 +6091,7 @@ function BillPaymentHistoryDialog({
   open,
   onOpenChange,
   bill,
+  offsetBills = [],
   projectId,
   companyId,
   isAdmin,
@@ -6100,6 +6102,7 @@ function BillPaymentHistoryDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bill: Bill | null;
+  offsetBills?: Bill[];
   projectId: string;
   companyId: string | null;
   isAdmin: boolean;
@@ -6646,6 +6649,43 @@ function BillPaymentHistoryDialog({
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Material Offset Details */}
+              {offsetBills.length > 0 && (
+                <Card className="border border-blue-200">
+                  <CardHeader className="pb-2 pt-3 px-4 bg-blue-50/50 dark:bg-blue-950/20">
+                    <CardTitle className="text-sm flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                      <Receipt className="h-4 w-4" />
+                      Material/Equipment Offsets Applied ({formatCurrency2(offsetBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0))} total)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-3 pt-3 space-y-2">
+                    {offsetBills.map((offsetBill) => (
+                      <div key={offsetBill.id} className="text-sm border-l-2 border-blue-300 pl-3 py-1">
+                        <div className="flex justify-between items-start">
+                          <span className="font-medium text-foreground">{offsetBill.installer_company || "Unknown vendor"}</span>
+                          <span className="font-semibold text-blue-700 dark:text-blue-400">{formatCurrency2(offsetBill.bill_amount)}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {offsetBill.created_at && formatDate(offsetBill.created_at)}
+                          {offsetBill.bill_ref && ` • Ref: ${offsetBill.bill_ref}`}
+                          {offsetBill.category && ` • ${offsetBill.category}`}
+                        </div>
+                        {offsetBill.memo && (
+                          <p className="text-xs text-muted-foreground italic mt-0.5 line-clamp-2">
+                            {offsetBill.memo}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    {bill?.original_bill_amount != null && bill.original_bill_amount !== bill.bill_amount && (
+                      <div className="text-xs text-blue-600 dark:text-blue-400 pt-2 border-t border-blue-200">
+                        Original bill reduced from {formatCurrency2(bill.original_bill_amount)} to {formatCurrency2(bill.bill_amount)}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Memo */}
               {bill?.memo && (
