@@ -1072,32 +1072,41 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
         </SheetHeader>
 
         <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="mt-3">
-          <TabsList className="grid w-full grid-cols-6 bg-muted/80 border border-border/50">
-            <TabsTrigger value="overview" className="text-xs">
-              <Building2 className="h-3 w-3 mr-1" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="finance" className="text-xs">
-              <DollarSign className="h-3 w-3 mr-1" />
-              Finance
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="text-xs">
-              <FolderOpen className="h-3 w-3 mr-1" />
-              Docs
-            </TabsTrigger>
-            <TabsTrigger value="photos" className="text-xs">
-              <Camera className="h-3 w-3 mr-1" />
-              Photos
-            </TabsTrigger>
-            <TabsTrigger value="checklist" className="text-xs">
-              <CheckSquare className="h-3 w-3 mr-1" />
-              Checklist
-            </TabsTrigger>
-            <TabsTrigger value="feedback" className="text-xs">
-              <Star className="h-3 w-3 mr-1" />
-              Feedback
-            </TabsTrigger>
-          </TabsList>
+          <div className="w-full overflow-x-auto">
+            <div className="inline-flex items-center rounded-xl bg-muted/80 border border-border/50 p-1" role="tablist">
+              {[
+                { value: "overview", label: "Overview", icon: Building2 },
+                { value: "finance", label: "Finance", icon: DollarSign },
+                { value: "documents", label: "Docs", icon: FolderOpen },
+                { value: "photos", label: "Photos", icon: Camera },
+                { value: "checklist", label: "Checklist", icon: CheckSquare },
+                { value: "feedback", label: "Feedback", icon: Star },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.value}
+                    role="tab"
+                    aria-selected={activeTab === tab.value}
+                    tabIndex={activeTab === tab.value ? 0 : -1}
+                    className={cn(
+                      "relative inline-flex items-center whitespace-nowrap px-4 py-1.5 text-xs rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                      activeTab === tab.value
+                        ? "bg-background shadow-sm text-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => handleActiveTabChange(tab.value)}
+                  >
+                    <Icon className="h-3 w-3 mr-1" />
+                    {tab.label}
+                    {activeTab === tab.value && (
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-0.5 rounded-full bg-primary" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4 mt-4">
