@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SubcontractorEditDialog } from "./SubcontractorEditDialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -64,6 +65,7 @@ export function WarningsDialog({
   const navigate = useNavigate();
   const { companyId } = useCompanyContext();
   const [open, setOpen] = useState(false);
+  const [editVendorId, setEditVendorId] = useState<string | null>(null);
 
   // Fetch subcontractor warnings
   const { data: subcontractors = [] } = useQuery({
@@ -165,6 +167,7 @@ export function WarningsDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="relative">
@@ -402,7 +405,7 @@ export function WarningsDialog({
                       className="flex items-center justify-between w-full py-2 px-3 rounded-md bg-background/80 border border-border/50 hover:bg-accent/50 transition-colors cursor-pointer text-left"
                       onClick={() => {
                         setOpen(false);
-                        navigate(`/production?view=subcontractors&editId=${vendor.id}`);
+                        setEditVendorId(vendor.id);
                       }}
                     >
                       <div>
@@ -440,5 +443,12 @@ export function WarningsDialog({
         </ScrollArea>
       </DialogContent>
     </Dialog>
+
+      <SubcontractorEditDialog
+        subcontractorId={editVendorId}
+        open={!!editVendorId}
+        onOpenChange={(isOpen) => { if (!isOpen) setEditVendorId(null); }}
+      />
+    </>
   );
 }
