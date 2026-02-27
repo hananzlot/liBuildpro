@@ -3268,10 +3268,10 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                 <TableHeader>
                                   <TableRow>
                                     <TableHead className="text-xs w-8"></TableHead>
-                                    <TableHead className="text-xs">Progress Payment</TableHead>
-                                    <TableHead className="text-xs">Due Date</TableHead>
+                                    <TableHead className="text-xs text-left">Progress Payment</TableHead>
+                                    <TableHead className="text-xs text-left">Due Date</TableHead>
                                     <TableHead className="text-xs text-right">Amount</TableHead>
-                                    <TableHead className="text-xs">Status</TableHead>
+                                    <TableHead className="text-xs text-left">Status</TableHead>
                                     <TableHead className="text-xs w-20"></TableHead>
                                   </TableRow>
                                 </TableHeader>
