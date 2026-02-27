@@ -30,7 +30,9 @@ import {
   Plus,
   Loader2,
   AlertTriangle,
+  MoreHorizontal,
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1133,24 +1135,26 @@ export function OpportunitiesTable({
                     <span>Rep / Dates</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-muted-foreground w-[16%]">
+                <TableHead className="text-muted-foreground w-[14%]">
                   <div className="flex items-end gap-1">
                     <StickyNote className="h-3.5 w-3.5 flex-shrink-0" />
                     <span>Note</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-muted-foreground w-[16%]">
+                <TableHead className="text-muted-foreground w-[14%]">
                   <div className="flex items-end gap-1">
                     <ListChecks className="h-3.5 w-3.5 flex-shrink-0" />
                     <span>Task</span>
                   </div>
+                </TableHead>
+                <TableHead className="text-muted-foreground w-[4%]">
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-border/30">
               {paginatedOpportunities.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No opportunities found
                   </TableCell>
                 </TableRow>
@@ -1322,9 +1326,9 @@ export function OpportunitiesTable({
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">
-                        <div className="flex items-center gap-0.5 min-w-0">
+                        <div className="flex flex-col min-w-0">
                           {latestNote ? (
-                            <div className="flex flex-col flex-1 min-w-0">
+                            <>
                               <span className="text-[10px]">
                                 {latestNote.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" }) : "-"}
                               </span>
@@ -1333,28 +1337,19 @@ export function OpportunitiesTable({
                                   {notePreview.slice(0, 20)}...
                                 </span>
                               )}
-                            </div>
+                            </>
                           ) : (
-                            <span className="flex-1">-</span>
+                            <span>-</span>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 flex-shrink-0 hover:bg-primary/10"
-                            onClick={(e) => openQuickNoteDialog(e, opp.contact_uuid || opp.contact_id, displayName)}
-                            title="Add note"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
                         </div>
                       </TableCell>
                       <TableCell className={cn(
                         "text-xs",
                         overdueTask ? "text-destructive" : "text-muted-foreground"
                       )}>
-                        <div className="flex items-center gap-0.5 min-w-0">
+                        <div className="flex flex-col min-w-0">
                           {latestTask ? (
-                            <div className="flex flex-col flex-1 min-w-0">
+                            <>
                               <span className={cn("text-[10px]", overdueTask && "font-medium")}>
                                 {latestTask.due_date 
                                   ? new Date(latestTask.due_date).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" }) 
@@ -1363,20 +1358,30 @@ export function OpportunitiesTable({
                               <span className="text-[10px] text-muted-foreground/70 truncate" title={latestTask.title}>
                                 {latestTask.title.slice(0, 15)}...
                               </span>
-                            </div>
+                            </>
                           ) : (
-                            <span className="flex-1">-</span>
+                            <span>-</span>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 flex-shrink-0 hover:bg-primary/10"
-                            onClick={(e) => openQuickTaskDialog(e, opp.contact_uuid || opp.contact_id, displayName)}
-                            title="Add task"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-xs p-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                              <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={(e) => openQuickNoteDialog(e, opp.contact_uuid || opp.contact_id, displayName)}>
+                              <StickyNote className="h-3.5 w-3.5 mr-2" />
+                              Add Note
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => openQuickTaskDialog(e, opp.contact_uuid || opp.contact_id, displayName)}>
+                              <ListChecks className="h-3.5 w-3.5 mr-2" />
+                              Add Task
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );
