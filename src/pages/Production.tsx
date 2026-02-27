@@ -31,7 +31,14 @@ import {
   ChevronRight,
   Merge,
   Columns3,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1670,81 +1677,79 @@ export default function Production() {
         <div className="py-2 px-4 lg:px-6 space-y-3">
           {activeView === 'projects' && (
             <div className="space-y-4">
-              {/* KPI Summary + Action Buttons on same row */}
+              {/* Page Header: Title + KPI stats + Actions */}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-lg font-semibold text-foreground tracking-tight">Operations</h2>
+                  <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
+                    <span><span className="font-medium text-foreground">{totalProjects}</span> Projects</span>
+                    <span className="text-border">•</span>
+                    <span><span className="font-medium text-foreground">{inProgressProjects}</span> In Progress</span>
+                    <span className="text-border">•</span>
+                    <span>Sold <span className="font-medium text-foreground">{formatCurrency(filteredFinancialsTotal)}</span></span>
+                    {isAdmin && (
+                      <>
+                        <span className="text-border">•</span>
+                        <span>Profit <span className={`font-medium ${(profitKPIs.expectedProfit + profitKPIs.realizedProfit) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {formatCurrency(profitKPIs.expectedProfit + profitKPIs.realizedProfit)}
+                        </span></span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <WarningsDialog
+                    warningCounts={warningCounts}
+                    bookkeepingWarningCounts={bookkeepingWarningCounts}
+                    totalWarnings={totalWarnings}
+                    totalBookkeepingWarnings={totalBookkeepingWarnings}
+                    onOpenWarningSheet={handleOpenWarningSheet}
+                    onOpenPendingDeposits={() => setPendingDepositsSheetOpen(true)}
+                  />
+                  <Button size="sm" onClick={() => openTab('/project/new', 'Project-New')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Project
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {isAdmin && (
+                        <DropdownMenuItem
+                          onClick={() => createTestProjectMutation.mutate()}
+                          disabled={createTestProjectMutation.isPending}
+                        >
+                          <FlaskConical className="h-4 w-4 mr-2" />
+                          Add Test Project
+                        </DropdownMenuItem>
+                      )}
+                      {isAdmin && (
+                        <DropdownMenuItem onClick={() => setMergeProjectsDialogOpen(true)}>
+                          <Merge className="h-4 w-4 mr-2" />
+                          Merge Projects
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => setImportDialogOpen(true)}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Import
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+
+              {/* Expandable KPI Details */}
               <Collapsible defaultOpen={false}>
-                <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center">
                   <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground p-0 h-auto group">
-                      <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-90" />
-                      <span>KPI Summary</span>
-                      <div className="flex items-center gap-3 ml-2 text-sm group-data-[state=open]:hidden">
-                        <span className="flex items-center gap-1">
-                          <span className="text-muted-foreground">Projects:</span>
-                          <span className="font-semibold text-foreground">{totalProjects}</span>
-                        </span>
-                        <span className="text-border">•</span>
-                        <span className="flex items-center gap-1">
-                          <span className="text-muted-foreground">In Progress:</span>
-                          <span className="font-semibold text-amber-500">{inProgressProjects}</span>
-                        </span>
-                        <span className="text-border">•</span>
-                        <span className="flex items-center gap-1">
-                          <span className="text-muted-foreground">Sold:</span>
-                          <span className="font-semibold text-foreground">{formatCurrency(filteredFinancialsTotal)}</span>
-                        </span>
-                        {isAdmin && (
-                          <>
-                            <span className="text-border">•</span>
-                            <span className="flex items-center gap-1">
-                              <span className="text-muted-foreground">Profit:</span>
-                              <span className={`font-semibold ${(profitKPIs.expectedProfit + profitKPIs.realizedProfit) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                                {formatCurrency(profitKPIs.expectedProfit + profitKPIs.realizedProfit)}
-                              </span>
-                            </span>
-                          </>
-                        )}
-                      </div>
+                    <Button variant="ghost" size="sm" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 h-7 group">
+                      <ChevronRight className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+                      <span>KPI Details</span>
                     </Button>
                   </CollapsibleTrigger>
-                  <div className="flex items-center gap-2">
-                    {isAdmin && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => createTestProjectMutation.mutate()}
-                        disabled={createTestProjectMutation.isPending}
-                      >
-                        {createTestProjectMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <FlaskConical className="h-4 w-4 mr-2" />
-                        )}
-                        Add Test Project
-                      </Button>
-                    )}
-                    <WarningsDialog
-                      warningCounts={warningCounts}
-                      bookkeepingWarningCounts={bookkeepingWarningCounts}
-                      totalWarnings={totalWarnings}
-                      totalBookkeepingWarnings={totalBookkeepingWarnings}
-                      onOpenWarningSheet={handleOpenWarningSheet}
-                      onOpenPendingDeposits={() => setPendingDepositsSheetOpen(true)}
-                    />
-                    {isAdmin && (
-                      <Button variant="outline" size="sm" onClick={() => setMergeProjectsDialogOpen(true)}>
-                        <Merge className="h-4 w-4 mr-2" />
-                        Merge
-                      </Button>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Import
-                    </Button>
-                    <Button size="sm" onClick={() => openTab('/project/new', 'Project-New')}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Project
-                    </Button>
-                  </div>
                 </div>
                 <CollapsibleContent className="pt-3 space-y-3">
                   <AdminKPIFilters
@@ -1890,37 +1895,36 @@ export default function Production() {
               )}
 
           {/* Projects Filters */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex-shrink-0">
-                <h3 className="text-sm font-semibold text-foreground">Projects</h3>
-                <p className="text-xs text-muted-foreground">
-                  {sortedAndFilteredProjects.length} project{sortedAndFilteredProjects.length !== 1 ? "s" : ""} found
+          <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-muted-foreground whitespace-nowrap">
+                  {sortedAndFilteredProjects.length} project{sortedAndFilteredProjects.length !== 1 ? "s" : ""}
                 </p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
                 {isAdmin && (
                   <Button
-                    variant={showArchived ? "secondary" : "outline"}
+                    variant={showArchived ? "secondary" : "ghost"}
                     size="sm"
                     onClick={() => setShowArchived(!showArchived)}
-                    className="gap-2"
+                    className="h-8 gap-1.5 text-xs"
                   >
-                    <Archive className="h-4 w-4" />
-                    {showArchived ? "Hide Archived" : "Show Archived"}
+                    <Archive className="h-3.5 w-3.5" />
+                    {showArchived ? "Hide Archived" : "Archived"}
                     {archivedProjects.length > 0 && (
-                      <Badge variant="secondary" className="ml-1">
+                      <Badge variant="secondary" className="ml-0.5 h-5 min-w-5 px-1.5 text-[10px]">
                         {archivedProjects.length}
                       </Badge>
                     )}
                   </Button>
                 )}
+              </div>
+              <div className="flex items-center gap-2">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-56 h-9"
+                    className="pl-9 w-48 h-8 text-xs"
                   />
                 </div>
                 <MultiSelectFilter
@@ -1929,7 +1933,7 @@ export default function Production() {
                   onChange={setSelectedStatuses}
                   placeholder="Status"
                   icon={<Filter className="h-3.5 w-3.5" />}
-                  className="w-[160px]"
+                  className="w-[140px]"
                 />
                 <Button
                   variant={showAlternatingColors ? "secondary" : "ghost"}
