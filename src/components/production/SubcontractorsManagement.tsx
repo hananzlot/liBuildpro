@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -101,6 +101,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
   const queryClient = useQueryClient();
   const { user, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -112,7 +113,8 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
   const [selectedDocument, setSelectedDocument] = useState<{ url: string; name: string } | null>(null);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [pendingEditId, setPendingEditId] = useState<string | null>(searchParams.get('editId'));
+  const editIdParam = searchParams.get('editId');
+  const openedFromWarningRef = useRef(false);
 
   // Auto-open the add dialog if requested (from bill flow)
   useEffect(() => {
@@ -197,17 +199,17 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
 
   // Auto-open edit dialog when navigated with editId param
   useEffect(() => {
-    if (pendingEditId && subcontractors.length > 0) {
-      const sub = subcontractors.find(s => s.id === pendingEditId);
+    if (editIdParam && subcontractors.length > 0) {
+      const sub = subcontractors.find(s => s.id === editIdParam);
       if (sub) {
+        openedFromWarningRef.current = true;
         setEditingSubcontractor(sub);
         setDialogOpen(true);
       }
-      setPendingEditId(null);
       searchParams.delete('editId');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [pendingEditId, subcontractors]);
+  }, [editIdParam, subcontractors]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -332,6 +334,9 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       toast.success(editingSubcontractor ? "Subcontractor updated" : "Subcontractor added");
       queryClient.invalidateQueries({ queryKey: ["subcontractors", companyId] });
       queryClient.invalidateQueries({ queryKey: ["active-subcontractors", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["subcontractors-active", companyId] });
+      
+      // openedFromWarningRef stays set — onOpenChange handler will navigate back
       setDialogOpen(false);
       setEditingSubcontractor(null);
       
@@ -684,7 +689,13 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open && openedFromWarningRef.current) {
+          openedFromWarningRef.current = false;
+          navigate('/production?view=projects');
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
