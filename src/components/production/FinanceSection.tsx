@@ -79,6 +79,7 @@ import { VendorMappingDialog } from "./VendorMappingDialog";
 import { SalespersonVendorMappingDialog } from "./SalespersonVendorMappingDialog";
 import { QBDuplicateReviewDialog, type QBDuplicateCandidate } from "./analytics/QBDuplicateReviewDialog";
 import { InvoicePdfDialog } from "./InvoicePdfDialog";
+import { CommissionInvoiceDialog } from "./CommissionInvoiceDialog";
 import { InvoiceConfirmDialog } from "./InvoiceConfirmDialog";
 import { usePersistedDialog } from "@/hooks/usePersistedDialog";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
@@ -3436,6 +3437,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             totalBillsPaid={totalBillsPaid}
             totalPaymentsReceived={totalPaymentsReceived}
             salespeople={salespeople}
+            projectName={projectName}
+            projectAddress={projectAddress}
           />
         </TabsContent>
       </Tabs>
@@ -7139,6 +7142,8 @@ function CommissionTab({
   totalBillsPaid,
   totalPaymentsReceived,
   salespeople,
+  projectName,
+  projectAddress,
 }: {
   projectId: string;
   totalContracts: number;
@@ -7147,6 +7152,8 @@ function CommissionTab({
   totalBillsPaid: number;
   totalPaymentsReceived: number;
   salespeople: SalespersonData[];
+  projectName?: string | null;
+  projectAddress?: string | null;
 }) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -7160,6 +7167,7 @@ function CommissionTab({
     id: string;
     name: string;
   } | null>(null);
+  const [invoiceDialogSalesperson, setInvoiceDialogSalesperson] = useState<any | null>(null);
 
   // Fetch commission payments
   const { data: commissionPayments = [], isLoading: loadingPayments } = useQuery({
@@ -7562,7 +7570,26 @@ function CommissionTab({
                       {formatCurrencyWithDecimals(sp.paid)}
                     </TableCell>
                     <TableCell className={cn("text-xs text-right font-medium", (sp.earnedToDate - sp.paid) > 0 ? "text-amber-600" : "text-emerald-600")}>
-                      {formatCurrencyWithDecimals(sp.earnedToDate - sp.paid)}
+                      <span className="inline-flex items-center gap-1">
+                        {formatCurrencyWithDecimals(sp.earnedToDate - sp.paid)}
+                        {(sp.earnedToDate - sp.paid) > 0 && (
+                          <button
+                            onClick={() => setInvoiceDialogSalesperson({
+                              salespersonName: sp.name || "",
+                              commissionPct: sp.commissionPct,
+                              commissionAmount: sp.commissionAmount,
+                              earnedToDate: sp.earnedToDate,
+                              paid: sp.paid,
+                              balanceToDate: sp.earnedToDate - sp.paid,
+                              balance: sp.balance,
+                            })}
+                            className="inline-flex items-center rounded bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20 transition-colors"
+                            title="Generate commission invoice"
+                          >
+                            <FileText className="h-3 w-3" />
+                          </button>
+                        )}
+                      </span>
                     </TableCell>
                     <TableCell className={cn("text-xs text-right font-medium", sp.balance > 0 ? "text-amber-600" : "text-emerald-600")}>
                       {formatCurrencyWithDecimals(sp.balance)}
@@ -7719,6 +7746,19 @@ function CommissionTab({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* Commission Invoice Dialog */}
+      <CommissionInvoiceDialog
+        open={!!invoiceDialogSalesperson}
+        onOpenChange={(open) => !open && setInvoiceDialogSalesperson(null)}
+        salesperson={invoiceDialogSalesperson}
+        projectName={projectName}
+        projectAddress={projectAddress}
+        totalContracts={totalContracts}
+        totalPaymentsReceived={totalPaymentsReceived}
+        totalBillsPaid={totalBillsPaid}
+        leadCostPercent={leadCostPercent}
+        commissionSplitPct={commissionSplitPct}
+      />
     </div>
   );
 }
