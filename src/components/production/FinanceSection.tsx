@@ -2194,7 +2194,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   };
 
   const financeContent = (
-    <div className="space-y-4 max-w-6xl mx-auto overflow-auto h-full">
+    <div className="space-y-4 max-w-6xl overflow-auto h-full">
 
       {/* Sub-tabs for Agreements, Phases, Invoices, Payments, Bills, Commission */}
       <Tabs value={activeSubTab} onValueChange={handleSubTabChange}>
