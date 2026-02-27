@@ -1,10 +1,22 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, Download, X, Mail, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
@@ -62,6 +74,7 @@ export function InvoicePdfDialog({
 }: InvoicePdfDialogProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const { company } = useAuth();
+  const [emailConfirmOpen, setEmailConfirmOpen] = useState(false);
 
   if (!invoice) return null;
 
@@ -207,7 +220,7 @@ export function InvoicePdfDialog({
               <Download className="h-3.5 w-3.5" />
               {onSave ? "Download & Save" : "Download"}
             </Button>
-            <Button variant="default" size="sm" className="text-xs gap-1.5" onClick={handleEmailToCustomer}>
+            <Button variant="default" size="sm" className="text-xs gap-1.5" onClick={() => setEmailConfirmOpen(true)}>
               <Mail className="h-3.5 w-3.5" />
               {onSave ? "Email & Save" : "Email to Customer"}
             </Button>
@@ -383,6 +396,27 @@ export function InvoicePdfDialog({
           </div>
         </div>
       </DialogContent>
+
+      {/* Email Confirmation Dialog */}
+      <AlertDialog open={emailConfirmOpen} onOpenChange={setEmailConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Email Invoice to Customer</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will open your email client with Invoice #{invoice.invoice_number} details pre-filled
+              {customerEmail ? ` to ${customerEmail}` : ""}.
+              {onSave && " The invoice will also be saved."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setEmailConfirmOpen(false); handleEmailToCustomer(); }}>
+              <Mail className="h-4 w-4 mr-2" />
+              Send Email
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
