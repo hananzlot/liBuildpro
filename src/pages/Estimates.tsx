@@ -323,6 +323,24 @@ export default function Estimates() {
     [proposalEstimates, now]
   );
 
+  // Archive stale projects on page load
+  useEffect(() => {
+    if (!companyId) return;
+    supabase.rpc('archive_stale_projects', { p_company_id: companyId })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Failed to archive stale projects:', error);
+          return;
+        }
+        const result = data as Record<string, number> | null;
+        if (result && (result.old_estimates_archived > 0 || result.expired_proposals_archived > 0)) {
+          console.log('Archived stale projects:', result);
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+          queryClient.invalidateQueries({ queryKey: ["production"] });
+        }
+      });
+  }, [companyId, queryClient]);
+
   // Calculate totals for each tab
   const draftTotal = recentDraftEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
   const proposalTotal = liveProposalEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
