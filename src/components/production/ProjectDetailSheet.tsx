@@ -1072,7 +1072,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
         </SheetHeader>
 
         <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="mt-3">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-6 bg-muted/80 border border-border/50">
             <TabsTrigger value="overview" className="text-xs">
               <Building2 className="h-3 w-3 mr-1" />
               Overview
