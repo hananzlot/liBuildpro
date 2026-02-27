@@ -324,8 +324,8 @@ export default function Estimates() {
   );
 
   // Calculate totals for each tab
-  const draftTotal = draftEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
-  const proposalTotal = proposalEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
+  const draftTotal = recentDraftEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
+  const proposalTotal = liveProposalEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
   const contractTotal = contractEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
   const declinedTotal = declinedEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
 
@@ -737,14 +737,14 @@ export default function Estimates() {
             <TabsTrigger value="list" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 text-xs sm:text-sm py-2">
               <div className="flex items-center gap-1">
                 <Calculator className="h-3.5 w-3.5 hidden sm:inline-block" />
-                <span>Estimates ({draftEstimates.length})</span>
+                <span>Estimates ({recentDraftEstimates.length})</span>
               </div>
               <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">{formatCurrency(draftTotal)}</span>
             </TabsTrigger>
             <TabsTrigger value="proposals" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 text-xs sm:text-sm py-2">
               <div className="flex items-center gap-1">
                 <Send className="h-3.5 w-3.5 hidden sm:inline-block" />
-                <span>Proposals ({proposalEstimates.length})</span>
+                <span>Proposals ({liveProposalEstimates.length})</span>
               </div>
               <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">{formatCurrency(proposalTotal)}</span>
             </TabsTrigger>
