@@ -1095,8 +1095,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       });
 
       if (error || !data?.duplicates?.length) {
-        // No duplicates found or error checking — proceed with normal sync
-        return syncRecordToQuickBooks(recordType, recordId);
+        // No duplicates found or error checking — proceed with customer/vendor confirmation flow
+        return syncWithConfirmation(recordType, recordId);
       }
 
       // Duplicates found — show review dialog
@@ -1159,7 +1159,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           onCreateNew: async () => {
             setQbDuplicateDialogOpen(false);
             setQbDuplicateState(null);
-            const result = await syncRecordToQuickBooks(recordType, recordId);
+            const result = await syncWithConfirmation(recordType, recordId);
             resolve(result);
           },
           onCancel: () => {
@@ -1172,7 +1172,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       });
     } catch (err) {
       console.error("Duplicate check failed, proceeding with sync:", err);
-      return syncRecordToQuickBooks(recordType, recordId);
+      return syncWithConfirmation(recordType, recordId);
     }
   };
 
