@@ -5192,6 +5192,13 @@ function BillDialog({
                 value={formData.installer_company} 
                 onValueChange={(value) => {
                   if (value === "__add_new__") {
+                    // Flush draft to sessionStorage immediately before closing
+                    try {
+                      sessionStorage.setItem(
+                        `draft:bill-dialog:${bill?.id || projectId}`,
+                        JSON.stringify(formData)
+                      );
+                    } catch {}
                     onOpenChange(false);
                     onAddSubcontractor?.();
                   } else {
