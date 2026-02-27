@@ -406,10 +406,11 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
             .eq('estimate_id', selectedEstimateId)
             .order('sort_order');
 
-          if (paymentSchedule && paymentSchedule.length > 0) {
+          if (paymentSchedule && paymentSchedule.length > 0 && agreementData?.id) {
+            // Only create phases if agreement was created successfully (prevents orphans)
             const paymentPhases = paymentSchedule.map((phase, index) => ({
               project_id: projectId,
-              agreement_id: agreementData?.id,
+              agreement_id: agreementData.id,
               phase_name: phase.phase_name || `Phase ${index + 1}`,
               description: phase.description || null,
               due_date: phase.due_date || null,

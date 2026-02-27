@@ -448,11 +448,11 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         .eq('estimate_id', estimate.id)
         .order('sort_order');
 
-      if (paymentSchedule && paymentSchedule.length > 0) {
-        // Create payment phases from estimate payment schedule
+      if (paymentSchedule && paymentSchedule.length > 0 && agreementData?.id) {
+        // Create payment phases from estimate payment schedule (only if agreement was created successfully)
         const paymentPhases = paymentSchedule.map((phase, index) => ({
           project_id: projectId,
-          agreement_id: agreementData?.id,
+          agreement_id: agreementData.id,
           phase_name: phase.phase_name || `Phase ${index + 1}`,
           description: phase.description || null,
           due_date: phase.due_date || null,
