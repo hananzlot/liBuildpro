@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -187,17 +189,22 @@ export function LicenseCertificates() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Award className="h-5 w-5" />
-          Licenses &amp; Certificates
-        </CardTitle>
-        <CardDescription>
-          Upload your GC license and up to 5 additional license or certificate files. These will appear on customer proposals.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Collapsible defaultOpen={false}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardTitle className="flex items-center gap-2">
+              <Award className="h-5 w-5" />
+              Licenses &amp; Certificates
+              <ChevronDown className="h-4 w-4 ml-auto transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+            </CardTitle>
+            <CardDescription>
+              Upload your GC license and up to 5 additional license or certificate files. These will appear on customer proposals.
+            </CardDescription>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
         {documents.map((doc) => (
           <div
             key={doc.id}
@@ -297,6 +304,8 @@ export function LicenseCertificates() {
           </p>
         )}
       </CardContent>
+      </CollapsibleContent>
     </Card>
+    </Collapsible>
   );
 }

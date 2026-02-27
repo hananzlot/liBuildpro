@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -222,17 +224,22 @@ export function InsuranceDocuments() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Shield className="h-5 w-5" />
-          Insurance Documents
-        </CardTitle>
-        <CardDescription>
-          Upload insurance certificates for your company. General Liability and Workers Comp are the defaults — you can add up to {MAX_TOTAL_DOCS} total.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Collapsible defaultOpen={false}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Insurance Documents
+              <ChevronDown className="h-4 w-4 ml-auto transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+            </CardTitle>
+            <CardDescription>
+              Upload insurance certificates for your company. General Liability and Workers Comp are the defaults — you can add up to {MAX_TOTAL_DOCS} total.
+            </CardDescription>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
         {documents.map((doc) => (
           <div
             key={doc.id}
@@ -341,6 +348,8 @@ export function InsuranceDocuments() {
           </p>
         )}
       </CardContent>
+      </CollapsibleContent>
     </Card>
+    </Collapsible>
   );
 }
