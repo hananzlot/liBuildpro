@@ -1109,7 +1109,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           </div>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4 mt-4">
+          <TabsContent value="overview" className="space-y-4 mt-4 max-w-3xl">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
