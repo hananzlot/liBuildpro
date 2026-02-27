@@ -744,42 +744,13 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                     }
                   }}
                   placeholder="Select trades..."
+                  onAddNew={isSuperAdmin ? (value) => {
+                    if (!tradesData.includes(value)) {
+                      addTradeMutation.mutate(value);
+                    }
+                  } : undefined}
+                  addNewLabel="Add new trade..."
                 />
-                {isSuperAdmin && (
-                  <div className="flex gap-2 mt-2">
-                    <Input
-                      placeholder="Add new trade..."
-                      id="new-trade-input"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const input = e.target as HTMLInputElement;
-                          const value = input.value.trim();
-                          if (value && !tradesData.includes(value)) {
-                            addTradeMutation.mutate(value);
-                            input.value = '';
-                          }
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const input = document.getElementById('new-trade-input') as HTMLInputElement;
-                        const value = input?.value?.trim();
-                        if (value && !tradesData.includes(value)) {
-                          addTradeMutation.mutate(value);
-                          input.value = '';
-                        }
-                      }}
-                      disabled={addTradeMutation.isPending}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
               </div>
             )}
 
