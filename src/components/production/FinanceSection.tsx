@@ -646,6 +646,26 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     },
   });
 
+  // Fetch subcontractor contact names mapped by company_name
+  const { data: subcontractorContactMap = {} } = useQuery({
+    queryKey: ["subcontractor-contacts", companyId],
+    queryFn: async () => {
+      if (!companyId) return {};
+      const { data, error } = await supabase
+        .from("subcontractors")
+        .select("company_name, contact_name")
+        .eq("company_id", companyId);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data || []).forEach((s) => {
+        if (s.contact_name) map[s.company_name] = s.contact_name;
+      });
+      return map;
+    },
+    enabled: !!companyId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Auto-switch to correct bills sub-tab when highlight IDs are set
   useEffect(() => {
     if (highlightPaymentId && bills.length > 0) {
@@ -2741,7 +2761,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                               <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left">
                                 <div className="flex items-center gap-2">
                                   <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [&[data-state=open]]:rotate-0 rotate-[-90deg]" />
-                                  <span className="text-sm font-medium">{company}</span>
+                                  <span className="text-sm font-medium">{company}{subcontractorContactMap[company] ? ` (${subcontractorContactMap[company]})` : ''}</span>
                                   <Badge variant="secondary" className="text-[10px]">{companyBills.length}</Badge>
                                 </div>
                                 <div className="flex items-center gap-4 text-xs">
