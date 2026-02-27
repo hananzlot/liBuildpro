@@ -847,7 +847,14 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const getPhasePaymentStatus = (phaseId: string) => {
     const phasePayments = activePayments.filter(p => p.payment_phase_id === phaseId && p.payment_status === "Received");
     const totalReceivedForPhase = phasePayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
-    return { payments: phasePayments, totalReceived: totalReceivedForPhase };
+    // Get the latest payment date (projected_received_date or created_at)
+    const latestPaymentDate = phasePayments.reduce<string | null>((latest, p) => {
+      const d = (p as any).projected_received_date || (p as any).created_at;
+      if (!d) return latest;
+      if (!latest) return d;
+      return d > latest ? d : latest;
+    }, null);
+    return { payments: phasePayments, totalReceived: totalReceivedForPhase, latestPaymentDate };
   };
 
   // Calculate phases total by contract
@@ -3346,7 +3353,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                               variant="outline" 
                                               className={isFullyPaid ? "bg-emerald-500/10 text-emerald-500" : paymentStatus.totalReceived > 0 ? "bg-amber-500/10 text-amber-500" : "bg-destructive/10 text-destructive"}
                                             >
-                                              {isFullyPaid ? "Paid" : paymentStatus.totalReceived > 0 ? `Paid: ${formatCurrency(paymentStatus.totalReceived)}` : "Unpaid"}
+                                              {isFullyPaid 
+                                                ? `Paid${paymentStatus.latestPaymentDate ? ` ${new Date(paymentStatus.latestPaymentDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}` : ''}` 
+                                                : paymentStatus.totalReceived > 0 
+                                                  ? `Paid: ${formatCurrency(paymentStatus.totalReceived)}${paymentStatus.latestPaymentDate ? ` (${new Date(paymentStatus.latestPaymentDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })})` : ''}` 
+                                                  : "Unpaid"}
                                             </Badge>
                                             )}
                                           </div>
