@@ -80,6 +80,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FileUpload } from "./FileUpload";
+import { QuickAddSubcontractorDialog } from "./QuickAddSubcontractorDialog";
 import { PdfViewerDialog } from "./PdfViewerDialog";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { VendorMappingDialog } from "./VendorMappingDialog";
@@ -107,7 +108,7 @@ interface FinanceSectionProps {
   commissionSplitPct: number;
   salespeople: SalespersonData[];
   onUpdateProject: (updates: Record<string, unknown>) => void;
-  onNavigateToSubcontractors?: () => void;
+  onNavigateToSubcontractors?: () => void; // kept for backward compat but no longer used by BillDialog
   autoOpenBillDialog?: boolean;
   /** Auto-open a specific dialog when the component mounts (invoice, payment, bill) */
   autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | null;
@@ -3682,7 +3683,6 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         projectId={projectId}
         agreements={agreements}
         allBills={bills}
-        onAddSubcontractor={onNavigateToSubcontractors}
       />
 
       {/* Agreement Dialog */}
@@ -4959,7 +4959,6 @@ function BillDialog({
   projectId,
   agreements,
   allBills,
-  onAddSubcontractor,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -4969,7 +4968,6 @@ function BillDialog({
   projectId: string;
   agreements: Agreement[];
   allBills: Bill[];
-  onAddSubcontractor?: () => void;
 }) {
   const initialFormData = {
     installer_company: "",
@@ -4991,6 +4989,7 @@ function BillDialog({
   const [categorySearch, setCategorySearch] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [vendorMappingDialogOpen, setVendorMappingDialogOpen] = useState(false);
+  const [quickAddSubOpen, setQuickAddSubOpen] = useState(false);
   const [pendingBillData, setPendingBillData] = useState<Partial<Bill> | null>(null);
 
   // Predefined categories
@@ -5192,15 +5191,7 @@ function BillDialog({
                 value={formData.installer_company} 
                 onValueChange={(value) => {
                   if (value === "__add_new__") {
-                    // Flush draft to sessionStorage immediately before closing
-                    try {
-                      sessionStorage.setItem(
-                        `draft:bill-dialog:${bill?.id || projectId}`,
-                        JSON.stringify(formData)
-                      );
-                    } catch {}
-                    onOpenChange(false);
-                    onAddSubcontractor?.();
+                    setQuickAddSubOpen(true);
                   } else {
                     updateFormData({ installer_company: value });
                   }
@@ -5419,6 +5410,14 @@ function BillDialog({
         onMappingComplete={handleMappingComplete}
       />
     )}
+
+    <QuickAddSubcontractorDialog
+      open={quickAddSubOpen}
+      onOpenChange={setQuickAddSubOpen}
+      onAdded={(companyName) => {
+        updateFormData({ installer_company: companyName });
+      }}
+    />
     </>
   );
 }
