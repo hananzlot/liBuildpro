@@ -2199,7 +2199,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           </TabsContent>
 
           {/* Feedback Tab */}
-          <TabsContent value="feedback" className="space-y-3 mt-4">
+          <TabsContent value="feedback" className="space-y-3 mt-4 max-w-3xl">
             {/* Portal Chat Messages - First */}
             <Card>
               <CardHeader className="py-3 px-4">
