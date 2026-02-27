@@ -1448,6 +1448,23 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         if (error) throw error;
         savedRecordId = editingBill.id;
       } else {
+        // Deduplication guard: check if an identical bill was just created (within last 30 seconds)
+        if (bill.bill_ref && bill.installer_company) {
+          const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+          const { data: existingDupe } = await supabase
+            .from("project_bills")
+            .select("id")
+            .eq("project_id", projectId)
+            .eq("bill_ref", bill.bill_ref)
+            .eq("installer_company", bill.installer_company)
+            .eq("bill_amount", bill.bill_amount || 0)
+            .gte("created_at", thirtySecondsAgo)
+            .limit(1);
+          if (existingDupe && existingDupe.length > 0) {
+            throw new Error("This bill was already saved. Duplicate prevented.");
+          }
+        }
+
         // New bill starts with 0 paid and full balance
         const { data: newBill, error } = await supabase
           .from("project_bills")
@@ -1571,6 +1588,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   // Handler to check QB before saving bill - shows confirmation dialog if new vendor needed
   const handleBillSaveWithQbCheck = async (billData: Partial<Bill>) => {
+    // Prevent double-submit: if mutation is already in-flight, ignore
+    if (saveBillMutation.isPending) return;
+
     // For new bills with a vendor, check if vendor exists in QB first
     if (!editingBill?.id && billData.installer_company) {
       const check = await checkVendorBeforeSave(billData.installer_company);
@@ -3933,8 +3953,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 Cancel
               </AlertDialogCancel>
             <AlertDialogAction onClick={() => {
-              // Confirm - proceed with save
-              if (pendingBillSave) {
+              // Confirm - proceed with save (guard against double-click)
+              if (pendingBillSave && !saveBillMutation.isPending) {
                 saveBillMutation.mutate(pendingBillSave.bill);
                 setPendingBillSave(null);
                 setQbConfirmDialogOpen(false);
