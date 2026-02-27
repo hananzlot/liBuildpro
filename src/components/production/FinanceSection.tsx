@@ -2198,26 +2198,35 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
       {/* Sub-tabs for Agreements, Phases, Invoices, Payments, Bills, Commission */}
       <Tabs value={activeSubTab} onValueChange={handleSubTabChange}>
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="agreements" className="text-xs">
-            Contracts
-          </TabsTrigger>
-          <TabsTrigger value="phases" className="text-xs">
-            Progress Payments
-          </TabsTrigger>
-          <TabsTrigger value="invoices" className="text-xs">
-            Invoices
-          </TabsTrigger>
-          <TabsTrigger value="bills" className="text-xs">
-            Bills
-          </TabsTrigger>
-          <TabsTrigger value="statements" className="text-xs">
-            Financial Statements
-          </TabsTrigger>
-          <TabsTrigger value="commission" className="text-xs">
-            Commission
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto">
+          <div className="inline-flex items-center rounded-xl bg-muted p-1" role="tablist">
+            {[
+              { value: "agreements", label: "Contracts" },
+              { value: "phases", label: "Progress Payments" },
+              { value: "invoices", label: "Invoices" },
+              { value: "bills", label: "Bills" },
+              { value: "statements", label: "Financial Statements" },
+              { value: "commission", label: "Commission" },
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                role="tab"
+                aria-selected={activeSubTab === tab.value}
+                aria-current={activeSubTab === tab.value ? "true" : undefined}
+                tabIndex={activeSubTab === tab.value ? 0 : -1}
+                className={cn(
+                  "whitespace-nowrap px-4 py-1.5 text-xs rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                  activeSubTab === tab.value
+                    ? "bg-background shadow-sm text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => handleSubTabChange(tab.value)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Statements Tab - Project P&L and Balance Sheet */}
         <TabsContent value="statements" className="mt-4">
