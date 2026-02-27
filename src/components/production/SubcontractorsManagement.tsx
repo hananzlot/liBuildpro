@@ -299,7 +299,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       if (editingSubcontractor) {
         const { error } = await supabase
           .from("subcontractors")
-          .update(payload)
+          .update({ ...payload, needs_compliance_review: false })
           .eq("id", editingSubcontractor.id);
         if (error) throw error;
       } else {

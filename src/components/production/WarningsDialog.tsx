@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useNavigate } from "react-router-dom";
 import { differenceInDays, parseISO, format } from "date-fns";
-import { AlertTriangle, FileWarning, Shield, ShieldAlert, ExternalLink } from "lucide-react";
+import { AlertTriangle, FileWarning, Shield, ShieldAlert, ExternalLink, UserCheck } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +43,7 @@ interface Subcontractor {
   do_not_require_license: boolean;
   do_not_require_insurance: boolean;
   subcontractor_type: string;
+  needs_compliance_review: boolean;
 }
 
 interface ExpirationWarning {
@@ -71,7 +72,7 @@ export function WarningsDialog({
       if (!companyId) return [];
       const { data, error } = await supabase
         .from("subcontractors")
-        .select("id, company_name, license_expiration_date, insurance_expiration_date, is_active, do_not_require_license, do_not_require_insurance, subcontractor_type")
+        .select("id, company_name, license_expiration_date, insurance_expiration_date, is_active, do_not_require_license, do_not_require_insurance, subcontractor_type, needs_compliance_review")
         .eq("is_active", true)
         .eq("company_id", companyId);
       if (error) throw error;
@@ -120,8 +121,12 @@ export function WarningsDialog({
   const subExpiringCount = subWarnings.filter(w => w.daysUntilExpiry >= 0 && w.daysUntilExpiry <= 30).length;
   const totalSubWarnings = subWarnings.length;
 
+  // Vendors needing compliance review (created via Quick Add)
+  const unreviewedVendors = subcontractors.filter(s => s.needs_compliance_review);
+  const totalUnreviewed = unreviewedVendors.length;
+
   // Grand total of all warnings
-  const grandTotal = totalWarnings + totalBookkeepingWarnings + totalSubWarnings;
+  const grandTotal = totalWarnings + totalBookkeepingWarnings + totalSubWarnings + totalUnreviewed;
 
   if (grandTotal === 0) {
     return null;
@@ -373,7 +378,57 @@ export function WarningsDialog({
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Manage Subcontractors
                   </Button>
+            {/* Unreviewed Vendor Compliance */}
+            {totalUnreviewed > 0 && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                <h4 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                  <UserCheck className="h-4 w-4 text-destructive" />
+                  Vendors Pending Compliance Review
+                  <Badge variant="destructive" className="ml-auto">
+                    {totalUnreviewed}
+                  </Badge>
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  These vendors were added via Quick Add and have not been reviewed for license & insurance compliance.
+                </p>
+                <div className="space-y-2">
+                  {unreviewedVendors.slice(0, 5).map((vendor) => (
+                    <div
+                      key={vendor.id}
+                      className="flex items-center justify-between py-2 px-3 rounded-md bg-background/80 border border-border/50"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{vendor.company_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {vendor.subcontractor_type} · Needs review
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 text-xs">
+                        Unreviewed
+                      </Badge>
+                    </div>
+                  ))}
+                  {unreviewedVendors.length > 5 && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      +{unreviewedVendors.length - 5} more vendor{unreviewedVendors.length - 5 > 1 ? 's' : ''}
+                    </p>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => {
+                      setOpen(false);
+                      navigate('/production?view=subcontractors');
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Review in Vendors & Subs
+                  </Button>
                 </div>
+              </div>
+            )}
+          </div>
               </div>
             )}
           </div>

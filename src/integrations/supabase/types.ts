@@ -6462,6 +6462,7 @@ export type Database = {
           license_document_url: string | null
           license_expiration_date: string | null
           license_number: string | null
+          needs_compliance_review: boolean
           notes: string | null
           phone: string | null
           subcontractor_type: string
@@ -6485,6 +6486,7 @@ export type Database = {
           license_document_url?: string | null
           license_expiration_date?: string | null
           license_number?: string | null
+          needs_compliance_review?: boolean
           notes?: string | null
           phone?: string | null
           subcontractor_type?: string
@@ -6508,6 +6510,7 @@ export type Database = {
           license_document_url?: string | null
           license_expiration_date?: string | null
           license_number?: string | null
+          needs_compliance_review?: boolean
           notes?: string | null
           phone?: string | null
           subcontractor_type?: string
