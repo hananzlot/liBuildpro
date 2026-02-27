@@ -4143,6 +4143,7 @@ function InvoiceDialog({
   );
   const [amountError, setAmountError] = useState("");
   const [phaseError, setPhaseError] = useState("");
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { companyId: dialogCompanyId } = useCompanyContext();
 
   // Query to get the next invoice number for new invoices
@@ -4278,19 +4279,37 @@ function InvoiceDialog({
     onOpenChange(value);
   };
 
+
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(formData.amount) || 0;
-    
-    // Validate payment phase is selected
+    const errors: Record<string, string> = {};
+
+    if (!formData.invoice_number.trim()) {
+      errors.invoice_number = "Invoice number is required";
+    }
+    if (!formData.invoice_date) {
+      errors.invoice_date = "Invoice date is required";
+    }
+    if (!formData.agreement_id) {
+      errors.agreement_id = "Agreement is required";
+    }
     if (!formData.payment_phase_id) {
-      setPhaseError("Payment phase is required");
-      // If phases aren't loaded properly, refresh the page
-      if (paymentPhases.length === 0) {
-        window.location.reload();
-      }
+      errors.payment_phase_id = "Payment phase is required";
+    }
+    if (!formData.amount || amount <= 0) {
+      errors.amount = "Amount is required";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      if (errors.payment_phase_id) setPhaseError(errors.payment_phase_id);
+      if (errors.amount) setAmountError(errors.amount);
       return;
     }
+
+    setFormErrors({});
     
     // Validate amount doesn't exceed uninvoiced balance for the phase
     if (formData.payment_phase_id && amount > uninvoicedBalance) {
@@ -4299,13 +4318,13 @@ function InvoiceDialog({
     }
     
     onSave({
-      invoice_number: formData.invoice_number || null,
-      invoice_date: formData.invoice_date || null,
+      invoice_number: formData.invoice_number,
+      invoice_date: formData.invoice_date,
       amount,
       total_expected: amount,
       payments_received: paymentsReceivedForInvoice,
       open_balance: amount - paymentsReceivedForInvoice,
-      agreement_id: formData.agreement_id || null,
+      agreement_id: formData.agreement_id,
       payment_phase_id: formData.payment_phase_id,
     });
   };
@@ -4323,23 +4342,34 @@ function InvoiceDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Invoice Number</Label>
-              <Input value={formData.invoice_number} onChange={(e) => updateFormData({ invoice_number: e.target.value })} />
+              <Label>Invoice Number <span className="text-destructive">*</span></Label>
+              <Input 
+                value={formData.invoice_number} 
+                onChange={(e) => { updateFormData({ invoice_number: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_number: "" })); }}
+                aria-invalid={!!formErrors.invoice_number}
+              />
+              {formErrors.invoice_number && <p className="text-xs text-destructive mt-1">{formErrors.invoice_number}</p>}
             </div>
             <div>
-              <Label>Invoice Date</Label>
-              <Input type="date" value={formData.invoice_date} onChange={(e) => updateFormData({ invoice_date: e.target.value })} />
+              <Label>Invoice Date <span className="text-destructive">*</span></Label>
+              <Input 
+                type="date" 
+                value={formData.invoice_date} 
+                onChange={(e) => { updateFormData({ invoice_date: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_date: "" })); }}
+                aria-invalid={!!formErrors.invoice_date}
+              />
+              {formErrors.invoice_date && <p className="text-xs text-destructive mt-1">{formErrors.invoice_date}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Agreement</Label>
+              <Label>Agreement <span className="text-destructive">*</span></Label>
               <Select 
                 value={formData.agreement_id} 
-                onValueChange={handleAgreementChange}
+                onValueChange={(v) => { handleAgreementChange(v); setFormErrors(prev => ({ ...prev, agreement_id: "" })); }}
                 disabled={!!prePopulatedData}
               >
-                <SelectTrigger className={prePopulatedData ? "opacity-70" : ""}>
+                <SelectTrigger className={prePopulatedData ? "opacity-70" : ""} aria-invalid={!!formErrors.agreement_id}>
                   <SelectValue placeholder="Select agreement" />
                 </SelectTrigger>
                 <SelectContent>
@@ -4350,12 +4380,13 @@ function InvoiceDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {formErrors.agreement_id && <p className="text-xs text-destructive mt-1">{formErrors.agreement_id}</p>}
             </div>
             <div>
-              <Label>Payment Phase</Label>
+              <Label>Payment Phase <span className="text-destructive">*</span></Label>
               <Select 
                 value={formData.payment_phase_id} 
-                onValueChange={handlePhaseChange}
+                onValueChange={(v) => { handlePhaseChange(v); setFormErrors(prev => ({ ...prev, payment_phase_id: "" })); setPhaseError(""); }}
                 disabled={!formData.agreement_id || !!prePopulatedData}
               >
                 <SelectTrigger className={prePopulatedData ? "opacity-70" : ""}>
@@ -4380,8 +4411,8 @@ function InvoiceDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Amount ($)</Label>
-              <Input 
+              <Label>Amount ($) <span className="text-destructive">*</span></Label>
+              <Input
                 type="text"
                 inputMode="decimal"
                 value={formData.amount} 
