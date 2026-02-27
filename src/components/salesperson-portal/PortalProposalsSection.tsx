@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,8 @@ interface Estimate {
   sent_at: string | null;
   signed_at: string | null;
   created_at: string;
+  expiration_date: string | null;
+  opportunity_uuid: string | null;
   portal_token?: string | null;
 }
 
@@ -80,7 +82,7 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
 
       const { data: estimatesData, error } = await supabase
         .from("estimates")
-        .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, sent_at, signed_at, created_at")
+        .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, sent_at, signed_at, created_at, expiration_date, opportunity_uuid")
         .eq("company_id", companyId)
         .in("status", ["sent", "viewed", "accepted", "declined"])
         .or(orConditions.join(","))
@@ -114,13 +116,43 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
     refetchOnWindowFocus: true, // Refetch when user returns to tab
   });
 
+  // Fetch lost opportunity UUIDs
+  const { data: lostOpportunityIds = [] } = useQuery({
+    queryKey: ["portal-lost-opportunities-proposals", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data } = await supabase
+        .from("opportunities")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("status", "lost");
+      return (data || []).map(o => o.id);
+    },
+    enabled: !!companyId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Filter out lost opportunity items
+  const nonLostEstimates = useMemo(() => {
+    return estimates.filter(e => !e.opportunity_uuid || !lostOpportunityIds.includes(e.opportunity_uuid));
+  }, [estimates, lostOpportunityIds]);
+
+  // Expired proposals: past expiration_date
+  const isExpired = useCallback((e: Estimate) => {
+    if (!e.expiration_date) return false;
+    return new Date(e.expiration_date) < new Date();
+  }, []);
+
+  const [showExpired, setShowExpired] = useState(false);
+  const expiredProposals = useMemo(() => nonLostEstimates.filter(e => e.status !== "declined" && isExpired(e)), [nonLostEstimates, isExpired]);
+
   // Filter out declined by default; show them only when toggled on
   const visibleEstimates = useMemo(() => {
-    if (showDeclined) return estimates.filter(e => e.status === "declined");
-    return estimates.filter(e => e.status !== "declined");
-  }, [estimates, showDeclined]);
+    if (showDeclined) return nonLostEstimates.filter(e => e.status === "declined");
+    return nonLostEstimates.filter(e => e.status !== "declined" && !isExpired(e));
+  }, [nonLostEstimates, showDeclined, isExpired]);
 
-  const declinedCount = useMemo(() => estimates.filter(e => e.status === "declined").length, [estimates]);
+  const declinedCount = useMemo(() => nonLostEstimates.filter(e => e.status === "declined").length, [nonLostEstimates]);
 
   const handleOpenProposalPreview = (estimate: Estimate) => {
     // Open the preview dialog
