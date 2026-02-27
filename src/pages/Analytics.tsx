@@ -8,6 +8,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 
+const REPORT_TITLES: Record<string, { title: string; description: string }> = {
+  project_summary: { title: "Projects Summary", description: "Comprehensive project financial overview" },
+  profitability: { title: "Profitability", description: "Revenue, costs, and margin analysis" },
+  cashflow: { title: "Cash Flow", description: "Cash inflows, outflows, and net position" },
+  receivables: { title: "Receivables", description: "Outstanding invoices and collection tracking" },
+  bank: { title: "Bank Activity", description: "Bank transactions and account balances" },
+  commission: { title: "Commission", description: "Sales commission tracking and payouts" },
+};
+
 export default function Analytics() {
   const navigate = useNavigate();
   const { openTab } = useAppTabs();
@@ -36,6 +45,9 @@ export default function Analytics() {
   // Use route param as initial tab, fall back to search param, then first visible report
   const initialTab = routeTab || searchParams.get('tab') || undefined;
   const initialKPI = searchParams.get('kpi') || undefined;
+
+  // Resolve page title from active route tab
+  const reportInfo = REPORT_TITLES[routeTab || ''] || { title: "Analytics", description: "Financial analytics, profitability, and cash flow insights" };
 
   // Redirect to first visible report if on base /analytics route
   useEffect(() => {
@@ -86,9 +98,9 @@ export default function Analytics() {
       <div className="flex-1 p-4 md:p-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="shrink-0">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">Analytics</h1>
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">{reportInfo.title}</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Financial analytics, profitability, and cash flow insights
+              {reportInfo.description}
             </p>
           </div>
           <div ref={filtersRef} className="flex-1 flex justify-end" />
