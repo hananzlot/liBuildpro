@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,7 +30,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Loader2, Save, ArrowLeft, ChevronsUpDown, Check, UserPlus, X } from "lucide-react";
+import { Loader2, Save, ArrowLeft, ChevronsUpDown, Check, UserPlus, X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmailSyncDialog } from "@/components/shared/EmailSyncDialog";
 
@@ -51,7 +51,7 @@ export function ProjectEditorContent({
   onClose, 
   onSuccess 
 }: ProjectEditorContentProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const isEditing = !!projectId;
@@ -88,6 +88,87 @@ export function ProjectEditorContent({
     },
     enabled: !!companyId,
     staleTime: 60 * 1000,
+  });
+
+  // Fetch salespeople for company
+  const { data: salespeople = [] } = useQuery({
+    queryKey: ["salespeople-for-project-editor", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("salespeople")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
+  // Fetch lead sources for company
+  const { data: leadSources = [] } = useQuery({
+    queryKey: ["lead-sources-for-project-editor", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("lead_sources")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
+  const [showAddSalesperson, setShowAddSalesperson] = useState(false);
+  const [newSalesperson, setNewSalesperson] = useState("");
+  const [showAddLeadSource, setShowAddLeadSource] = useState(false);
+  const [newLeadSource, setNewLeadSource] = useState("");
+
+  const addSalespersonMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!companyId) throw new Error("No company");
+      const { data, error } = await supabase
+        .from("salespeople")
+        .insert({ name, company_id: companyId, is_active: true })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["salespeople-for-project-editor", companyId] });
+      updateField("primary_salesperson", data.name);
+      setNewSalesperson("");
+      setShowAddSalesperson(false);
+      toast.success("Salesperson added");
+    },
+    onError: () => toast.error("Failed to add salesperson"),
+  });
+
+  const addLeadSourceMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!companyId) throw new Error("No company");
+      const { data, error } = await supabase
+        .from("lead_sources")
+        .insert({ name, company_id: companyId, is_active: true })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["lead-sources-for-project-editor", companyId] });
+      updateField("lead_source", data.name);
+      setNewLeadSource("");
+      setShowAddLeadSource(false);
+      toast.success("Lead source added");
+    },
+    onError: () => toast.error("Failed to add lead source"),
   });
   
   const [contactSearchOpen, setContactSearchOpen] = useState(false);
@@ -569,21 +650,47 @@ export function ProjectEditorContent({
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="primary_salesperson">Primary Salesperson</Label>
-                <Input
-                  id="primary_salesperson"
-                  value={formData.primary_salesperson}
-                  onChange={(e) => updateField("primary_salesperson", e.target.value)}
-                  placeholder="Salesperson name"
-                />
+                {showAddSalesperson ? (
+                  <div className="flex gap-2">
+                    <Input value={newSalesperson} onChange={(e) => setNewSalesperson(e.target.value)} placeholder="New salesperson name" autoFocus />
+                    <Button type="button" size="sm" onClick={() => { if (newSalesperson.trim()) addSalespersonMutation.mutate(newSalesperson.trim()); }}>Add</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setShowAddSalesperson(false)}>Cancel</Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Select value={formData.primary_salesperson} onValueChange={(value) => updateField("primary_salesperson", value)}>
+                      <SelectTrigger className="flex-1"><SelectValue placeholder="Select salesperson" /></SelectTrigger>
+                      <SelectContent>
+                        {salespeople.map((sp) => (<SelectItem key={sp.id} value={sp.name}>{sp.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                    {isAdmin && (
+                      <Button type="button" size="icon" variant="outline" onClick={() => setShowAddSalesperson(true)} title="Add new salesperson"><Plus className="h-4 w-4" /></Button>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <Label htmlFor="lead_source">Lead Source</Label>
-                <Input
-                  id="lead_source"
-                  value={formData.lead_source}
-                  onChange={(e) => updateField("lead_source", e.target.value)}
-                  placeholder="e.g., Referral, Web"
-                />
+                {showAddLeadSource ? (
+                  <div className="flex gap-2">
+                    <Input value={newLeadSource} onChange={(e) => setNewLeadSource(e.target.value)} placeholder="New lead source name" autoFocus />
+                    <Button type="button" size="sm" onClick={() => { if (newLeadSource.trim()) addLeadSourceMutation.mutate(newLeadSource.trim()); }}>Add</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setShowAddLeadSource(false)}>Cancel</Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Select value={formData.lead_source} onValueChange={(value) => updateField("lead_source", value)}>
+                      <SelectTrigger className="flex-1"><SelectValue placeholder="Select lead source" /></SelectTrigger>
+                      <SelectContent>
+                        {leadSources.map((ls) => (<SelectItem key={ls.id} value={ls.name}>{ls.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                    {isAdmin && (
+                      <Button type="button" size="icon" variant="outline" onClick={() => setShowAddLeadSource(true)} title="Add new lead source"><Plus className="h-4 w-4" /></Button>
+                    )}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
