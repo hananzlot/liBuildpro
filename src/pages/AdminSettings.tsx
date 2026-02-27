@@ -961,456 +961,467 @@ export default function AdminSettings() {
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-8">
 
-                {/* Company Logo */}
-                <LogoUpload />
+                {/* ━━━ Company Profile ━━━ */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pt-2">
+                    <Building className="h-5 w-5 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold">Company Profile</h3>
+                  </div>
+                  <Separator className="mb-2" />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                    <LogoUpload />
+                    <Collapsible defaultOpen={false} className="group">
+                      <Card>
+                        <CollapsibleTrigger asChild>
+                          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                            <CardTitle className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                <Building className="h-5 w-5" />
+                                Company Settings
+                              </span>
+                              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                            </CardTitle>
+                            <CardDescription>
+                              General company information used in emails and documents
+                            </CardDescription>
+                          </CardHeader>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <CardContent className="space-y-4 pt-0">
+                            {companySettings?.map(renderSettingField)}
+                          </CardContent>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
+                  </div>
+                  <SocialMediaLinks />
+                </div>
 
-                {/* Company Settings - Collapsible */}
-                <Collapsible defaultOpen={false} className="group">
-                  <Card>
-                    <CollapsibleTrigger asChild>
-                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                        <CardTitle className="flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <Building className="h-5 w-5" />
-                            Company Settings
-                          </span>
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                        </CardTitle>
-                        <CardDescription>
-                          General company information used in emails and documents
-                        </CardDescription>
-                      </CardHeader>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <CardContent className="space-y-4 pt-0">
-                        {companySettings?.map(renderSettingField)}
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
-
-                {/* Social Media Links - Collapsible */}
-                <SocialMediaLinks />
-
-                {/* Portal Settings - Collapsible */}
-                <Collapsible defaultOpen={false} className="group">
-                  <Card>
-                    <CollapsibleTrigger asChild>
-                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                        <CardTitle className="flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <Settings className="h-5 w-5" />
-                            Customer Portal Settings
-                          </span>
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                        </CardTitle>
-                        <CardDescription>
-                          Configure settings for the customer portal experience. The App Base URL is used for all portal links in emails (e.g., your custom domain).
-                        </CardDescription>
-                      </CardHeader>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <CardContent className="space-y-4 pt-0">
-                        {portalSettings?.map(renderSettingField)}
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
-
-                {/* Estimate Settings - Collapsible */}
-                <Collapsible defaultOpen={false} className="group">
-                  <Card>
-                    <CollapsibleTrigger asChild>
-                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                        <CardTitle className="flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <FileText className="h-5 w-5" />
-                            Estimate Settings
-                          </span>
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                        </CardTitle>
-                        <CardDescription>
-                          Default settings for new estimates
-                        </CardDescription>
-                      </CardHeader>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <CardContent className="space-y-4 pt-0">
-                        {estimateSettings?.map((setting) => 
-                          setting.setting_key === "default_terms_and_conditions" 
-                            ? renderTextareaSettingField(setting)
-                            : renderSettingField(setting)
-                        )}
-                        
-                        {/* Add deposit settings if they don't exist yet */}
-                        {!estimateSettings?.some(s => s.setting_key === "default_deposit_percent") && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="default_deposit_percent">Default Deposit Percent</Label>
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  updateSetting.mutate({ key: "default_deposit_percent", value: editedSettings["default_deposit_percent"] || "10" });
-                                }}
-                                disabled={updateSetting.isPending}
-                              >
-                                <Save className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                            </div>
-                            <Input
-                              id="default_deposit_percent"
-                              type="text"
-                              inputMode="decimal"
-                              value={editedSettings["default_deposit_percent"] ?? "10"}
-                              onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) handleChange("default_deposit_percent", val); }}
-                              placeholder="10"
-                            />
-                            <p className="text-xs text-muted-foreground">Default deposit percentage for new estimates</p>
-                          </div>
-                        )}
-                        
-                        {!estimateSettings?.some(s => s.setting_key === "default_deposit_max_amount") && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="default_deposit_max_amount">Default Deposit Max Amount ($)</Label>
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  updateSetting.mutate({ key: "default_deposit_max_amount", value: editedSettings["default_deposit_max_amount"] || "1000" });
-                                }}
-                                disabled={updateSetting.isPending}
-                              >
-                                <Save className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                            </div>
-                            <Input
-                              id="default_deposit_max_amount"
-                              type="text"
-                              inputMode="decimal"
-                              value={editedSettings["default_deposit_max_amount"] ?? "1000"}
-                              onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) handleChange("default_deposit_max_amount", val); }}
-                              placeholder="1000"
-                            />
-                            <p className="text-xs text-muted-foreground">Maximum deposit amount (deposit = min of percent or this cap)</p>
-                          </div>
-                        )}
-                        
-                        {/* Estimate Expiration Days */}
-                        {!estimateSettings?.some(s => s.setting_key === "estimate_expiration_days") && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="estimate_expiration_days">Estimate Expiration (Days)</Label>
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  updateSetting.mutate({ key: "estimate_expiration_days", value: editedSettings["estimate_expiration_days"] || "7" });
-                                }}
-                                disabled={updateSetting.isPending}
-                              >
-                                <Save className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                            </div>
-                            <Input
-                              id="estimate_expiration_days"
-                              type="text"
-                              inputMode="numeric"
-                              value={editedSettings["estimate_expiration_days"] ?? "7"}
-                              onChange={(e) => { const val = e.target.value; if (val === '' || /^\d+$/.test(val)) handleChange("estimate_expiration_days", val); }}
-                              placeholder="7"
-                            />
-                            <p className="text-xs text-muted-foreground">Number of days until a proposal expires (from date sent). Default: 7 days</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
-
-                {/* Opportunity Stage Names */}
-                <Collapsible className="group">
-                  <Card>
-                    <CollapsibleTrigger asChild>
-                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                        <CardTitle className="flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <Target className="h-5 w-5" />
-                            Opportunity Stage Names
-                          </span>
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                        </CardTitle>
-                        <CardDescription>
-                          Customize stage names for estimate and proposal workflows
-                        </CardDescription>
-                      </CardHeader>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <CardContent className="space-y-4 pt-0">
-                        {opportunityStageSettings?.map((setting) => renderSettingField(setting))}
-                        
-                        {/* Estimate Prepared Stage */}
-                        {!opportunityStageSettings?.some(s => s.setting_key === "stage_estimate_prepared") && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="stage_estimate_prepared">Estimate Prepared Stage</Label>
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  updateSetting.mutate({ key: "stage_estimate_prepared", value: editedSettings["stage_estimate_prepared"] || "Estimate Prepared" });
-                                }}
-                                disabled={updateSetting.isPending}
-                              >
-                                <Save className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                            </div>
-                            <Input
-                              id="stage_estimate_prepared"
-                              value={editedSettings["stage_estimate_prepared"] ?? "Estimate Prepared"}
-                              onChange={(e) => handleChange("stage_estimate_prepared", e.target.value)}
-                              placeholder="Estimate Prepared"
-                            />
-                            <p className="text-xs text-muted-foreground">Stage name set when an estimate is created from an opportunity</p>
-                          </div>
-                        )}
-                        
-                        {/* Proposal Sent Stage */}
-                        {!opportunityStageSettings?.some(s => s.setting_key === "stage_proposal_sent") && (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="stage_proposal_sent">Proposal Sent Stage</Label>
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  updateSetting.mutate({ key: "stage_proposal_sent", value: editedSettings["stage_proposal_sent"] || "Proposal Sent" });
-                                }}
-                                disabled={updateSetting.isPending}
-                              >
-                                <Save className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                            </div>
-                            <Input
-                              id="stage_proposal_sent"
-                              value={editedSettings["stage_proposal_sent"] ?? "Proposal Sent"}
-                              onChange={(e) => handleChange("stage_proposal_sent", e.target.value)}
-                              placeholder="Proposal Sent"
-                            />
-                            <p className="text-xs text-muted-foreground">Stage name set when a proposal email is sent</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
-
-                {/* Pipeline Configuration */}
-                <Collapsible className="group">
-                  <Card>
-                    <CollapsibleTrigger asChild>
-                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                        <CardTitle className="flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <GitBranch className="h-5 w-5" />
-                            Pipeline Configuration
-                          </span>
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                        </CardTitle>
-                        <CardDescription>
-                          Configure default pipeline name and stages for opportunities
-                        </CardDescription>
-                      </CardHeader>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <CardContent className="space-y-6 pt-0">
-                        {/* Default Pipeline Name */}
-                        {pipelineSettings?.find(s => s.setting_key === "default_pipeline_name") ? (
-                          renderSettingField(pipelineSettings.find(s => s.setting_key === "default_pipeline_name")!)
-                        ) : (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="default_pipeline_name">Default Pipeline Name</Label>
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  updateSetting.mutate({ key: "default_pipeline_name", value: editedSettings["default_pipeline_name"] || "Main" });
-                                }}
-                                disabled={updateSetting.isPending}
-                              >
-                                <Save className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                            </div>
-                            <Input
-                              id="default_pipeline_name"
-                              value={editedSettings["default_pipeline_name"] ?? "Main"}
-                              onChange={(e) => handleChange("default_pipeline_name", e.target.value)}
-                              placeholder="Main"
-                            />
-                            <p className="text-xs text-muted-foreground">The default pipeline name for new opportunities</p>
-                          </div>
-                        )}
-
-                        
-
-                        <Separator />
-
-                        {/* Pipeline Stages */}
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Label>Pipeline Stages</Label>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Define the stages in your sales pipeline (in order)
-                              </p>
-                            </div>
-                            <Button
-                              size="sm"
-                              onClick={handleSavePipelineStages}
-                              disabled={savingPipelineStages}
-                            >
-                              {savingPipelineStages ? (
-                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                              ) : (
-                                <Save className="h-3 w-3 mr-1" />
-                              )}
-                              Save Stages
-                            </Button>
-                          </div>
-
-                          {/* Info about auto-migration */}
-                          <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-                            <strong>Auto-Migration:</strong> When you rename a stage, all opportunities using the old name will automatically update to the new name.
-                          </div>
-
-                          {/* Stage List */}
-                          <div className="space-y-2">
-                            {pipelineStagesEdit.map((stage, index) => (
-                              <div
-                                key={stage.id || `new-${index}`}
-                                className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30"
-                              >
-                                <span className="text-sm text-muted-foreground w-6">{index + 1}.</span>
-                                <Input
-                                  value={stage.name}
-                                  onChange={(e) => {
-                                    const newStages = [...pipelineStagesEdit];
-                                    newStages[index] = { ...newStages[index], name: e.target.value };
-                                    setPipelineStagesEdit(newStages);
-                                  }}
-                                  className="flex-1"
-                                />
-                                {stage.id && (
-                                  <span className="text-xs text-muted-foreground font-mono">
-                                    ({stage.id.slice(-4)})
-                                  </span>
-                                )}
-                                <div className="flex gap-1">
+                {/* ━━━ Sales & Pipeline ━━━ */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pt-2">
+                    <Target className="h-5 w-5 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold">Sales & Pipeline</h3>
+                  </div>
+                  <Separator className="mb-2" />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                    {/* Pipeline Configuration */}
+                    <Collapsible className="group">
+                      <Card>
+                        <CollapsibleTrigger asChild>
+                          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                            <CardTitle className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                <GitBranch className="h-5 w-5" />
+                                Pipeline Configuration
+                              </span>
+                              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                            </CardTitle>
+                            <CardDescription>
+                              Configure default pipeline name and stages for opportunities
+                            </CardDescription>
+                          </CardHeader>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <CardContent className="space-y-6 pt-0">
+                            {pipelineSettings?.find(s => s.setting_key === "default_pipeline_name") ? (
+                              renderSettingField(pipelineSettings.find(s => s.setting_key === "default_pipeline_name")!)
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <Label htmlFor="default_pipeline_name">Default Pipeline Name</Label>
                                   <Button
-                                    variant="ghost"
                                     size="sm"
-                                    onClick={() => handleMoveStage(index, "up")}
-                                    disabled={index === 0}
+                                    onClick={() => {
+                                      updateSetting.mutate({ key: "default_pipeline_name", value: editedSettings["default_pipeline_name"] || "Main" });
+                                    }}
+                                    disabled={updateSetting.isPending}
                                   >
-                                    ↑
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleMoveStage(index, "down")}
-                                    disabled={index === pipelineStagesEdit.length - 1}
-                                  >
-                                    ↓
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleRemoveStage(index)}
-                                    className="text-destructive hover:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Save className="h-3 w-3 mr-1" />
+                                    Save
                                   </Button>
                                 </div>
+                                <Input
+                                  id="default_pipeline_name"
+                                  value={editedSettings["default_pipeline_name"] ?? "Main"}
+                                  onChange={(e) => handleChange("default_pipeline_name", e.target.value)}
+                                  placeholder="Main"
+                                />
+                                <p className="text-xs text-muted-foreground">The default pipeline name for new opportunities</p>
                               </div>
-                            ))}
-                          </div>
+                            )}
 
-                          {/* Add New Stage */}
-                          <div className="flex gap-2">
-                            <Input
-                              value={newStageName}
-                              onChange={(e) => setNewStageName(e.target.value)}
-                              placeholder="New stage name..."
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  handleAddStage();
-                                }
-                              }}
+                            
+
+                            <Separator />
+
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <Label>Pipeline Stages</Label>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Define the stages in your sales pipeline (in order)
+                                  </p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={handleSavePipelineStages}
+                                  disabled={savingPipelineStages}
+                                >
+                                  {savingPipelineStages ? (
+                                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                  ) : (
+                                    <Save className="h-3 w-3 mr-1" />
+                                  )}
+                                  Save Stages
+                                </Button>
+                              </div>
+
+                              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+                                <strong>Auto-Migration:</strong> When you rename a stage, all opportunities using the old name will automatically update to the new name.
+                              </div>
+
+                              <div className="space-y-2">
+                                {pipelineStagesEdit.map((stage, index) => (
+                                  <div
+                                    key={stage.id || `new-${index}`}
+                                    className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30"
+                                  >
+                                    <span className="text-sm text-muted-foreground w-6">{index + 1}.</span>
+                                    <Input
+                                      value={stage.name}
+                                      onChange={(e) => {
+                                        const newStages = [...pipelineStagesEdit];
+                                        newStages[index] = { ...newStages[index], name: e.target.value };
+                                        setPipelineStagesEdit(newStages);
+                                      }}
+                                      className="flex-1"
+                                    />
+                                    {stage.id && (
+                                      <span className="text-xs text-muted-foreground font-mono">
+                                        ({stage.id.slice(-4)})
+                                      </span>
+                                    )}
+                                    <div className="flex gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleMoveStage(index, "up")}
+                                        disabled={index === 0}
+                                      >
+                                        ↑
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleMoveStage(index, "down")}
+                                        disabled={index === pipelineStagesEdit.length - 1}
+                                      >
+                                        ↓
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleRemoveStage(index)}
+                                        className="text-destructive hover:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="flex gap-2">
+                                <Input
+                                  value={newStageName}
+                                  onChange={(e) => setNewStageName(e.target.value)}
+                                  placeholder="New stage name..."
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      handleAddStage();
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  variant="outline"
+                                  onClick={handleAddStage}
+                                  disabled={!newStageName.trim()}
+                                >
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add
+                                </Button>
+                              </div>
+
+                              <div className="p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+                                <strong>Note:</strong> These stages define the default flow for new opportunities in your pipeline. 
+                                Common stages include Lead → Contacted → Appointment → Proposal → Won/Lost.
+                              </div>
+                            </div>
+                          </CardContent>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
+
+                    {/* Opportunity Stage Names */}
+                    <Collapsible className="group">
+                      <Card>
+                        <CollapsibleTrigger asChild>
+                          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                            <CardTitle className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                <Target className="h-5 w-5" />
+                                Opportunity Stage Names
+                              </span>
+                              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                            </CardTitle>
+                            <CardDescription>
+                              Customize stage names for estimate and proposal workflows
+                            </CardDescription>
+                          </CardHeader>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <CardContent className="space-y-4 pt-0">
+                            {opportunityStageSettings?.map((setting) => renderSettingField(setting))}
+                            
+                            {!opportunityStageSettings?.some(s => s.setting_key === "stage_estimate_prepared") && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <Label htmlFor="stage_estimate_prepared">Estimate Prepared Stage</Label>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      updateSetting.mutate({ key: "stage_estimate_prepared", value: editedSettings["stage_estimate_prepared"] || "Estimate Prepared" });
+                                    }}
+                                    disabled={updateSetting.isPending}
+                                  >
+                                    <Save className="h-3 w-3 mr-1" />
+                                    Save
+                                  </Button>
+                                </div>
+                                <Input
+                                  id="stage_estimate_prepared"
+                                  value={editedSettings["stage_estimate_prepared"] ?? "Estimate Prepared"}
+                                  onChange={(e) => handleChange("stage_estimate_prepared", e.target.value)}
+                                  placeholder="Estimate Prepared"
+                                />
+                                <p className="text-xs text-muted-foreground">Stage name set when an estimate is created from an opportunity</p>
+                              </div>
+                            )}
+                            
+                            {!opportunityStageSettings?.some(s => s.setting_key === "stage_proposal_sent") && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <Label htmlFor="stage_proposal_sent">Proposal Sent Stage</Label>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      updateSetting.mutate({ key: "stage_proposal_sent", value: editedSettings["stage_proposal_sent"] || "Proposal Sent" });
+                                    }}
+                                    disabled={updateSetting.isPending}
+                                  >
+                                    <Save className="h-3 w-3 mr-1" />
+                                    Save
+                                  </Button>
+                                </div>
+                                <Input
+                                  id="stage_proposal_sent"
+                                  value={editedSettings["stage_proposal_sent"] ?? "Proposal Sent"}
+                                  onChange={(e) => handleChange("stage_proposal_sent", e.target.value)}
+                                  placeholder="Proposal Sent"
+                                />
+                                <p className="text-xs text-muted-foreground">Stage name set when a proposal email is sent</p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                    <StageBadgeMappingsEditor />
+                    {/* Estimate Settings */}
+                    <Collapsible defaultOpen={false} className="group">
+                      <Card>
+                        <CollapsibleTrigger asChild>
+                          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                            <CardTitle className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                <FileText className="h-5 w-5" />
+                                Estimate Settings
+                              </span>
+                              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                            </CardTitle>
+                            <CardDescription>
+                              Default settings for new estimates
+                            </CardDescription>
+                          </CardHeader>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <CardContent className="space-y-4 pt-0">
+                            {estimateSettings?.map((setting) => 
+                              setting.setting_key === "default_terms_and_conditions" 
+                                ? renderTextareaSettingField(setting)
+                                : renderSettingField(setting)
+                            )}
+                            
+                            {!estimateSettings?.some(s => s.setting_key === "default_deposit_percent") && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <Label htmlFor="default_deposit_percent">Default Deposit Percent</Label>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      updateSetting.mutate({ key: "default_deposit_percent", value: editedSettings["default_deposit_percent"] || "10" });
+                                    }}
+                                    disabled={updateSetting.isPending}
+                                  >
+                                    <Save className="h-3 w-3 mr-1" />
+                                    Save
+                                  </Button>
+                                </div>
+                                <Input
+                                  id="default_deposit_percent"
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={editedSettings["default_deposit_percent"] ?? "10"}
+                                  onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) handleChange("default_deposit_percent", val); }}
+                                  placeholder="10"
+                                />
+                                <p className="text-xs text-muted-foreground">Default deposit percentage for new estimates</p>
+                              </div>
+                            )}
+                            
+                            {!estimateSettings?.some(s => s.setting_key === "default_deposit_max_amount") && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <Label htmlFor="default_deposit_max_amount">Default Deposit Max Amount ($)</Label>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      updateSetting.mutate({ key: "default_deposit_max_amount", value: editedSettings["default_deposit_max_amount"] || "1000" });
+                                    }}
+                                    disabled={updateSetting.isPending}
+                                  >
+                                    <Save className="h-3 w-3 mr-1" />
+                                    Save
+                                  </Button>
+                                </div>
+                                <Input
+                                  id="default_deposit_max_amount"
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={editedSettings["default_deposit_max_amount"] ?? "1000"}
+                                  onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) handleChange("default_deposit_max_amount", val); }}
+                                  placeholder="1000"
+                                />
+                                <p className="text-xs text-muted-foreground">Maximum deposit amount (deposit = min of percent or this cap)</p>
+                              </div>
+                            )}
+                            
+                            {!estimateSettings?.some(s => s.setting_key === "estimate_expiration_days") && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <Label htmlFor="estimate_expiration_days">Estimate Expiration (Days)</Label>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      updateSetting.mutate({ key: "estimate_expiration_days", value: editedSettings["estimate_expiration_days"] || "7" });
+                                    }}
+                                    disabled={updateSetting.isPending}
+                                  >
+                                    <Save className="h-3 w-3 mr-1" />
+                                    Save
+                                  </Button>
+                                </div>
+                                <Input
+                                  id="estimate_expiration_days"
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={editedSettings["estimate_expiration_days"] ?? "7"}
+                                  onChange={(e) => { const val = e.target.value; if (val === '' || /^\d+$/.test(val)) handleChange("estimate_expiration_days", val); }}
+                                  placeholder="7"
+                                />
+                                <p className="text-xs text-muted-foreground">Number of days until a proposal expires (from date sent). Default: 7 days</p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
+                  </div>
+                </div>
+
+                {/* ━━━ Operations & Display ━━━ */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 pt-2">
+                    <Settings className="h-5 w-5 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold">Operations & Display</h3>
+                  </div>
+                  <Separator className="mb-2" />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                    <Collapsible defaultOpen={false} className="group">
+                      <Card>
+                        <CollapsibleTrigger asChild>
+                          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                            <CardTitle className="flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                <Settings className="h-5 w-5" />
+                                Customer Portal Settings
+                              </span>
+                              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                            </CardTitle>
+                            <CardDescription>
+                              Configure settings for the customer portal experience. The App Base URL is used for all portal links in emails (e.g., your custom domain).
+                            </CardDescription>
+                          </CardHeader>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <CardContent className="space-y-4 pt-0">
+                            {portalSettings?.map(renderSettingField)}
+                          </CardContent>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
+                    <ProjectStatusesManager />
+                  </div>
+                  <Collapsible defaultOpen={false} className="group">
+                    <Card>
+                      <CollapsibleTrigger asChild>
+                        <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                          <CardTitle className="flex items-center justify-between">
+                            <span className="flex items-center gap-2">
+                              <Settings className="h-5 w-5" />
+                              Dashboard KPI Visibility
+                            </span>
+                            <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                          </CardTitle>
+                          <CardDescription>
+                            Control which KPI cards are visible on the main dashboard
+                          </CardDescription>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="space-y-4 pt-0">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <Label>Leads Resell</Label>
+                              <p className="text-xs text-muted-foreground">Show the Leads Resell KPI card on dashboard</p>
+                            </div>
+                            <Switch
+                              checked={kpiVisibility.leads_resell_visible}
+                              onCheckedChange={toggleLeadsResell}
+                              disabled={isTogglingKPI}
                             />
-                            <Button
-                              variant="outline"
-                              onClick={handleAddStage}
-                              disabled={!newStageName.trim()}
-                            >
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add
-                            </Button>
                           </div>
-
-                          <div className="p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
-                            <strong>Note:</strong> These stages define the default flow for new opportunities in your pipeline. 
-                            Common stages include Lead → Contacted → Appointment → Proposal → Won/Lost.
-                          </div>
-                        </div>
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
-
-                {/* Project Statuses */}
-                <ProjectStatusesManager />
-
-                {/* Stage Badge Mappings */}
-                <StageBadgeMappingsEditor />
-
-                <Collapsible defaultOpen={false} className="group">
-                  <Card>
-                    <CollapsibleTrigger asChild>
-                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                        <CardTitle className="flex items-center justify-between">
-                          <span className="flex items-center gap-2">
-                            <Settings className="h-5 w-5" />
-                            Dashboard KPI Visibility
-                          </span>
-                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                        </CardTitle>
-                        <CardDescription>
-                          Control which KPI cards are visible on the main dashboard
-                        </CardDescription>
-                      </CardHeader>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <CardContent className="space-y-4 pt-0">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>Leads Resell</Label>
-                            <p className="text-xs text-muted-foreground">Show the Leads Resell KPI card on dashboard</p>
-                          </div>
-                          <Switch
-                            checked={kpiVisibility.leads_resell_visible}
-                            onCheckedChange={toggleLeadsResell}
-                            disabled={isTogglingKPI}
-                          />
-                        </div>
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+                </div>
 
               </div>
             )}
