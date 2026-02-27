@@ -373,6 +373,21 @@ export default function AdminSettings() {
   const [archivedPage, setArchivedPage] = useState(0);
   const [showArchived, setShowArchived] = useState(false);
 
+  // Fetch super_admin user IDs to hide their activity from audit logs
+  const { data: superAdminUserIds = [] } = useQuery({
+    queryKey: ["super-admin-user-ids"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "super_admin");
+      if (error) throw error;
+      return data.map((r) => r.user_id);
+    },
+    enabled: isAdmin && activeTab === "audit",
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Audit log queries
   const { data: auditResult, isLoading: logsLoading } = useQuery({
     queryKey: ["audit-logs", companyId, startDate, endDate, tableFilter, actionFilter, userFilter, auditPage],
@@ -385,6 +400,9 @@ export default function AdminSettings() {
         .eq("company_id", companyId)
         .order("changed_at", { ascending: false })
         .range(from, to);
+      if (superAdminUserIds.length > 0) {
+        query = query.not("user_id", "in", `(${superAdminUserIds.join(",")})`);
+      }
 
       if (startDate) {
         query = query.gte("changed_at", `${startDate}T00:00:00`);
@@ -431,6 +449,9 @@ export default function AdminSettings() {
         .eq("company_id", companyId)
         .order("changed_at", { ascending: false })
         .range(from, to);
+      if (superAdminUserIds.length > 0) {
+        query = query.not("user_id", "in", `(${superAdminUserIds.join(",")})`);
+      }
 
       if (startDate) query = query.gte("changed_at", `${startDate}T00:00:00`);
       if (endDate) query = query.lte("changed_at", `${endDate}T23:59:59`);
@@ -2098,6 +2119,9 @@ export default function AdminSettings() {
                           .eq("company_id", companyId)
                           .order("changed_at", { ascending: false })
                           .limit(500);
+                        if (superAdminUserIds.length > 0) {
+                          query = query.not("user_id", "in", `(${superAdminUserIds.join(",")})`);
+                        }
                         if (startDate) query = query.gte("changed_at", `${startDate}T00:00:00`);
                         if (endDate) query = query.lte("changed_at", `${endDate}T23:59:59`);
                         if (tableFilter && tableFilter !== "all") query = query.eq("table_name", tableFilter);
