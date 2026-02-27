@@ -1116,8 +1116,57 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
               </div>
             ) : (
               <>
-                {/* Project Info & Customer Info - Two Columns */}
-                <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr] gap-4">
+                {/* Customer Info, Project Info & Commission - Three Columns */}
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr_1fr] gap-4">
+                {/* Customer Info */}
+                <Card>
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-xs font-medium flex items-center gap-2">
+                      <User className="h-3 w-3" />
+                      Customer Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 px-4 pb-4">
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">First Name</Label>
+                        <DebouncedInput
+                          className="h-8 text-xs"
+                          value={toTitleCase(fullProject?.customer_first_name || "")} 
+                          onSave={(value) => updateProjectMutation.mutate({ customer_first_name: value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Last Name</Label>
+                        <DebouncedInput
+                          className="h-8 text-xs"
+                          value={toTitleCase(fullProject?.customer_last_name || "")} 
+                          onSave={(value) => updateProjectMutation.mutate({ customer_last_name: value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Cell Phone</Label>
+                        <DebouncedInput
+                          className="h-8 text-xs"
+                          value={formatPhoneNumber(fullProject?.cell_phone)} 
+                          onSave={(value) => updateProjectMutation.mutate({ cell_phone: value.replace(/\D/g, "") })}
+                          placeholder="(555) 123-4567"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Email</Label>
+                        <DebouncedInput
+                          className="h-8 text-xs"
+                          value={fullProject?.customer_email || ""} 
+                          onSave={(value) => updateProjectMutation.mutate({ customer_email: value })}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Project Info */}
                 <Card>
                   <CardHeader className="py-3 px-4">
@@ -1523,54 +1572,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                   </CardContent>
                 </Card>
 
-                {/* Customer Info */}
-                <Card>
-                  <CardHeader className="py-3 px-4">
-                    <CardTitle className="text-xs font-medium flex items-center gap-2">
-                      <User className="h-3 w-3" />
-                      Customer Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 px-4 pb-4">
-                    <div className="grid grid-cols-1 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">First Name</Label>
-                        <DebouncedInput
-                          className="h-8 text-xs"
-                          value={toTitleCase(fullProject?.customer_first_name || "")} 
-                          onSave={(value) => updateProjectMutation.mutate({ customer_first_name: value })}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Last Name</Label>
-                        <DebouncedInput
-                          className="h-8 text-xs"
-                          value={toTitleCase(fullProject?.customer_last_name || "")} 
-                          onSave={(value) => updateProjectMutation.mutate({ customer_last_name: value })}
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Cell Phone</Label>
-                        <DebouncedInput
-                          className="h-8 text-xs"
-                          value={formatPhoneNumber(fullProject?.cell_phone)} 
-                          onSave={(value) => updateProjectMutation.mutate({ cell_phone: value.replace(/\D/g, "") })}
-                          placeholder="(555) 123-4567"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Email</Label>
-                        <DebouncedInput
-                          className="h-8 text-xs"
-                          value={fullProject?.customer_email || ""} 
-                          onSave={(value) => updateProjectMutation.mutate({ customer_email: value })}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+
 
                 {/* Salesperson Info */}
                 <Card>
