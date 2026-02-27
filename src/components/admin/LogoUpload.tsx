@@ -60,7 +60,7 @@ const PRESET_COLORS = [
   { name: "Navy", value: "#1e3a5f" },
 ];
 
-export function LogoUpload({ defaultOpen = false }: { defaultOpen?: boolean }) {
+export function LogoUpload() {
   const { company } = useAuth();
   const companyId = company?.id;
   const queryClient = useQueryClient();
@@ -544,7 +544,7 @@ export function LogoUpload({ defaultOpen = false }: { defaultOpen?: boolean }) {
   };
 
   return (
-    <Collapsible defaultOpen={defaultOpen} className="group">
+    <Collapsible defaultOpen={false} className="group">
       <Card>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
