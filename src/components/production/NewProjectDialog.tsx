@@ -304,6 +304,7 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                     value={draft.project_name}
                     onChange={(e) => updateDraft({ project_name: e.target.value })}
                     placeholder="Enter project name"
+                    className={!draft.project_name.trim() ? "border-destructive" : ""}
                   />
                 </div>
                 <div>
