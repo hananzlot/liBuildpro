@@ -334,6 +334,77 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
                 </div>
               </ScrollArea>
             )}
+
+            {/* Expired Proposals - collapsed section */}
+            {expiredProposals.length > 0 && (
+              <div className="border-t border-border/30 pt-2 px-4 pb-3">
+                <button
+                  type="button"
+                  className="flex items-center gap-2 w-full text-left px-1 py-1"
+                  onClick={() => setShowExpired(!showExpired)}
+                >
+                  {showExpired ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                  <span className="text-xs text-muted-foreground">Expired Proposals ({expiredProposals.length})</span>
+                </button>
+                {showExpired && (
+                  <div className="space-y-2 mt-1 max-h-[300px] overflow-y-auto pr-2">
+                    {expiredProposals.map((estimate) => (
+                      <div
+                        key={estimate.id}
+                        className="p-3 rounded-lg border bg-card opacity-70"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm truncate">
+                                {estimate.estimate_title || `Estimate #${estimate.estimate_number}`}
+                              </p>
+                              {getTypeBadge(estimate)}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {estimate.customer_name}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <Badge className="bg-muted text-muted-foreground border-0 text-[10px]">Expired</Badge>
+                              {estimate.expiration_date && (
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(estimate.expiration_date), "MMM d, yyyy")}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1.5 shrink-0">
+                            <span className="font-semibold text-sm text-primary whitespace-nowrap">
+                              {formatCurrency(estimate.total)}
+                            </span>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="p-1.5 hover:bg-muted rounded flex items-center gap-1" title="Open options">
+                                  <Eye className="h-4 w-4 text-primary" />
+                                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenProposalPreview(estimate)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Proposal Preview
+                                </DropdownMenuItem>
+                                {estimate.portal_token && (
+                                  <DropdownMenuItem onClick={() => handleOpenPortal(estimate)}>
+                                    <Globe className="h-4 w-4 mr-2" />
+                                    Open Customer Portal
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         )}
       </Card>
