@@ -1309,7 +1309,7 @@ export function OpportunitiesTable({
                       <TableCell className="text-muted-foreground text-xs">
                         <div className="flex flex-col gap-0.5 min-w-0">
                           <span className="truncate"><span className="text-muted-foreground/70">Rep:</span> {salesRepName || "-"}</span>
-                          <span className="whitespace-nowrap"><span className="text-muted-foreground/70">Updated:</span> {(() => { const d = opp.updated_at; return d ? new Date(d).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"; })()}</span>
+                          <span className="whitespace-nowrap"><span className="text-muted-foreground/70">Edit:</span> {(() => { const d = opp.updated_at; return d ? new Date(d).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"; })()}</span>
                           <span className="truncate"><span className="text-muted-foreground/70">Appt:</span> {latestAppt ? (
                             <>
                               {formatAppointmentDateTime(latestAppt.start_time)}
