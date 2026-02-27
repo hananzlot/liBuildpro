@@ -1503,6 +1503,30 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               newValues: { bill_amount: newBillAmount, balance: newBalance, original_bill_amount: originalAmount },
               description: `Applied ${formatCurrency(offsetAmount)} credit offset - reduced bill from ${formatCurrency(targetBill.bill_amount)} to ${formatCurrency(newBillAmount)}`,
             });
+
+            // Sync the updated target bill to QuickBooks so the reduced amount is reflected
+            try {
+              // Fetch the full target bill record to get vendor/date info for QB sync
+              const { data: fullTargetBill } = await supabase
+                .from("project_bills")
+                .select("id, bill_amount, bill_ref, installer_company, created_at")
+                .eq("id", bill.offset_bill_id)
+                .single();
+
+              if (fullTargetBill) {
+                const targetQbResult = await checkQbDuplicatesAndSync("bill", fullTargetBill.id, {
+                  amount: fullTargetBill.bill_amount || 0,
+                  date: (fullTargetBill.created_at || new Date().toISOString()).slice(0, 10),
+                  reference: fullTargetBill.bill_ref || null,
+                  vendorName: fullTargetBill.installer_company || null,
+                });
+                if (targetQbResult.synced) {
+                  console.log(`Target bill ${fullTargetBill.bill_ref} synced to QB with updated amount ${formatCurrency(fullTargetBill.bill_amount)}`);
+                }
+              }
+            } catch (qbErr) {
+              console.error("Failed to sync target bill to QB after credit offset:", qbErr);
+            }
           }
         }
       }
