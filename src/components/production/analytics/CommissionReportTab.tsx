@@ -52,6 +52,7 @@ export function CommissionReportTab({ commissionSummary, commissionPayments, tot
       .map(sp => ({
         name: sp.name.split(' ')[0], // First name only for chart
         Calculated: sp.calculated,
+        'Earned to Date': sp.earnedToDate,
         Paid: sp.paid,
         Balance: sp.balance,
       }));
@@ -152,18 +153,19 @@ export function CommissionReportTab({ commissionSummary, commissionPayments, tot
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                     <TableHead className="w-[30%]">Salesperson</TableHead>
-                     <TableHead className="w-[18%] text-right">Calculated</TableHead>
-                     <TableHead className="w-[18%] text-right">Paid</TableHead>
-                     <TableHead className="w-[18%] text-right">Balance</TableHead>
+                   <TableRow>
+                     <TableHead className="w-[22%]">Salesperson</TableHead>
+                     <TableHead className="w-[16%] text-right">Calculated</TableHead>
+                     <TableHead className="w-[16%] text-right">Earned to Date</TableHead>
+                     <TableHead className="w-[14%] text-right">Paid</TableHead>
+                     <TableHead className="w-[16%] text-right">Balance</TableHead>
                      <TableHead className="w-[16%] text-right">Projects</TableHead>
                    </TableRow>
                 </TableHeader>
                 <TableBody>
                   {commissionSummary.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                     <TableRow>
+                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         No commission data
                       </TableCell>
                     </TableRow>
@@ -171,7 +173,13 @@ export function CommissionReportTab({ commissionSummary, commissionPayments, tot
                     commissionSummary.map((sp) => (
                       <TableRow key={sp.name}>
                         <TableCell className="font-medium">{sp.name}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(sp.calculated)}</TableCell>
+                         <TableCell className="text-right">{formatCurrency(sp.calculated)}</TableCell>
+                         <TableCell className={cn(
+                           "text-right font-medium",
+                           sp.earnedToDate < 0 ? 'text-destructive' : 'text-blue-600'
+                         )}>
+                           {formatCurrency(sp.earnedToDate)}
+                         </TableCell>
                         <TableCell className="text-right text-emerald-600">
                           {formatCurrency(sp.paid)}
                         </TableCell>
