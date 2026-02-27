@@ -597,7 +597,21 @@ export default function SalespersonCalendarPortal() {
             
             {/* Mobile-optimized grid of tool cards */}
             <div className="grid grid-cols-1 gap-3">
-              {/* Create Estimate - Primary action at top */}
+              {/* 1. Projects & Customer Portal */}
+              <PortalProjectLinksSection 
+                salespersonName={salesperson.name}
+                salespersonId={salesperson.id}
+                salespersonGhlUserId={salesperson.ghl_user_id}
+                companyId={salesperson.company_id}
+              />
+              {/* 2. File Upload */}
+              <PortalFileUploadSection 
+                salespersonName={salesperson.name}
+                salespersonId={salesperson.id}
+                salespersonGhlUserId={salesperson.ghl_user_id}
+                companyId={salesperson.company_id} 
+              />
+              {/* 3. Create Estimate */}
               <PortalEstimateCreator
                 portalToken={token || ""}
                 salespersonId={salesperson.id}
@@ -605,22 +619,11 @@ export default function SalespersonCalendarPortal() {
                 salespersonGhlUserId={salesperson.ghl_user_id}
                 companyId={salesperson.company_id}
               />
+              {/* 4. Proposals */}
               <PortalProposalsSection 
                 salespersonName={salesperson.name}
                 salespersonId={salesperson.id}
                 companyId={salesperson.company_id} 
-              />
-              <PortalFileUploadSection 
-                salespersonName={salesperson.name}
-                salespersonId={salesperson.id}
-                salespersonGhlUserId={salesperson.ghl_user_id}
-                companyId={salesperson.company_id} 
-              />
-              <PortalProjectLinksSection 
-                salespersonName={salesperson.name}
-                salespersonId={salesperson.id}
-                salespersonGhlUserId={salesperson.ghl_user_id}
-                companyId={salesperson.company_id}
               />
             </div>
           </div>

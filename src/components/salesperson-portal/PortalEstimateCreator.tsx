@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { 
   Calculator, ChevronDown, ChevronRight, Loader2, Save, Wand2, 
-  FileText, CheckCircle, Clock, DollarSign, Eye, Pencil, AlertTriangle
+  FileText, CheckCircle, Clock, DollarSign, Eye, Pencil, AlertTriangle, ChevronUp
 } from "lucide-react";
 import { PortalEstimateDetailSheet } from "./PortalEstimateDetailSheet";
 
@@ -61,6 +61,8 @@ interface Estimate {
   total: number | null;
   status: string;
   created_at: string;
+  estimate_date: string | null;
+  opportunity_uuid: string | null;
   is_generating?: boolean;
 }
 
@@ -227,7 +229,7 @@ export function PortalEstimateCreator({
       // Fetch estimates
       const { data: estimates, error } = await supabase
         .from("estimates")
-        .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, created_at")
+        .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, created_at, estimate_date, opportunity_uuid")
         .eq("company_id", companyId)
         .or(orConditions.join(","))
         .order("created_at", { ascending: false })
@@ -262,12 +264,45 @@ export function PortalEstimateCreator({
     refetchInterval: 30 * 1000, // Auto-refresh every 30s
   });
 
-  // Filter estimates: hide declined by default, show only declined when toggled
+  // Fetch lost opportunity UUIDs to filter out their estimates
+  const { data: lostOpportunityIds = [] } = useQuery({
+    queryKey: ["portal-lost-opportunities", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data } = await supabase
+        .from("opportunities")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("status", "lost");
+      return (data || []).map(o => o.id);
+    },
+    enabled: !!companyId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Filter estimates: hide declined by default, hide lost opportunity items, separate old drafts
   const declinedEstimatesCount = useMemo(() => myEstimates.filter(e => e.status === "declined").length, [myEstimates]);
+  
+  // Filter out estimates linked to lost opportunities
+  const nonLostEstimates = useMemo(() => {
+    return myEstimates.filter(e => !e.opportunity_uuid || !lostOpportunityIds.includes(e.opportunity_uuid));
+  }, [myEstimates, lostOpportunityIds]);
+
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  const isOldDraft = useCallback((e: Estimate) => {
+    if (e.status !== "draft") return false;
+    const dateStr = e.estimate_date || e.created_at;
+    return Date.now() - new Date(dateStr).getTime() > THIRTY_DAYS_MS;
+  }, []);
+
+  const [showOldEstimates, setShowOldEstimates] = useState(false);
+
+  const oldEstimates = useMemo(() => nonLostEstimates.filter(e => isOldDraft(e) && e.status !== "declined"), [nonLostEstimates, isOldDraft]);
+  
   const visibleEstimates = useMemo(() => {
-    if (showDeclinedEstimates) return myEstimates.filter(e => e.status === "declined");
-    return myEstimates.filter(e => e.status !== "declined");
-  }, [myEstimates, showDeclinedEstimates]);
+    if (showDeclinedEstimates) return nonLostEstimates.filter(e => e.status === "declined");
+    return nonLostEstimates.filter(e => e.status !== "declined" && !isOldDraft(e));
+  }, [nonLostEstimates, showDeclinedEstimates, isOldDraft]);
 
 
   const handleSelectionChange = (id: string) => {
@@ -845,6 +880,58 @@ export function PortalEstimateCreator({
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {/* Old Estimates (>30 days draft) - collapsed */}
+        {oldEstimates.length > 0 && (
+          <div className="border-t border-border/30 pt-2">
+            <button
+              type="button"
+              className="flex items-center gap-2 w-full text-left px-1 py-1"
+              onClick={() => setShowOldEstimates(!showOldEstimates)}
+            >
+              {showOldEstimates ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+              <span className="text-xs text-muted-foreground">Old Estimates ({oldEstimates.length})</span>
+            </button>
+            {showOldEstimates && (
+              <div className="space-y-2 mt-1 max-h-[300px] overflow-y-auto">
+                {oldEstimates.map((estimate) => {
+                  const canOpen = !estimate.is_generating;
+                  return (
+                    <button
+                      type="button"
+                      key={estimate.id}
+                      className={`w-full text-left p-3 rounded-lg border bg-card opacity-70 transition-colors ${
+                        canOpen ? "hover:bg-muted/50 hover:border-primary/30" : ""
+                      }`}
+                      onClick={() => {
+                        if (canOpen) {
+                          setSelectedEstimateId(estimate.id);
+                          setDetailSheetOpen(true);
+                        }
+                      }}
+                      disabled={!canOpen}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">#{estimate.estimate_number}</span>
+                            {getStatusBadge(estimate.status)}
+                          </div>
+                          <p className="text-sm text-foreground truncate">{estimate.customer_name}</p>
+                        </div>
+                        {estimate.total != null && estimate.total > 0 && (
+                          <span className="font-semibold text-sm text-primary whitespace-nowrap">
+                            ${estimate.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
