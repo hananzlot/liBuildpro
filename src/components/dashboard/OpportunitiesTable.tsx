@@ -449,8 +449,7 @@ export function OpportunitiesTable({
   }, [tasks, ghlIdToUuid]);
 
   const getLastEditedDate = (opp: Opportunity): string | null => {
-    // Use ghl_date_updated as the true edit date; updated_at is unreliable due to triggers
-    return opp.ghl_date_updated || opp.ghl_date_added || null;
+    return opp.updated_at || opp.ghl_date_updated || opp.ghl_date_added || null;
   };
 
   const formatAppointmentDateTime = (dateString: string | null) => {
