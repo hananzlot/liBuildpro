@@ -963,15 +963,32 @@ export default function AdminSettings() {
             ) : (
               <div className="space-y-8">
 
+                {/* Quick-jump navigation */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground mr-1">Jump to:</span>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => document.getElementById('section-company-profile')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                    <Building className="h-3 w-3 mr-1" />
+                    Company Profile
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => document.getElementById('section-sales-pipeline')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                    <Target className="h-3 w-3 mr-1" />
+                    Sales & Pipeline
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => document.getElementById('section-operations')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                    <Settings className="h-3 w-3 mr-1" />
+                    Operations & Display
+                  </Button>
+                </div>
+
                 {/* ━━━ Company Profile ━━━ */}
-                <div className="space-y-4">
+                <div id="section-company-profile" className="space-y-4 scroll-mt-6">
                   <div className="flex items-center gap-2 pt-2">
                     <Building className="h-5 w-5 text-muted-foreground" />
                     <h3 className="text-lg font-semibold">Company Profile</h3>
                   </div>
                   <Separator className="mb-2" />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-                    <LogoUpload />
+                    <LogoUpload defaultOpen />
                     <Collapsible defaultOpen={false} className="group">
                       <Card>
                         <CollapsibleTrigger asChild>
@@ -1000,7 +1017,7 @@ export default function AdminSettings() {
                 </div>
 
                 {/* ━━━ Sales & Pipeline ━━━ */}
-                <div className="space-y-4">
+                <div id="section-sales-pipeline" className="space-y-4 scroll-mt-6">
                   <div className="flex items-center gap-2 pt-2">
                     <Target className="h-5 w-5 text-muted-foreground" />
                     <h3 className="text-lg font-semibold">Sales & Pipeline</h3>
@@ -1008,7 +1025,7 @@ export default function AdminSettings() {
                   <Separator className="mb-2" />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
                     {/* Pipeline Configuration */}
-                    <Collapsible className="group">
+                    <Collapsible defaultOpen className="group">
                       <Card>
                         <CollapsibleTrigger asChild>
                           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1356,14 +1373,14 @@ export default function AdminSettings() {
                 </div>
 
                 {/* ━━━ Operations & Display ━━━ */}
-                <div className="space-y-4">
+                <div id="section-operations" className="space-y-4 scroll-mt-6">
                   <div className="flex items-center gap-2 pt-2">
                     <Settings className="h-5 w-5 text-muted-foreground" />
                     <h3 className="text-lg font-semibold">Operations & Display</h3>
                   </div>
                   <Separator className="mb-2" />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-                    <Collapsible defaultOpen={false} className="group">
+                    <Collapsible defaultOpen className="group">
                       <Card>
                         <CollapsibleTrigger asChild>
                           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
