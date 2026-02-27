@@ -403,13 +403,14 @@ Deno.serve(async (req) => {
     // project_payments
     const payments = await fetchAll("project_payments", SOURCE_COMPANY_ID);
     const newPayments = payments.map(p => {
-      const { id, ...rest } = p;
+      // Destructure fields that must be remapped to prevent source company IDs from leaking via spread
+      const { id, project_id, invoice_id, bank_id, ...rest } = p;
       return {
         ...rest,
         company_id: TARGET_COMPANY_ID,
-        project_id: p.project_id ? (projectMap.get(p.project_id) || p.project_id) : null,
-        invoice_id: p.invoice_id ? (invoiceMap.get(p.invoice_id) || null) : null,
-        bank_id: p.bank_id ? (bankMap.get(p.bank_id) || null) : null,
+        project_id: project_id ? (projectMap.get(project_id) || null) : null,
+        invoice_id: invoice_id ? (invoiceMap.get(invoice_id) || null) : null,
+        bank_id: bank_id ? (bankMap.get(bank_id) || null) : null,
       };
     });
     await batchInsert("project_payments", newPayments);
@@ -433,12 +434,13 @@ Deno.serve(async (req) => {
     // bill_payments
     const billPayments = await fetchAll("bill_payments", SOURCE_COMPANY_ID);
     const newBillPayments = billPayments.map(bp => {
-      const { id, ...rest } = bp;
+      // Destructure fields that must be remapped to prevent source company IDs from leaking
+      const { id, bill_id, bank_id, ...rest } = bp;
       return {
         ...rest,
         company_id: TARGET_COMPANY_ID,
-        bill_id: bp.bill_id ? (billMap.get(bp.bill_id) || bp.bill_id) : bp.bill_id,
-        bank_id: bp.bank_id ? (bankMap.get(bp.bank_id) || null) : null,
+        bill_id: bill_id ? (billMap.get(bill_id) || bill_id) : bill_id,
+        bank_id: bank_id ? (bankMap.get(bank_id) || null) : null,
       };
     });
     await batchInsert("bill_payments", newBillPayments);

@@ -402,6 +402,21 @@ async function processEntityChange(
         if (invoice) {
           invoiceId = invoice.id;
           log("info", `Found invoice by number pattern: ${invoiceId}`);
+        } else {
+          // Cross-company collision detection
+          const { data: otherMatch } = await supabase
+            .from("project_invoices")
+            .select("id, company_id")
+            .neq("company_id", companyId)
+            .or(`invoice_number.eq.QB-${qbId},invoice_number.eq.${qbId}`)
+            .maybeSingle();
+          if (otherMatch) {
+            log("warn", "CROSS-COMPANY COLLISION: invoice_number match found in different company during delete", {
+              qbId,
+              otherCompanyId: otherMatch.company_id,
+              otherInvoiceId: otherMatch.id,
+            });
+          }
         }
       }
       
