@@ -374,6 +374,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   }, [onPdfPreviewStateChange, pdfViewerOpen, selectedAttachment]);
   const [invoicePdfDialogOpen, setInvoicePdfDialogOpen] = useState(false);
   const [invoicePdfData, setInvoicePdfData] = useState<{
+    invoice_id?: string | null;
     invoice_number: string | null;
     invoice_date: string | null;
     amount: number | null;
@@ -1188,6 +1189,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     };
 
     setInvoicePdfData({
+      invoice_id: null,
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
       amount: amount,
@@ -1298,6 +1300,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
         const agreement = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
         setInvoicePdfData({
+          invoice_id: inv.id || null,
           invoice_number: inv.invoice_number || null,
           invoice_date: inv.invoice_date || null,
           amount: typeof inv.amount === 'number' ? inv.amount : (typeof inv.amount === 'string' ? parseFloat(inv.amount) : null),
@@ -2425,6 +2428,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                     const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
                                     const agreement = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
                                     setInvoicePdfData({
+                                      invoice_id: inv.id,
                                       invoice_number: inv.invoice_number,
                                       invoice_date: inv.invoice_date,
                                       amount: inv.amount,
@@ -3499,6 +3503,18 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           customer_last_name: customerName?.split(' ').slice(1).join(' ') || null,
           project_address: projectAddress,
         }}
+        paymentRecords={
+          invoicePdfData?.invoice_id
+            ? payments
+                .filter(p => p.invoice_id === invoicePdfData.invoice_id && p.payment_status === "Received" && !p.is_voided)
+                .map(p => ({
+                  id: p.id,
+                  payment_amount: p.payment_amount,
+                  projected_received_date: p.projected_received_date,
+                  payment_method: p.payment_method,
+                }))
+            : []
+        }
         onSave={invoicePdfOnSave}
       />
 
