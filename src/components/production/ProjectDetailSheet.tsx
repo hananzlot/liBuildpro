@@ -967,52 +967,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
               </SheetDescription>
             </div>
           </div>
-          {financeSummary.hasAgreements && (
-            <div className="flex items-center justify-center flex-wrap gap-1.5 mt-1">
-              {financeSummary.sold > 0 && (
-                <div className="flex items-center gap-1 bg-emerald-500/10 rounded-md px-1.5 py-0.5 border border-emerald-500/30">
-                  <span className="text-[10px] text-emerald-600 font-bold">Sold:</span>
-                  <span className="text-[11px] font-semibold text-emerald-700">{formatCurrency(financeSummary.sold)}</span>
-                </div>
-              )}
-              {financeSummary.invoiced > 0 && (
-                <div className="flex items-center gap-1 bg-muted/50 rounded-md px-1.5 py-0.5 border">
-                  <span className="text-[10px] text-muted-foreground">Inv:</span>
-                  <span className="text-[11px] font-semibold">{formatCurrency(financeSummary.invoiced)}</span>
-                </div>
-              )}
-              {financeSummary.received > 0 && (
-                <div className="flex items-center gap-1 bg-emerald-500/10 rounded-md px-1.5 py-0.5 border border-emerald-200">
-                  <span className="text-[10px] text-muted-foreground">Rec:</span>
-                  <span className="text-[11px] font-semibold text-emerald-600">{formatCurrency(financeSummary.received)}</span>
-                </div>
-              )}
-              {financeSummary.outstandingAR > 0 && (
-                <div className="flex items-center gap-1 bg-destructive/10 rounded-md px-1.5 py-0.5 border border-destructive/30">
-                  <span className="text-[10px] text-destructive">AR:</span>
-                  <span className="text-[11px] font-semibold text-destructive">{formatCurrency(financeSummary.outstandingAR)}</span>
-                </div>
-              )}
-              {financeSummary.bills > 0 && (
-                <div className="flex items-center gap-1 bg-muted/50 rounded-md px-1.5 py-0.5 border">
-                  <span className="text-[10px] text-muted-foreground">Bills:</span>
-                  <span className="text-[11px] font-semibold">{formatCurrency(financeSummary.bills)}</span>
-                </div>
-              )}
-              {financeSummary.billsPaid > 0 && (
-                <div className="flex items-center gap-1 bg-emerald-500/10 rounded-md px-1.5 py-0.5 border border-emerald-200">
-                  <span className="text-[10px] text-muted-foreground">Paid:</span>
-                  <span className="text-[11px] font-semibold text-emerald-600">{formatCurrency(financeSummary.billsPaid)}</span>
-                </div>
-              )}
-              {financeSummary.outstandingAP > 0 && (
-                <div className="flex items-center gap-1 bg-amber-500/10 rounded-md px-1.5 py-0.5 border border-amber-200">
-                  <span className="text-[10px] text-amber-600">AP:</span>
-                  <span className="text-[11px] font-semibold text-amber-600">{formatCurrency(financeSummary.outstandingAP)}</span>
-                </div>
-              )}
-            </div>
-          )}
           {/* Portal Link & Auto-Sync Toggle Row */}
           <div className="flex items-center justify-between mt-1">
             <div className="flex items-center gap-2">
@@ -1049,6 +1003,52 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     <ExternalLink className="h-3 w-3" />
                   </Button>
                 </>
+              )}
+              {financeSummary.hasAgreements && (
+                <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+                  {financeSummary.sold > 0 && (
+                    <div className="flex items-center gap-1 bg-emerald-500/10 rounded-md px-1.5 py-0.5 border border-emerald-500/30">
+                      <span className="text-[10px] text-emerald-600 font-bold">Sold:</span>
+                      <span className="text-[11px] font-semibold text-emerald-700">{formatCurrency(financeSummary.sold)}</span>
+                    </div>
+                  )}
+                  {financeSummary.invoiced > 0 && (
+                    <div className="flex items-center gap-1 bg-muted/50 rounded-md px-1.5 py-0.5 border">
+                      <span className="text-[10px] text-muted-foreground">Inv:</span>
+                      <span className="text-[11px] font-semibold">{formatCurrency(financeSummary.invoiced)}</span>
+                    </div>
+                  )}
+                  {financeSummary.received > 0 && (
+                    <div className="flex items-center gap-1 bg-emerald-500/10 rounded-md px-1.5 py-0.5 border border-emerald-200">
+                      <span className="text-[10px] text-muted-foreground">Rec:</span>
+                      <span className="text-[11px] font-semibold text-emerald-600">{formatCurrency(financeSummary.received)}</span>
+                    </div>
+                  )}
+                  {financeSummary.outstandingAR > 0 && (
+                    <div className="flex items-center gap-1 bg-destructive/10 rounded-md px-1.5 py-0.5 border border-destructive/30">
+                      <span className="text-[10px] text-destructive">AR:</span>
+                      <span className="text-[11px] font-semibold text-destructive">{formatCurrency(financeSummary.outstandingAR)}</span>
+                    </div>
+                  )}
+                  {financeSummary.bills > 0 && (
+                    <div className="flex items-center gap-1 bg-muted/50 rounded-md px-1.5 py-0.5 border">
+                      <span className="text-[10px] text-muted-foreground">Bills:</span>
+                      <span className="text-[11px] font-semibold">{formatCurrency(financeSummary.bills)}</span>
+                    </div>
+                  )}
+                  {financeSummary.billsPaid > 0 && (
+                    <div className="flex items-center gap-1 bg-emerald-500/10 rounded-md px-1.5 py-0.5 border border-emerald-200">
+                      <span className="text-[10px] text-muted-foreground">Paid:</span>
+                      <span className="text-[11px] font-semibold text-emerald-600">{formatCurrency(financeSummary.billsPaid)}</span>
+                    </div>
+                  )}
+                  {financeSummary.outstandingAP > 0 && (
+                    <div className="flex items-center gap-1 bg-amber-500/10 rounded-md px-1.5 py-0.5 border border-amber-200">
+                      <span className="text-[10px] text-amber-600">AP:</span>
+                      <span className="text-[11px] font-semibold text-amber-600">{formatCurrency(financeSummary.outstandingAP)}</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             {activeTab === "finance" && hasQbConnection && (
