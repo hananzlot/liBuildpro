@@ -853,35 +853,35 @@ export function GlobalAdminSearch() {
         {searchQuery.trim() ? (
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "opportunities" | "projects" | "estimates" | "proposals" | "contacts")}>
             <div className="border-b px-3 py-2">
-              <TabsList className="grid w-full h-8" style={{ 
+              <TabsList className="grid w-full h-8 bg-transparent p-0" style={{ 
                 gridTemplateColumns: `repeat(${[canSeeOpportunities, canSeeProjects, canSeeEstimates, canSeeProposals, canSeeContacts].filter(Boolean).length}, 1fr)` 
               }}>
                 {canSeeOpportunities && (
-                  <TabsTrigger value="opportunities" className="text-xs gap-1">
+                  <TabsTrigger value="opportunities" className="text-xs gap-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary">
                     <Briefcase className="h-3 w-3" />
                     Opps ({filteredOpportunities.length})
                   </TabsTrigger>
                 )}
                 {canSeeProjects && (
-                  <TabsTrigger value="projects" className="text-xs gap-1">
+                  <TabsTrigger value="projects" className="text-xs gap-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary">
                     <FolderKanban className="h-3 w-3" />
                     Projects ({filteredProjects.length})
                   </TabsTrigger>
                 )}
                 {canSeeEstimates && (
-                  <TabsTrigger value="estimates" className="text-xs gap-1">
+                  <TabsTrigger value="estimates" className="text-xs gap-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary">
                     <FileText className="h-3 w-3" />
                     Est ({filteredEstimates.length})
                   </TabsTrigger>
                 )}
                 {canSeeProposals && (
-                  <TabsTrigger value="proposals" className="text-xs gap-1">
+                  <TabsTrigger value="proposals" className="text-xs gap-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary">
                     <FileText className="h-3 w-3" />
                     Props ({filteredProposals.length})
                   </TabsTrigger>
                 )}
                 {canSeeContacts && (
-                  <TabsTrigger value="contacts" className="text-xs gap-1">
+                  <TabsTrigger value="contacts" className="text-xs gap-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary">
                     <Users className="h-3 w-3" />
                     Contacts ({filteredContacts.length})
                   </TabsTrigger>
