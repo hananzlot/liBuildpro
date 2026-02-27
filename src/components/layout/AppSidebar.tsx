@@ -132,8 +132,7 @@ interface AdminMenuItem { title: string; icon: React.ComponentType<{ className?:
 const ADMIN_SUB_ITEMS: { label: string; items: AdminMenuItem[] }[] = [
   { label: "Core Settings", items: [
     { title: "General", icon: Settings, tab: "settings" }, { title: "Emails", icon: Mail, tab: "emails" },
-    { title: "Compliance", icon: FileSignature, tab: "compliance" }, { title: "Insurance", icon: Shield, tab: "insurance" },
-    { title: "Licenses", icon: Award, tab: "licenses" }, { title: "Chat", icon: MessageSquare, tab: "chat" },
+    { title: "Compliance", icon: FileSignature, tab: "compliance" }, { title: "Chat", icon: MessageSquare, tab: "chat" },
   ]},
   { label: "Integrations", items: [
     { title: "GoHighLevel", icon: Link, tab: "integrations" }, { title: "QuickBooks", icon: DollarSign, tab: "quickbooks" },

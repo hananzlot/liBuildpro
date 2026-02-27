@@ -84,7 +84,7 @@ import {
 
 // Tab values used for routing - tab bar removed, navigation via sidebar sub-menu
 const ALL_TAB_VALUES = [
-  "settings", "emails", "compliance", "insurance", "chat",
+  "settings", "emails", "compliance", "chat",
   "integrations", "quickbooks", "custom",
   "sources", "shortlinks", "payables",
   "users", "reports", "cleanup", "audit",
@@ -1020,6 +1020,8 @@ export default function AdminSettings() {
                         </Card>
                       </Collapsible>
                       <SocialMediaLinks />
+                      <InsuranceDocuments />
+                      <LicenseCertificates />
                     </>
                   )}
 
@@ -1632,17 +1634,8 @@ export default function AdminSettings() {
             <ComplianceTemplatesManager />
           </TabsContent>
 
-          {/* Insurance Documents Tab */}
-          <TabsContent value="insurance" className="mt-6">
-            <InsuranceDocuments />
-          </TabsContent>
 
-          {/* Licenses & Certificates Tab */}
-          {activeTab === "licenses" && (
-            <div className="mt-6">
-              <LicenseCertificates />
-            </div>
-          )}
+
 
           {/* Chat Management Tab */}
           <TabsContent value="chat" className="mt-6">
