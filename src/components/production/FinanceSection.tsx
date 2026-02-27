@@ -71,7 +71,14 @@ import {
   Sparkles,
   ExternalLink,
   X,
+  MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
@@ -2390,40 +2397,50 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                               </TableCell>
                             )}
                             <TableCell>
-                              <div className="flex gap-1">
-                                {(inv.open_balance || 0) > 0 && (
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Record Payment" onClick={() => { 
-                                    setEditingPayment(null); 
-                                    setPrePopulatedPayment({ invoice_id: inv.id, payment_amount: inv.open_balance || 0 }); 
-                                    setPaymentDialogOpen(true); 
-                                  }}>
-                                    <DollarSign className="h-3 w-3" />
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <MoreHorizontal className="h-4 w-4" />
                                   </Button>
-                                )}
-                                <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => {
-                                  const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
-                                  const agreement = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
-                                  setInvoicePdfData({
-                                    invoice_number: inv.invoice_number,
-                                    invoice_date: inv.invoice_date,
-                                    amount: inv.amount,
-                                    payments_received: inv.payments_received,
-                                    agreement_number: agreement?.agreement_number || null,
-                                    phase_name: phase?.phase_name || null,
-                                    description_of_work: agreement?.description_of_work || null,
-                                  });
-                                  setInvoicePdfDialogOpen(true);
-                                }}>
-                                  <FileText className="h-3 w-3" />
-                                  Preview Invoice
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("invoice", inv.id)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {(inv.open_balance || 0) > 0 && (
+                                    <DropdownMenuItem onClick={() => { 
+                                      setEditingPayment(null); 
+                                      setPrePopulatedPayment({ invoice_id: inv.id, payment_amount: inv.open_balance || 0 }); 
+                                      setPaymentDialogOpen(true); 
+                                    }}>
+                                      <DollarSign className="h-4 w-4 mr-2" />
+                                      Record Payment
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => {
+                                    const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+                                    const agreement = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
+                                    setInvoicePdfData({
+                                      invoice_number: inv.invoice_number,
+                                      invoice_date: inv.invoice_date,
+                                      amount: inv.amount,
+                                      payments_received: inv.payments_received,
+                                      agreement_number: agreement?.agreement_number || null,
+                                      phase_name: phase?.phase_name || null,
+                                      description_of_work: agreement?.description_of_work || null,
+                                    });
+                                    setInvoicePdfDialogOpen(true);
+                                  }}>
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Preview Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("invoice", inv.id)}>
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -2533,24 +2550,29 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   {pmt.void_reason || "No reason"}
                                 </p>
                               ) : (
-                                <div className="flex gap-1">
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPayment(pmt); setPaymentDialogOpen(true); }}>
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-7 text-xs px-2 text-amber-600 hover:text-amber-700"
-                                    onClick={() => { setVoidingPayment(pmt); setVoidPaymentDialogOpen(true); }}
-                                  >
-                                    Void
-                                  </Button>
-                                  {(isAdmin || isSuperAdmin) && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("payment", pmt.id)}>
-                                      <Trash2 className="h-3 w-3" />
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                      <MoreHorizontal className="h-4 w-4" />
                                     </Button>
-                                  )}
-                                </div>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => { setEditingPayment(pmt); setPaymentDialogOpen(true); }}>
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setVoidingPayment(pmt); setVoidPaymentDialogOpen(true); }}>
+                                      <X className="h-4 w-4 mr-2" />
+                                      Void
+                                    </DropdownMenuItem>
+                                    {(isAdmin || isSuperAdmin) && (
+                                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("payment", pmt.id)}>
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               )}
                             </TableCell>
                           </TableRow>
@@ -2793,50 +2815,55 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                                 {bill.void_reason || "Deleted in QB"}
                                               </p>
                                               {(isAdmin || isSuperAdmin) && (
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
-                                                  <Trash2 className="h-3 w-3" />
-                                                </Button>
+                                                <DropdownMenu>
+                                                  <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                      <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                  </DropdownMenuTrigger>
+                                                  <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
+                                                      <Trash2 className="h-4 w-4 mr-2" />
+                                                      Delete
+                                                    </DropdownMenuItem>
+                                                  </DropdownMenuContent>
+                                                </DropdownMenu>
                                               )}
                                             </div>
                                           ) : (
-                                            <div className="flex gap-1">
-                                              <Button 
-                                                variant="ghost" 
-                                                size="sm" 
-                                                className="h-7 text-xs px-2"
-                                                onClick={() => { setHistoryBill(bill); setHistoryDialogOpen(true); }}
-                                              >
-                                                <History className="h-3 w-3 mr-1" />
-                                                History
-                                              </Button>
-                                              {(bill.balance || 0) > 0 && (
-                                                <Button 
-                                                  variant="outline" 
-                                                  size="sm" 
-                                                  className="h-7 text-xs px-2"
-                                                  onClick={() => { setPayingBill(bill); setQuickPayDialogOpen(true); }}
-                                                >
-                                                  <CreditCard className="h-3 w-3 mr-1" />
-                                                  Pay
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                  <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
-                                              )}
-                                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditBillClick(bill)}>
-                                                <Pencil className="h-3 w-3" />
-                                              </Button>
-                                              <Button 
-                                                variant="ghost" 
-                                                size="sm" 
-                                                className="h-7 text-xs px-2 text-amber-600 hover:text-amber-700"
-                                                onClick={() => { setVoidingBill(bill); setVoidDialogOpen(true); }}
-                                              >
-                                                Void
-                                              </Button>
-                                              {(isAdmin || isSuperAdmin) && (
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
-                                                  <Trash2 className="h-3 w-3" />
-                                                </Button>
-                                              )}
-                                            </div>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => { setHistoryBill(bill); setHistoryDialogOpen(true); }}>
+                                                  <History className="h-4 w-4 mr-2" />
+                                                  History
+                                                </DropdownMenuItem>
+                                                {(bill.balance || 0) > 0 && (
+                                                  <DropdownMenuItem onClick={() => { setPayingBill(bill); setQuickPayDialogOpen(true); }}>
+                                                    <CreditCard className="h-4 w-4 mr-2" />
+                                                    Pay
+                                                  </DropdownMenuItem>
+                                                )}
+                                                <DropdownMenuItem onClick={() => handleEditBillClick(bill)}>
+                                                  <Pencil className="h-4 w-4 mr-2" />
+                                                  Edit
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => { setVoidingBill(bill); setVoidDialogOpen(true); }}>
+                                                  <X className="h-4 w-4 mr-2" />
+                                                  Void
+                                                </DropdownMenuItem>
+                                                {(isAdmin || isSuperAdmin) && (
+                                                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
+                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                    Delete
+                                                  </DropdownMenuItem>
+                                                )}
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
                                           )}
                                         </TableCell>
                                       </TableRow>
@@ -3048,14 +3075,23 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                           )}
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingAgreement(agreement); setAgreementDialogOpen(true); }}>
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("agreement", agreement.id)}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setEditingAgreement(agreement); setAgreementDialogOpen(true); }}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("agreement", agreement.id)}>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                       );
@@ -3316,14 +3352,15 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                           </div>
                                         </TableCell>
                                         <TableCell>
-                                          <div className="flex gap-1">
-                                            {!isFullyInvoiced && (
-                                              <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="h-7 w-7" 
-                                                title="Add Invoice from Progress Payment"
-                                                onClick={() => { 
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                              </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                              {!isFullyInvoiced && (
+                                                <DropdownMenuItem onClick={() => { 
                                                   const remainingAmount = (phase.amount || 0) - invoiceStatus.totalInvoiced;
                                                   setInvoiceConfirmPhase({
                                                     id: phase.id,
@@ -3332,30 +3369,22 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                                     maxAmount: remainingAmount,
                                                   });
                                                   setInvoiceConfirmOpen(true); 
-                                                }}
-                                              >
-                                                <FileText className="h-3 w-3" />
-                                              </Button>
-                                            )}
-                                            {(() => {
-                                              // Find all invoices with open balance for this phase
-                                              const unpaidInvoices = invoices
-                                                .filter(inv => inv.payment_phase_id === phase.id)
-                                                .map(inv => ({
-                                                  ...inv,
-                                                  open_balance: (inv.amount || 0) - (inv.payments_received || 0),
-                                                }))
-                                                .filter(inv => inv.open_balance > 0);
-                                              if (unpaidInvoices.length === 0) return null;
-                                              return (
-                                                <Button 
-                                                  variant="ghost" 
-                                                  size="icon" 
-                                                  className="h-7 w-7 text-emerald-600" 
-                                                  title={unpaidInvoices.length === 1 
-                                                    ? `Record Payment for Invoice #${unpaidInvoices[0].invoice_number || 'N/A'}` 
-                                                    : `Record Payment (${unpaidInvoices.length} unpaid invoices)`}
-                                                  onClick={() => { 
+                                                }}>
+                                                  <FileText className="h-4 w-4 mr-2" />
+                                                  Add Invoice
+                                                </DropdownMenuItem>
+                                              )}
+                                              {(() => {
+                                                const unpaidInvoices = invoices
+                                                  .filter(inv => inv.payment_phase_id === phase.id)
+                                                  .map(inv => ({
+                                                    ...inv,
+                                                    open_balance: (inv.amount || 0) - (inv.payments_received || 0),
+                                                  }))
+                                                  .filter(inv => inv.open_balance > 0);
+                                                if (unpaidInvoices.length === 0) return null;
+                                                return (
+                                                  <DropdownMenuItem onClick={() => { 
                                                     if (unpaidInvoices.length === 1) {
                                                       setEditingPayment(null);
                                                       setPrePopulatedPayment({
@@ -3366,49 +3395,34 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                                     } else {
                                                       setInvoiceSelectForPayment(unpaidInvoices);
                                                     }
-                                                  }}
-                                                >
-                                                  <DollarSign className="h-3 w-3" />
-                                                </Button>
-                                              );
-                                            })()}
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}>
-                                              <Pencil className="h-3 w-3" />
-                                            </Button>
-                                            {(() => {
-                                              const phasePayments = activePayments.filter(p => p.payment_phase_id === phase.id);
-                                              const hasPayments = phasePayments.length > 0;
-                                              const paymentTotal = phasePayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
-                                              return hasPayments ? (
-                                                <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                    <span className="inline-flex">
-                                                      <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        className="h-7 w-7 text-muted-foreground cursor-not-allowed opacity-50" 
-                                                        disabled
-                                                      >
-                                                        <Trash2 className="h-3 w-3" />
-                                                      </Button>
-                                                    </span>
-                                                  </TooltipTrigger>
-                                                  <TooltipContent>
-                                                    <p className="text-xs">Cannot delete: {formatCurrency(paymentTotal)} in payments recorded</p>
-                                                  </TooltipContent>
-                                                </Tooltip>
-                                              ) : (
-                                                <Button 
-                                                  variant="ghost" 
-                                                  size="icon" 
-                                                  className="h-7 w-7 text-destructive" 
-                                                  onClick={() => handleDeleteClick("phase", phase.id)}
-                                                >
-                                                  <Trash2 className="h-3 w-3" />
-                                                </Button>
-                                              );
-                                            })()}
-                                          </div>
+                                                  }}>
+                                                    <DollarSign className="h-4 w-4 mr-2" />
+                                                    Record Payment
+                                                  </DropdownMenuItem>
+                                                );
+                                              })()}
+                                              <DropdownMenuItem onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}>
+                                                <Pencil className="h-4 w-4 mr-2" />
+                                                Edit
+                                              </DropdownMenuItem>
+                                              {(() => {
+                                                const phasePayments = activePayments.filter(p => p.payment_phase_id === phase.id);
+                                                const hasPayments = phasePayments.length > 0;
+                                                const paymentTotal = phasePayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+                                                return !hasPayments ? (
+                                                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("phase", phase.id)}>
+                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                    Delete
+                                                  </DropdownMenuItem>
+                                                ) : (
+                                                  <DropdownMenuItem disabled className="text-muted-foreground opacity-50">
+                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                    Cannot delete ({formatCurrency(paymentTotal)} paid)
+                                                  </DropdownMenuItem>
+                                                );
+                                              })()}
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
                                         </TableCell>
                                       </TableRow>
                                     );
