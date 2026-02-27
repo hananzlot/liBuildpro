@@ -382,44 +382,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className={`grid w-full`} style={{ gridTemplateColumns: `repeat(${[canViewProfitability, canViewCashflow, canViewReceivables, canViewBank, canViewCommission, canViewProjectSummary].filter(Boolean).length}, minmax(0, 1fr))` }}>
-          {canViewProjectSummary && (
-            <TabsTrigger value="project_summary" className="flex items-center gap-1.5">
-              <ClipboardList className="h-4 w-4" />
-              <span className="hidden sm:inline">Projects Summary</span>
-            </TabsTrigger>
-          )}
-          {canViewProfitability && (
-            <TabsTrigger value="profitability" className="flex items-center gap-1.5">
-              <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Profitability</span>
-            </TabsTrigger>
-          )}
-          {canViewCashflow && (
-            <TabsTrigger value="cashflow" className="flex items-center gap-1.5">
-              <Wallet className="h-4 w-4" />
-              <span className="hidden sm:inline">Cash Flow</span>
-            </TabsTrigger>
-          )}
-          {canViewReceivables && (
-            <TabsTrigger value="receivables" className="flex items-center gap-1.5">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Receivables</span>
-            </TabsTrigger>
-          )}
-          {canViewBank && (
-            <TabsTrigger value="bank" className="flex items-center gap-1.5">
-              <Building className="h-4 w-4" />
-              <span className="hidden sm:inline">Bank Activity</span>
-            </TabsTrigger>
-          )}
-          {canViewCommission && (
-            <TabsTrigger value="commission" className="flex items-center gap-1.5">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Commission</span>
-            </TabsTrigger>
-          )}
-        </TabsList>
+        {/* Tab menu removed — sidebar navigates to each report */}
 
         {canViewProfitability && (
           <TabsContent value="profitability" className="mt-6">
