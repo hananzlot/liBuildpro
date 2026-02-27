@@ -337,31 +337,32 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
 
   return (
     <div className="space-y-3">
-      {/* Upload Button */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-xs font-medium">All Project Documents</h3>
-          <p className="text-[10px] text-muted-foreground">
-            {allDocuments.length} file{allDocuments.length !== 1 ? "s" : ""}
-          </p>
-        </div>
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          <Button size="sm" className="h-7 text-xs" onClick={() => fileInputRef.current?.click()}>
-            <Plus className="h-3 w-3 mr-1" />
-            Upload
-          </Button>
-        </div>
-      </div>
-
       <Card>
-        <CardContent className="pt-3 px-3 pb-3">
+        <CardHeader className="py-3 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xs font-medium flex items-center gap-2">
+              <FileText className="h-3 w-3" />
+              All Project Documents
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-2">
+                {allDocuments.length}
+              </Badge>
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <Button size="sm" className="h-7 text-xs" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="h-3 w-3 mr-1.5" />
+                Upload
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 px-3 pb-3">
           {loadingDocs ? (
             <div className="flex justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin" />
