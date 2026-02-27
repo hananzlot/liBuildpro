@@ -378,6 +378,10 @@ export function WarningsDialog({
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Manage Subcontractors
                   </Button>
+                </div>
+              </div>
+            )}
+
             {/* Unreviewed Vendor Compliance */}
             {totalUnreviewed > 0 && (
               <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
@@ -393,9 +397,13 @@ export function WarningsDialog({
                 </p>
                 <div className="space-y-2">
                   {unreviewedVendors.slice(0, 5).map((vendor) => (
-                    <div
+                    <button
                       key={vendor.id}
-                      className="flex items-center justify-between py-2 px-3 rounded-md bg-background/80 border border-border/50"
+                      className="flex items-center justify-between w-full py-2 px-3 rounded-md bg-background/80 border border-border/50 hover:bg-accent/50 transition-colors cursor-pointer text-left"
+                      onClick={() => {
+                        setOpen(false);
+                        navigate(`/production?view=subcontractors&editId=${vendor.id}`);
+                      }}
                     >
                       <div>
                         <p className="text-sm font-medium">{vendor.company_name}</p>
@@ -406,7 +414,7 @@ export function WarningsDialog({
                       <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 text-xs">
                         Unreviewed
                       </Badge>
-                    </div>
+                    </button>
                   ))}
                   {unreviewedVendors.length > 5 && (
                     <p className="text-xs text-muted-foreground text-center">
@@ -426,9 +434,6 @@ export function WarningsDialog({
                     Review in Vendors & Subs
                   </Button>
                 </div>
-              </div>
-            )}
-          </div>
               </div>
             )}
           </div>

@@ -101,6 +101,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
   const queryClient = useQueryClient();
   const { user, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | null>(null);
@@ -111,6 +112,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
   const [selectedDocument, setSelectedDocument] = useState<{ url: string; name: string } | null>(null);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [pendingEditId, setPendingEditId] = useState<string | null>(searchParams.get('editId'));
 
   // Auto-open the add dialog if requested (from bill flow)
   useEffect(() => {
@@ -120,6 +122,9 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       setHasAutoOpened(true);
     }
   }, [autoOpenAdd, hasAutoOpened]);
+
+
+
 
   // Form state
   const [formData, setFormData] = useState({
@@ -189,6 +194,20 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
     },
     enabled: !!companyId,
   });
+
+  // Auto-open edit dialog when navigated with editId param
+  useEffect(() => {
+    if (pendingEditId && subcontractors.length > 0) {
+      const sub = subcontractors.find(s => s.id === pendingEditId);
+      if (sub) {
+        setEditingSubcontractor(sub);
+        setDialogOpen(true);
+      }
+      setPendingEditId(null);
+      searchParams.delete('editId');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [pendingEditId, subcontractors]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
