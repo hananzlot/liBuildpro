@@ -1200,7 +1200,10 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     });
 
     // Set the onSave callback that will save to DB when user clicks a save button
+    // Close the PDF dialog first so QB duplicate review dialog (if any) isn't hidden behind it
     setInvoicePdfOnSave(() => async () => {
+      setInvoicePdfDialogOpen(false);
+      setInvoicePdfOnSave(undefined);
       setEditingInvoice(null);
       saveInvoiceMutation.mutate(invoiceData);
     });
@@ -3854,7 +3857,10 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       {qbDuplicateState && (
         <QBDuplicateReviewDialog
           open={qbDuplicateDialogOpen}
-          onOpenChange={setQbDuplicateDialogOpen}
+          onOpenChange={(open) => {
+            setQbDuplicateDialogOpen(open);
+            if (!open) qbDuplicateState.onCancel();
+          }}
           duplicates={qbDuplicateState.duplicates}
           recordType={qbDuplicateState.recordType}
           localAmount={qbDuplicateState.localAmount}
