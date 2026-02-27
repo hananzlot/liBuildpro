@@ -562,11 +562,6 @@ export function PortalEstimateCreator({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {myEstimates.length > 0 && (
-                  <Badge variant="secondary" className="text-[10px]">
-                    {myEstimates.length} estimates
-                  </Badge>
-                )}
                 {isExpanded ? (
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 ) : (
