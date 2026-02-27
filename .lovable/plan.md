@@ -1,65 +1,90 @@
 
 
-## Reorganize Company Settings into Grouped Sections
+## Redesign Company Settings: Vertical Tab Navigation + All Collapsed
 
-Currently 10 collapsible cards in a flat vertical list. Reorganize into 3 logical groups with section headers and a two-column grid layout.
+The current section-based layout still results in a long scrollable page. A better pattern is a **vertical tab navigation** (like GitHub/Stripe settings) where users select a category on the left and only see that category's cards on the right.
 
-### Layout
+### Current Problems
+- Even with sections and jump links, users still see all 10 cards at once
+- "Jump to" buttons are redundant with proper navigation
+- Having some cards auto-expanded adds visual noise
+
+### Proposed Layout
 
 ```text
-━━━ Company Profile ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-┌─────────────────┐  ┌─────────────────────────────┐
-│ Company Logo    │  │ Company Info (name, addr…)   │
-└─────────────────┘  └─────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│ Social Media Links                              │
-└─────────────────────────────────────────────────┘
-
-━━━ Sales & Pipeline ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-┌─────────────────┐  ┌─────────────────────────────┐
-│ Pipeline Config │  │ Opportunity Stage Names      │
-└─────────────────┘  └─────────────────────────────┘
-┌─────────────────┐  ┌─────────────────────────────┐
-│ Stage Badges    │  │ Estimate Settings            │
-└─────────────────┘  └─────────────────────────────┘
-
-━━━ Operations & Display ━━━━━━━━━━━━━━━━━━━━━━━━
-┌─────────────────┐  ┌─────────────────────────────┐
-│ Portal Settings │  │ Project Statuses             │
-└─────────────────┘  └─────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│ Dashboard KPI Visibility                        │
-└─────────────────────────────────────────────────┘
+┌──────────────────┬──────────────────────────────────┐
+│ ▸ Company Profile│  Company Logo          [card]    │
+│   Sales & Pipeline  Company Info        [card]    │
+│   Operations     │  Social Media Links   [card]    │
+│                  │                                  │
+│                  │  (only cards for selected        │
+│                  │   category are shown)            │
+└──────────────────┴──────────────────────────────────┘
 ```
+
+On mobile, the left sidebar becomes horizontal pill tabs above the content.
 
 ### Implementation
 
-**File: `src/pages/AdminSettings.tsx`** — Restructure lines ~964-1414 (the settings TabsContent inner `div`).
+**File: `src/pages/AdminSettings.tsx`**
 
-**Step 1: Add section headers** — Each group gets a lightweight header with icon + title + Separator:
-```tsx
-<div className="flex items-center gap-2 pt-2">
-  <Building className="h-5 w-5 text-muted-foreground" />
-  <h3 className="text-lg font-semibold">Company Profile</h3>
-</div>
-<Separator className="mb-2" />
-```
-Icons: `Building` for Company Profile, `Target` for Sales & Pipeline, `Settings` for Operations & Display.
+1. **Add state** for the active settings category:
+   ```tsx
+   const [settingsCategory, setSettingsCategory] = useState<"company" | "sales" | "operations">("company");
+   ```
 
-**Step 2: Wrap pairs in responsive grids:**
-```tsx
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-  {/* Card A */}
-  {/* Card B */}
-</div>
-```
-`items-start` ensures cards don't stretch to match height.
+2. **Replace** the "Jump to" buttons and section headers/separators with a sidebar + content layout:
+   ```tsx
+   <div className="flex flex-col md:flex-row gap-6">
+     {/* Sidebar - vertical on desktop, horizontal on mobile */}
+     <div className="flex md:flex-col gap-1 md:w-48 md:shrink-0">
+       <Button variant={settingsCategory === "company" ? "secondary" : "ghost"} 
+               className="justify-start" onClick={() => setSettingsCategory("company")}>
+         <Building className="h-4 w-4 mr-2" /> Company Profile
+       </Button>
+       <Button variant={settingsCategory === "sales" ? "secondary" : "ghost"}
+               className="justify-start" onClick={() => setSettingsCategory("sales")}>
+         <Target className="h-4 w-4 mr-2" /> Sales & Pipeline
+       </Button>
+       <Button variant={settingsCategory === "operations" ? "secondary" : "ghost"}
+               className="justify-start" onClick={() => setSettingsCategory("operations")}>
+         <Settings className="h-4 w-4 mr-2" /> Operations & Display
+       </Button>
+     </div>
 
-**Step 3: Reorder and group:**
+     {/* Content area - only shows selected category */}
+     <div className="flex-1 space-y-4">
+       {settingsCategory === "company" && (
+         <>
+           <LogoUpload />           {/* defaultOpen removed */}
+           <CompanySettingsCard />
+           <SocialMediaLinks />
+         </>
+       )}
+       {settingsCategory === "sales" && (
+         <>
+           <PipelineConfig />       {/* defaultOpen removed */}
+           <OpportunityStages />
+           <StageBadges />
+           <EstimateSettings />
+         </>
+       )}
+       {settingsCategory === "operations" && (
+         <>
+           <CustomerPortal />       {/* defaultOpen removed */}
+           <ProjectStatuses />
+           <DashboardKPI />
+         </>
+       )}
+     </div>
+   </div>
+   ```
 
-- **Company Profile**: LogoUpload + Company Settings (side-by-side), then SocialMediaLinks (full-width)
-- **Sales & Pipeline**: Pipeline Configuration + Opportunity Stage Names (side-by-side), then Stage Badge Mappings + Estimate Settings (side-by-side)
-- **Operations & Display**: Customer Portal Settings + Project Statuses (side-by-side), then Dashboard KPI Visibility (full-width)
+3. **Collapse all cards by default** — change `defaultOpen` to `false` (or remove the prop) on LogoUpload, Pipeline Configuration, and Customer Portal Settings.
 
-All existing component code stays identical — only the wrapping structure changes.
+4. **Remove** the "Jump to" navigation bar, section headers (`<h3>`), separators, section wrapper `<div>`s, and `scroll-mt-6` / `id` attributes — all replaced by the sidebar.
+
+5. **Remove** grid layouts (`grid-cols-2`) — with only 3-4 cards visible at a time, a single-column stack is cleaner and avoids mismatched card heights.
+
+This reduces cognitive load significantly: users see 3-4 cards max instead of 10, with clear category switching.
 
