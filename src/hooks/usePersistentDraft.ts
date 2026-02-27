@@ -28,6 +28,8 @@ export function usePersistentDraft<T extends Record<string, any>>(
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const storageKeyRef = useRef(storageKey);
   storageKeyRef.current = storageKey;
+  // When setFullDraft is called, skip the next useEffect reload to avoid overwriting explicit values
+  const skipNextLoadRef = useRef(false);
 
   // Load draft from sessionStorage or fall back to initialValues
   const [draft, setDraft] = useState<T>(() => {
@@ -47,6 +49,11 @@ export function usePersistentDraft<T extends Record<string, any>>(
   // Re-load when storageKey or enabled changes
   useEffect(() => {
     if (!enabled) return;
+    // If setFullDraft was just called, skip this reload to preserve explicitly set values
+    if (skipNextLoadRef.current) {
+      skipNextLoadRef.current = false;
+      return;
+    }
     try {
       const raw = sessionStorage.getItem(storageKey);
       if (raw) {
@@ -92,6 +99,7 @@ export function usePersistentDraft<T extends Record<string, any>>(
   /** Replace the entire draft */
   const setFullDraft = useCallback(
     (values: T) => {
+      skipNextLoadRef.current = true;
       setDraft(values);
       saveToStorage(values);
     },
