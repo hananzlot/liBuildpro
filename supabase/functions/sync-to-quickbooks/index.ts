@@ -234,6 +234,7 @@ Deno.serve(async (req) => {
     // Handle checkOnly mode - just check if entities exist without creating
     if (checkOnly) {
       const pendingEntities: { type: string; name: string }[] = [];
+      const unmappedEntities: { type: string; name: string; qbId?: string; qbName?: string }[] = [];
       
       // Check for invoices
       if (!syncType || syncType === "invoice") {
@@ -248,6 +249,9 @@ Deno.serve(async (req) => {
             const check = await checkCustomerExists(invoice.projects);
             if (!check.exists) {
               pendingEntities.push({ type: "customer", name: check.name });
+            } else if (!check.fromMapping) {
+              // Customer found by name search but has no saved mapping - flag as unmapped
+              unmappedEntities.push({ type: "customer", name: check.name, qbId: check.id || undefined, qbName: check.name });
             }
           }
         }
@@ -265,6 +269,8 @@ Deno.serve(async (req) => {
           const check = await checkCustomerExists(payment.projects);
           if (!check.exists) {
             pendingEntities.push({ type: "customer", name: check.name });
+          } else if (!check.fromMapping) {
+            unmappedEntities.push({ type: "customer", name: check.name, qbId: check.id || undefined, qbName: check.name });
           }
         }
       }
@@ -299,7 +305,8 @@ Deno.serve(async (req) => {
           success: true, 
           checkOnly: true, 
           pendingEntities,
-          requiresConfirmation: pendingEntities.length > 0 
+          unmappedEntities,
+          requiresConfirmation: pendingEntities.length > 0 || unmappedEntities.length > 0
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
