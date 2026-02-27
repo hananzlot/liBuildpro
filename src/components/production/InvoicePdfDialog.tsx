@@ -12,6 +12,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
+interface InvoicePaymentRecord {
+  id: string;
+  payment_amount: number | null;
+  projected_received_date: string | null;
+  payment_method?: string | null;
+}
+
 interface InvoicePdfData {
   invoice_number: string | null;
   invoice_date: string | null;
@@ -40,6 +47,7 @@ interface InvoicePdfDialogProps {
   onOpenChange: (open: boolean) => void;
   invoice: InvoicePdfData | null;
   project?: ProjectData | null;
+  paymentRecords?: InvoicePaymentRecord[];
   /** When provided, enables deferred-save mode: buttons trigger save before their action */
   onSave?: () => Promise<void> | void;
 }
@@ -49,6 +57,7 @@ export function InvoicePdfDialog({
   onOpenChange,
   invoice,
   project,
+  paymentRecords = [],
   onSave,
 }: InvoicePdfDialogProps) {
   const printRef = useRef<HTMLDivElement>(null);
@@ -306,28 +315,58 @@ export function InvoicePdfDialog({
 
               {/* Totals */}
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 32 }}>
-                <div style={{ width: 280 }}>
+                <div style={{ width: 320 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 13, color: "#555" }}>
                     <span style={{ fontWeight: 500 }}>Subtotal</span>
                     <span style={{ fontWeight: 600, color: "#111" }}>{formatCurrency(invoice.amount || 0)}</span>
                   </div>
                   {(invoice.payments_received || 0) > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 13, color: "#16a34a" }}>
-                      <span style={{ fontWeight: 500 }}>Payments Received</span>
-                      <span style={{ fontWeight: 600 }}>-{formatCurrency(invoice.payments_received || 0)}</span>
-                    </div>
+                    <>
+                      {paymentRecords.length > 0 ? (
+                        paymentRecords.map((pmt, idx) => (
+                          <div key={pmt.id || idx} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: "#16a34a" }}>
+                            <span style={{ fontWeight: 500 }}>
+                              Payment Received{pmt.projected_received_date ? ` — ${format(new Date(pmt.projected_received_date), "MMM d, yyyy")}` : ""}
+                            </span>
+                            <span style={{ fontWeight: 600 }}>-{formatCurrency(pmt.payment_amount || 0)}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 13, color: "#16a34a" }}>
+                          <span style={{ fontWeight: 500 }}>Payments Received</span>
+                          <span style={{ fontWeight: 600 }}>-{formatCurrency(invoice.payments_received || 0)}</span>
+                        </div>
+                      )}
+                    </>
                   )}
                   <div style={{
                     display: "flex", justifyContent: "space-between",
                     padding: "12px 0 8px", marginTop: 4,
                     borderTop: "2px solid #2563eb",
-                    fontSize: 18, fontWeight: 700, color: "#2563eb"
+                    fontSize: 18, fontWeight: 700, color: balanceDue <= 0 ? "#16a34a" : "#2563eb"
                   }}>
-                    <span>Balance Due</span>
+                    <span>{balanceDue <= 0 ? "Balance" : "Balance Due"}</span>
                     <span>{formatCurrency(Math.max(0, balanceDue))}</span>
                   </div>
                 </div>
               </div>
+
+              {/* Paid in Full Stamp */}
+              {balanceDue <= 0 && (invoice.payments_received || 0) > 0 && (
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+                  <div style={{
+                    border: "4px solid #16a34a",
+                    borderRadius: 12,
+                    padding: "12px 40px",
+                    transform: "rotate(-6deg)",
+                    opacity: 0.85,
+                  }}>
+                    <div style={{ fontSize: 32, fontWeight: 900, color: "#16a34a", letterSpacing: 4, textTransform: "uppercase" as const, lineHeight: 1 }}>
+                      PAID IN FULL
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Footer */}
               <div style={{ textAlign: "center", paddingTop: 32, borderTop: "1px solid #eee" }}>
