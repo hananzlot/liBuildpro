@@ -33,7 +33,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle, Eye, EyeOff, RotateCcw, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle, Eye, EyeOff, RotateCcw, ChevronUp, ChevronDown, MoreHorizontal } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -974,71 +980,54 @@ export function SalespeopleManagement() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
-                          {isArchived ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => restoreMutation.mutate(person.id)}
-                                  disabled={restoreMutation.isPending}
-                                >
-                                  {restoreMutation.isPending ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              {restoreMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <MoreHorizontal className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {isArchived ? (
+                              <DropdownMenuItem
+                                onClick={() => restoreMutation.mutate(person.id)}
+                                disabled={restoreMutation.isPending}
+                              >
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Restore
+                              </DropdownMenuItem>
+                            ) : (
+                              <>
+                                <DropdownMenuItem onClick={() => generatePortalLink(person)} disabled={isGenerating}>
+                                  {isGenerating ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : isCopied ? (
+                                    <Check className="h-4 w-4 mr-2 text-primary" />
+                                  ) : hasToken ? (
+                                    <Copy className="h-4 w-4 mr-2 text-primary" />
                                   ) : (
-                                    <RotateCcw className="h-4 w-4" />
+                                    <Link2 className="h-4 w-4 mr-2" />
                                   )}
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Restore salesperson</TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => generatePortalLink(person)}
-                                    disabled={isGenerating}
-                                  >
-                                    {isGenerating ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : isCopied ? (
-                                      <Check className="h-4 w-4 text-primary" />
-                                    ) : hasToken ? (
-                                      <Copy className="h-4 w-4 text-primary" />
-                                    ) : (
-                                      <Link2 className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {hasToken ? 'Copy portal link' : 'Generate portal link'}
-                                </TooltipContent>
-                              </Tooltip>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleEdit(person)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive"
-                                onClick={() => handleDeleteClick(person)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
+                                  {hasToken ? 'Copy Portal Link' : 'Generate Portal Link'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEdit(person)}>
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => handleDeleteClick(person)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );
