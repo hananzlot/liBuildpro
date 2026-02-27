@@ -25,42 +25,72 @@ serve(async (req) => {
     let prompt: string;
 
     if (mode === "daily-summary" && auditLogs && Array.isArray(auditLogs)) {
-      // Daily/batch summary mode
-      const logCount = auditLogs.length;
-      const tableBreakdown: Record<string, { INSERT: number; UPDATE: number; DELETE: number }> = {};
-      const userActivity: Record<string, number> = {};
+      const TABLE_LABELS: Record<string, string> = {
+        appointments: "Appointment", opportunities: "Opportunity", contacts: "Contact",
+        contact_notes: "Contact Note", projects: "Project", project_payments: "Payment",
+        project_bills: "Bill", project_invoices: "Invoice", bill_payments: "Bill Payment",
+        commission_payments: "Commission", estimates: "Estimate", estimate_items: "Estimate Line Item",
+        salespeople: "Salesperson", profiles: "User Profile", user_roles: "User Role",
+        company_settings: "Setting", signature_documents: "Document", document_signatures: "Signature",
+        call_logs: "Call Log", conversations: "Conversation",
+      };
 
+      // Build detailed entries (up to 100 for the AI)
+      const detailedEntries = auditLogs.slice(0, 100).map((log: any) => {
+        const parts: string[] = [];
+        parts.push(`[${log.action}] ${TABLE_LABELS[log.table_name] || log.table_name}`);
+        if (log.description) parts.push(`Desc: ${log.description}`);
+        if (log.changes) parts.push(`Changes: ${JSON.stringify(log.changes)}`);
+        if (log.new_values && log.action === "INSERT") {
+          // Trim large new_values to key fields
+          const nv = log.new_values;
+          const trimmed: Record<string, any> = {};
+          const keepKeys = ["project_name","customer_first_name","customer_last_name","payment_amount","payment_status","bill_amount","invoice_number","estimate_number","amount","title","start_time","end_time","address","contact_name","first_name","last_name","email","stage_name","monetary_value","project_status","status","name","full_name","role"];
+          for (const k of keepKeys) { if (nv[k] !== undefined) trimmed[k] = nv[k]; }
+          if (Object.keys(trimmed).length > 0) parts.push(`Values: ${JSON.stringify(trimmed)}`);
+        }
+        if (log.user_email) parts.push(`By: ${log.user_email}`);
+        return parts.join(" | ");
+      });
+
+      const userActivity: Record<string, number> = {};
       for (const log of auditLogs) {
-        const table = log.table_name || "unknown";
-        if (!tableBreakdown[table]) tableBreakdown[table] = { INSERT: 0, UPDATE: 0, DELETE: 0 };
-        tableBreakdown[table][log.action as "INSERT" | "UPDATE" | "DELETE"] = 
-          (tableBreakdown[table][log.action as "INSERT" | "UPDATE" | "DELETE"] || 0) + 1;
-        
         const user = log.user_email || "System";
         userActivity[user] = (userActivity[user] || 0) + 1;
       }
 
-      // Pick up to 20 representative log descriptions
-      const sampleDescriptions = auditLogs
-        .filter((l: any) => l.description)
-        .slice(0, 20)
-        .map((l: any) => `- [${l.action}] ${l.table_name}: ${l.description}`);
+      prompt = `You are a business operations analyst creating a detailed, specific activity report.
 
-      prompt = `You are a helpful assistant that creates concise daily activity reports from database audit logs.
-Write a clear, executive-style summary of the day's activity. Use sections with headers. Be concise but comprehensive.
-Translate table names into human-readable labels (e.g. "projects" → "Projects", "project_payments" → "Payments", "estimates" → "Estimates").
-Don't mention UUIDs. Format as markdown with bullet points.
+CRITICAL RULES:
+- Be EXTREMELY SPECIFIC with real data: customer names, dollar amounts, invoice/estimate numbers, appointment details, project names, statuses.
+- Extract actual values from the Changes and Values fields. Don't just say "a payment was updated" — say "Invoice #1234 for John Smith was marked as paid for $5,250".
+- Never mention UUIDs or technical database IDs. DO include business identifiers (estimate numbers, invoice numbers, project/customer names).
+- Format currency with $ signs. Format dates readably.
+- Use markdown headers and bullet points.
 
-Activity Data:
-- Total changes: ${logCount}
-- Table breakdown: ${JSON.stringify(tableBreakdown)}
-- User activity: ${JSON.stringify(userActivity)}
-${sampleDescriptions.length > 0 ? `- Sample descriptions:\n${sampleDescriptions.join("\n")}` : ""}
+Organize the summary into exactly these sections:
 
-Write the summary in these sections:
-1. **Overview** - One sentence summary of the day
-2. **Key Activity** - What happened, organized by area (projects, payments, estimates, etc.)
-3. **Team Activity** - Who did what (brief)`;
+## 📋 Overview
+One sentence: total ${auditLogs.length} changes in this period.
+
+## 🗓️ Dispatch
+All dispatch activity: appointments (who for, when, where, status), opportunity stage changes (lead name, old→new stage, value), new contacts, call logs, salesperson assignments. Be specific.
+
+## 🏗️ Projects
+All project activity: status changes (project name, old→new status), invoices created/paid (number, amount), payments received (amount, method, project), bills, commissions. Include dollar amounts.
+
+## 📐 Estimates & Contracts
+Estimate activity: new estimates (number, customer, amount), status changes, document signatures, proposal sends.
+
+## 👥 Admin & Team
+User/setting changes: role assignments, profile updates, integration changes, company settings. Name who made changes.
+
+If a section has no related activity, write "No activity in this period."
+
+Detailed Log Entries:
+${detailedEntries.join("\n")}
+
+Team breakdown: ${JSON.stringify(userActivity)}`;
 
     } else if (auditLog) {
       // Single log summary mode (existing behavior)

@@ -2093,7 +2093,7 @@ export default function AdminSettings() {
                         // Fetch all logs for current filters (up to 500) for summary
                         let query = supabase
                           .from("audit_logs")
-                          .select("table_name, action, user_email, changed_at, description")
+                          .select("table_name, action, user_email, changed_at, description, changes, old_values, new_values")
                           .eq("company_id", companyId)
                           .order("changed_at", { ascending: false })
                           .limit(500);
