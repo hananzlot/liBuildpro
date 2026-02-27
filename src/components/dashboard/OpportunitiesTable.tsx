@@ -449,9 +449,7 @@ export function OpportunitiesTable({
   }, [tasks, ghlIdToUuid]);
 
   const getLastEditedDate = (opp: Opportunity): string | null => {
-    // Prefer ghl_date_updated (actual edit timestamp from GHL or user actions)
-    // Avoid using updated_at as it can be set by bulk migrations/syncs
-    return opp.ghl_date_updated || opp.ghl_date_added || null;
+    return opp.updated_at || opp.ghl_date_updated || opp.ghl_date_added || null;
   };
 
   const formatAppointmentDateTime = (dateString: string | null) => {
