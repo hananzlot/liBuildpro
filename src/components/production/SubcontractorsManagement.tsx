@@ -425,9 +425,9 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Subcontractors / Installers</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Vendors & Subs</h2>
           <p className="text-muted-foreground">
-            Manage your subcontractors with license and insurance tracking
+            Manage your vendors and subcontractors with license and insurance tracking
           </p>
         </div>
         <div className="flex items-center gap-2">
