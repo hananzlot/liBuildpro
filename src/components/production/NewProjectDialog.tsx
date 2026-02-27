@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { Plus } from "lucide-react";
 import { logAudit } from "@/hooks/useAuditLog";
 import {
   Dialog,
@@ -63,11 +64,15 @@ const INITIAL_FORM = {
 };
 
 export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) {
-  const { user, isCorpAdmin, company } = useAuth();
+  const { user, isCorpAdmin, isAdmin, company } = useAuth();
   const { companyId: contextCompanyId, corporationId } = useCompanyContext();
   const queryClient = useQueryClient();
 
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [newSalesperson, setNewSalesperson] = useState("");
+  const [showAddSalesperson, setShowAddSalesperson] = useState(false);
+  const [newLeadSource, setNewLeadSource] = useState("");
+  const [showAddLeadSource, setShowAddLeadSource] = useState(false);
 
   const { data: corpCompanies } = useQuery({
     queryKey: ["corp-companies-for-new-project", corporationId],
@@ -87,6 +92,84 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
   });
 
   const companyId = selectedCompanyId || contextCompanyId;
+
+  // Fetch salespeople for selected company
+  const { data: salespeople = [] } = useQuery({
+    queryKey: ["salespeople-for-project", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("salespeople")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
+  // Fetch lead sources for selected company
+  const { data: leadSources = [] } = useQuery({
+    queryKey: ["lead-sources-for-project", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("lead_sources")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
+  // Add new salesperson mutation
+  const addSalespersonMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!companyId) throw new Error("No company");
+      const { data, error } = await supabase
+        .from("salespeople")
+        .insert({ name, company_id: companyId, is_active: true })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["salespeople-for-project", companyId] });
+      updateDraft({ primary_salesperson: data.name });
+      setNewSalesperson("");
+      setShowAddSalesperson(false);
+      toast.success("Salesperson added");
+    },
+    onError: () => toast.error("Failed to add salesperson"),
+  });
+
+  // Add new lead source mutation
+  const addLeadSourceMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!companyId) throw new Error("No company");
+      const { data, error } = await supabase
+        .from("lead_sources")
+        .insert({ name, company_id: companyId, is_active: true })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["lead-sources-for-project", companyId] });
+      updateDraft({ lead_source: data.name });
+      setNewLeadSource("");
+      setShowAddLeadSource(false);
+      toast.success("Lead source added");
+    },
+    onError: () => toast.error("Failed to add lead source"),
+  });
 
   useEffect(() => {
     if (open) {
@@ -354,21 +437,75 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="primary_salesperson">Primary Salesperson</Label>
-                  <Input
-                    id="primary_salesperson"
-                    value={draft.primary_salesperson}
-                    onChange={(e) => updateDraft({ primary_salesperson: e.target.value })}
-                    placeholder="Salesperson name"
-                  />
+                  {showAddSalesperson ? (
+                    <div className="flex gap-2">
+                      <Input
+                        value={newSalesperson}
+                        onChange={(e) => setNewSalesperson(e.target.value)}
+                        placeholder="New salesperson name"
+                        autoFocus
+                      />
+                      <Button type="button" size="sm" onClick={() => { if (newSalesperson.trim()) addSalespersonMutation.mutate(newSalesperson.trim()); }}>Add</Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setShowAddSalesperson(false)}>Cancel</Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Select
+                        value={draft.primary_salesperson}
+                        onValueChange={(value) => updateDraft({ primary_salesperson: value })}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select salesperson" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {salespeople.map((sp) => (
+                            <SelectItem key={sp.id} value={sp.name}>{sp.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {isAdmin && (
+                        <Button type="button" size="icon" variant="outline" onClick={() => setShowAddSalesperson(true)} title="Add new salesperson">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="lead_source">Lead Source</Label>
-                  <Input
-                    id="lead_source"
-                    value={draft.lead_source}
-                    onChange={(e) => updateDraft({ lead_source: e.target.value })}
-                    placeholder="e.g., Referral, Web"
-                  />
+                  {showAddLeadSource ? (
+                    <div className="flex gap-2">
+                      <Input
+                        value={newLeadSource}
+                        onChange={(e) => setNewLeadSource(e.target.value)}
+                        placeholder="New lead source name"
+                        autoFocus
+                      />
+                      <Button type="button" size="sm" onClick={() => { if (newLeadSource.trim()) addLeadSourceMutation.mutate(newLeadSource.trim()); }}>Add</Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setShowAddLeadSource(false)}>Cancel</Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Select
+                        value={draft.lead_source}
+                        onValueChange={(value) => updateDraft({ lead_source: value })}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select lead source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {leadSources.map((ls) => (
+                            <SelectItem key={ls.id} value={ls.name}>{ls.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {isAdmin && (
+                        <Button type="button" size="icon" variant="outline" onClick={() => setShowAddLeadSource(true)} title="Add new lead source">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
