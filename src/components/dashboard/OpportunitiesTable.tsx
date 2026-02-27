@@ -1095,7 +1095,7 @@ export function OpportunitiesTable({
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow className="border-border/40 hover:bg-transparent">
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[12%]"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[20%]"
                   onClick={() => handleSort("name")}
                 >
                   <div className="flex items-end gap-0.5">
@@ -1104,7 +1104,7 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[10%]"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[12%]"
                   onClick={() => handleSort("stage")}
                 >
                   <div className="flex items-end gap-0.5">
@@ -1113,28 +1113,33 @@ export function OpportunitiesTable({
                   </div>
                 </TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[9%]"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[12%]"
                   onClick={() => handleSort("source")}
                 >
                   <div className="flex items-end gap-0.5">
-                    Source / Status
+                    Source
                     <SortIcon column="source" />
                   </div>
                 </TableHead>
+                <TableHead className="text-muted-foreground w-[8%]">
+                  <div className="flex items-end gap-0.5">
+                    Status
+                  </div>
+                </TableHead>
 
-                <TableHead className="text-muted-foreground w-[11%]">
+                <TableHead className="text-muted-foreground w-[16%]">
                   <div className="flex items-end gap-1">
                     <User className="h-3.5 w-3.5 flex-shrink-0" />
                     <span>Rep / Dates</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-muted-foreground w-[13%]">
+                <TableHead className="text-muted-foreground w-[16%]">
                   <div className="flex items-end gap-1">
                     <StickyNote className="h-3.5 w-3.5 flex-shrink-0" />
                     <span>Note</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-muted-foreground w-[12%]">
+                <TableHead className="text-muted-foreground w-[16%]">
                   <div className="flex items-end gap-1">
                     <ListChecks className="h-3.5 w-3.5 flex-shrink-0" />
                     <span>Task</span>
@@ -1145,7 +1150,7 @@ export function OpportunitiesTable({
             <TableBody className="divide-y divide-border/30">
               {paginatedOpportunities.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No opportunities found
                   </TableCell>
                 </TableRow>
@@ -1291,13 +1296,17 @@ export function OpportunitiesTable({
                       </TableCell>
                       <TableCell className="text-xs">
                         <div className="flex flex-col gap-0.5 min-w-0">
-                          <span className="text-muted-foreground truncate" title={contact?.source || "-"}>{contact?.source || "-"}</span>
-                          <span className="text-muted-foreground whitespace-nowrap">
-                            {contactDate ? new Date(contactDate).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
-                          </span>
+                         <span className="text-muted-foreground truncate" title={contact?.source || "-"}>{contact?.source || "-"}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <div className="flex flex-col gap-0.5 min-w-0">
                           <BadgePill intent={statusToIntent(opp.status)}>
                             {opp.status || "?"}
                           </BadgePill>
+                          <span className="text-muted-foreground whitespace-nowrap">
+                            {contactDate ? new Date(contactDate).toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "2-digit" }) : "-"}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">
