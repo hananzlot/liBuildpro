@@ -6864,6 +6864,7 @@ export type Database = {
         Args: { p_max_records?: number }
         Returns: number
       }
+      archive_stale_projects: { Args: { p_company_id: string }; Returns: Json }
       backfill_contact_addresses_from_projects: {
         Args: never
         Returns: {
