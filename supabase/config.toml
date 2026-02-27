@@ -233,3 +233,6 @@ verify_jwt = false
 
 [functions.extract-contract-phases]
 verify_jwt = false
+
+[functions.summarize-audit-log]
+verify_jwt = false
