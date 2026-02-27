@@ -3386,7 +3386,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                                   setInvoiceConfirmOpen(true); 
                                                 }}>
                                                   <FileText className="h-4 w-4 mr-2" />
-                                                  Add Invoice
+                                                  Invoice This Phase
                                                 </DropdownMenuItem>
                                               )}
                                               {(() => {
