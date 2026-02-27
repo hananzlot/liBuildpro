@@ -2466,11 +2466,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs text-center w-[12%]">Bank</TableHead>
-                          <TableHead className="text-xs text-center w-[12%]">Date</TableHead>
-                          <TableHead className="text-xs text-center w-[10%]">Ref #</TableHead>
+                          <TableHead className="text-xs text-left w-[12%]">Bank</TableHead>
+                          <TableHead className="text-xs text-left w-[12%]">Date</TableHead>
+                          <TableHead className="text-xs text-left w-[10%]">Ref #</TableHead>
                           <TableHead className="text-xs text-center w-[22%]">Payment<br />Status</TableHead>
-                          <TableHead className="text-xs text-center w-[12%]">Amount</TableHead>
+                          <TableHead className="text-xs text-right w-[12%]">Amount</TableHead>
                           {isQBConnectedMain && <TableHead className="text-xs text-center w-[10%]">QB</TableHead>}
                           <TableHead className="text-xs w-[12%]"></TableHead>
                         </TableRow>
@@ -2478,9 +2478,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                       <TableBody>
                         {payments.map((pmt) => (
                           <TableRow key={pmt.id} className={pmt.is_voided ? "opacity-50 bg-muted/30" : ""}>
-                            <TableCell className="text-xs text-center">{pmt.bank?.name || pmt.bank_name || "-"}</TableCell>
-                            <TableCell className="text-xs text-center">{formatDate(pmt.projected_received_date)}</TableCell>
-                            <TableCell className="text-xs text-center">{pmt.check_number || "-"}</TableCell>
+                            <TableCell className="text-xs text-left">{pmt.bank?.name || pmt.bank_name || "-"}</TableCell>
+                            <TableCell className="text-xs text-left">{formatDate(pmt.projected_received_date)}</TableCell>
+                            <TableCell className="text-xs text-left">{pmt.check_number || "-"}</TableCell>
                             <TableCell className="text-xs">
               <div className="flex items-center gap-1 flex-wrap">
                                 {pmt.is_voided ? (
@@ -2534,7 +2534,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className={cn("text-xs text-center", pmt.is_voided && "line-through")}>{formatCurrency2(pmt.payment_amount)}</TableCell>
+                            <TableCell className={cn("text-xs text-right", pmt.is_voided && "line-through")}>{formatCurrency2(pmt.payment_amount)}</TableCell>
                             {isQBConnectedMain && (
                               <TableCell className="text-xs">
                                 {(() => {
