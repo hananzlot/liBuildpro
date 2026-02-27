@@ -945,7 +945,7 @@ export default function AdminSettings() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
             <Settings className="h-8 w-8" />
-            Admin Settings
+            Company Settings
           </h1>
           <p className="text-muted-foreground">
             Manage application settings, users, data, and view audit logs
