@@ -7539,6 +7539,7 @@ function CommissionTab({
                   <TableHead className="text-xs text-right">Commission</TableHead>
                   <TableHead className="text-xs text-right">Earned to Date</TableHead>
                   <TableHead className="text-xs text-right">Paid</TableHead>
+                  <TableHead className="text-xs text-right">Bal to Date</TableHead>
                   <TableHead className="text-xs text-right">Balance</TableHead>
                 </TableRow>
               </TableHeader>
@@ -7556,6 +7557,9 @@ function CommissionTab({
                     <TableCell className="text-xs text-right text-muted-foreground">
                       {formatCurrencyWithDecimals(sp.paid)}
                     </TableCell>
+                    <TableCell className={cn("text-xs text-right font-medium", (sp.earnedToDate - sp.paid) > 0 ? "text-amber-600" : "text-emerald-600")}>
+                      {formatCurrencyWithDecimals(sp.earnedToDate - sp.paid)}
+                    </TableCell>
                     <TableCell className={cn("text-xs text-right font-medium", sp.balance > 0 ? "text-amber-600" : "text-emerald-600")}>
                       {formatCurrencyWithDecimals(sp.balance)}
                     </TableCell>
@@ -7569,6 +7573,9 @@ function CommissionTab({
                     {formatCurrencyWithDecimals(earnedPool)}
                   </TableCell>
                   <TableCell className="text-xs text-right text-muted-foreground">{formatCurrencyWithDecimals(totalCommissionPaid)}</TableCell>
+                  <TableCell className={cn("text-xs text-right", (earnedPool - totalCommissionPaid) > 0 ? "text-amber-600" : "text-emerald-600")}>
+                    {formatCurrencyWithDecimals(earnedPool - totalCommissionPaid)}
+                  </TableCell>
                   <TableCell className={cn("text-xs text-right", totalCommissionBalance > 0 ? "text-amber-600" : "text-emerald-600")}>
                     {formatCurrencyWithDecimals(totalCommissionBalance)}
                   </TableCell>
