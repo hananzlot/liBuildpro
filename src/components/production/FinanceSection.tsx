@@ -2641,7 +2641,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                 <div className="flex items-center gap-4 text-xs">
                                   <span className="text-muted-foreground">Amount: <span className="font-medium text-foreground">{formatCurrency2(totalAmount)}</span></span>
                                   <span className="text-muted-foreground">Paid: <span className="font-medium text-emerald-600">{formatCurrency2(totalPaid)}</span></span>
-                                  <span className="text-muted-foreground">Balance: <span className="font-medium text-foreground">{formatCurrency2(totalBalance)}</span></span>
+                                  {totalBalance <= 0 && totalPaid > 0 ? (
+                                    <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">Paid in Full</Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground">Balance: <span className="font-medium text-foreground">{formatCurrency2(totalBalance)}</span></span>
+                                  )}
                                 </div>
                               </CollapsibleTrigger>
                               <CollapsibleContent>
@@ -2709,7 +2713,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                         </TableCell>
                                         <TableCell className={cn("text-xs text-center text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency2(bill.amount_paid)}</TableCell>
                                         <TableCell className={cn("text-xs text-center", bill.is_voided && "line-through")}>
-                                          {formatCurrency2(bill.balance)}
+                                          {!bill.is_voided && (bill.balance || 0) <= 0 && (bill.amount_paid || 0) > 0 ? (
+                                            <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">Paid in Full</Badge>
+                                          ) : (
+                                            formatCurrency2(bill.balance)
+                                          )}
                                         </TableCell>
                                         {isQBConnectedMain && (
                                           <TableCell className="text-xs">
