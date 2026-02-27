@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Building, Loader2, FileDown } from 'lucide-react';
+import { Building, Loader2, FileDown, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
 import {
@@ -168,6 +168,14 @@ export function EstimatePreviewDialog({
                 Save as PDF
               </Button>
               {data?.estimate && getStatusBadge(data.estimate.status)}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onOpenChange(false)}
+                aria-label="Close preview"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </DialogHeader>
