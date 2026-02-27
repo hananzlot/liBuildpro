@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload, ChevronDown, ChevronRight, Eye, Globe, Archive, Clock } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload, ChevronDown, ChevronRight, Eye, Globe, Archive, Clock, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
@@ -578,143 +578,92 @@ export default function Estimates() {
                 {formatCurrency(estimate.total)}
               </TableCell>
               <TableCell>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setPreviewEstimateId(estimate.id)}
-                    title="Preview as Customer"
-                  >
-                    <FileSearch className="h-4 w-4" />
-                  </Button>
-                  {isDeclinedTab ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleCreateNewFromDeclined(estimate)}
-                      title="Create New Estimate"
-                    >
-                      <Plus className="h-4 w-4" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
                     </Button>
-                  ) : estimate.status === 'accepted' ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setPrintEstimateId(estimate.id)}
-                      title="Print Contract"
-                    >
-                      <Printer className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openTab(
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setPreviewEstimateId(estimate.id)}>
+                      <FileSearch className="h-4 w-4 mr-2" />
+                      Preview as Customer
+                    </DropdownMenuItem>
+                    {isDeclinedTab ? (
+                      <DropdownMenuItem onClick={() => handleCreateNewFromDeclined(estimate)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create New Estimate
+                      </DropdownMenuItem>
+                    ) : estimate.status === 'accepted' ? (
+                      <DropdownMenuItem onClick={() => setPrintEstimateId(estimate.id)}>
+                        <Printer className="h-4 w-4 mr-2" />
+                        Print Contract
+                      </DropdownMenuItem>
+                    ) : (
+                      <>
+                        <DropdownMenuItem onClick={() => openTab(
                           `/estimate/${estimate.id}`, 
                           estimate.status && estimate.status !== 'draft' 
                             ? `Prop ${estimate.customer_name} (#${estimate.estimate_number})` 
                             : `Est ${estimate.customer_name} (#${estimate.estimate_number})`
+                        )}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        {estimate.project_id && (
+                          <DropdownMenuItem onClick={() => handleOpenCustomerPortal(estimate.id)}>
+                            <Globe className="h-4 w-4 mr-2" />
+                            Open Customer Portal
+                          </DropdownMenuItem>
                         )}
-                        title="Edit"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      {estimate.project_id && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenCustomerPortal(estimate.id)}
-                          title="Open Customer Portal"
-                        >
-                          <Globe className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {isProposalsTab ? (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setUploadDialogEstimate(estimate)}
-                            title="Upload Documents"
-                          >
-                            <Upload className="h-4 w-4" />
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Open Portal Links"
-                              >
-                                <Link2 className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleOpenProposalPreview(estimate.id)}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Open Proposal Preview
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleOpenCustomerPortal(estimate.id)}>
-                                <Globe className="h-4 w-4 mr-2" />
-                                Open Customer Portal
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
+                        {isProposalsTab ? (
+                          <>
+                            <DropdownMenuItem onClick={() => setUploadDialogEstimate(estimate)}>
+                              <Upload className="h-4 w-4 mr-2" />
+                              Upload Documents
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenProposalPreview(estimate.id)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Open Proposal Preview
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenCustomerPortal(estimate.id)}>
+                              <Globe className="h-4 w-4 mr-2" />
+                              Open Customer Portal
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
                               setIsResendMode(true);
                               setSendDialogEstimate(estimate);
-                            }}
-                            title="Resend Proposal"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
+                            }}>
+                              <RefreshCw className="h-4 w-4 mr-2" />
+                              Resend Proposal
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <DropdownMenuItem onClick={() => {
                             setIsResendMode(false);
                             setSendDialogEstimate(estimate);
-                          }}
-                          title="Send Proposal"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </>
-                  )}
-                  {isAdmin && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete Estimate</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete estimate {formatEstimateNumber(estimate)} for {estimate.customer_name}? This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteMutation.mutate(estimate.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-                </div>
+                          }}>
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Send Proposal
+                          </DropdownMenuItem>
+                        )}
+                      </>
+                    )}
+                    {isAdmin && (
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => {
+                          if (confirm(`Delete estimate ${formatEstimateNumber(estimate)} for ${estimate.customer_name}? This action cannot be undone.`)) {
+                            deleteMutation.mutate(estimate.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableCell>
             </TableRow>
           ))}
