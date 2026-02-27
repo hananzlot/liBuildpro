@@ -5599,6 +5599,7 @@ function PhaseDialog({
   const [agreementError, setAgreementError] = useState("");
   const [phaseNameError, setPhaseNameError] = useState("");
   const [dueDateError, setDueDateError] = useState("");
+  const [amountError, setAmountError] = useState("");
 
   // Calculate which agreements are fully accounted for
   const getAvailableAgreements = () => {
@@ -5705,6 +5706,11 @@ function PhaseDialog({
       hasError = true;
     }
     
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      setAmountError("Amount is required");
+      hasError = true;
+    }
+    
     if (hasError) return;
     
     onSave({
@@ -5766,8 +5772,9 @@ function PhaseDialog({
             </div>
           </div>
           <div>
-            <Label>Amount ($)</Label>
-            <Input type="text" inputMode="decimal" value={formData.amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateFormData({ amount: val }); }} />
+            <Label>Amount ($) <span className="text-destructive">*</span></Label>
+            <Input type="text" inputMode="decimal" value={formData.amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { updateFormData({ amount: val }); setAmountError(""); } }} />
+            {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
           </div>
           {validationWarning && (
             <div className={cn(
