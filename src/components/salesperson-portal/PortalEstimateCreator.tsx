@@ -19,6 +19,7 @@ import {
   FileText, CheckCircle, Clock, DollarSign, Eye, Pencil, AlertTriangle, ChevronUp
 } from "lucide-react";
 import { PortalEstimateDetailSheet } from "./PortalEstimateDetailSheet";
+import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 
 interface PortalEstimateCreatorProps {
   portalToken: string;
@@ -87,6 +88,7 @@ export function PortalEstimateCreator({
   const [currentJobAddress, setCurrentJobAddress] = useState("");
   const [showDeclinedEstimates, setShowDeclinedEstimates] = useState(false);
   const [estimatesExpanded, setEstimatesExpanded] = useState(false);
+  const [previewEstimateId, setPreviewEstimateId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch opportunities assigned to this salesperson (by internal ID or GHL user ID)
@@ -875,9 +877,21 @@ export function PortalEstimateCreator({
                               <p className="font-semibold text-sm text-primary whitespace-nowrap">
                                 ${estimate.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </p>
-                              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPreviewEstimateId(estimate.id);
+                                }}
+                              >
                                 <Eye className="h-3 w-3 mr-1" />
                                 View
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                <Pencil className="h-3 w-3 mr-1" />
+                                Edit
                               </Button>
                             </div>
                           ) : estimate.is_generating ? (
@@ -957,6 +971,13 @@ export function PortalEstimateCreator({
         open={detailSheetOpen}
         onOpenChange={setDetailSheetOpen}
         companyId={companyId}
+      />
+
+      {/* PDF Preview Dialog */}
+      <EstimatePreviewDialog
+        estimateId={previewEstimateId}
+        open={!!previewEstimateId}
+        onOpenChange={(open) => { if (!open) setPreviewEstimateId(null); }}
       />
     </>
   );
