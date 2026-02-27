@@ -1109,7 +1109,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           </div>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4 mt-4 max-w-3xl">
+          <TabsContent value="overview" className="space-y-4 mt-4 max-w-5xl">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -2012,17 +2012,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           </TabsContent>
 
           {/* Documents Tab */}
-          <TabsContent value="documents" className="mt-4 max-w-3xl">
+          <TabsContent value="documents" className="mt-4 max-w-5xl">
             <DocumentsSection projectId={project.id} />
           </TabsContent>
 
           {/* Photos Tab */}
-          <TabsContent value="photos" className="mt-4 max-w-3xl">
+          <TabsContent value="photos" className="mt-4 max-w-5xl">
             <PhotosSection projectId={project.id} />
           </TabsContent>
 
           {/* Checklist Tab */}
-          <TabsContent value="checklist" className="space-y-3 mt-4 max-w-3xl">
+          <TabsContent value="checklist" className="space-y-3 mt-4 max-w-5xl">
             <Card>
               <CardHeader className="py-3 px-4">
                 <div className="flex items-center justify-between">
@@ -2201,7 +2201,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           </TabsContent>
 
           {/* Feedback Tab */}
-          <TabsContent value="feedback" className="space-y-3 mt-4 max-w-3xl">
+          <TabsContent value="feedback" className="space-y-3 mt-4 max-w-5xl">
             {/* Portal Chat Messages - First */}
             <Card>
               <CardHeader className="py-3 px-4">
