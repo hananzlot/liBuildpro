@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Printer, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
@@ -109,6 +111,27 @@ export default function ProposalPrint() {
 
   return (
     <div className="proposal-print-page bg-white min-h-screen">
+      {/* Floating toolbar - hidden when printing */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2 print:hidden">
+        <Button
+          size="sm"
+          variant="outline"
+          className="shadow-md bg-white"
+          onClick={() => window.print()}
+        >
+          <Printer className="h-4 w-4 mr-1" />
+          Save as PDF
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shadow-md bg-white"
+          onClick={() => window.close()}
+        >
+          <X className="h-4 w-4 mr-1" />
+          Close
+        </Button>
+      </div>
       <ProposalContent
         estimate={data.estimate}
         groups={data.groups}
