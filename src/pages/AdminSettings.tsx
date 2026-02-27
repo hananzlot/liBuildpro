@@ -1942,20 +1942,91 @@ export default function AdminSettings() {
 
           {/* Audit Log Tab */}
           <TabsContent value="audit" className="mt-6 space-y-6">
-             {/* Max Records Settings */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Settings className="h-4 w-4" /> Auto-Archive Settings
-                </CardTitle>
-                <CardDescription>
-                  When the active audit log exceeds the max record limit, the oldest records are moved to the archive.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-end gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="max-records">Max Active Records</Label>
+            {/* Filters + Archive Settings - side by side */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Filter className="h-4 w-4" /> Filters
+                    </CardTitle>
+                    <Button variant="ghost" size="sm" onClick={clearAuditFilters}>
+                      <X className="h-4 w-4 mr-1" /> Clear
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div>
+                      <Label htmlFor="start-date" className="text-xs">Start Date</Label>
+                      <Input
+                        id="start-date"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="end-date" className="text-xs">End Date</Label>
+                      <Input
+                        id="end-date"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Table</Label>
+                      <Select value={tableFilter} onValueChange={setTableFilter}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All tables" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All tables</SelectItem>
+                          {distinctTables?.map((table) => (
+                            <SelectItem key={table} value={table}>
+                              {table}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Action</Label>
+                      <Select value={actionFilter} onValueChange={setActionFilter}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="All actions" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All actions</SelectItem>
+                          <SelectItem value="INSERT">INSERT</SelectItem>
+                          <SelectItem value="UPDATE">UPDATE</SelectItem>
+                          <SelectItem value="DELETE">DELETE</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="user-filter" className="text-xs">User Email</Label>
+                      <Input
+                        id="user-filter"
+                        placeholder="Search by email..."
+                        value={userFilter}
+                        onChange={(e) => setUserFilter(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="lg:w-72">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Settings className="h-4 w-4" /> Auto-Archive
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="max-records" className="text-xs">Max Active Records</Label>
                     <Input
                       id="max-records"
                       type="number"
@@ -1964,115 +2035,44 @@ export default function AdminSettings() {
                       step={1000}
                       value={maxRecords}
                       onChange={(e) => setMaxRecords(e.target.value)}
-                      className="w-40"
                       disabled={maxRecordsLoading}
                     />
                   </div>
-                  <Button
-                    size="sm"
-                    onClick={() => updateMaxRecordsMutation.mutate(maxRecords)}
-                    disabled={updateMaxRecordsMutation.isPending || maxRecords === maxRecordsSetting}
-                  >
-                    {updateMaxRecordsMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    ) : (
-                      <Save className="h-4 w-4 mr-1" />
-                    )}
-                    Save
-                  </Button>
-                  <Separator orientation="vertical" className="h-9" />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => archiveNowMutation.mutate()}
-                    disabled={archiveNowMutation.isPending}
-                  >
-                    {archiveNowMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    ) : (
-                      <Database className="h-4 w-4 mr-1" />
-                    )}
-                    Archive Now
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  When active logs exceed {parseInt(maxRecords).toLocaleString()} records, the oldest will be archived automatically.
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Filter className="h-4 w-4" /> Filters
-                  </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={clearAuditFilters}>
-                    <X className="h-4 w-4 mr-1" /> Clear
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  <div>
-                    <Label htmlFor="start-date">Start Date</Label>
-                    <Input
-                      id="start-date"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => updateMaxRecordsMutation.mutate(maxRecords)}
+                      disabled={updateMaxRecordsMutation.isPending || maxRecords === maxRecordsSetting}
+                    >
+                      {updateMaxRecordsMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-1" />
+                      )}
+                      Save
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => archiveNowMutation.mutate()}
+                      disabled={archiveNowMutation.isPending}
+                    >
+                      {archiveNowMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <Database className="h-4 w-4 mr-1" />
+                      )}
+                      Archive
+                    </Button>
                   </div>
-                  <div>
-                    <Label htmlFor="end-date">End Date</Label>
-                    <Input
-                      id="end-date"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label>Table</Label>
-                    <Select value={tableFilter} onValueChange={setTableFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All tables" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All tables</SelectItem>
-                        {distinctTables?.map((table) => (
-                          <SelectItem key={table} value={table}>
-                            {table}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Action</Label>
-                    <Select value={actionFilter} onValueChange={setActionFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All actions" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All actions</SelectItem>
-                        <SelectItem value="INSERT">INSERT</SelectItem>
-                        <SelectItem value="UPDATE">UPDATE</SelectItem>
-                        <SelectItem value="DELETE">DELETE</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="user-filter">User Email</Label>
-                    <Input
-                      id="user-filter"
-                      placeholder="Search by email..."
-                      value={userFilter}
-                      onChange={(e) => setUserFilter(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  <p className="text-[10px] text-muted-foreground">
+                    Oldest logs auto-archive when exceeding {parseInt(maxRecords).toLocaleString()} records.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
 
             <Card>
               <CardHeader>
