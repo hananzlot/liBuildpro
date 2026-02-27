@@ -1,56 +1,33 @@
 
 
-## Plan: Archive Projects for Old Estimates and Expired Proposals
+## Analysis: Cross-Company Payment Linkage Bug
 
-### What this does
-When the Estimates page categorizes estimates as "Old" (30+ days) or proposals as "Expired" (past expiration date), the linked projects will be soft-deleted (archived) automatically. Specifically:
+You're right — these are two completely different companies:
+- **CA Pro Builders** (`00000000-...0002`) — project "Karin Beck & Cellin P Gluck" at 922 Hartzell St
+- **Demo Co #1** (`d95f6df1-...`) — replicated copy of the same project
 
-1. **Old Estimates** — Projects in "Estimate" status whose estimate is 30+ days old get soft-deleted
-2. **Expired Proposals** — Projects in "Proposal" status whose proposal expiration date is 7+ days past get soft-deleted
+**What happened:** Payment `b9adb32b` belongs to Demo Co #1 but its `invoice_id` points to CA Pro Builders' invoice (`9265fe23`). The DB trigger `update_invoice_payment_totals` sums ALL payments on that invoice regardless of company, so it shows $24,000 instead of $12,000.
 
-### Implementation Steps
+**Root cause:** The `replicate-company-data` edge function. When it copies payments, it spreads `...rest` (which includes the original `invoice_id`) and then overrides with the mapped value. If the invoice mapping fails for any reason, the original source company's `invoice_id` leaks through because `undefined || null` evaluates to `null` but the spread already set the field. However, the actual data shows the original UUID — meaning either:
+1. The replication ran before the invoice was replicated (ordering bug), or
+2. A subsequent QB sync/webhook re-linked the payment to the source invoice
 
-**1. Create a Supabase Edge Function `archive-stale-projects`**
-- Accepts a `company_id` parameter
-- Runs two UPDATE queries:
-  - Sets `deleted_at = now()` on projects where `project_status = 'Estimate'` and the linked estimate's `estimate_date` is older than 30 days
-  - Sets `deleted_at = now()` on projects where `project_status = 'Proposal'` and the linked estimate's `expiration_date` is more than 7 days past
-- Returns count of archived projects for each category
+**Additionally:** The `quickbooks-fetch-invoice` and `quickbooks-webhook` functions have fallback matching by `invoice_number` that doesn't always filter by `company_id`, which could cause similar cross-company collisions.
 
-**2. Trigger the edge function from the Estimates page**
-- In `src/pages/Estimates.tsx`, call the edge function once on page load (or on a manual "Archive" action) so that stale projects get cleaned up whenever a user visits the Estimates page
-- Use a `useEffect` or mutation that fires after the estimates query loads, calling `supabase.functions.invoke('archive-stale-projects', { body: { company_id } })`
-- After the function completes, invalidate the production/projects query cache so the Production board reflects the changes
+## Plan
 
-**3. Alternative: Direct Supabase RPC approach (simpler)**
-- Instead of an edge function, create a database function `archive_stale_projects(p_company_id uuid)` via migration that:
-  ```sql
-  -- Archive projects linked to old estimates (30+ days)
-  UPDATE projects p
-  SET deleted_at = now()
-  FROM estimates e
-  WHERE e.project_id = p.id
-    AND p.company_id = p_company_id
-    AND p.project_status = 'Estimate'
-    AND p.deleted_at IS NULL
-    AND e.estimate_date < now() - interval '30 days';
+### Step 1: Fix the data
+- Re-link payment `b9adb32b` to Demo Co #1's invoice `06b6687c` (or set to `null`)
+- The trigger will automatically recalculate `payments_received` on both invoices
 
-  -- Archive projects linked to expired proposals (7+ days past expiration)
-  UPDATE projects p
-  SET deleted_at = now()
-  FROM estimates e
-  WHERE e.project_id = p.id
-    AND p.company_id = p_company_id
-    AND p.project_status = 'Proposal'
-    AND p.deleted_at IS NULL
-    AND e.expiration_date IS NOT NULL
-    AND e.expiration_date < now() - interval '7 days';
-  ```
-- Call via `supabase.rpc('archive_stale_projects', { p_company_id: companyId })` from the Estimates page on load
+### Step 2: Fix `replicate-company-data` payment replication
+- Destructure `invoice_id` out of `rest` explicitly (alongside `id`) so the spread can never leak the source invoice ID
+- Same treatment for `project_id` and `bank_id` — destructure them out of `rest` to prevent any leakage
 
-**Recommended approach**: The RPC function (option 3) is simpler and faster — no edge function deployment needed, runs server-side with proper security via `SECURITY DEFINER`, and can be called directly from the frontend.
+### Step 3: Harden `quickbooks-fetch-invoice` fallback matching
+- In the `update-existing` action's fallback matching by `invoice_number` (line 347-364), ensure `.eq("company_id", companyId)` is always present (it already is, so this is confirmed safe)
+- Add a log warning when `.maybeSingle()` returns null despite a match existing in another company, to catch future cross-company collisions
 
-### Files to create/modify
-- **New migration**: Create `archive_stale_projects` database function
-- **`src/pages/Estimates.tsx`**: Add `useEffect` to call the RPC on page load, invalidate project caches after
+### Step 4: Harden `quickbooks-webhook` delete fallback
+- In the invoice delete handler (line 394-400), the `invoice_number` fallback already filters by `company_id` — confirm and add a defensive log
 
