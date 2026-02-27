@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,8 @@ interface MultiSelectFilterProps {
   placeholder: string;
   icon?: React.ReactNode;
   className?: string;
+  onAddNew?: (value: string) => void;
+  addNewLabel?: string;
 }
 
 export function MultiSelectFilter({
@@ -31,9 +34,14 @@ export function MultiSelectFilter({
   placeholder,
   icon,
   className = "w-[160px]",
+  onAddNew,
+  addNewLabel = "Add new...",
 }: MultiSelectFilterProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAddNew, setShowAddNew] = useState(false);
+  const [newValue, setNewValue] = useState("");
+  const addNewInputRef = useRef<HTMLInputElement>(null);
 
   // Filter options based on search query
   const filteredOptions = useMemo(() => {
@@ -75,7 +83,9 @@ export function MultiSelectFilter({
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
     if (!newOpen) {
-      setSearchQuery(""); // Clear search when closing
+      setSearchQuery("");
+      setShowAddNew(false);
+      setNewValue("");
     }
   };
 
@@ -162,6 +172,58 @@ export function MultiSelectFilter({
             )}
           </div>
         </ScrollArea>
+        {onAddNew && (
+          <div className="border-t border-border p-2">
+            {showAddNew ? (
+              <div className="flex gap-1.5">
+                <Input
+                  ref={addNewInputRef}
+                  placeholder={addNewLabel}
+                  value={newValue}
+                  onChange={(e) => setNewValue(e.target.value)}
+                  className="h-7 text-xs"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newValue.trim()) {
+                      onAddNew(newValue.trim());
+                      setNewValue("");
+                      setShowAddNew(false);
+                    } else if (e.key === 'Escape') {
+                      setShowAddNew(false);
+                      setNewValue("");
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => {
+                    if (newValue.trim()) {
+                      onAddNew(newValue.trim());
+                      setNewValue("");
+                      setShowAddNew(false);
+                    }
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-xs h-7 text-muted-foreground"
+                onClick={() => setShowAddNew(true)}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                {addNewLabel}
+              </Button>
+            )}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
