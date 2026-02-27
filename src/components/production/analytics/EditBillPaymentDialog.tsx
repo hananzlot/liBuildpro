@@ -137,7 +137,7 @@ export function EditBillPaymentDialog({
         body: { companyId, syncType: "bill_payment", recordId: paymentId },
       });
       if (!error && result?.synced > 0) {
-        toast.success("Payment synced to QuickBooks");
+        toast.success("Payment updated in QuickBooks");
       } else if (result?.errors?.length) {
         toast.error(`QB sync error: ${result.errors[0]}`, { duration: Infinity });
       }
@@ -182,9 +182,11 @@ export function EditBillPaymentDialog({
       body: { companyId, syncType: "bill_payment", recordId: paymentId },
     });
     if (!error && result?.synced > 0) {
-      toast.success("Payment synced to QuickBooks");
+      toast.success("Payment created in QuickBooks");
     } else if (result?.errors?.length) {
       toast.error(`QB sync error: ${result.errors[0]}`, { duration: Infinity });
+    } else if (!error) {
+      toast.info("Payment saved (not synced to QuickBooks)");
     }
   };
 
@@ -235,7 +237,7 @@ export function EditBillPaymentDialog({
       body: { companyId, syncType: "bill_payment", recordId: qbDuplicateState.paymentId },
     });
     if (!error && result?.synced > 0) {
-      toast.success("Payment synced to QuickBooks");
+      toast.success("Payment created in QuickBooks");
     } else if (result?.errors?.length) {
       toast.error(`QB sync error: ${result.errors[0]}`, { duration: Infinity });
     }
