@@ -2693,7 +2693,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                             {offsets && offsets.offsetBills.length > 0 && (
                                               <button
                                                 type="button"
-                                                className="text-[10px] text-amber-600 hover:text-amber-800 hover:underline cursor-pointer bg-transparent border-none p-0"
+                                                className="block text-[10px] text-amber-600 hover:text-amber-800 hover:underline cursor-pointer bg-transparent border-none p-0 mt-0.5"
                                                 onClick={(e) => { e.stopPropagation(); setOffsetDetailsBill({ bill, offsets }); }}
                                               >
                                                 Credit offset applied ({offsets.offsetBills.length})
