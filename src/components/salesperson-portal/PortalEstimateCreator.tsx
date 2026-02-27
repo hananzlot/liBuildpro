@@ -86,6 +86,7 @@ export function PortalEstimateCreator({
   const [manualZipCode, setManualZipCode] = useState("");
   const [currentJobAddress, setCurrentJobAddress] = useState("");
   const [showDeclinedEstimates, setShowDeclinedEstimates] = useState(false);
+  const [estimatesExpanded, setEstimatesExpanded] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch opportunities assigned to this salesperson (by internal ID or GHL user ID)
@@ -762,44 +763,56 @@ export function PortalEstimateCreator({
         </CollapsibleContent>
       </Collapsible>
 
-      {/* My Estimates Section - Always visible outside collapsible */}
+      {/* My Estimates Section - Collapsible */}
       <div className="border-t border-border/50 px-4 py-3 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <Label className="text-sm font-medium flex items-center gap-2">
+        <div 
+          className="flex items-center justify-between gap-2 cursor-pointer"
+          onClick={() => setEstimatesExpanded(!estimatesExpanded)}
+        >
+          <Label className="text-sm font-medium flex items-center gap-2 cursor-pointer">
             <FileText className="h-4 w-4" />
             My Estimates ({visibleEstimates.length})
           </Label>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => refetchMyEstimates()}
-            disabled={estimatesFetching}
-            className="h-7 px-2"
-            title="Refresh"
-          >
-            {estimatesFetching ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); refetchMyEstimates(); }}
+              disabled={estimatesFetching}
+              className="h-7 px-2"
+              title="Refresh"
+            >
+              {estimatesFetching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <span className="text-xs">Refresh</span>
+              )}
+            </Button>
+            {estimatesExpanded ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
             ) : (
-              <span className="text-xs">Refresh</span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             )}
-          </Button>
+          </div>
         </div>
 
-        {/* Declined toggle */}
-        {declinedEstimatesCount > 0 && (
-          <div className="flex items-center gap-2 pb-1">
-            <Switch
-              id="show-declined-estimates"
-              checked={showDeclinedEstimates}
-              onCheckedChange={setShowDeclinedEstimates}
-              className="scale-90"
-            />
-            <Label htmlFor="show-declined-estimates" className="text-xs text-muted-foreground cursor-pointer">
-              Show declined ({declinedEstimatesCount})
-            </Label>
-          </div>
-        )}
+        {estimatesExpanded && (
+          <>
+            {/* Declined toggle */}
+            {declinedEstimatesCount > 0 && (
+              <div className="flex items-center gap-2 pb-1">
+                <Switch
+                  id="show-declined-estimates"
+                  checked={showDeclinedEstimates}
+                  onCheckedChange={setShowDeclinedEstimates}
+                  className="scale-90"
+                />
+                <Label htmlFor="show-declined-estimates" className="text-xs text-muted-foreground cursor-pointer">
+                  Show declined ({declinedEstimatesCount})
+                </Label>
+              </div>
+            )}
 
         {estimatesError ? (
           <Alert variant="destructive">
@@ -933,6 +946,8 @@ export function PortalEstimateCreator({
               </div>
             )}
           </div>
+        )}
+          </>
         )}
       </div>
     </Card>
