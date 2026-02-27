@@ -140,6 +140,7 @@ interface ProjectFinancials {
   displayCost: number; // For completed projects: actual bills; for others: max(bills, estimated)
   isCompleted: boolean;
   exceededExpectedCosts: boolean;
+  isEstimatedCost: boolean;
   projectBalanceDue: number;
   profitToDate: number;
   totalCommission: number;
@@ -594,6 +595,7 @@ export default function Production() {
       displayCost: costForProfit, // For completed: actual bills; for others: max(bills, estimated)
       isCompleted,
       exceededExpectedCosts,
+      isEstimatedCost: !useActualCosts && effectiveEstimatedCost > 0 && effectiveEstimatedCost > totalBillsReceived,
       projectBalanceDue,
       profitToDate,
       totalCommission,
@@ -2242,7 +2244,10 @@ export default function Production() {
                             {isColumnVisible('est_proj_cost') && (
                             <TableCell className="text-right text-[10px] truncate">
                               {financials?.contractsTotal > 0 ? (
-                                <span className={(financials?.isCompleted || financials?.exceededExpectedCosts) ? 'text-primary' : ''}>
+                                <span className={`inline-flex items-center gap-1 ${(financials?.isCompleted || financials?.exceededExpectedCosts) ? 'text-primary' : ''}`}>
+                                  {financials?.isEstimatedCost && (
+                                    <span className="text-[8px] font-medium px-1 py-0.5 rounded bg-muted text-muted-foreground leading-none">Est.</span>
+                                  )}
                                   {formatCurrency(financials?.displayCost)}
                                 </span>
                               ) : (
