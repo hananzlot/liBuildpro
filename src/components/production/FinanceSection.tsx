@@ -4991,6 +4991,8 @@ function BillDialog({
   const [vendorMappingDialogOpen, setVendorMappingDialogOpen] = useState(false);
   const [quickAddSubOpen, setQuickAddSubOpen] = useState(false);
   const [pendingBillData, setPendingBillData] = useState<Partial<Bill> | null>(null);
+  const [showOffsetConfirm, setShowOffsetConfirm] = useState(false);
+  const [pendingSaveData, setPendingSaveData] = useState<Partial<Bill> | null>(null);
 
   // Predefined categories
   const predefinedCategories = ["Materials", "Labor", "Permits", "Equipment", "Subcontractor"];
@@ -5152,6 +5154,13 @@ function BillDialog({
     if (isQBConnected && selectedSubcontractor && !vendorIsMapped) {
       setPendingBillData(billData);
       setVendorMappingDialogOpen(true);
+      return;
+    }
+
+    // If no offset selected and there are bills available to offset, ask the user
+    if (!formData.offset_bill_id && billsForOffset.length > 0 && !bill) {
+      setPendingSaveData(billData);
+      setShowOffsetConfirm(true);
       return;
     }
 
@@ -5335,16 +5344,19 @@ function BillDialog({
           
           {/* Offset/Credit Against Another Bill */}
           {isOffsetEligible && billsForOffset.length > 0 && (
-            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
-              <Label className="text-sm font-medium">Apply as Credit Against Another Bill</Label>
-              <p className="text-xs text-muted-foreground mb-2">
-                This bill will reduce the balance owed on the selected bill
+            <div className={`p-4 rounded-lg border-2 ${formData.offset_bill_id ? 'border-primary bg-primary/10' : 'border-amber-500/50 bg-amber-50 dark:bg-amber-950/20'}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-primary" />
+                <Label className="text-sm font-semibold">Apply as Credit Against Another Bill</Label>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Is this bill offsetting or reducing the balance on an existing bill? If so, select it below.
               </p>
               <Select 
                 value={formData.offset_bill_id} 
                 onValueChange={(v) => updateFormData({ offset_bill_id: v === "__none__" ? "" : v })}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-primary/30">
                   <SelectValue placeholder="Select bill to offset..." />
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-50">
@@ -5418,6 +5430,37 @@ function BillDialog({
         updateFormData({ installer_company: companyName });
       }}
     />
+
+    {/* Offset Confirmation Dialog */}
+    <AlertDialog open={showOffsetConfirm} onOpenChange={setShowOffsetConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Should this bill offset another bill?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This bill could be applied as a credit to reduce the balance on an existing bill. Would you like to go back and select a bill to offset?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => {
+            // "No" - proceed with save
+            if (pendingSaveData) {
+              onSave(pendingSaveData);
+              setPendingSaveData(null);
+            }
+            setShowOffsetConfirm(false);
+          }}>
+            No, save as-is
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={() => {
+            // "Yes" - go back to edit the bill (scroll to offset section)
+            setPendingSaveData(null);
+            setShowOffsetConfirm(false);
+          }}>
+            Yes, go back and select
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
