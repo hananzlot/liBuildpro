@@ -310,6 +310,7 @@ export default function Production() {
   const [statusChangeNewStatus, setStatusChangeNewStatus] = useState<string>("");
   const [pendingDepositsSheetOpen, setPendingDepositsSheetOpen] = useState(false);
   const [mergeProjectsDialogOpen, setMergeProjectsDialogOpen] = useState(false);
+  const [emailConfirmProjectId, setEmailConfirmProjectId] = useState<string | null>(null);
   // Helper to apply company filter - uses .in() for unified mode, .eq() otherwise
   const applyCompanyFilter = useCallback((query: any) => {
     if (isUnified && companyIds.length > 1) {
@@ -2332,7 +2333,7 @@ export default function Production() {
                                 <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                                   {project.customer_email && (
                                     <DropdownMenuItem
-                                      onClick={() => sendPortalEmailMutation.mutate(project.id)}
+                                      onClick={() => setEmailConfirmProjectId(project.id)}
                                       disabled={sendPortalEmailMutation.isPending}
                                     >
                                       <Mail className="h-3.5 w-3.5 mr-2" />
@@ -2555,7 +2556,29 @@ export default function Production() {
           projects={projects}
         />
 
-        {/* Delete Project Confirmation Dialog */}
+        {/* Send Portal Email Confirmation */}
+        <AlertDialog open={!!emailConfirmProjectId} onOpenChange={(open) => { if (!open) setEmailConfirmProjectId(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Send Portal Email</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will send a portal update email to the customer. Are you sure you want to proceed?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => {
+                if (emailConfirmProjectId) {
+                  sendPortalEmailMutation.mutate(emailConfirmProjectId);
+                  setEmailConfirmProjectId(null);
+                }
+              }}>
+                Send Email
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <AlertDialog open={deleteTestProjectOpen} onOpenChange={(open) => {
           setDeleteTestProjectOpen(open);
           if (!open) {
