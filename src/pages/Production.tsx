@@ -1992,7 +1992,7 @@ export default function Production() {
               ) : (
                 <table className="w-full caption-bottom text-xs table-fixed">
                     <thead className="[&_tr]:border-b sticky top-0 z-20 bg-card">
-                      <TableRow className="bg-card hover:bg-card [&_th]:align-bottom [&_th]:leading-tight [&_th]:py-2 [&_th]:text-center">
+                      <TableRow className="bg-card hover:bg-card [&_th]:align-bottom [&_th]:leading-tight [&_th]:py-2 [&_th]:text-left">
                         <TableHead className="w-[5%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('project_number')}>
                           <div className="flex items-end gap-0.5"># <SortIcon column="project_number" /></div>
                         </TableHead>
