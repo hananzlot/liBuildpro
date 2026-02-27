@@ -92,6 +92,7 @@ export interface SalespersonCommission {
   paid: number;
   balance: number;
   projectCount: number;
+  earnedToDate: number;
 }
 
 export interface PayableWithCashImpact {
@@ -585,11 +586,15 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       salespeople.forEach(sp => {
         if (!sp.name) return;
         if (!summary[sp.name]) {
-          summary[sp.name] = { name: sp.name, calculated: 0, paid: 0, balance: 0, projectCount: 0 };
+          summary[sp.name] = { name: sp.name, calculated: 0, paid: 0, balance: 0, projectCount: 0, earnedToDate: 0 };
         }
         // For simplicity, attribute full commission to primary - in reality should split
         summary[sp.name].calculated += project.totalCommission;
         summary[sp.name].projectCount += 1;
+        // Earned to date: (amount received - bills paid - lead cost) * split%
+        const splitPct = (project.commission_split_pct ?? 50) / 100;
+        const earned = (project.invoicesCollected - project.totalBillsPaid - project.leadCostAmount) * splitPct;
+        summary[sp.name].earnedToDate += earned;
       });
     });
 
@@ -598,7 +603,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       .filter(cp => cp.project_id && filteredProjectIds.has(cp.project_id))
       .forEach(cp => {
         if (!summary[cp.salesperson_name]) {
-          summary[cp.salesperson_name] = { name: cp.salesperson_name, calculated: 0, paid: 0, balance: 0, projectCount: 0 };
+          summary[cp.salesperson_name] = { name: cp.salesperson_name, calculated: 0, paid: 0, balance: 0, projectCount: 0, earnedToDate: 0 };
         }
         summary[cp.salesperson_name].paid += cp.payment_amount || 0;
       });
