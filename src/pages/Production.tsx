@@ -2477,11 +2477,9 @@ export default function Production() {
                   const project = projects.find(p => p.id === returnToProjectId);
                   if (project) {
                     setPendingBillDialogOpen(true);
-                    // Navigate to project URL
-                    navigate(`/production/${returnToProjectId}`);
                   }
-                  // Clear the return params
-                  setSearchParams({ view: 'projects' });
+                  // Navigate back to the project detail (this also clears the subcontractors view)
+                  navigate(`/production/${returnToProjectId}`, { replace: true });
                 }
               }}
             />
