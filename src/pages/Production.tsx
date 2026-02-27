@@ -2054,7 +2054,17 @@ export default function Production() {
                         )}
                         {isAdmin && isColumnVisible('expected_profit') && (
                           <TableHead className="w-[6%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('expected_profit')}>
-                            <div className="flex items-end justify-end gap-0.5">Profit <SortIcon column="expected_profit" /></div>
+                            <div className="flex items-end justify-end gap-0.5">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="underline decoration-dotted underline-offset-2 cursor-help">Profit</span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-[220px] text-xs">
+                                  <p className="font-medium">Revenue − COGS − Commission + Lead Fee</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <SortIcon column="expected_profit" />
+                            </div>
                           </TableHead>
                         )}
                         {isColumnVisible('total_cash') && (
@@ -2267,7 +2277,21 @@ export default function Production() {
                             )}
                             {isAdmin && isColumnVisible('expected_profit') && (
                               <TableCell className={`text-right text-[10px] font-medium truncate ${financials?.contractsTotal > 0 ? ((financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive') : ''}`}>
-                                {financials?.contractsTotal > 0 ? formatCurrency(financials?.expectedFinalProfit) : <span className="text-muted-foreground">-</span>}
+                                {financials?.contractsTotal > 0 ? (
+                                  <span className="inline-flex items-center gap-0.5">
+                                    {formatCurrency(financials?.expectedFinalProfit)}
+                                    {!financials?.isCompleted && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <span className="text-[8px] font-normal text-muted-foreground bg-muted px-1 rounded cursor-help">est</span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                          <p>Estimated — project not yet completed</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                  </span>
+                                ) : <span className="text-muted-foreground">-</span>}
                               </TableCell>
                             )}
                             {isColumnVisible('total_cash') && (
