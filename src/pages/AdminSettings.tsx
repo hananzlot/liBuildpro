@@ -149,6 +149,8 @@ export default function AdminSettings() {
   const AUDIT_PAGE_SIZE = 50;
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [dailySummary, setDailySummary] = useState<string | null>(null);
+  const [dailySummaryLoading, setDailySummaryLoading] = useState(false);
   
   // Pipeline configuration state - now using UUID-based stages
   interface PipelineStageEdit {
@@ -2073,12 +2075,80 @@ export default function AdminSettings() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Activity Log</CardTitle>
-                <CardDescription>
-                  Showing {(auditPage * AUDIT_PAGE_SIZE) + 1}–{Math.min((auditPage + 1) * AUDIT_PAGE_SIZE, auditTotal)} of {auditTotal} records
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Activity Log</CardTitle>
+                    <CardDescription>
+                      Showing {(auditPage * AUDIT_PAGE_SIZE) + 1}–{Math.min((auditPage + 1) * AUDIT_PAGE_SIZE, auditTotal)} of {auditTotal} records
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={dailySummaryLoading || !logs || logs.length === 0}
+                    onClick={async () => {
+                      setDailySummaryLoading(true);
+                      setDailySummary(null);
+                      try {
+                        // Fetch all logs for current filters (up to 500) for summary
+                        let query = supabase
+                          .from("audit_logs")
+                          .select("table_name, action, user_email, changed_at, description")
+                          .eq("company_id", companyId)
+                          .order("changed_at", { ascending: false })
+                          .limit(500);
+                        if (startDate) query = query.gte("changed_at", `${startDate}T00:00:00`);
+                        if (endDate) query = query.lte("changed_at", `${endDate}T23:59:59`);
+                        if (tableFilter && tableFilter !== "all") query = query.eq("table_name", tableFilter);
+                        if (actionFilter && actionFilter !== "all") query = query.eq("action", actionFilter);
+                        if (userFilter) query = query.ilike("user_email", `%${userFilter}%`);
+                        const { data: allLogs, error: fetchErr } = await query;
+                        if (fetchErr) throw fetchErr;
+
+                        const { data, error } = await supabase.functions.invoke("summarize-audit-log", {
+                          body: { auditLogs: allLogs, mode: "daily-summary" },
+                        });
+                        if (error) throw error;
+                        if (data?.error) throw new Error(data.error);
+                        setDailySummary(data.summary);
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Failed to generate summary");
+                      } finally {
+                        setDailySummaryLoading(false);
+                      }
+                    }}
+                  >
+                    {dailySummaryLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        Summarizing…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-3 w-3" />
+                        Summarize Activity
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {dailySummary && (
+                  <div className="border border-border rounded-lg p-4 bg-muted/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-semibold">Activity Summary</span>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-xs" onClick={() => setDailySummary(null)}>
+                        <X className="h-3 w-3 mr-1" /> Dismiss
+                      </Button>
+                    </div>
+                    <div className="text-sm whitespace-pre-wrap leading-relaxed prose prose-sm max-w-none dark:prose-invert">
+                      {dailySummary}
+                    </div>
+                  </div>
+                )}
                 {logsLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin" />
