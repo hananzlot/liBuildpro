@@ -304,11 +304,11 @@ export default function Estimates() {
   }, []);
 
   const recentDraftEstimates = useMemo(() => 
-    draftEstimates.filter(e => new Date(e.created_at) >= thirtyDaysAgo), 
+    draftEstimates.filter(e => new Date(e.estimate_date) >= thirtyDaysAgo), 
     [draftEstimates, thirtyDaysAgo]
   );
   const oldDraftEstimates = useMemo(() => 
-    draftEstimates.filter(e => new Date(e.created_at) < thirtyDaysAgo), 
+    draftEstimates.filter(e => new Date(e.estimate_date) < thirtyDaysAgo), 
     [draftEstimates, thirtyDaysAgo]
   );
 
