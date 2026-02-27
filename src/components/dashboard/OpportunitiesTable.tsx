@@ -449,7 +449,7 @@ export function OpportunitiesTable({
   }, [tasks, ghlIdToUuid]);
 
   const getLastEditedDate = (opp: Opportunity): string | null => {
-    return opp.updated_at || opp.ghl_date_updated || opp.ghl_date_added || null;
+    return opp.ghl_date_updated || opp.updated_at || opp.ghl_date_added || null;
   };
 
   const formatAppointmentDateTime = (dateString: string | null) => {
