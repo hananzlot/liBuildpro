@@ -1691,9 +1691,19 @@ export default function Production() {
                     {isAdmin && (
                       <>
                         <span className="text-border">•</span>
-                        <span>Profit <span className={`font-medium ${(profitKPIs.expectedProfit + profitKPIs.realizedProfit) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                          {formatCurrency(profitKPIs.expectedProfit + profitKPIs.realizedProfit)}
-                        </span></span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help border-b border-dotted border-muted-foreground/40">Profit <span className={`font-medium ${(profitKPIs.expectedProfit + profitKPIs.realizedProfit) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                              {formatCurrency(profitKPIs.expectedProfit + profitKPIs.realizedProfit)}
+                            </span></span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-xs text-xs space-y-1 p-3">
+                            <p className="font-semibold mb-1">Profit Formula</p>
+                            <p>Revenue − COGS − Commission + Lead Fee</p>
+                            <p className="text-muted-foreground mt-1">COGS = Max(Bills Received, Estimated Cost)</p>
+                            <p className="text-muted-foreground">For completed projects, COGS = actual bills only</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </>
                     )}
                   </div>
