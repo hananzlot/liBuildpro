@@ -2284,17 +2284,17 @@ export default function Production() {
                               <TableCell className={`text-right text-[10px] font-medium truncate ${financials?.contractsTotal > 0 ? ((financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive') : ''}`}>
                                 {financials?.contractsTotal > 0 ? (
                                   <span className="inline-flex items-center gap-0.5">
-                                    {formatCurrency(financials?.expectedFinalProfit)}
-                                    {!financials?.isCompleted && (
+                                    {financials?.isEstimatedCost && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <span className="text-[8px] font-normal text-muted-foreground bg-muted px-1 rounded cursor-help">est</span>
+                                          <span className="text-[8px] font-normal text-muted-foreground bg-muted px-1 py-0.5 rounded cursor-help leading-none">Est.</span>
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
-                                          <p>Estimated — project not yet completed</p>
+                                          <p>Estimated — using projected costs</p>
                                         </TooltipContent>
                                       </Tooltip>
                                     )}
+                                    {formatCurrency(financials?.expectedFinalProfit)}
                                   </span>
                                 ) : <span className="text-muted-foreground">-</span>}
                               </TableCell>
