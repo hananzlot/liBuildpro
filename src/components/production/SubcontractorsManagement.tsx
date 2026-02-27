@@ -680,86 +680,83 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            {/* Type Selector */}
-            <div className="space-y-2">
-              <Label htmlFor="subcontractor_type">Type *</Label>
-              <Select
-                value={formData.subcontractor_type}
-                onValueChange={async (value: SubcontractorType) => {
-                  setFormData(prev => ({ ...prev, subcontractor_type: value }));
-                  // Auto-save type when editing existing subcontractor
-                  if (editingSubcontractor) {
-                    const { error } = await supabase
-                      .from("subcontractors")
-                      .update({ subcontractor_type: value })
-                      .eq("id", editingSubcontractor.id);
-                    if (error) {
-                      toast.error("Failed to update type");
-                    } else {
-                      toast.success("Type updated");
-                      queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {SUBCONTRACTOR_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {formData.subcontractor_type !== 'Subcontractor' && (
-                <p className="text-xs text-muted-foreground">
-                  License and insurance are not required for {formData.subcontractor_type} types.
-                </p>
-              )}
-            </div>
-
-            {/* Trade Selector - only show for Subcontractor type */}
-            {formData.subcontractor_type === 'Subcontractor' && (
-              <div className="space-y-2">
-                <Label>Trade(s)</Label>
-                <MultiSelectFilter
-                  options={tradesData.map(t => ({ value: t, label: t }))}
-                  selected={formData.trade}
-                  onChange={async (selected) => {
-                    setFormData(prev => ({ ...prev, trade: selected }));
-                    // Auto-save trades when editing existing subcontractor
+            {/* Type & Trade Row */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Select
+                  value={formData.subcontractor_type}
+                  onValueChange={async (value: SubcontractorType) => {
+                    setFormData(prev => ({ ...prev, subcontractor_type: value }));
                     if (editingSubcontractor) {
                       const { error } = await supabase
                         .from("subcontractors")
-                        .update({ trade: selected.length > 0 ? selected : null })
+                        .update({ subcontractor_type: value })
                         .eq("id", editingSubcontractor.id);
                       if (error) {
-                        toast.error("Failed to update trades");
+                        toast.error("Failed to update type");
                       } else {
-                        toast.success("Trades updated");
+                        toast.success("Type updated");
                         queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
                       }
                     }
                   }}
-                  placeholder="Select trades..."
-                  onAddNew={isSuperAdmin ? (value) => {
-                    if (!tradesData.includes(value)) {
-                      addTradeMutation.mutate(value);
-                    }
-                  } : undefined}
-                  addNewLabel="Add new trade..."
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Type *" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUBCONTRACTOR_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formData.subcontractor_type !== 'Subcontractor' && (
+                  <p className="text-xs text-muted-foreground">
+                    License/insurance not required for {formData.subcontractor_type}.
+                  </p>
+                )}
               </div>
-            )}
+              {formData.subcontractor_type === 'Subcontractor' && (
+                <div>
+                  <MultiSelectFilter
+                    options={tradesData.map(t => ({ value: t, label: t }))}
+                    selected={formData.trade}
+                    onChange={async (selected) => {
+                      setFormData(prev => ({ ...prev, trade: selected }));
+                      if (editingSubcontractor) {
+                        const { error } = await supabase
+                          .from("subcontractors")
+                          .update({ trade: selected.length > 0 ? selected : null })
+                          .eq("id", editingSubcontractor.id);
+                        if (error) {
+                          toast.error("Failed to update trades");
+                        } else {
+                          toast.success("Trades updated");
+                          queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
+                        }
+                      }
+                    }}
+                    placeholder="Trade(s)"
+                    className="w-full"
+                    onAddNew={isSuperAdmin ? (value) => {
+                      if (!tradesData.includes(value)) {
+                        addTradeMutation.mutate(value);
+                      }
+                    } : undefined}
+                    addNewLabel="Add new trade..."
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Company Info Section */}
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="company_name">Company Name *</Label>
+              <div className="space-y-1">
                 <Input
                   id="company_name"
+                  placeholder="Company Name *"
                   value={formData.company_name}
                   onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
                   className={formErrors?.company_name ? "border-destructive" : ""}
@@ -768,10 +765,10 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                   <p className="text-xs text-destructive">{formErrors.company_name}</p>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="contact_name">Contact Name</Label>
+              <div>
                 <Input
                   id="contact_name"
+                  placeholder="Contact Name"
                   value={formData.contact_name}
                   onChange={(e) => setFormData(prev => ({ ...prev, contact_name: e.target.value }))}
                 />
@@ -779,42 +776,38 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
+              <div>
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="(555) 123-4567"
+                  placeholder="Phone"
                   value={formData.phone}
                   onChange={(e) => {
-                    // Strip non-digits
                     const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
-                    // Format as (XXX) XXX-XXXX
                     let formatted = '';
                     if (digits.length > 0) formatted += '(' + digits.slice(0, 3);
                     if (digits.length >= 3) formatted += ') ';
-                    else if (digits.length > 0) { /* partial area code */ }
                     if (digits.length > 3) formatted += digits.slice(3, 6);
                     if (digits.length > 6) formatted += '-' + digits.slice(6);
                     setFormData(prev => ({ ...prev, phone: formatted }));
                   }}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+              <div>
                 <Input
                   id="email"
                   type="email"
+                  placeholder="Email"
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+            <div>
               <Input
                 id="address"
+                placeholder="Address"
                 value={formData.address}
                 onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
               />
