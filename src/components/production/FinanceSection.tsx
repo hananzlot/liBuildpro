@@ -3434,6 +3434,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             leadCostPercent={leadCostPercent}
             commissionSplitPct={commissionSplitPct}
             totalBillsPaid={totalBillsPaid}
+            totalPaymentsReceived={totalPaymentsReceived}
             salespeople={salespeople}
           />
         </TabsContent>
@@ -7136,6 +7137,7 @@ function CommissionTab({
   leadCostPercent,
   commissionSplitPct,
   totalBillsPaid,
+  totalPaymentsReceived,
   salespeople,
 }: {
   projectId: string;
@@ -7143,6 +7145,7 @@ function CommissionTab({
   leadCostPercent: number;
   commissionSplitPct: number;
   totalBillsPaid: number;
+  totalPaymentsReceived: number;
   salespeople: SalespersonData[];
 }) {
   const { companyId } = useCompanyContext();
@@ -7226,6 +7229,11 @@ function CommissionTab({
   const profit = totalContracts - leadCostAmount - totalBillsPaid;
   const commissionPool = profit > 0 ? profit * (commissionSplitPct / 100) : 0;
   
+  // Earned to date: (Amount Received - Bills Paid - Lead Cost on Received) × Split%
+  const leadCostOnReceived = totalPaymentsReceived * (leadCostPercent / 100);
+  const earnedProfit = totalPaymentsReceived - totalBillsPaid - leadCostOnReceived;
+  const earnedPool = earnedProfit * (commissionSplitPct / 100);
+  
   // Calculate total commission % to normalize if needed
   const totalCommissionPct = salespeople.reduce((sum, sp) => sum + sp.commissionPct, 0);
   
@@ -7243,11 +7251,13 @@ function CommissionTab({
     const vendorMapping = salespersonRecord 
       ? salespersonVendorMappings.find(m => m.source_value === salespersonRecord.id)
       : null;
+    const earnedToDate = earnedPool * shareOfPool;
     return {
       ...sp,
       id: salespersonRecord?.id || null,
       shareOfPool,
       commissionAmount,
+      earnedToDate,
       paid,
       balance: commissionAmount - paid,
       vendorMapped: !!vendorMapping,
@@ -7527,6 +7537,7 @@ function CommissionTab({
                   <TableHead className="text-xs">Salesperson</TableHead>
                   <TableHead className="text-xs text-right">Comm %</TableHead>
                   <TableHead className="text-xs text-right">Commission</TableHead>
+                  <TableHead className="text-xs text-right">Earned to Date</TableHead>
                   <TableHead className="text-xs text-right">Paid</TableHead>
                   <TableHead className="text-xs text-right">Balance</TableHead>
                 </TableRow>
@@ -7538,6 +7549,9 @@ function CommissionTab({
                     <TableCell className="text-xs text-right">{sp.commissionPct}%</TableCell>
                     <TableCell className="text-xs text-right font-semibold text-emerald-600">
                       {formatCurrencyWithDecimals(sp.commissionAmount)}
+                    </TableCell>
+                    <TableCell className={cn("text-xs text-right font-medium", sp.earnedToDate < 0 ? "text-destructive" : "text-primary")}>
+                      {formatCurrencyWithDecimals(sp.earnedToDate)}
                     </TableCell>
                     <TableCell className="text-xs text-right text-muted-foreground">
                       {formatCurrencyWithDecimals(sp.paid)}
@@ -7551,6 +7565,9 @@ function CommissionTab({
                   <TableCell className="text-xs">Total</TableCell>
                   <TableCell className="text-xs text-right">{totalCommissionPct}%</TableCell>
                   <TableCell className="text-xs text-right text-emerald-600">{formatCurrencyWithDecimals(totalCommissionOwed)}</TableCell>
+                  <TableCell className={cn("text-xs text-right font-medium", earnedPool < 0 ? "text-destructive" : "text-primary")}>
+                    {formatCurrencyWithDecimals(earnedPool)}
+                  </TableCell>
                   <TableCell className="text-xs text-right text-muted-foreground">{formatCurrencyWithDecimals(totalCommissionPaid)}</TableCell>
                   <TableCell className={cn("text-xs text-right", totalCommissionBalance > 0 ? "text-amber-600" : "text-emerald-600")}>
                     {formatCurrencyWithDecimals(totalCommissionBalance)}
