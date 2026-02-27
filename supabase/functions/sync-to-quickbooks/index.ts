@@ -131,27 +131,38 @@ Deno.serve(async (req) => {
       // Fall back to default mapping
       return mappings?.find((m) => m.mapping_type === type && m.is_default);
     };
-    // Helper to check if customer exists - first via mapping, then via QB name search
-    // NOTE: Customer mappings are stored against the *contact UUID* (contacts.id), not the project id.
+    // Helper to check if customer exists - first via project/contact mappings, then via QB name search
     async function checkCustomerExists(project: any): Promise<{ exists: boolean; id: string | null; name: string; fromMapping: boolean }> {
       const customerName = project.project_name || project.project_address || `Project ${project.project_number}`;
 
-      const mappingSource = project.contact_uuid || project.contact_id || null;
+      const projectSource = project.id || null;
+      const contactSource = project.contact_uuid || project.contact_id || null;
 
-      // First check if there's a manual mapping for this project's contact
-      if (mappingSource) {
-        const mapped = mappings?.find(
-          (m) => m.mapping_type === "customer" && m.source_value === mappingSource
+      // Priority 1: project-specific customer mapping (saved by QBCustomerMappingDialog)
+      if (projectSource) {
+        const projectMapped = mappings?.find(
+          (m) => m.mapping_type === "project_customer" && m.source_value === projectSource
         );
-        if (mapped) {
-          console.log(`Found customer mapping for contact ${mappingSource}: QB ID ${mapped.qbo_id}`);
-          return { exists: true, id: mapped.qbo_id, name: mapped.qbo_name || customerName, fromMapping: true };
+        if (projectMapped?.qbo_id) {
+          console.log(`Found project customer mapping for project ${projectSource}: QB ID ${projectMapped.qbo_id}`);
+          return { exists: true, id: projectMapped.qbo_id, name: projectMapped.qbo_name || customerName, fromMapping: true };
         }
       }
-      
-      // Fall back to QB name search
+
+      // Priority 2: contact-level customer mapping
+      if (contactSource) {
+        const contactMapped = mappings?.find(
+          (m) => m.mapping_type === "customer" && m.source_value === contactSource
+        );
+        if (contactMapped?.qbo_id) {
+          console.log(`Found customer mapping for contact ${contactSource}: QB ID ${contactMapped.qbo_id}`);
+          return { exists: true, id: contactMapped.qbo_id, name: contactMapped.qbo_name || customerName, fromMapping: true };
+        }
+      }
+
+      // Fall back to QB exact name search
       const searchUrl = `${QB_BASE_URL}/${realm_id}/query?query=${encodeURIComponent(`SELECT * FROM Customer WHERE DisplayName = '${customerName.replace(/'/g, "\\'")}'`)}`;
-      
+
       const searchRes = await fetch(searchUrl, { headers: qbHeaders });
       if (searchRes.ok) {
         const searchData = await searchRes.json();
@@ -159,7 +170,7 @@ Deno.serve(async (req) => {
           return { exists: true, id: searchData.QueryResponse.Customer[0].Id, name: customerName, fromMapping: false };
         }
       }
-      
+
       return { exists: false, id: null, name: customerName, fromMapping: false };
     }
 
