@@ -1,0 +1,1 @@
+DELETE FROM project_invoices WHERE id = 'd23909f2-f04c-4bb3-bb69-6f22b5375f0e';
