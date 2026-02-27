@@ -2318,46 +2318,38 @@ export default function Production() {
                             </TableCell>
                             )}
                             <TableCell className="p-1">
-                              <div className="flex gap-0">
-                                {project.customer_email && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 text-primary hover:text-primary"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          sendPortalEmailMutation.mutate(project.id);
-                                        }}
-                                        disabled={sendPortalEmailMutation.isPending}
-                                      >
-                                        {sendPortalEmailMutation.isPending ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <Mail className="h-3 w-3" />
-                                        )}
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Send portal email</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                )}
-                                {isAdmin && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6 text-destructive hover:text-destructive"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteTestProject(project);
-                                    }}
+                                    className="h-6 w-6"
+                                    onClick={(e) => e.stopPropagation()}
                                   >
-                                    <Trash2 className="h-3 w-3" />
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
                                   </Button>
-                                )}
-                              </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  {project.customer_email && (
+                                    <DropdownMenuItem
+                                      onClick={() => sendPortalEmailMutation.mutate(project.id)}
+                                      disabled={sendPortalEmailMutation.isPending}
+                                    >
+                                      <Mail className="h-3.5 w-3.5 mr-2" />
+                                      Send portal email
+                                    </DropdownMenuItem>
+                                  )}
+                                  {isAdmin && (
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => handleDeleteTestProject(project)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </TableCell>
                           </TableRow>
                         );
