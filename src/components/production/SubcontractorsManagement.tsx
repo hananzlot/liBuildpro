@@ -482,9 +482,9 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
               <TableHeader>
                 <TableRow>
                   <TableHead>Company</TableHead>
+                  <TableHead>Contact</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Trade(s)</TableHead>
-                  <TableHead>Contact</TableHead>
                   <TableHead>License Exp.</TableHead>
                   <TableHead>Insurance Exp.</TableHead>
                   <TableHead>Status</TableHead>
@@ -502,6 +502,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                         <div className="font-medium">{sub.company_name}</div>
                         {sub.phone && <div className="text-xs text-muted-foreground">{sub.phone}</div>}
                       </TableCell>
+                      <TableCell className="text-sm">{sub.contact_name || "-"}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">{sub.subcontractor_type}</Badge>
                       </TableCell>
@@ -516,7 +517,6 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                           <span className="text-muted-foreground text-sm">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm">{sub.contact_name || "-"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className="text-sm">{formatDate(sub.license_expiration_date)}</span>
