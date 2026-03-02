@@ -116,8 +116,17 @@ function UserAnalyticsToggles({ userId, isDisabled }: { userId: string; isDisabl
 const ROLES_QUERY_KEY = ["user-management", "roles"] as const;
 const COMPANIES_QUERY_KEY = ["user-management", "companies"] as const;
 
+const USER_COMPANIES_QUERY_KEY = ["user-management", "user-companies"] as const;
+
+interface UserCompanyRow {
+  id: string;
+  user_id: string;
+  company_id: string;
+  is_primary: boolean;
+}
+
 export function UserManagement({ open, onOpenChange }: UserManagementProps) {
-  const { isSuperAdmin, canUseFeature, companyId } = useAuth();
+  const { isSuperAdmin, isCorpAdmin, canUseFeature, companyId, company } = useAuth();
   const queryClient = useQueryClient();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
@@ -134,49 +143,77 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [reassigningCompanyForUser, setReassigningCompanyForUser] = useState<Profile | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
+  const [managingCompaniesForUser, setManagingCompaniesForUser] = useState<Profile | null>(null);
 
-  // Fetch profiles - super admins see all, regular admins see only their company
+  const canManageMultiCompany = isSuperAdmin || isCorpAdmin;
+
+  // Fetch profiles - super admins see all, corp admins see their corporation, regular admins see their company
   const {
     data: profiles = [],
     isLoading: profilesLoading,
     error: profilesError,
   } = useQuery({
-    queryKey: [...PROFILES_QUERY_KEY, isSuperAdmin ? 'all' : companyId],
+    queryKey: [...PROFILES_QUERY_KEY, isSuperAdmin ? 'all' : isCorpAdmin ? `corp-${company?.corporation_id}` : companyId],
     queryFn: async () => {
       let query = supabase
         .from("profiles")
         .select("id, email, full_name, ghl_user_id, company_id");
       
-      // Regular admins only see users in their company
-      if (!isSuperAdmin && companyId) {
+      if (!isSuperAdmin && !isCorpAdmin && companyId) {
+        // Regular admins only see users in their company
         query = query.eq("company_id", companyId);
       }
+      // Corp admins see all users in companies within their corporation
+      // (RLS handles the filtering via has_company_access)
       
       const { data, error } = await query.order("email");
 
       if (error) throw error;
       return data as Profile[];
     },
-    enabled: open && (isSuperAdmin || !!companyId),
+    enabled: open && (isSuperAdmin || isCorpAdmin || !!companyId),
     refetchOnMount: "always",
   });
 
-  // Fetch all companies (for super admin company reassignment)
+  // Fetch companies - super admins see all, corp admins see their corporation
   const {
     data: companies = [],
     isLoading: companiesLoading,
   } = useQuery({
-    queryKey: COMPANIES_QUERY_KEY,
+    queryKey: [...COMPANIES_QUERY_KEY, isSuperAdmin ? 'all' : `corp-${company?.corporation_id}`],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("companies")
         .select("id, name")
+        .eq("is_active", true)
         .order("name");
+      
+      if (!isSuperAdmin && isCorpAdmin && company?.corporation_id) {
+        query = query.eq("corporation_id", company.corporation_id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Company[];
     },
-    enabled: open && isSuperAdmin,
+    enabled: open && canManageMultiCompany,
+  });
+
+  // Fetch user_companies associations
+  const {
+    data: allUserCompanies = [],
+  } = useQuery({
+    queryKey: USER_COMPANIES_QUERY_KEY,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_companies")
+        .select("id, user_id, company_id, is_primary");
+
+      if (error) throw error;
+      return data as UserCompanyRow[];
+    },
+    enabled: open && canManageMultiCompany,
   });
 
   // Fetch all user roles
@@ -671,28 +708,38 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                               Super Admin
                             </Badge>
                           )}
-                          {isSuperAdmin && (
+                          {canManageMultiCompany && (
                             <Badge variant="outline" className="text-xs">
                               {getCompanyName(profile.company_id)}
                             </Badge>
                           )}
+                          {/* Show additional company badges */}
+                          {canManageMultiCompany && (() => {
+                            const userAssociations = allUserCompanies.filter(
+                              uc => uc.user_id === profile.id && uc.company_id !== profile.company_id
+                            );
+                            return userAssociations.length > 0 ? (
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                +{userAssociations.length} co.
+                              </Badge>
+                            ) : null;
+                          })()}
                           {activeRoles.map(r => (
                             <Badge key={r.role} variant="secondary" className={`text-xs ${r.color}`}>
                               {r.label}
                             </Badge>
                           ))}
                         </div>
-                        {/* Company reassignment button - super admin only */}
-                        {isSuperAdmin && (
+                        {/* Company management button */}
+                        {canManageMultiCompany && (
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-8 px-2 text-muted-foreground hover:text-foreground"
                             onClick={() => {
-                              setReassigningCompanyForUser(profile);
-                              setSelectedCompanyId(profile.company_id || "");
+                              setManagingCompaniesForUser(profile);
                             }}
-                            title="Change company assignment"
+                            title="Manage company associations"
                           >
                             <Building2 className="h-4 w-4" />
                           </Button>

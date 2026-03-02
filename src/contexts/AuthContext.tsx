@@ -37,6 +37,14 @@ interface Corporation {
   is_active: boolean;
 }
 
+export interface UserCompany {
+  id: string;
+  user_id: string;
+  company_id: string;
+  is_primary: boolean;
+  company_name?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -46,11 +54,14 @@ interface AuthContextType {
   corporationId: string | null;
   company: Company | null;
   corporation: Corporation | null;
-  // Super admin company switching
+  // Company switching
   viewingCompanyId: string | null;
   viewingCompany: Company | null;
   setViewingCompanyId: (companyId: string | null) => void;
   isViewingOtherCompany: boolean;
+  // Multi-company associations
+  userCompanies: UserCompany[];
+  hasMultipleCompanies: boolean;
   // Role checks
   isSuperAdmin: boolean;
   isAdmin: boolean; // true if super_admin OR admin
@@ -107,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [simulatedRole, setSimulatedRole] = useState<AppRole | null>(null);
+  const [userCompanies, setUserCompanies] = useState<UserCompany[]>([]);
   
   // Super admin company switching - persist to sessionStorage
   const [viewingCompanyId, setViewingCompanyIdState] = useState<string | null>(() => {
@@ -177,9 +189,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     : actualRoles;
 
   // Determine effective company context
-  // Super admins & corp admins: companyId can come from the switcher (viewingCompanyId)
-  // Regular users: companyId comes from their profile
-  const canSwitchCompany = actualIsSuperAdmin || actualIsCorpAdmin;
+  // Users with multiple companies, super admins & corp admins can switch via viewingCompanyId
+  const hasMultipleCompanies = userCompanies.length > 1;
+  const canSwitchCompany = actualIsSuperAdmin || actualIsCorpAdmin || hasMultipleCompanies;
   const isViewingOtherCompany = canSwitchCompany && viewingCompanyId !== null;
   const companyId = canSwitchCompany && viewingCompanyId ? viewingCompanyId : baseCompanyId;
   const corporationId = canSwitchCompany && viewingCompanyId
@@ -222,7 +234,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setViewingCompanyId = useCallback((newCompanyId: string | null) => {
-    if (!actualIsSuperAdmin && !actualIsCorpAdmin) return; // Only super admins and corp admins can switch
+    // Allow switching for super admins, corp admins, and multi-company users
+    if (!actualIsSuperAdmin && !actualIsCorpAdmin && userCompanies.length <= 1) return;
     
     setViewingCompanyIdState(newCompanyId);
     
@@ -234,7 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.removeItem('super_admin_viewing_company');
       setViewingCompany(null);
     }
-  }, [actualIsSuperAdmin, actualIsCorpAdmin, fetchViewingCompany]);
+  }, [actualIsSuperAdmin, actualIsCorpAdmin, userCompanies.length, fetchViewingCompany]);
 
   // Restore viewing company from sessionStorage on mount for super admins and corp admins
   useEffect(() => {
@@ -257,6 +270,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setTimeout(() => {
             fetchProfileAndCompany(session.user.id);
             checkUserRoles(session.user.id);
+            fetchUserCompanies(session.user.id);
           }, 0);
         } else {
           setProfile(null);
@@ -264,6 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setCorporation(null);
           setActualRoles([]);
           setSimulatedRole(null);
+          setUserCompanies([]);
           setIsProfileLoading(false);
         }
       }
@@ -278,6 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsProfileLoading(true);
         fetchProfileAndCompany(session.user.id);
         checkUserRoles(session.user.id);
+        fetchUserCompanies(session.user.id);
       }
       setIsLoading(false);
     });
@@ -358,6 +374,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const fetchUserCompanies = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("user_companies")
+      .select("id, user_id, company_id, is_primary")
+      .eq("user_id", userId);
+
+    if (!error && data) {
+      // Fetch company names
+      const companyIds = data.map(uc => uc.company_id);
+      if (companyIds.length > 0) {
+        const { data: companiesData } = await supabase
+          .from("companies")
+          .select("id, name")
+          .in("id", companyIds);
+
+        const nameMap = new Map(companiesData?.map(c => [c.id, c.name]) ?? []);
+        setUserCompanies(data.map(uc => ({ ...uc, company_name: nameMap.get(uc.company_id) })));
+      } else {
+        setUserCompanies([]);
+      }
+    } else {
+      setUserCompanies([]);
+    }
+  };
+
   const refreshCompanyContext = async () => {
     if (user?.id) {
       setIsProfileLoading(true);
@@ -395,6 +436,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCorporation(null);
     setActualRoles([]);
     setSimulatedRole(null);
+    setUserCompanies([]);
   };
 
   const resetPassword = async (email: string) => {
@@ -433,11 +475,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       corporationId,
       company: effectiveCompany,
       corporation,
-      // Super admin company switching
+      // Company switching
       viewingCompanyId,
       viewingCompany,
       setViewingCompanyId,
       isViewingOtherCompany,
+      // Multi-company
+      userCompanies,
+      hasMultipleCompanies,
       // Role checks
       isSuperAdmin,
       isCorpAdmin,
