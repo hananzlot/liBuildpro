@@ -81,6 +81,11 @@ interface AuthContextType {
   isSimulating: boolean;
   setSimulatedRole: (role: AppRole | null) => void;
   availableRoles: AppRole[];
+  // User simulation
+  simulatedUserId: string | null;
+  simulatedUserName: string | null;
+  simulateAsUser: (userId: string, userName: string, roles: AppRole[]) => void;
+  clearSimulation: () => void;
   // Subscription context
   subscription: CompanySubscription | null;
   plan: SubscriptionPlan | null;
@@ -118,6 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [simulatedRole, setSimulatedRole] = useState<AppRole | null>(null);
+  const [simulatedUserId, setSimulatedUserId] = useState<string | null>(null);
+  const [simulatedUserName, setSimulatedUserName] = useState<string | null>(null);
   const [userCompanies, setUserCompanies] = useState<UserCompany[]>([]);
   
   // Super admin company switching - persist to sessionStorage
@@ -145,47 +152,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const actualIsSales = actualRoles.includes('sales');
   const actualIsContractManager = actualRoles.includes('contract_manager');
 
-  // Calculate effective roles based on simulation
-  const isSimulating = actualIsAdmin && simulatedRole !== null;
+  // Calculate effective roles based on simulation (role or user)
+  const isSimulating = actualIsAdmin && (simulatedRole !== null || simulatedUserId !== null);
+  
+  // For user simulation, we store the user's roles in simulatedRole as first role
+  // and use a separate state for all simulated user roles
+  const [simulatedUserRoles, setSimulatedUserRoles] = useState<AppRole[]>([]);
+  
+  const effectiveSimulatedRoles = simulatedUserId ? simulatedUserRoles : (simulatedRole ? [simulatedRole] : []);
   
   const isSuperAdmin = isSimulating 
-    ? simulatedRole === 'super_admin' 
+    ? effectiveSimulatedRoles.includes('super_admin')
     : actualIsSuperAdmin;
   
   const isCorpAdmin = isSimulating
-    ? (simulatedRole === 'super_admin' || simulatedRole === 'corp_admin')
+    ? (effectiveSimulatedRoles.includes('super_admin') || effectiveSimulatedRoles.includes('corp_admin'))
     : actualIsCorpAdmin;
 
   const isCorpViewer = isSimulating
-    ? simulatedRole === 'corp_viewer'
+    ? effectiveSimulatedRoles.includes('corp_viewer')
     : actualIsCorpViewer;
   
   const isAdmin = isSimulating 
-    ? (simulatedRole === 'super_admin' || simulatedRole === 'admin' || simulatedRole === 'corp_admin')
+    ? (effectiveSimulatedRoles.includes('super_admin') || effectiveSimulatedRoles.includes('admin') || effectiveSimulatedRoles.includes('corp_admin'))
     : actualIsAdmin;
   
   const isMagazine = isSimulating 
-    ? simulatedRole === 'magazine' 
+    ? effectiveSimulatedRoles.includes('magazine')
     : actualIsMagazine;
   
   const isProduction = isSimulating 
-    ? simulatedRole === 'production' 
+    ? effectiveSimulatedRoles.includes('production')
     : actualIsProduction;
 
   const isDispatch = isSimulating 
-    ? simulatedRole === 'dispatch' 
+    ? effectiveSimulatedRoles.includes('dispatch')
     : actualIsDispatch;
 
   const isSales = isSimulating 
-    ? simulatedRole === 'sales' 
+    ? effectiveSimulatedRoles.includes('sales')
     : actualIsSales;
 
   const isContractManager = isSimulating 
-    ? simulatedRole === 'contract_manager' 
+    ? effectiveSimulatedRoles.includes('contract_manager')
     : actualIsContractManager;
 
   const userRoles = isSimulating 
-    ? [simulatedRole!] 
+    ? effectiveSimulatedRoles
     : actualRoles;
 
   // Determine effective company context
@@ -278,6 +291,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setCorporation(null);
           setActualRoles([]);
           setSimulatedRole(null);
+          setSimulatedUserId(null);
+          setSimulatedUserName(null);
+          setSimulatedUserRoles([]);
           setUserCompanies([]);
           setIsProfileLoading(false);
         }
@@ -406,6 +422,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const simulateAsUser = useCallback((userId: string, userName: string, roles: AppRole[]) => {
+    if (!actualIsAdmin) return;
+    setSimulatedUserId(userId);
+    setSimulatedUserName(userName);
+    setSimulatedUserRoles(roles);
+    setSimulatedRole(null);
+  }, [actualIsAdmin]);
+
+  const clearSimulation = useCallback(() => {
+    setSimulatedRole(null);
+    setSimulatedUserId(null);
+    setSimulatedUserName(null);
+    setSimulatedUserRoles([]);
+    sessionStorage.removeItem('crm-welcome-dismissed');
+  }, []);
+
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error ? new Error(error.message) : null };
@@ -436,6 +468,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCorporation(null);
     setActualRoles([]);
     setSimulatedRole(null);
+    setSimulatedUserId(null);
+    setSimulatedUserName(null);
+    setSimulatedUserRoles([]);
     setUserCompanies([]);
   };
 
@@ -500,8 +535,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Role simulation
       simulatedRole,
       isSimulating,
-      setSimulatedRole: actualIsAdmin ? setSimulatedRole : () => {}, // Only admins can simulate
+      setSimulatedRole: actualIsAdmin ? (role: AppRole | null) => {
+        setSimulatedRole(role);
+        setSimulatedUserId(null);
+        setSimulatedUserName(null);
+        setSimulatedUserRoles([]);
+      } : () => {},
       availableRoles: ALL_ROLES,
+      // User simulation
+      simulatedUserId,
+      simulatedUserName,
+      simulateAsUser,
+      clearSimulation,
       // Subscription context
       subscription: subscriptionData.subscription,
       plan: subscriptionData.plan,
