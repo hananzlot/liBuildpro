@@ -143,7 +143,7 @@ const ADMIN_SUB_ITEMS: { label: string; items: AdminMenuItem[] }[] = [
     { title: "Accounting", icon: DollarSign, tab: "payables" },
   ]},
   { label: "System", items: [
-    { title: "Users", icon: Users, tab: "users" }, { title: "Reports", icon: Eye, tab: "reports" },
+    { title: "Users", icon: Users, tab: "settings&category=operations" }, { title: "Reports", icon: Eye, tab: "reports" },
     { title: "Data Cleanup", icon: Wrench, tab: "cleanup" }, { title: "Audit Log", icon: FileText, tab: "audit" },
     { title: "Edge Logs", icon: Activity, tab: "edge-logs" },
   ]},
