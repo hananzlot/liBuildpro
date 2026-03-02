@@ -701,7 +701,7 @@ export function UserManagement({ open, onOpenChange, inline = false }: UserManag
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <ScrollArea className="max-h-[calc(100vh-320px)]">
+          <div className="overflow-y-auto max-h-[calc(100vh-320px)]">
             <div className="space-y-2">
               {filteredProfiles.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -864,7 +864,7 @@ export function UserManagement({ open, onOpenChange, inline = false }: UserManag
                 );
               })}
             </div>
-          </ScrollArea>
+          </div>
         )}
 
         {/* Set Password Dialog */}
