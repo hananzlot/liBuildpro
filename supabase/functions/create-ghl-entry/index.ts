@@ -191,6 +191,7 @@ serve(async (req) => {
         end_time: endDate.toISOString(),
         appointment_status: 'confirmed',
         assigned_user_id: assignedTo || null,
+        salesperson_id: salespersonId,
         address: address || null,
         entered_by: enteredBy || null,
         provider: 'local',
