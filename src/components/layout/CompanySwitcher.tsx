@@ -31,7 +31,9 @@ export function CompanySwitcher() {
     corporationId,
     viewingCompanyId, 
     setViewingCompanyId, 
-    isViewingOtherCompany 
+    isViewingOtherCompany,
+    userCompanies,
+    hasMultipleCompanies,
   } = useAuth();
   
   const { canUnify, isUnified, toggleUnified } = useUnifiedMode();
@@ -41,36 +43,59 @@ export function CompanySwitcher() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const canSwitch = isSuperAdmin || isCorpAdmin;
+  // Can switch if super admin, corp admin, or user with multiple companies
+  const canSwitch = isSuperAdmin || isCorpAdmin || hasMultipleCompanies;
 
-  // Fetch companies: all for super admins, corporation-scoped for corp admins
+  // Fetch companies based on role
   useEffect(() => {
     if (!canSwitch) return;
     
     const fetchCompanies = async () => {
       setIsLoading(true);
       
-      let query = supabase
-        .from("companies")
-        .select("*")
-        .eq("is_active", true)
-        .order("name");
-      
-      // Corp admins only see companies in their corporation
-      if (!isSuperAdmin && isCorpAdmin && company?.corporation_id) {
-        query = query.eq("corporation_id", company.corporation_id);
+      if (isSuperAdmin) {
+        // Super admins see all companies
+        const { data, error } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("is_active", true)
+          .order("name");
+        
+        if (!error && data) {
+          setCompanies(data as Company[]);
+        }
+      } else if (isCorpAdmin && company?.corporation_id) {
+        // Corp admins see companies in their corporation
+        const { data, error } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("is_active", true)
+          .eq("corporation_id", company.corporation_id)
+          .order("name");
+        
+        if (!error && data) {
+          setCompanies(data as Company[]);
+        }
+      } else if (hasMultipleCompanies) {
+        // Multi-company users see their associated companies
+        const companyIds = userCompanies.map(uc => uc.company_id);
+        const { data, error } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("is_active", true)
+          .in("id", companyIds)
+          .order("name");
+        
+        if (!error && data) {
+          setCompanies(data as Company[]);
+        }
       }
       
-      const { data, error } = await query;
-      
-      if (!error && data) {
-        setCompanies(data as Company[]);
-      }
       setIsLoading(false);
     };
     
     fetchCompanies();
-  }, [canSwitch, isSuperAdmin, isCorpAdmin, company?.corporation_id]);
+  }, [canSwitch, isSuperAdmin, isCorpAdmin, hasMultipleCompanies, company?.corporation_id, userCompanies]);
 
   if (!canSwitch) return null;
 
