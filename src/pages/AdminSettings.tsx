@@ -119,13 +119,26 @@ export default function AdminSettings() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "settings";
+  const categoryParam = searchParams.get("category") as "company" | "sales" | "operations" | null;
   const { isGHLEnabled } = useGHLMode();
   const { visibility: kpiVisibility, toggleLeadsResell, toggleMagazineSales, isToggling: isTogglingKPI } = useKPIVisibility();
   
   // Handle QuickBooks OAuth callback - must run before company context check
   useQuickBooksCallback();
   
-  const [settingsCategory, setSettingsCategory] = useState<"company" | "sales" | "operations">("company");
+  const [settingsCategory, setSettingsCategoryState] = useState<"company" | "sales" | "operations">(categoryParam || "company");
+  
+  // Sync category from URL params
+  const setSettingsCategory = (cat: "company" | "sales" | "operations") => {
+    setSettingsCategoryState(cat);
+  };
+  
+  // Update category when URL param changes
+  useEffect(() => {
+    if (categoryParam && categoryParam !== settingsCategory) {
+      setSettingsCategoryState(categoryParam);
+    }
+  }, [categoryParam]);
   const [editedSettings, setEditedSettings] = useState<Record<string, string>>({});
   const [testingApiKey, setTestingApiKey] = useState<string | null>(null);
   const [resendApiKey, setResendApiKey] = useState("");
@@ -1172,6 +1185,12 @@ export default function AdminSettings() {
                           </CollapsibleContent>
                         </Card>
                       </Collapsible>
+                      {/* User Management - inline */}
+                      <UserManagement
+                        open={true}
+                        onOpenChange={() => {}}
+                        inline
+                      />
                     </>
                   )}
                 </div>
@@ -1691,14 +1710,8 @@ export default function AdminSettings() {
             />
           </TabsContent>
 
-          {/* Users Tab */}
-          <TabsContent value="users" className="mt-6">
-            <UserManagement
-              open={true}
-              onOpenChange={() => {}}
-              inline
-            />
-          </TabsContent>
+
+
 
           {/* Audit Log Tab */}
           <TabsContent value="audit" className="mt-6 space-y-6">
