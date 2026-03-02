@@ -111,6 +111,18 @@ serve(async (req) => {
     }
     if (assigned_to) {
       supabaseUpdate.assigned_to = assigned_to;
+      
+      // Also resolve and set salesperson_id (internal UUID) for consistent attribution
+      const { data: spData } = await supabase
+        .from('salespeople')
+        .select('id')
+        .or(`id.eq.${assigned_to},ghl_user_id.eq.${assigned_to}`)
+        .eq('company_id', effectiveCompanyId || currentOpp.company_id)
+        .maybeSingle();
+      
+      if (spData) {
+        supabaseUpdate.salesperson_id = spData.id;
+      }
     }
     
     // Handle won_at timestamp

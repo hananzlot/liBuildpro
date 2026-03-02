@@ -99,6 +99,21 @@ serve(async (req) => {
     }
     if (assignedUserId !== undefined) {
       supabaseUpdate.assigned_user_id = assignedUserId;
+      
+      // Also resolve and set salesperson_id (internal UUID) for portal visibility
+      if (assignedUserId) {
+        const { data: spData } = await supabase
+          .from('salespeople')
+          .select('id')
+          .or(`id.eq.${assignedUserId},ghl_user_id.eq.${assignedUserId}`)
+          .maybeSingle();
+        
+        if (spData) {
+          supabaseUpdate.salesperson_id = spData.id;
+        }
+      } else {
+        supabaseUpdate.salesperson_id = null;
+      }
     }
     if (address !== undefined) {
       supabaseUpdate.address = address;
