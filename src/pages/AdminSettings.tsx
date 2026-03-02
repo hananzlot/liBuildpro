@@ -119,17 +119,17 @@ export default function AdminSettings() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "settings";
-  const categoryParam = searchParams.get("category") as "company" | "sales" | "operations" | null;
+  const categoryParam = searchParams.get("category") as "company" | "sales" | "operations" | "users" | null;
   const { isGHLEnabled } = useGHLMode();
   const { visibility: kpiVisibility, toggleLeadsResell, toggleMagazineSales, isToggling: isTogglingKPI } = useKPIVisibility();
   
   // Handle QuickBooks OAuth callback - must run before company context check
   useQuickBooksCallback();
   
-  const [settingsCategory, setSettingsCategoryState] = useState<"company" | "sales" | "operations">(categoryParam || "company");
+  const [settingsCategory, setSettingsCategoryState] = useState<"company" | "sales" | "operations" | "users">(categoryParam || "company");
   
   // Sync category from URL params
-  const setSettingsCategory = (cat: "company" | "sales" | "operations") => {
+  const setSettingsCategory = (cat: "company" | "sales" | "operations" | "users") => {
     setSettingsCategoryState(cat);
   };
   
@@ -1002,6 +1002,14 @@ export default function AdminSettings() {
                     <Settings className="h-4 w-4 mr-2" />
                     Operations & Display
                   </Button>
+                  <Button
+                    variant={settingsCategory === "users" ? "secondary" : "ghost"}
+                    className="justify-start"
+                    onClick={() => setSettingsCategory("users")}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Users
+                  </Button>
                 </div>
 
                 {/* Content area */}
@@ -1185,13 +1193,15 @@ export default function AdminSettings() {
                           </CollapsibleContent>
                         </Card>
                       </Collapsible>
-                      {/* User Management - inline */}
-                      <UserManagement
-                        open={true}
-                        onOpenChange={() => {}}
-                        inline
-                      />
                     </>
+                  )}
+
+                  {settingsCategory === "users" && (
+                    <UserManagement
+                      open={true}
+                      onOpenChange={() => {}}
+                      inline
+                    />
                   )}
                 </div>
               </div>

@@ -34,7 +34,7 @@ const ADMIN_QUICK_MENU = [
     { title: "Accounting", icon: DollarSign, tab: "payables" },
   ]},
   { label: "System", items: [
-    { title: "Users", icon: Users, tab: "settings&category=operations" },
+    { title: "Users", icon: Users, tab: "settings&category=users" },
     { title: "Reports", icon: Eye, tab: "reports" },
     { title: "Data Cleanup", icon: Wrench, tab: "cleanup" },
     { title: "Audit Log", icon: FileText, tab: "audit" },
