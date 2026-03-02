@@ -21,6 +21,8 @@ import { ANALYTICS_REPORTS, useManageAnalyticsPermissions, type AnalyticsReportK
 interface UserManagementProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When true, renders content inline instead of in a Dialog */
+  inline?: boolean;
 }
 
 interface Profile {
@@ -126,7 +128,7 @@ interface UserCompanyRow {
   is_primary: boolean;
 }
 
-export function UserManagement({ open, onOpenChange }: UserManagementProps) {
+export function UserManagement({ open, onOpenChange, inline = false }: UserManagementProps) {
   const { isSuperAdmin, isCorpAdmin, canUseFeature, companyId, company } = useAuth();
   const queryClient = useQueryClient();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
@@ -534,15 +536,16 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     return companies.find(c => c.id === companyId)?.name || "Unknown";
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl">
+  const content = (
+    <>
+      {!inline && (
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
             User Management
           </DialogTitle>
         </DialogHeader>
+      )}
 
         {loadError && (
           <Alert variant="destructive">
@@ -1029,6 +1032,18 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
             </DialogContent>
           </Dialog>
         )}
+    </>
+  );
+
+  if (inline) {
+    if (!open) return null;
+    return <div className="space-y-4">{content}</div>;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl">
+        {content}
       </DialogContent>
     </Dialog>
   );

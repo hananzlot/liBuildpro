@@ -136,7 +136,7 @@ export default function AdminSettings() {
   // Source management dialog state
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   
-  // User management dialog state
+  // User management dialog state (kept for non-inline usage from Index.tsx)
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   
   // Audit log state
@@ -1693,25 +1693,10 @@ export default function AdminSettings() {
 
           {/* Users Tab */}
           <TabsContent value="users" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  User Management
-                </CardTitle>
-                <CardDescription>
-                  Create users and manage their roles and permissions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => setUserDialogOpen(true)}>
-                  Open User Manager
-                </Button>
-              </CardContent>
-            </Card>
             <UserManagement
-              open={userDialogOpen}
-              onOpenChange={setUserDialogOpen}
+              open={true}
+              onOpenChange={() => {}}
+              inline
             />
           </TabsContent>
 
