@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -427,7 +428,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     },
   });
 
-  // Mutation to reassign user to a different company (super admin only)
+  // Mutation to reassign user's primary company
   const reassignCompanyMutation = useMutation({
     mutationFn: async ({ userId, newCompanyId }: { userId: string; newCompanyId: string | null }) => {
       const { error } = await supabase
@@ -449,6 +450,32 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     },
     onError: (error) => {
       toast.error(`Failed to reassign company: ${error.message}`);
+    },
+  });
+
+  // Mutation to toggle a user_companies association
+  const toggleUserCompanyMutation = useMutation({
+    mutationFn: async ({ userId, companyId, add }: { userId: string; companyId: string; add: boolean }) => {
+      if (add) {
+        const { error } = await supabase
+          .from("user_companies")
+          .insert({ user_id: userId, company_id: companyId, is_primary: false });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("user_companies")
+          .delete()
+          .eq("user_id", userId)
+          .eq("company_id", companyId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USER_COMPANIES_QUERY_KEY });
+      toast.success("Company association updated");
+    },
+    onError: (error) => {
+      toast.error(`Failed to update: ${error.message}`);
     },
   });
 
@@ -893,63 +920,111 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
           </Dialog>
         )}
 
-        {/* Reassign Company Dialog - Super Admin only */}
-        {reassigningCompanyForUser && isSuperAdmin && (
+        {/* Reassign Primary Company Dialog */}
+        {reassigningCompanyForUser && canManageMultiCompany && (
           <Dialog open={!!reassigningCompanyForUser} onOpenChange={() => setReassigningCompanyForUser(null)}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Building2 className="h-5 w-5" />
-                  Change Company for {reassigningCompanyForUser.full_name || reassigningCompanyForUser.email}
+                  Change Primary Company for {reassigningCompanyForUser.full_name || reassigningCompanyForUser.email}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="companySelect">Assign to Company</Label>
+                  <Label htmlFor="companySelect">Primary Company</Label>
                   <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
                     <SelectTrigger id="companySelect">
                       <SelectValue placeholder="Select a company" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No Company (Platform User)</SelectItem>
-                      {companies.map((company) => (
-                        <SelectItem key={company.id} value={company.id}>
-                          {company.name}
+                      {isSuperAdmin && <SelectItem value="none">No Company (Platform User)</SelectItem>}
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setReassigningCompanyForUser(null);
-                      setSelectedCompanyId("");
-                    }}
-                  >
+                  <Button variant="outline" onClick={() => { setReassigningCompanyForUser(null); setSelectedCompanyId(""); }}>
                     Cancel
                   </Button>
                   <Button 
-                    onClick={() => {
-                      reassignCompanyMutation.mutate({
-                        userId: reassigningCompanyForUser.id,
-                        newCompanyId: selectedCompanyId === "none" ? null : selectedCompanyId,
-                      });
-                    }}
+                    onClick={() => reassignCompanyMutation.mutate({ userId: reassigningCompanyForUser.id, newCompanyId: selectedCompanyId === "none" ? null : selectedCompanyId })}
                     disabled={reassignCompanyMutation.isPending}
                   >
-                    {reassignCompanyMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Reassigning...
-                      </>
-                    ) : (
-                      "Save"
-                    )}
+                    {reassignCompanyMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving...</> : "Save"}
                   </Button>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Multi-Company Association Dialog */}
+        {managingCompaniesForUser && canManageMultiCompany && (
+          <Dialog open={!!managingCompaniesForUser} onOpenChange={() => setManagingCompaniesForUser(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Company Access for {managingCompaniesForUser.full_name || managingCompaniesForUser.email}
+                </DialogTitle>
+                <DialogDescription>
+                  Select which companies this user can access. Their primary company is set separately.
+                </DialogDescription>
+              </DialogHeader>
+              <ScrollArea className="max-h-[400px]">
+                <div className="space-y-2 p-1">
+                  {companies.map((c) => {
+                    const isAssociated = allUserCompanies.some(
+                      uc => uc.user_id === managingCompaniesForUser.id && uc.company_id === c.id
+                    );
+                    const isPrimary = managingCompaniesForUser.company_id === c.id;
+                    return (
+                      <div
+                        key={c.id}
+                        className={`flex items-center justify-between p-3 rounded-md border ${isAssociated ? 'border-primary/30 bg-primary/5' : 'border-border'}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{c.name}</span>
+                          {isPrimary && <Badge variant="secondary" className="text-xs">Primary</Badge>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={isAssociated}
+                            disabled={toggleUserCompanyMutation.isPending}
+                            onCheckedChange={(checked) => {
+                              toggleUserCompanyMutation.mutate({
+                                userId: managingCompaniesForUser.id,
+                                companyId: c.id,
+                                add: !!checked,
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+              <div className="flex justify-between items-center pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setReassigningCompanyForUser(managingCompaniesForUser);
+                    setSelectedCompanyId(managingCompaniesForUser.company_id || "");
+                    setManagingCompaniesForUser(null);
+                  }}
+                >
+                  Change Primary Company
+                </Button>
+                <Button onClick={() => setManagingCompaniesForUser(null)}>
+                  Done
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
