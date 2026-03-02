@@ -165,9 +165,19 @@ export function UserManagement({ open, onOpenChange, inline = false }: UserManag
       if (!isSuperAdmin && !isCorpAdmin && companyId) {
         // Regular admins only see users in their company
         query = query.eq("company_id", companyId);
+      } else if (!isSuperAdmin && isCorpAdmin && company?.corporation_id) {
+        // Corp admins see users in companies within their corporation
+        const { data: corpCompanies } = await supabase
+          .from("companies")
+          .select("id")
+          .eq("corporation_id", company.corporation_id);
+        const corpCompanyIds = corpCompanies?.map(c => c.id) || [];
+        if (corpCompanyIds.length > 0) {
+          query = query.in("company_id", corpCompanyIds);
+        } else {
+          return [];
+        }
       }
-      // Corp admins see all users in companies within their corporation
-      // (RLS handles the filtering via has_company_access)
       
       const { data, error } = await query.order("email");
 
