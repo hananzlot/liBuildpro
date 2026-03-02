@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", requestingUser.id)
-      .in("role", ["admin", "super_admin"]);
+      .in("role", ["admin", "super_admin", "corp_admin"]);
 
     if (!adminRoles || adminRoles.length === 0) {
       return new Response(JSON.stringify({ error: "Unauthorized - admin access required" }), {
@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
     }
 
     const isSuperAdmin = adminRoles.some(r => r.role === "super_admin");
+    const isCorpAdmin = adminRoles.some(r => r.role === "corp_admin");
 
     const { email, password, fullName, companyId, corporationId, role } = await req.json();
     requestSummary = { email, fullName, companyId, role };
@@ -76,15 +77,37 @@ Deno.serve(async (req) => {
         .eq("id", requestingUser.id)
         .single();
 
-      if (companyId && companyId !== requestingProfile?.company_id) {
+      if (isCorpAdmin && companyId) {
+        // Corp admins can create users in any company within their corporation
+        const { data: corpCheck } = await supabaseAdmin
+          .from("companies")
+          .select("corporation_id")
+          .eq("id", companyId)
+          .single();
+
+        const { data: ownCompany } = await supabaseAdmin
+          .from("companies")
+          .select("corporation_id")
+          .eq("id", requestingProfile?.company_id)
+          .single();
+
+        if (!corpCheck || !ownCompany || corpCheck.corporation_id !== ownCompany.corporation_id) {
+          console.log(`Access denied: Corp admin ${requestingUser.id} tried to create user in company ${companyId} outside their corporation`);
+          return new Response(JSON.stringify({ error: "Cannot create users in companies outside your corporation" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        targetCompanyId = companyId;
+      } else if (companyId && companyId !== requestingProfile?.company_id) {
         console.log(`Access denied: User ${requestingUser.id} (company: ${requestingProfile?.company_id}) tried to create user in company ${companyId}`);
         return new Response(JSON.stringify({ error: "Cannot create users in other companies" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      } else {
+        targetCompanyId = requestingProfile?.company_id;
       }
-
-      targetCompanyId = requestingProfile?.company_id;
 
       if (role === "super_admin") {
         return new Response(JSON.stringify({ error: "Cannot assign super_admin role" }), {
