@@ -38,6 +38,7 @@ import { SocialMediaLinks } from "@/components/admin/SocialMediaLinks";
 import { BankManagement } from "@/components/admin/BankManagement";
 import { ProjectStatusesManager } from "@/components/admin/ProjectStatusesManager";
 import { RoleAnalyticsDefaults } from "@/components/admin/RoleAnalyticsDefaults";
+import { CompanyEmailDomainSetup } from "@/components/company-settings/CompanyEmailDomainSetup";
 import { OnboardingPromptBanner } from "@/components/onboarding/OnboardingPromptBanner";
 import { EdgeFunctionLogs } from "@/components/admin/EdgeFunctionLogs";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
@@ -1366,7 +1367,10 @@ export default function AdminSettings() {
 
           {/* Emails Tab */}
           <TabsContent value="emails" className="mt-6 space-y-6">
-            {/* Resend API Configuration - Collapsible */}
+            {/* Company Email Domain Setup */}
+            {companyId && <CompanyEmailDomainSetup companyId={companyId} />}
+
+            {/* Legacy Resend API Configuration - Collapsible */}
             <Collapsible defaultOpen={false} className="group">
               <Card>
                 <CollapsibleTrigger asChild>
@@ -1374,36 +1378,20 @@ export default function AdminSettings() {
                     <CardTitle className="flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         <Key className="h-5 w-5" />
-                        Resend API Configuration
+                        Legacy Resend API Key (Optional)
                       </span>
                       <div className="flex items-center gap-2">
                         {resendKeyConfigured === true && (
-                          <Badge variant="default" className="bg-green-600">
+                          <Badge variant="default" className="bg-primary">
                             <CheckCircle2 className="h-3 w-3 mr-1" />
                             Configured
-                          </Badge>
-                        )}
-                        {resendKeyConfigured === false && (
-                          <Badge variant="destructive">
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Not Configured
                           </Badge>
                         )}
                         <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                       </div>
                     </CardTitle>
                     <CardDescription>
-                      Configure your Resend API key for email delivery. Get your API key from{" "}
-                      <a
-                        href="https://resend.com/api-keys"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline inline-flex items-center gap-1"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        resend.com/api-keys
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                      Only needed if you want to use your own Resend API key instead of the platform key.
                     </CardDescription>
                   </CardHeader>
                 </CollapsibleTrigger>
@@ -1464,14 +1452,6 @@ export default function AdminSettings() {
                           ? "Your Resend API key is configured. Enter a new key above to update it."
                           : "Enter your Resend API key to enable email sending for proposals and notifications."}
                       </p>
-                    </div>
-
-                    <div className="flex items-start gap-2 p-3 bg-muted border rounded-lg text-sm">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                      <div className="text-muted-foreground">
-                        <strong>Security:</strong> Your API key is encrypted and stored securely. 
-                        It's never exposed in your browser or logs.
-                      </div>
                     </div>
                   </CardContent>
                 </CollapsibleContent>
