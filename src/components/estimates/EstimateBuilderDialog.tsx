@@ -2434,10 +2434,162 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           }
         }
 
-        // Auto-create project with status "Estimate" for new estimates without a project
+        // Auto-create or link project with status "Estimate" for new estimates without a project
         if (!linkedProjectId && savedEstimateId) {
           try {
-            // Get location_id from company settings
+            // --- Duplicate detection: check for existing project by contact_uuid, opportunity_uuid, or name ---
+            let existingMatch: { id: string } | null = null;
+
+            if (linkedContactUuid) {
+              const { data: contactMatch } = await supabase
+                .from("projects")
+                .select("id")
+                .eq("company_id", companyId)
+                .eq("contact_uuid", linkedContactUuid)
+                .is("deleted_at", null)
+                .limit(1)
+                .maybeSingle();
+              if (contactMatch) existingMatch = contactMatch;
+            }
+
+            if (!existingMatch && linkedOpportunityUuid) {
+              const { data: oppMatch } = await supabase
+                .from("projects")
+                .select("id")
+                .eq("company_id", companyId)
+                .eq("opportunity_uuid", linkedOpportunityUuid)
+                .is("deleted_at", null)
+                .limit(1)
+                .maybeSingle();
+              if (oppMatch) existingMatch = oppMatch;
+            }
+
+            if (!existingMatch && formData.customer_name?.trim()) {
+              const { data: nameMatches } = await supabase
+                .from("projects")
+                .select("id, project_name")
+                .eq("company_id", companyId)
+                .is("deleted_at", null)
+                .ilike("project_name", `%${formData.customer_name.trim()}%`)
+                .limit(5);
+              if (nameMatches && nameMatches.length > 0) existingMatch = nameMatches[0];
+            }
+
+            if (existingMatch) {
+              // Link estimate to existing project instead of creating a new one
+              await supabase
+                .from("estimates")
+                .update({ project_id: existingMatch.id })
+                .eq("id", savedEstimateId);
+              setLinkedProjectId(existingMatch.id);
+              console.log("Linked estimate to existing project (duplicate prevented):", existingMatch.id);
+            } else {
+              // No match found — create new project
+              const { data: locationSetting } = await supabase
+                .from("company_integrations")
+                .select("location_id")
+                .eq("company_id", companyId)
+                .eq("provider", "ghl")
+                .eq("is_active", true)
+                .maybeSingle();
+
+              const locationId = locationSetting?.location_id || "local";
+              const nameParts = formData.customer_name.trim().split(" ");
+              const firstName = nameParts[0] || "";
+              const lastName = nameParts.slice(1).join(" ") || "";
+
+              const { data: newProject, error: projectError } = await supabase
+                .from("projects")
+                .insert({
+                  project_name: formData.estimate_title || formData.customer_name,
+                  project_status: "Estimate",
+                  project_address: formData.job_address || null,
+                  customer_first_name: firstName || null,
+                  customer_last_name: lastName || null,
+                  customer_email: formData.customer_email || null,
+                  cell_phone: formData.customer_phone || null,
+                  primary_salesperson: formData.salesperson_name || null,
+                  project_manager: formData.salesperson_name || null,
+                  opportunity_id: linkedOpportunityGhlId || null,
+                  opportunity_uuid: linkedOpportunityUuid || null,
+                  contact_id: linkedContactId || null,
+                  contact_uuid: linkedContactUuid || null,
+                  lead_source: linkedLeadSource || null,
+                  location_id: locationId,
+                  company_id: companyId,
+                  created_by: user?.id,
+                })
+                .select()
+                .single();
+
+              if (projectError) {
+                console.error("Failed to create project for estimate:", projectError);
+              } else if (newProject) {
+                await supabase
+                  .from("estimates")
+                  .update({ project_id: newProject.id })
+                  .eq("id", savedEstimateId);
+                setLinkedProjectId(newProject.id);
+                console.log("Created project with status 'Estimate' and linked to estimate:", newProject.id);
+              }
+            }
+          } catch (err) {
+            console.error("Failed to create/link project for estimate:", err);
+            // Don't fail the save for this
+          }
+        }
+      }
+
+      // Also create/link project for EXISTING estimates that don't have one yet
+      const existingProjectId = linkedProjectId || existingEstimate?.estimate?.project_id;
+      if (isEditing && !existingProjectId && savedEstimateId) {
+        try {
+          // --- Duplicate detection: check for existing project first ---
+          let existingMatch: { id: string } | null = null;
+
+          if (linkedContactUuid) {
+            const { data: contactMatch } = await supabase
+              .from("projects")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("contact_uuid", linkedContactUuid)
+              .is("deleted_at", null)
+              .limit(1)
+              .maybeSingle();
+            if (contactMatch) existingMatch = contactMatch;
+          }
+
+          if (!existingMatch && linkedOpportunityUuid) {
+            const { data: oppMatch } = await supabase
+              .from("projects")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("opportunity_uuid", linkedOpportunityUuid)
+              .is("deleted_at", null)
+              .limit(1)
+              .maybeSingle();
+            if (oppMatch) existingMatch = oppMatch;
+          }
+
+          if (!existingMatch && formData.customer_name?.trim()) {
+            const { data: nameMatches } = await supabase
+              .from("projects")
+              .select("id, project_name")
+              .eq("company_id", companyId)
+              .is("deleted_at", null)
+              .ilike("project_name", `%${formData.customer_name.trim()}%`)
+              .limit(5);
+            if (nameMatches && nameMatches.length > 0) existingMatch = nameMatches[0];
+          }
+
+          if (existingMatch) {
+            await supabase
+              .from("estimates")
+              .update({ project_id: existingMatch.id })
+              .eq("id", savedEstimateId);
+            setLinkedProjectId(existingMatch.id);
+            console.log("Linked existing estimate to existing project (duplicate prevented):", existingMatch.id);
+          } else {
             const { data: locationSetting } = await supabase
               .from("company_integrations")
               .select("location_id")
@@ -2447,14 +2599,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               .maybeSingle();
 
             const locationId = locationSetting?.location_id || "local";
-
-            // Parse customer name
             const nameParts = formData.customer_name.trim().split(" ");
             const firstName = nameParts[0] || "";
             const lastName = nameParts.slice(1).join(" ") || "";
 
-            // Create project with status "Estimate"
-            // For Pre-estimate projects, auto-populate salesperson and project manager from estimate
             const { data: newProject, error: projectError } = await supabase
               .from("projects")
               .insert({
@@ -2466,7 +2614,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 customer_email: formData.customer_email || null,
                 cell_phone: formData.customer_phone || null,
                 primary_salesperson: formData.salesperson_name || null,
-                project_manager: formData.salesperson_name || null, // Auto-populate PM from salesperson
+                project_manager: formData.salesperson_name || null,
                 opportunity_id: linkedOpportunityGhlId || null,
                 opportunity_uuid: linkedOpportunityUuid || null,
                 contact_id: linkedContactId || null,
@@ -2480,82 +2628,18 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               .single();
 
             if (projectError) {
-              console.error("Failed to create project for estimate:", projectError);
+              console.error("Failed to create project for existing estimate:", projectError);
             } else if (newProject) {
-              // Link estimate to the new project
               await supabase
                 .from("estimates")
                 .update({ project_id: newProject.id })
                 .eq("id", savedEstimateId);
-              
-              // Update local state
               setLinkedProjectId(newProject.id);
-              console.log("Created project with status 'Estimate' and linked to estimate:", newProject.id);
+              console.log("Created project for existing estimate:", newProject.id);
             }
-          } catch (err) {
-            console.error("Failed to create project for estimate:", err);
-            // Don't fail the save for this
-          }
-        }
-      }
-
-      // Also create project for EXISTING estimates that don't have one yet (outside !isEditing block)
-      // IMPORTANT: Check both linkedProjectId state AND existingEstimate.project_id to avoid creating duplicates
-      const existingProjectId = linkedProjectId || existingEstimate?.estimate?.project_id;
-      if (isEditing && !existingProjectId && savedEstimateId) {
-        try {
-          const { data: locationSetting } = await supabase
-            .from("company_integrations")
-            .select("location_id")
-            .eq("company_id", companyId)
-            .eq("provider", "ghl")
-            .eq("is_active", true)
-            .maybeSingle();
-
-          const locationId = locationSetting?.location_id || "local";
-
-          const nameParts = formData.customer_name.trim().split(" ");
-          const firstName = nameParts[0] || "";
-          const lastName = nameParts.slice(1).join(" ") || "";
-
-          // For Pre-estimate projects, auto-populate salesperson and project manager from estimate
-          const { data: newProject, error: projectError } = await supabase
-            .from("projects")
-            .insert({
-              project_name: formData.estimate_title || formData.customer_name,
-              project_status: "Estimate",
-              project_address: formData.job_address || null,
-              customer_first_name: firstName || null,
-              customer_last_name: lastName || null,
-              customer_email: formData.customer_email || null,
-              cell_phone: formData.customer_phone || null,
-              primary_salesperson: formData.salesperson_name || null,
-              project_manager: formData.salesperson_name || null, // Auto-populate PM from salesperson
-              opportunity_id: linkedOpportunityGhlId || null,
-              opportunity_uuid: linkedOpportunityUuid || null,
-              contact_id: linkedContactId || null,
-              contact_uuid: linkedContactUuid || null,
-              lead_source: linkedLeadSource || null,
-              location_id: locationId,
-              company_id: companyId,
-              created_by: user?.id,
-            })
-            .select()
-            .single();
-
-          if (projectError) {
-            console.error("Failed to create project for existing estimate:", projectError);
-          } else if (newProject) {
-            await supabase
-              .from("estimates")
-              .update({ project_id: newProject.id })
-              .eq("id", savedEstimateId);
-            
-            setLinkedProjectId(newProject.id);
-            console.log("Created project for existing estimate:", newProject.id);
           }
         } catch (err) {
-          console.error("Failed to create project for existing estimate:", err);
+          console.error("Failed to create/link project for existing estimate:", err);
         }
       }
 
