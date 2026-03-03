@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getResendApiKey } from "../_shared/get-resend-key.ts";
+import { getResendApiKey, getCompanyEmailSender } from "../_shared/get-resend-key.ts";
 import { createPortalShortLink } from "../_shared/short-links.ts";
 
 const corsHeaders = {
@@ -237,8 +237,11 @@ serve(async (req: Request) => {
 
       // Get company-specific settings for this project
       const projectSettings = getCompanySettings(project.company_id);
-      const fromEmail = projectSettings.resend_from_email || "portal@caprobuilders.com";
-      const fromName = projectSettings.resend_from_name || "Capro Builders";
+      // Resolve sender from company_email_domains (supports platform domain + custom domain)
+      const senderConfig = project.company_id ? await getCompanyEmailSender(supabase, project.company_id) : null;
+      const fromEmail = senderConfig?.fromEmail || projectSettings.resend_from_email || "portal@caprobuilders.com";
+      const fromName = senderConfig?.fromName || projectSettings.resend_from_name || "Capro Builders";
+      const replyTo = senderConfig?.replyTo;
       const companyName = projectSettings.company_name || "Capro Builders";
       const appBaseUrl = projectSettings.app_base_url || "https://crm.ca-probuilders.com";
 
@@ -310,6 +313,7 @@ serve(async (req: Request) => {
             to: [customerEmail],
             subject: `Project Update Available - ${companyName}`,
             html: htmlContent,
+            ...(replyTo ? { reply_to: replyTo } : {}),
           }),
         });
 

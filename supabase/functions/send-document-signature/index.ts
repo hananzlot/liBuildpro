@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getResendApiKey } from "../_shared/get-resend-key.ts";
+import { getResendApiKey, getCompanyEmailSender } from "../_shared/get-resend-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -137,9 +137,12 @@ const handler = async (req: Request): Promise<Response> => {
     // Merge: company settings override app settings
     const settingsMap = { ...appSettingsMap, ...companySettingsMap };
 
+    // Resolve sender from company_email_domains (supports platform domain + custom domain)
+    const senderConfig = docCompanyId ? await getCompanyEmailSender(supabase, docCompanyId) : null;
     const companyName = settingsMap.company_name || "CA Pro Builders";
-    const fromEmail = settingsMap.resend_from_email || "onboarding@resend.dev";
-    const fromName = settingsMap.resend_from_name || companyName;
+    const fromEmail = senderConfig?.fromEmail || settingsMap.resend_from_email || "onboarding@resend.dev";
+    const fromName = senderConfig?.fromName || settingsMap.resend_from_name || companyName;
+    const replyTo = senderConfig?.replyTo;
     const appBaseUrl = settingsMap.app_base_url || "https://crm.ca-probuilders.com";
 
     const emailSubject = isReminder
@@ -199,6 +202,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       emailsToSend.push({
         from: `${fromName} <${fromEmail}>`,
+        ...(replyTo ? { reply_to: replyTo } : {}),
         to: [r.recipientEmail],
         subject: emailSubject,
         html: `

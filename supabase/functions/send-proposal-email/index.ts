@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getResendApiKey } from "../_shared/get-resend-key.ts";
+import { getResendApiKey, getCompanyEmailSender } from "../_shared/get-resend-key.ts";
 import { createPortalShortLink, isShortLinksEnabled } from "../_shared/short-links.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -87,7 +87,18 @@ serve(async (req) => {
     let fromEmail: string | null = null;
     let fromName: string | null = null;
     let companyName: string | null = null;
+    let replyTo: string | undefined;
 
+    // Try company_email_domains first (supports platform domain + custom domain)
+    const senderConfig = await getCompanyEmailSender(supabase, companyId);
+    if (senderConfig) {
+      fromEmail = senderConfig.fromEmail;
+      fromName = senderConfig.fromName;
+      replyTo = senderConfig.replyTo;
+      console.log(`Using sender config for company ${companyId}: ${fromName} <${fromEmail}>${replyTo ? ` reply-to: ${replyTo}` : ''}`);
+    }
+
+    // Get company_name (and fallback sender settings if not resolved above)
     const { data: companySettings } = await supabase
       .from("company_settings")
       .select("setting_key, setting_value")
@@ -100,11 +111,9 @@ serve(async (req) => {
         return acc;
       }, {});
 
-      fromEmail = settingsMap.resend_from_email || null;
-      fromName = settingsMap.resend_from_name || null;
+      if (!fromEmail) fromEmail = settingsMap.resend_from_email || null;
+      if (!fromName) fromName = settingsMap.resend_from_name || null;
       companyName = settingsMap.company_name || null;
-      
-      console.log(`Using company_settings for company ${companyId}: ${fromName} <${fromEmail}>`);
     }
 
     // Check if required email settings are configured
@@ -260,6 +269,7 @@ serve(async (req) => {
               to: [to],
               subject: subject,
               html: htmlContent,
+              ...(replyTo ? { reply_to: replyTo } : {}),
             }),
           });
 
