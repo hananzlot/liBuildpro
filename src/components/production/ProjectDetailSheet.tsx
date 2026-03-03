@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -1978,37 +1979,39 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           {/* Finance Tab */}
           <TabsContent value="finance" className={cn("mt-4", isFinancePdfPreviewOpen && "overflow-hidden")}>
             {fullProject && (
-              <FinanceSection
-                projectId={project.id}
-                estimatedCost={fullProject.estimated_cost}
-                soldDispatchValue={fullProject.sold_dispatch_value}
-                estimatedProjectCost={fullProject.estimated_project_cost}
-                totalPl={fullProject.total_pl}
-                leadCostPercent={fullProject.lead_cost_percent ?? 18}
-                commissionSplitPct={fullProject.commission_split_pct ?? 50}
-                salespeople={[
-                  { name: fullProject.primary_salesperson, commissionPct: fullProject.primary_commission_pct || 0 },
-                  { name: fullProject.secondary_salesperson, commissionPct: fullProject.secondary_commission_pct || 0 },
-                  { name: fullProject.tertiary_salesperson, commissionPct: fullProject.tertiary_commission_pct || 0 },
-                  { name: fullProject.quaternary_salesperson, commissionPct: fullProject.quaternary_commission_pct || 0 },
-                ].filter(s => s.name)}
-                onUpdateProject={(updates) => updateProjectMutation.mutate(updates)}
-                onNavigateToSubcontractors={handleNavigateToSubcontractors}
-                autoOpenBillDialog={autoOpenBillDialog}
-                autoOpenFinanceDialog={autoOpenFinanceDialog}
-                initialSubTab={initialFinanceSectionTab}
-                initialBillsSubTab={initialFinanceSubTab}
-                highlightInvoiceId={highlightInvoiceId}
-                highlightBillId={highlightBillId}
-                highlightPaymentId={highlightPaymentId}
-                onSubTabChange={handleFinanceSubTabChange}
-                projectStatus={fullProject.project_status}
-                projectName={fullProject.project_name}
-                projectAddress={fullProject.project_address}
-                customerName={`${fullProject.customer_first_name || ''} ${fullProject.customer_last_name || ''}`.trim() || null}
-                onPdfPreviewStateChange={setIsFinancePdfPreviewOpen}
-                onFinanceSummaryChange={setFinanceSummary}
-              />
+              <ErrorBoundary context="FinanceSection">
+                <FinanceSection
+                  projectId={project.id}
+                  estimatedCost={fullProject.estimated_cost}
+                  soldDispatchValue={fullProject.sold_dispatch_value}
+                  estimatedProjectCost={fullProject.estimated_project_cost}
+                  totalPl={fullProject.total_pl}
+                  leadCostPercent={fullProject.lead_cost_percent ?? 18}
+                  commissionSplitPct={fullProject.commission_split_pct ?? 50}
+                  salespeople={[
+                    { name: fullProject.primary_salesperson, commissionPct: fullProject.primary_commission_pct || 0 },
+                    { name: fullProject.secondary_salesperson, commissionPct: fullProject.secondary_commission_pct || 0 },
+                    { name: fullProject.tertiary_salesperson, commissionPct: fullProject.tertiary_commission_pct || 0 },
+                    { name: fullProject.quaternary_salesperson, commissionPct: fullProject.quaternary_commission_pct || 0 },
+                  ].filter(s => s.name)}
+                  onUpdateProject={(updates) => updateProjectMutation.mutate(updates)}
+                  onNavigateToSubcontractors={handleNavigateToSubcontractors}
+                  autoOpenBillDialog={autoOpenBillDialog}
+                  autoOpenFinanceDialog={autoOpenFinanceDialog}
+                  initialSubTab={initialFinanceSectionTab}
+                  initialBillsSubTab={initialFinanceSubTab}
+                  highlightInvoiceId={highlightInvoiceId}
+                  highlightBillId={highlightBillId}
+                  highlightPaymentId={highlightPaymentId}
+                  onSubTabChange={handleFinanceSubTabChange}
+                  projectStatus={fullProject.project_status}
+                  projectName={fullProject.project_name}
+                  projectAddress={fullProject.project_address}
+                  customerName={`${fullProject.customer_first_name || ''} ${fullProject.customer_last_name || ''}`.trim() || null}
+                  onPdfPreviewStateChange={setIsFinancePdfPreviewOpen}
+                  onFinanceSummaryChange={setFinanceSummary}
+                />
+              </ErrorBoundary>
             )}
           </TabsContent>
 
