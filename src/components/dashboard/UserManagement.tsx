@@ -13,7 +13,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle, Trash2, Building2, BarChart3, ChevronRight } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle, Trash2, Building2, BarChart3, ChevronRight, Archive, RotateCcw } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import type { AppRole } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ANALYTICS_REPORTS, useManageAnalyticsPermissions, type AnalyticsReportKey } from "@/hooks/useAnalyticsPermissions";
@@ -31,6 +32,7 @@ interface Profile {
   full_name: string | null;
   ghl_user_id: string | null;
   company_id: string | null;
+  archived_at: string | null;
 }
 
 interface Company {
@@ -160,7 +162,7 @@ export function UserManagement({ open, onOpenChange, inline = false }: UserManag
     queryFn: async () => {
       let query = supabase
         .from("profiles")
-        .select("id, email, full_name, ghl_user_id, company_id");
+        .select("id, email, full_name, ghl_user_id, company_id, archived_at");
       
       if (!isSuperAdmin && !isCorpAdmin && companyId) {
         // Regular admins only see users in their company
@@ -415,28 +417,78 @@ export function UserManagement({ open, onOpenChange, inline = false }: UserManag
     },
   });
 
-  const deleteUserMutation = useMutation({
+  const [deleteTarget, setDeleteTarget] = useState<Profile | null>(null);
+
+  const archiveUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       setDeletingUserId(userId);
       const response = await supabase.functions.invoke("delete-user", {
-        body: { userId },
+        body: { userId, mode: "archive" },
       });
-
       if (response.error) throw response.error;
       if (response.data?.error) throw new Error(response.data.error);
-      
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PROFILES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ROLES_QUERY_KEY });
-      toast.success("User deleted successfully");
+      toast.success("User archived successfully");
+      setDeleteTarget(null);
+    },
+    onError: (error) => {
+      toast.error(`Failed to archive user: ${error.message}`);
+    },
+    onSettled: () => {
+      setDeletingUserId(null);
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      setDeletingUserId(userId);
+      const response = await supabase.functions.invoke("delete-user", {
+        body: { userId, mode: "permanent" },
+      });
+      if (response.error) throw response.error;
+      if (response.data?.error) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PROFILES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ROLES_QUERY_KEY });
+      toast.success("User permanently deleted");
+      setDeleteTarget(null);
     },
     onError: (error) => {
       toast.error(`Failed to delete user: ${error.message}`);
     },
     onSettled: () => {
       setDeletingUserId(null);
+    },
+  });
+
+  const restoreUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      // Unarchive the profile
+      const { error } = await supabase
+        .from("profiles")
+        .update({ archived_at: null, archived_by: null })
+        .eq("id", userId);
+      if (error) throw error;
+
+      // Unban in auth via edge function or direct - we'll use the suspend-user pattern
+      const response = await supabase.functions.invoke("suspend-user", {
+        body: { userId, suspend: false },
+      });
+      if (response.error) throw response.error;
+      if (response.data?.error) throw new Error(response.data.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PROFILES_QUERY_KEY });
+      toast.success("User restored successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to restore user: ${error.message}`);
     },
   });
 
@@ -743,8 +795,13 @@ export function UserManagement({ open, onOpenChange, inline = false }: UserManag
                       <div className="flex items-center gap-2">
                         <div className="flex flex-wrap gap-1">
                           {/* Show super_admin badge to all admins so they know who platform admins are */}
+                          {profile.archived_at && (
+                            <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">
+                              Archived
+                            </Badge>
+                          )}
                           {isUserSuperAdmin && !isSuperAdmin && (
-                            <Badge variant="secondary" className="text-xs bg-red-500/10 text-red-500">
+                            <Badge variant="secondary" className="text-xs bg-destructive/10 text-destructive">
                               Super Admin
                             </Badge>
                           )}
@@ -798,17 +855,25 @@ export function UserManagement({ open, onOpenChange, inline = false }: UserManag
                         >
                           <Lock className="h-4 w-4" />
                         </Button>
+                        {profile.archived_at ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                            onClick={() => restoreUserMutation.mutate(profile.id)}
+                            disabled={restoreUserMutation.isPending}
+                            title="Restore archived user"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        ) : null}
                         <Button
                           variant="ghost"
                           size="sm"
                           className="h-8 px-2 text-muted-foreground hover:text-destructive"
-                          onClick={() => {
-                            if (confirm(`Delete user ${profile.email}? This action cannot be undone.`)) {
-                              deleteUserMutation.mutate(profile.id);
-                            }
-                          }}
+                          onClick={() => setDeleteTarget(profile)}
                           disabled={deletingUserId === profile.id || (isUserSuperAdmin && !isSuperAdmin)}
-                          title={isUserSuperAdmin && !isSuperAdmin ? "Cannot delete super admin" : "Delete user"}
+                          title={isUserSuperAdmin && !isSuperAdmin ? "Cannot delete super admin" : profile.archived_at ? "Permanently delete" : "Archive or delete user"}
                         >
                           {deletingUserId === profile.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -1042,6 +1107,55 @@ export function UserManagement({ open, onOpenChange, inline = false }: UserManag
             </DialogContent>
           </Dialog>
         )}
+
+        {/* Archive/Delete Confirmation Dialog */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {deleteTarget?.archived_at ? "Permanently Delete User" : "Archive or Delete User"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTarget?.archived_at ? (
+                  <>
+                    This user is already archived. Do you want to <strong>permanently delete</strong>{" "}
+                    <strong>{deleteTarget?.full_name || deleteTarget?.email}</strong>?
+                    This action cannot be undone.
+                  </>
+                ) : (
+                  <>
+                    Choose how to remove <strong>{deleteTarget?.full_name || deleteTarget?.email}</strong>:
+                    <br /><br />
+                    <strong>Archive</strong> — disables login and hides the user, but preserves all data. Can be restored later.
+                    <br />
+                    <strong>Permanently Delete</strong> — removes the user and all associated auth data forever. Cannot be undone.
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              {!deleteTarget?.archived_at && (
+                <AlertDialogAction
+                  onClick={() => deleteTarget && archiveUserMutation.mutate(deleteTarget.id)}
+                  disabled={archiveUserMutation.isPending}
+                  className="gap-1.5"
+                >
+                  <Archive className="h-4 w-4" />
+                  {archiveUserMutation.isPending ? "Archiving…" : "Archive"}
+                </AlertDialogAction>
+              )}
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
+                onClick={() => deleteTarget && deleteUserMutation.mutate(deleteTarget.id)}
+                disabled={deleteUserMutation.isPending}
+              >
+                <Trash2 className="h-4 w-4" />
+                {deleteUserMutation.isPending ? "Deleting…" : "Permanently Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
     </>
   );
 

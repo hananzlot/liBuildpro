@@ -50,6 +50,7 @@ import {
   ShieldOff,
   Trash2,
   KeyRound,
+  Archive,
 } from "lucide-react";
 import type { AppRole } from "@/contexts/AuthContext";
 
@@ -180,10 +181,10 @@ export default function SuperAdminUsers() {
     },
   });
 
-  const deleteUserMutation = useMutation({
+  const archiveUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       const { data, error } = await supabase.functions.invoke("delete-user", {
-        body: { userId },
+        body: { userId, mode: "archive" },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -192,7 +193,27 @@ export default function SuperAdminUsers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sa-users-profiles"] });
       queryClient.invalidateQueries({ queryKey: ["sa-users-roles"] });
-      toast.success("User deleted");
+      toast.success("User archived");
+      setDeleteTarget(null);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { userId, mode: "permanent" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sa-users-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["sa-users-roles"] });
+      toast.success("User permanently deleted");
       setDeleteTarget(null);
     },
     onError: (err: Error) => {
@@ -508,7 +529,7 @@ export default function SuperAdminUsers() {
                                             className="text-destructive focus:text-destructive"
                                           >
                                             <Trash2 className="h-4 w-4 mr-2" />
-                                            Delete User
+                                            Archive / Delete User
                                           </DropdownMenuItem>
                                         </DropdownMenuContent>
                                       </DropdownMenu>
@@ -526,25 +547,36 @@ export default function SuperAdminUsers() {
           </div>
         )}
       </div>
-      {/* Delete Confirmation */}
+      {/* Archive/Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogTitle>Archive or Delete User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete{" "}
-              <strong>{deleteTarget?.full_name || deleteTarget?.email}</strong>?
-              This action cannot be undone. All roles and profile data will be removed.
+              Choose how to remove <strong>{deleteTarget?.full_name || deleteTarget?.email}</strong>:
+              <br /><br />
+              <strong>Archive</strong> — disables login and hides the user, but preserves all data. Can be restored later.
+              <br />
+              <strong>Permanently Delete</strong> — removes the user and all associated auth data forever. Cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && archiveUserMutation.mutate(deleteTarget.id)}
+              disabled={archiveUserMutation.isPending}
+              className="gap-1.5"
+            >
+              <Archive className="h-4 w-4" />
+              {archiveUserMutation.isPending ? "Archiving…" : "Archive"}
+            </AlertDialogAction>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
               onClick={() => deleteTarget && deleteUserMutation.mutate(deleteTarget.id)}
               disabled={deleteUserMutation.isPending}
             >
-              {deleteUserMutation.isPending ? "Deleting…" : "Delete"}
+              <Trash2 className="h-4 w-4" />
+              {deleteUserMutation.isPending ? "Deleting…" : "Permanently Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
