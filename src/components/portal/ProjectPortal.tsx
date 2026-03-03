@@ -371,28 +371,26 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                     : (project.project_name || 'Your Project')
                   }
                 </h2>
-                {/* Show estimate titles if multiple estimates exist, deduplicated */}
+                {/* Show address info for multiple estimates */}
                 {estimates.length > 1 && (() => {
-                  const uniqueTitles = [...new Set(estimates.map((est: any) => est.estimate_title).filter(Boolean))];
-                  // If all titles are the same (or just the customer name), show estimate numbers instead
-                  if (uniqueTitles.length <= 1) {
-                    return (
-                      <div className="mt-1 space-y-0.5">
-                        {estimates.map((est: any) => (
-                          <p key={est.id} className="text-white/80 text-sm flex items-center gap-2">
-                            <FileText className="h-3 w-3" />
-                            Proposal #{est.estimate_number}
-                          </p>
-                        ))}
-                      </div>
-                    );
-                  }
+                  // Check if estimates have different addresses
+                  const addressMap = new Map<string, any[]>();
+                  estimates.forEach((est: any) => {
+                    const addr = est.job_address || project.project_address || '';
+                    if (!addressMap.has(addr)) addressMap.set(addr, []);
+                    addressMap.get(addr)!.push(est);
+                  });
+                  
+                  // If all same address (or no addresses), don't show per-estimate breakdown
+                  if (addressMap.size <= 1) return null;
+                  
+                  // Different addresses — show each with linked proposal numbers
                   return (
                     <div className="mt-1 space-y-0.5">
-                      {estimates.map((est: any) => (
-                        <p key={est.id} className="text-white/80 text-sm flex items-center gap-2">
-                          <FileText className="h-3 w-3" />
-                          {est.estimate_title}
+                      {[...addressMap.entries()].map(([addr, ests]) => (
+                        <p key={addr} className="text-white/80 text-sm flex items-center gap-2">
+                          <MapPin className="h-3 w-3" />
+                          {addr || 'No address'} — {ests.map((e: any) => `Proposal #${e.estimate_number}`).join(', ')}
                         </p>
                       ))}
                     </div>
