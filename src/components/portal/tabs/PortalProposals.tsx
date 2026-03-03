@@ -562,7 +562,8 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     const selectedEstimate = estimates.find(e => e.id === selectedEstimateId);
     if (!selectedEstimate) return null;
 
-    const canSign = ['sent', 'viewed', 'needs_changes'].includes(selectedEstimate.status);
+    const isEstimateExpired = selectedEstimate.expiration_date && new Date(selectedEstimate.expiration_date) < new Date();
+    const canSign = !isEstimateExpired && ['sent', 'viewed', 'needs_changes'].includes(selectedEstimate.status);
     const isSigned = selectedEstimate.status === 'accepted';
     const isDeclined = selectedEstimate.status === 'declined';
     const statusConfig = getStatusConfig(selectedEstimate.status);
@@ -1305,9 +1306,14 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     );
   }
 
-  // Stats
-  const totalValue = estimates.reduce((sum, e) => sum + (e.total || 0), 0);
-  const acceptedCount = estimates.filter(e => e.status === 'accepted').length;
+  // Separate expired vs active estimates
+  const isExpired = (e: any) => e.expiration_date && new Date(e.expiration_date) < new Date();
+  const activeEstimates = estimates.filter((e: any) => !isExpired(e) || e.status === 'accepted');
+  const expiredEstimates = estimates.filter((e: any) => isExpired(e) && e.status !== 'accepted');
+
+  // Stats - only count active
+  const totalValue = activeEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
+  const acceptedCount = activeEstimates.filter(e => e.status === 'accepted').length;
 
   return (
     <div className="space-y-6">
@@ -1320,8 +1326,8 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                 <FileText className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-900">{estimates.length}</p>
-                <p className="text-xs text-slate-500">Total Proposals</p>
+                <p className="text-2xl font-bold text-slate-900">{activeEstimates.length}</p>
+                <p className="text-xs text-slate-500">Active Proposals</p>
               </div>
             </div>
           </CardContent>
@@ -1356,9 +1362,9 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         </Card>
       </div>
 
-      {/* Proposals List */}
+      {/* Active Proposals List */}
       <div className="space-y-4">
-        {estimates.map((estimate) => {
+        {activeEstimates.map((estimate) => {
           const signature = estimate.estimate_signatures?.[0];
           const statusConfig = getStatusConfig(estimate.status);
           const isAccepted = estimate.status === 'accepted';
@@ -1511,6 +1517,63 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           );
         })}
       </div>
+
+      {/* Expired Proposals Section */}
+      {expiredEstimates.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pt-2">
+            <Clock className="h-4 w-4 text-slate-400" />
+            <h3 className="text-sm font-medium text-slate-500">Expired Proposals ({expiredEstimates.length})</h3>
+          </div>
+          <div className="space-y-3">
+            {expiredEstimates.map((estimate) => {
+              const statusConfig = getStatusConfig('expired');
+              return (
+                <Card 
+                  key={estimate.id} 
+                  className="border-0 shadow-md overflow-hidden opacity-60"
+                >
+                  <CardContent className="p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-start gap-2 flex-wrap">
+                          <Badge className={`${statusConfig.bgColor} ${statusConfig.textColor} border-0 gap-1.5 ring-1 ${statusConfig.ringColor}`}>
+                            {statusConfig.icon}
+                            {statusConfig.label}
+                          </Badge>
+                          <span className="text-sm text-slate-400 font-mono">
+                            Prop-{estimate.estimate_number}
+                          </span>
+                        </div>
+                        <h3 className="font-semibold text-slate-700">{estimate.estimate_title}</h3>
+                        <div className="flex items-center gap-3 text-xs text-slate-400">
+                          {estimate.expiration_date && (
+                            <span>Expired {format(new Date(estimate.expiration_date), 'MMM d, yyyy')}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <p className="text-xl font-bold text-slate-500">
+                          {formatCurrency(estimate.total)}
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="shadow-sm text-xs"
+                          onClick={() => window.open(`/proposal-print/${estimate.id}?noprint=1`, '_blank')}
+                        >
+                          <FileDown className="h-3.5 w-3.5 mr-1.5" />
+                          View PDF
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
     </div>
   );
