@@ -360,14 +360,14 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               {/* Left: Project Info */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge className={`${getStatusColor(project.project_status || 'Proposal')} text-white border-0 px-2 py-0.5 text-xs`}>
-                    {project.project_status || 'Proposal'}
+                  <Badge className={`${getStatusColor(estimates.length > 1 ? 'Proposal' : (project.project_status || 'Proposal'))} text-white border-0 px-2 py-0.5 text-xs`}>
+                    {estimates.length > 1 ? `${estimates.length} Proposals` : (project.project_status || 'Proposal')}
                   </Badge>
                   <span className="text-white/60 text-sm font-mono">#{project.project_number}</span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                   {estimates.length > 1 
-                    ? `Multiple Proposals - ${[project.customer_first_name, project.customer_last_name].filter(Boolean).join(' ') || estimates[0]?.customer_name || 'Customer'}`
+                    ? (project.project_address || `${[project.customer_first_name, project.customer_last_name].filter(Boolean).join(' ') || 'Your Project'}`)
                     : (project.project_name || 'Your Project')
                   }
                 </h2>
@@ -396,7 +396,8 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                     </div>
                   );
                 })()}
-                {project.project_address && (
+                {/* Only show address below title for single-estimate projects */}
+                {estimates.length <= 1 && project.project_address && (
                   <p className="text-white/70 flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4" />
                     {project.project_address}
