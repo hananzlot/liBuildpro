@@ -30,7 +30,7 @@ import {
   Plus,
   Loader2,
   AlertTriangle,
-  MoreHorizontal,
+  MoreVertical,
 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
@@ -1089,12 +1089,13 @@ export function OpportunitiesTable({
           <Table className="w-full table-fixed">
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow className="border-border/40 hover:bg-transparent">
+                <TableHead className="w-7 min-w-7 max-w-7 p-0"></TableHead>
                 <TableHead
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[20%]"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[20%] p-0 pl-1"
                   onClick={() => handleSort("name")}
                 >
                   <div className="flex items-end gap-0.5">
-                    Name
+                    Lead
                     <SortIcon column="name" />
                   </div>
                 </TableHead>
@@ -1139,8 +1140,6 @@ export function OpportunitiesTable({
                     <ListChecks className="h-3.5 w-3.5 flex-shrink-0" />
                     <span>Task</span>
                   </div>
-                </TableHead>
-                <TableHead className="text-muted-foreground w-[4%]">
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -1197,7 +1196,26 @@ export function OpportunitiesTable({
                       )}
                       onClick={() => handleRowClick(opp)}
                     >
-                      <TableCell className="font-medium truncate max-w-[150px]">
+                      <TableCell className="w-7 min-w-7 max-w-7 p-0">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                              <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem onClick={(e) => openQuickNoteDialog(e, opp.contact_uuid || opp.contact_id, displayName)}>
+                              <StickyNote className="h-3.5 w-3.5 mr-2" />
+                              Add Note
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => openQuickTaskDialog(e, opp.contact_uuid || opp.contact_id, displayName)}>
+                              <ListChecks className="h-3.5 w-3.5 mr-2" />
+                              Add Task
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                      <TableCell className="font-medium truncate max-w-[150px] p-0 pl-1">
                         <div className="flex flex-col min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
                             {overdueTask && (
@@ -1357,25 +1375,7 @@ export function OpportunitiesTable({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs p-1">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                              <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuItem onClick={(e) => openQuickNoteDialog(e, opp.contact_uuid || opp.contact_id, displayName)}>
-                              <StickyNote className="h-3.5 w-3.5 mr-2" />
-                              Add Note
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => openQuickTaskDialog(e, opp.contact_uuid || opp.contact_id, displayName)}>
-                              <ListChecks className="h-3.5 w-3.5 mr-2" />
-                              Add Task
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+                      
                     </TableRow>
                   );
                 })

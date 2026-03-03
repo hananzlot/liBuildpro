@@ -31,7 +31,7 @@ import {
   ChevronRight,
   Merge,
   Columns3,
-  MoreHorizontal,
+  MoreVertical,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -1724,7 +1724,7 @@ export default function Production() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
+                        <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -2010,7 +2010,8 @@ export default function Production() {
                 <table className="w-full caption-bottom text-xs table-fixed">
                     <thead className="[&_tr]:border-b sticky top-0 z-20 bg-card">
                       <TableRow className="bg-card hover:bg-card [&_th]:align-bottom [&_th]:leading-tight [&_th]:py-2 [&_th]:text-left">
-                        <TableHead className="w-[5%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('project_number')}>
+                        <TableHead className="w-7 min-w-7 max-w-7 p-0"></TableHead>
+                        <TableHead className="w-[5%] cursor-pointer hover:bg-muted/50 text-xs p-0 pl-1" onClick={() => handleSort('project_number')}>
                           <div className="flex items-end gap-0.5"># <SortIcon column="project_number" /></div>
                         </TableHead>
                         {isUnified && (
@@ -2089,7 +2090,7 @@ export default function Production() {
                           <div className="flex items-end justify-end gap-0.5 font-semibold">Cash <SortIcon column="total_cash" /></div>
                         </TableHead>
                         )}
-                        <TableHead className="w-[4%]"></TableHead>
+                        
                       </TableRow>
                     </thead>
                     <TableBody>
@@ -2104,7 +2105,41 @@ export default function Production() {
                             )}
                             onClick={() => handleOpenProject(project)}
                           >
-                            <TableCell className="font-medium text-xs truncate">
+                            <TableCell className="w-7 min-w-7 max-w-7 p-0">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <MoreVertical className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                                  {project.customer_email && (
+                                    <DropdownMenuItem
+                                      onClick={() => setEmailConfirmProjectId(project.id)}
+                                      disabled={sendPortalEmailMutation.isPending}
+                                    >
+                                      <Mail className="h-3.5 w-3.5 mr-2" />
+                                      Send portal email
+                                    </DropdownMenuItem>
+                                  )}
+                                  {isAdmin && (
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => handleDeleteTestProject(project)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                            <TableCell className="font-medium text-xs truncate p-0 pl-1">
                               <div className="flex flex-col min-w-0">
                                 <div className="flex items-center gap-0.5">
                                   <span className="truncate">{project.project_number}</span>
@@ -2328,40 +2363,7 @@ export default function Production() {
                               {formatCurrency(financials?.totalCash)}
                             </TableCell>
                             )}
-                            <TableCell className="p-1">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <MoreHorizontal className="h-3.5 w-3.5" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                  {project.customer_email && (
-                                    <DropdownMenuItem
-                                      onClick={() => setEmailConfirmProjectId(project.id)}
-                                      disabled={sendPortalEmailMutation.isPending}
-                                    >
-                                      <Mail className="h-3.5 w-3.5 mr-2" />
-                                      Send portal email
-                                    </DropdownMenuItem>
-                                  )}
-                                  {isAdmin && (
-                                    <DropdownMenuItem
-                                      className="text-destructive focus:text-destructive"
-                                      onClick={() => handleDeleteTestProject(project)}
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
+                            
                           </TableRow>
                         );
                       })}
@@ -2394,19 +2396,43 @@ export default function Production() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-16">#</TableHead>
+                          <TableHead className="w-7 min-w-7 max-w-7 p-0"></TableHead>
+                          <TableHead className="w-16 p-0 pl-1">#</TableHead>
                           <TableHead>Project Name</TableHead>
                           <TableHead>Address</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Archived</TableHead>
-                          <TableHead className="w-24">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {archivedProjects.map((project) => (
                           <TableRow key={project.id} className="opacity-70 hover:opacity-100">
-                            <TableCell className="font-medium">
-                              {project.project_number}
+                            <TableCell className="w-7 min-w-7 max-w-7 p-0">
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 gap-1 text-xs"
+                                  onClick={() => restoreProjectMutation.mutate(project)}
+                                  disabled={restoreProjectMutation.isPending}
+                                >
+                                  {restoreProjectMutation.isPending ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RotateCcw className="h-3 w-3" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={() => handleDeleteTestProject(project)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium p-0 pl-1">
                             </TableCell>
                             <TableCell>{project.project_name}</TableCell>
                             <TableCell className="text-xs max-w-[200px] truncate">
@@ -2422,32 +2448,7 @@ export default function Production() {
                                 ? new Date(project.deleted_at).toLocaleDateString()
                                 : "-"}
                             </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 gap-1 text-xs"
-                                  onClick={() => restoreProjectMutation.mutate(project)}
-                                  disabled={restoreProjectMutation.isPending}
-                                >
-                                  {restoreProjectMutation.isPending ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <RotateCcw className="h-3 w-3" />
-                                  )}
-                                  Restore
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-destructive hover:text-destructive"
-                                  onClick={() => handleDeleteTestProject(project)}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </TableCell>
+                            
                           </TableRow>
                         ))}
                       </TableBody>
