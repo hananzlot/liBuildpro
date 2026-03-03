@@ -428,6 +428,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSimulatedUserName(userName);
     setSimulatedUserRoles(roles);
     setSimulatedRole(null);
+    // Fetch the simulated user's company associations
+    fetchUserCompanies(userId);
   }, [actualIsAdmin]);
 
   const clearSimulation = useCallback(() => {
@@ -436,7 +438,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSimulatedUserName(null);
     setSimulatedUserRoles([]);
     sessionStorage.removeItem('crm-welcome-dismissed');
-  }, []);
+    // Restore the original user's company associations
+    if (user?.id) {
+      fetchUserCompanies(user.id);
+    }
+  }, [user?.id]);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
