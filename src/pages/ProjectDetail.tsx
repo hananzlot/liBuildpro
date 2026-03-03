@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { ProjectDetailSheet } from "@/components/production/ProjectDetailSheet";
@@ -81,23 +82,22 @@ export default function ProjectDetail() {
   return (
     <AppLayout>
       <div className="h-full project-detail-page">
-        <ProjectDetailSheet
-          project={project}
-          open={true}
-          onOpenChange={() => {
-            // In page mode, don't auto-close on onOpenChange events.
-            // The tab should remain open until explicitly closed via the tab bar.
-          }}
-          onClose={handleClose}
-          onUpdate={() => refetch()}
-          initialTab={initialTab}
-          initialFinanceSectionTab={initialFinanceSection}
-          initialFinanceSubTab={initialFinanceSubTab}
-          highlightInvoiceId={highlightInvoiceId}
-          highlightBillId={highlightBillId}
-          highlightPaymentId={highlightPaymentId}
-          mode="page"
-        />
+        <ErrorBoundary context="ProjectDetailSheet">
+          <ProjectDetailSheet
+            project={project}
+            open={true}
+            onOpenChange={() => {}}
+            onClose={handleClose}
+            onUpdate={() => refetch()}
+            initialTab={initialTab}
+            initialFinanceSectionTab={initialFinanceSection}
+            initialFinanceSubTab={initialFinanceSubTab}
+            highlightInvoiceId={highlightInvoiceId}
+            highlightBillId={highlightBillId}
+            highlightPaymentId={highlightPaymentId}
+            mode="page"
+          />
+        </ErrorBoundary>
       </div>
     </AppLayout>
   );

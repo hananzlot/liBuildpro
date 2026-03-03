@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -3557,17 +3558,19 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
         {/* Commission Tab */}
         <TabsContent value="commission" className="mt-4">
-          <CommissionTab
-            projectId={projectId}
-            totalContracts={totalAgreementsValue}
-            leadCostPercent={leadCostPercent}
-            commissionSplitPct={commissionSplitPct}
-            totalBillsPaid={totalBillsPaid}
-            totalPaymentsReceived={totalPaymentsReceived}
-            salespeople={salespeople}
-            projectName={projectName}
-            projectAddress={projectAddress}
-          />
+          <ErrorBoundary context="CommissionTab">
+            <CommissionTab
+              projectId={projectId}
+              totalContracts={totalAgreementsValue}
+              leadCostPercent={leadCostPercent}
+              commissionSplitPct={commissionSplitPct}
+              totalBillsPaid={totalBillsPaid}
+              totalPaymentsReceived={totalPaymentsReceived}
+              salespeople={salespeople}
+              projectName={projectName}
+              projectAddress={projectAddress}
+            />
+          </ErrorBoundary>
         </TabsContent>
       </Tabs>
 
