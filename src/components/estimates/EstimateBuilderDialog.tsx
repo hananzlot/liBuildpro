@@ -5030,9 +5030,14 @@ The more detail you provide, the more accurate the AI-generated estimate will be
           </div>
 
           {/* Right Sidebar - Totals with Profit Metrics */}
-          <div className="w-80 border-l bg-muted/30 p-4 overflow-y-auto">
-            <h3 className="font-semibold mb-4">Estimate Summary</h3>
-            
+          <Collapsible defaultOpen={false} className="w-80 border-l bg-muted/30">
+            <div className="p-4">
+              <CollapsibleTrigger className="flex items-center justify-between w-full group">
+                <h3 className="font-semibold">Estimate Summary</h3>
+                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+            </div>
+            <CollapsibleContent className="px-4 pb-4 overflow-y-auto">
             <div className="space-y-3 text-sm">
               {/* Cost & Profit Section */}
               <div className="p-3 bg-background rounded-lg border space-y-2">
@@ -5058,8 +5063,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 <span className="text-muted-foreground">Subtotal (Selling)</span>
                 <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
               </div>
-              
-              {/* Tax line hidden - not relevant to proposal UI */}
               
               {totals.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
@@ -5122,7 +5125,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 </div>
               </>
             )}
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
         </DialogContent>
       </Dialog>
