@@ -1712,10 +1712,23 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         if (job.status === 'completed' && job.result_json) {
           // Success! Apply the scope and clean up
           try {
+            const scope = job.result_json.scope;
+            // Validate that the AI actually produced groups with items
+            if (!scope?.groups || scope.groups.length === 0) {
+              toast.error('AI generation completed but produced no line items. Please provide a more detailed work scope and try again.');
+              cleanupGeneration();
+              return;
+            }
+            const totalItems = scope.groups.reduce((sum: number, g: any) => sum + (g.items?.length || 0), 0);
+            if (totalItems === 0) {
+              toast.error('AI generation completed but all groups are empty. Please add more detail to the work scope and try again.');
+              cleanupGeneration();
+              return;
+            }
             if (job.result_json.warning) {
               toast.warning(job.result_json.warning);
             }
-            const aiAnalysis = applyAIScope(job.result_json.scope);
+            const aiAnalysis = applyAIScope(scope);
             // Persist AI analysis immediately for existing estimates
             if (aiAnalysis && currentEstimateId) {
               persistAIAnalysis(currentEstimateId, aiAnalysis);
@@ -1833,6 +1846,15 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       // If we get an immediate response (fast generation), use it directly
       if (!error && data?.success && data?.scope) {
         console.log('Got immediate response, applying directly');
+        // Validate non-empty results
+        if (!data.scope.groups || data.scope.groups.length === 0 || 
+            data.scope.groups.reduce((sum: number, g: any) => sum + (g.items?.length || 0), 0) === 0) {
+          toast.error('AI generation completed but produced no line items. Please provide a more detailed work scope and try again.');
+          setIsGeneratingScope(false);
+          subscription?.unsubscribe();
+          queueSubscription?.unsubscribe();
+          return;
+        }
         if (data.warning) {
           toast.warning(data.warning);
         }

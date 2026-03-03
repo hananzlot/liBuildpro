@@ -952,6 +952,13 @@ async function processEstimateGenerationStaged(params: {
   
   // Extract groups from ESTIMATE_PLAN
   const groups = estimatePlan.groups || [];
+  
+  // If ESTIMATE_PLAN returned 0 groups, the AI failed to produce a valid plan
+  if (groups.length === 0) {
+    console.error('[ESTIMATE_PLAN] AI returned 0 groups. Full response:', JSON.stringify(estimatePlan));
+    throw new Error('AI did not generate any work groups. Please provide a more detailed work scope description and try again.');
+  }
+  
   const totalStages = baseStages + groups.length; // Add GROUP_ITEMS stages
   
   // ===== STAGE 3: GROUP_ITEMS (loop for each group, with retry + skip) =====
