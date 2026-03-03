@@ -436,3 +436,9 @@
     margin: 0.5in;
   }
 }
+
+/* Vertical writing mode for sidebar tab */
+.writing-mode-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
