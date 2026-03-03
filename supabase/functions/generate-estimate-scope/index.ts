@@ -728,6 +728,37 @@ Extract high-signal estimating inputs from the attached construction plans PDF.`
   return parseAIResponse(response.content, 'PLAN_DIGEST');
 }
 
+// Fallback group planner when ESTIMATE_PLAN does not return groups
+function buildFallbackGroups(scopeText: string, projectType: string) {
+  const text = `${projectType} ${scopeText}`.toLowerCase();
+
+  if (text.includes('kitchen')) {
+    return [
+      { group_name: 'Demolition & Prep', description: 'Demo existing kitchen finishes and prep surfaces', target_item_count: 8 },
+      { group_name: 'Cabinets & Countertops', description: 'Install cabinets, countertops, and island components', target_item_count: 12 },
+      { group_name: 'Appliances & Fixtures', description: 'Install appliances, sink, faucet, and hookups', target_item_count: 8 },
+      { group_name: 'Electrical & Plumbing', description: 'Circuits, outlets, lighting, and plumbing adjustments', target_item_count: 7 },
+      { group_name: 'Finishes & Punch', description: 'Backsplash, paint touch-up, cleanup, final adjustments', target_item_count: 6 },
+    ];
+  }
+
+  if (text.includes('roof')) {
+    return [
+      { group_name: 'Tear-off & Disposal', description: 'Remove old roofing and dispose debris', target_item_count: 6 },
+      { group_name: 'Underlayment & Flashing', description: 'Install waterproofing layers and flashing', target_item_count: 7 },
+      { group_name: 'Shingles & Ridge', description: 'Install shingles, ridge caps, and ventilation', target_item_count: 9 },
+      { group_name: 'Cleanup & Warranty', description: 'Site cleanup, haul-away, and final inspection items', target_item_count: 4 },
+    ];
+  }
+
+  return [
+    { group_name: 'Site Prep & Demo', description: 'Preparation and removal of existing materials', target_item_count: 7 },
+    { group_name: 'Core Construction', description: 'Primary installation and build-out work', target_item_count: 12 },
+    { group_name: 'MEP & Adjustments', description: 'Mechanical, electrical, plumbing related tasks', target_item_count: 8 },
+    { group_name: 'Finishes & Final', description: 'Finishing details, cleanup, and closeout', target_item_count: 6 },
+  ];
+}
+
 // Stage 2: ESTIMATE_PLAN - Create outline with groups and payment schedule
 async function processEstimatePlanStage(
   scopeText: string,
@@ -743,15 +774,40 @@ async function processEstimatePlanStage(
 ): Promise<any> {
   console.log('=== STAGE 2: ESTIMATE_PLAN ===');
   
+  const normalizedProjectType = !projectType || /^\s*test(\s*test)?\s*$/i.test(projectType)
+    ? (scopeText.toLowerCase().includes('kitchen') ? 'Kitchen Remodel' : scopeText.toLowerCase().includes('roof') ? 'Roof Replacement' : 'Home Improvement')
+    : projectType;
+
   let userMessage = `mode: "ESTIMATE_PLAN"
 
-Project Type: ${projectType || 'Home Improvement'}
+Project Type: ${normalizedProjectType}
 Job Location: ${jobAddress}
 Region: ${regionInfo.region} (${regionInfo.costMultiplier}x cost multiplier)
 Default Markup: ${defaultMarkupPercent}%
 
 WORK SCOPE:
-${scopeText}`;
+${scopeText}
+
+Return STRICT JSON only in this exact shape:
+{
+  "project_understanding": ["..."],
+  "assumptions": ["..."],
+  "inclusions": ["..."],
+  "exclusions": ["..."],
+  "missing_info": ["..."],
+  "groups": [
+    {"group_name":"...","description":"...","target_item_count":10}
+  ],
+  "payment_schedule": [],
+  "suggested_deposit_percent": 20,
+  "suggested_tax_rate": 9.5,
+  "notes": "...",
+  "first_payment_name": "Deposit"
+}
+
+Rules:
+- groups must contain 3-8 groups
+- each group must have target_item_count between 4 and 20`;
 
   if (planDigest) {
     userMessage += `
@@ -769,7 +825,13 @@ ${JSON.stringify(planDigest, null, 2)}`;
   const model = aiProvider === 'openai' ? 'openai/gpt-5.2' : 'google/gemini-3-flash-preview';
   const response = await callAIStage('ESTIMATE_PLAN', messages, model, aiTemperature, lovableApiKey);
   
-  return parseAIResponse(response.content, 'ESTIMATE_PLAN');
+  const plan = parseAIResponse(response.content, 'ESTIMATE_PLAN');
+  if (!plan.groups || plan.groups.length === 0) {
+    console.warn('[ESTIMATE_PLAN] AI returned no groups; using deterministic fallback groups');
+    plan.groups = buildFallbackGroups(scopeText, normalizedProjectType);
+  }
+
+  return plan;
 }
 
 // Stage 3: GROUP_ITEMS - Generate items for one group
@@ -939,6 +1001,7 @@ async function processEstimateGenerationStaged(params: {
   let planDigest: any = null;
   let stageResults: Record<string, any> = {};
   let currentStageNum = 1;
+  const fallbackWarnings: string[] = [];
   
   if (hasPdf && pdfBuffer) {
     if (jobId) {
@@ -993,27 +1056,30 @@ async function processEstimateGenerationStaged(params: {
   
   // Extract groups from ESTIMATE_PLAN
   const groups = estimatePlan.groups || [];
-  
-  // If ESTIMATE_PLAN returned 0 groups, the AI failed to produce a valid plan
+
+  // If ESTIMATE_PLAN returned 0 groups even after normalization, create deterministic fallback
   if (groups.length === 0) {
-    console.error('[ESTIMATE_PLAN] AI returned 0 groups. Full response:', JSON.stringify(estimatePlan));
-    throw new Error('AI did not generate any work groups. Please provide a more detailed work scope description and try again.');
+    console.error('[ESTIMATE_PLAN] No groups after parsing; applying fallback groups');
+    estimatePlan.groups = buildFallbackGroups(workScopeDescription, projectType || 'Home Improvement');
+    fallbackWarnings.push('AI plan returned no groups. The system used a fallback phase structure. Please review before sending.');
   }
+
+  const effectiveGroups = estimatePlan.groups || [];
   
-  const totalStages = baseStages + groups.length; // Add GROUP_ITEMS stages
+  const totalStages = baseStages + effectiveGroups.length; // Add GROUP_ITEMS stages
   
   // ===== STAGE 3: GROUP_ITEMS (loop for each group, with retry + skip) =====
   const groupResults: any[] = [];
   const skippedGroups: string[] = [];
   const MAX_GROUP_RETRIES = 2;
   
-  for (let i = 0; i < groups.length; i++) {
+  for (let i = 0; i < effectiveGroups.length; i++) {
     // Check for cancellation before each group
     if (jobId && await isJobCancelled(jobId)) {
       throw new Error('Job was cancelled by user');
     }
     
-    const group = groups[i];
+    const group = effectiveGroups[i];
     const groupName = group.group_name || `Group ${i + 1}`;
     const groupDescription = group.description || '';
     const targetItemCount = group.target_item_count || 10;
@@ -1076,8 +1142,8 @@ async function processEstimateGenerationStaged(params: {
   }
   
   // If ALL groups failed, throw so job is marked as failed
-  if (groupResults.length === 0 && groups.length > 0) {
-    throw new Error(`All ${groups.length} group(s) failed to generate after retries. Please try again.`);
+  if (groupResults.length === 0 && effectiveGroups.length > 0) {
+    throw new Error(`All ${effectiveGroups.length} group(s) failed to generate after retries. Please try again.`);
   }
   
   // ===== STAGE 4: FINAL_ASSEMBLY =====
@@ -1099,7 +1165,7 @@ async function processEstimateGenerationStaged(params: {
   finalResult.apiProvider = aiProvider === 'openai' ? 'OpenAI (GPT-5.2)' : 'Gemini (Staged)';
   
   // Collect warnings
-  const warnings: string[] = [];
+  const warnings: string[] = [...fallbackWarnings];
   if (pdfTooLarge) {
     warnings.push('The uploaded PDF was too large to analyze. The estimate was generated from the work description only.');
   }
