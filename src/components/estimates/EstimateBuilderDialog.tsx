@@ -537,6 +537,15 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
     
     // For NEW estimates: restore any available draft (original behavior)
+    // BUT: if a linkedOpportunity is provided (e.g. from opportunity page),
+    // skip draft restoration so the opportunity data takes priority.
+    if (linkedOpportunity) {
+      // Clear any stale "new" draft so it doesn't interfere
+      clearDraft();
+      setDidAttemptDraftRestore(true);
+      return;
+    }
+
     const sessionDraft = loadDraft();
     if (sessionDraft) {
       restoreFromDraft(sessionDraft);
@@ -554,7 +563,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       .finally(() => {
         setDidAttemptDraftRestore(true);
       });
-  }, [open, loadDraft, loadDraftDB, sourceEstimateId]);
+  }, [open, loadDraft, loadDraftDB, clearDraft, sourceEstimateId, linkedOpportunity]);
 
   // Fetch projects for linking
   const { data: projects = [] } = useQuery({
