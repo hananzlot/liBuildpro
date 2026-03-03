@@ -395,12 +395,16 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     // Critical: don't write an initial empty draft before we've tried to restore.
     // Otherwise the existing "estimate-draft-new" gets overwritten and the form appears cleared.
     if (!didAttemptDraftRestore) return;
+
+    // In edit mode, don't save drafts while line items are still empty in AI mode.
+    // This prevents writing an empty draft on first render that can later hide line items.
+    if (sourceEstimateId && estimateMode !== 'manual' && groups.length === 0) return;
     
     // Always save if we have the dialog open
     saveDraft(draftData);
     // Debounced DB save
     saveDraftDB(draftData);
-  }, [open, didAttemptDraftRestore, draftData, saveDraft, saveDraftDB]);
+  }, [open, didAttemptDraftRestore, sourceEstimateId, estimateMode, groups.length, draftData, saveDraft, saveDraftDB]);
   
   // Force save draft when tab visibility changes (user switches tabs)
   // AND restore draft when user returns to the tab
@@ -505,10 +509,23 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     };
 
     // For existing estimates (edit mode), only restore drafts from the CURRENT session
-    // This preserves edits when switching tabs but prevents stale data from previous sessions
+    // and only when they contain meaningful line-item/financial data.
+    // This avoids restoring an accidentally auto-saved empty draft.
     if (sourceEstimateId) {
       const sessionDraft = loadDraft();
-      if (sessionDraft && isDraftFromCurrentSession(sessionDraft.savedAt)) {
+      const hasLineItemsDraft = Array.isArray(sessionDraft?.groups)
+        ? sessionDraft.groups.some((g: any) => Array.isArray(g?.items) && g.items.length > 0)
+        : false;
+      const hasManualDraft =
+        sessionDraft?.estimateMode === 'manual' &&
+        typeof sessionDraft?.manualTotal === 'number' &&
+        sessionDraft.manualTotal > 0;
+
+      if (
+        sessionDraft &&
+        isDraftFromCurrentSession(sessionDraft.savedAt) &&
+        (hasLineItemsDraft || hasManualDraft)
+      ) {
         console.log('Restoring current-session draft for existing estimate');
         restoreFromDraft(sessionDraft);
       }
