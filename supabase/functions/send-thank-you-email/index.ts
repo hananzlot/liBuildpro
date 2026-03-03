@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getResendApiKey } from "../_shared/get-resend-key.ts";
+import { getResendApiKey, getCompanyEmailSender } from "../_shared/get-resend-key.ts";
 import { createPortalShortLink, isShortLinksEnabled } from "../_shared/short-links.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -77,8 +77,11 @@ serve(async (req) => {
       return acc;
     }, {});
 
-    const fromEmail = settingsMap.resend_from_email;
-    const fromName = settingsMap.resend_from_name;
+    // Resolve sender from company_email_domains (supports platform domain + custom domain)
+    const senderConfig = await getCompanyEmailSender(supabase, companyId);
+    const fromEmail = senderConfig?.fromEmail || settingsMap.resend_from_email;
+    const fromName = senderConfig?.fromName || settingsMap.resend_from_name;
+    const replyTo = senderConfig?.replyTo;
     const companyName = settingsMap.company_name;
 
     if (!fromEmail || !fromName || !companyName) {
@@ -230,6 +233,7 @@ serve(async (req) => {
       to: [to],
       subject: subject,
       html: htmlContent,
+      ...(replyTo ? { reply_to: replyTo } : {}),
     };
 
     // Add CC if info@ email was generated

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getResendApiKey } from "../_shared/get-resend-key.ts";
+import { getResendApiKey, getCompanyEmailSender } from "../_shared/get-resend-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,7 +58,8 @@ const sendEmail = async (
   subject: string,
   html: string,
   fromEmail: string,
-  fromName: string
+  fromName: string,
+  replyTo?: string
 ) => {
   try {
     const response = await fetch("https://api.resend.com/emails", {
@@ -72,6 +73,7 @@ const sendEmail = async (
         to: [to],
         subject,
         html,
+        ...(replyTo ? { reply_to: replyTo } : {}),
       }),
     });
 
@@ -160,17 +162,29 @@ const checkAndSendReminders = async () => {
 
   // Cache for Resend API keys and settings by company_id
   const resendKeyCache: Record<string, string | null> = {};
-  const settingsCache: Record<string, { fromEmail: string; fromName: string; companyName: string }> = {};
+  const settingsCache: Record<string, { fromEmail: string; fromName: string; companyName: string; replyTo?: string }> = {};
 
   // Helper to get settings for a company
-  const getCompanyEmailSettings = async (companyId: string | null): Promise<{ fromEmail: string; fromName: string; companyName: string }> => {
+  const getCompanyEmailSettings = async (companyId: string | null): Promise<{ fromEmail: string; fromName: string; companyName: string; replyTo?: string }> => {
     const cacheKey = companyId || '_global';
     if (settingsCache[cacheKey]) return settingsCache[cacheKey];
+
+    // Try company_email_domains first (supports platform domain + custom domain)
+    let senderFromEmail: string | null = null;
+    let senderFromName: string | null = null;
+    let replyTo: string | undefined;
+    if (companyId) {
+      const senderConfig = await getCompanyEmailSender(supabase, companyId);
+      if (senderConfig) {
+        senderFromEmail = senderConfig.fromEmail;
+        senderFromName = senderConfig.fromName;
+        replyTo = senderConfig.replyTo;
+      }
+    }
 
     const settingKeys = ["resend_from_email", "resend_from_name", "company_name"];
     let settings: Record<string, string> = {};
 
-    // Get company-specific settings if companyId provided
     if (companyId) {
       const { data: companySettings } = await supabase
         .from("company_settings")
@@ -183,7 +197,6 @@ const checkAndSendReminders = async () => {
       }
     }
 
-    // Fallback to app_settings
     const { data: appSettings } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value")
@@ -196,9 +209,10 @@ const checkAndSendReminders = async () => {
     }
 
     settingsCache[cacheKey] = {
-      fromEmail: settings.resend_from_email || "reminders@resend.dev",
-      fromName: settings.resend_from_name || settings.company_name || "CA Pro Builders",
+      fromEmail: senderFromEmail || settings.resend_from_email || "reminders@resend.dev",
+      fromName: senderFromName || settings.resend_from_name || settings.company_name || "CA Pro Builders",
       companyName: settings.company_name || "CA Pro Builders",
+      replyTo,
     };
 
     return settingsCache[cacheKey];
@@ -268,7 +282,7 @@ const checkAndSendReminders = async () => {
             <p>Best regards,<br>${emailSettings.companyName}</p>
           `;
 
-          const sent = await sendEmail(resendApiKey, user.email, subject, html, emailSettings.fromEmail, emailSettings.fromName);
+          const sent = await sendEmail(resendApiKey, user.email, subject, html, emailSettings.fromEmail, emailSettings.fromName, emailSettings.replyTo);
           if (sent) {
             await supabase.from("appointment_reminders").insert({
               appointment_id: appt.id,
@@ -317,7 +331,7 @@ const checkAndSendReminders = async () => {
             <p>Best regards,<br>${emailSettings.companyName} Team</p>
           `;
 
-          const sent = await sendEmail(resendApiKey, contact.email, subject, html, emailSettings.fromEmail, emailSettings.fromName);
+          const sent = await sendEmail(resendApiKey, contact.email, subject, html, emailSettings.fromEmail, emailSettings.fromName, emailSettings.replyTo);
           if (sent) {
             await supabase.from("appointment_reminders").insert({
               appointment_id: appt.id,

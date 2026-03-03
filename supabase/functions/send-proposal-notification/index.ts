@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getResendApiKey } from "../_shared/get-resend-key.ts";
+import { getResendApiKey, getCompanyEmailSender } from "../_shared/get-resend-key.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -123,8 +123,11 @@ serve(async (req) => {
     // Merge: company settings override app settings
     const settingsMap = { ...appSettingsMap, ...companySettingsMap };
 
-    const fromEmail = settingsMap.resend_from_email || "proposals@caprobuilders.com";
-    const fromName = settingsMap.resend_from_name || "Capro Builders";
+    // Resolve sender from company_email_domains (supports platform domain + custom domain)
+    const senderConfig = companyId ? await getCompanyEmailSender(supabase, companyId) : null;
+    const fromEmail = senderConfig?.fromEmail || settingsMap.resend_from_email || "proposals@caprobuilders.com";
+    const fromName = senderConfig?.fromName || settingsMap.resend_from_name || "Capro Builders";
+    const replyTo = senderConfig?.replyTo;
     const companyName = settingsMap.company_name || "Capro Builders";
     const notificationEmails = settingsMap.notification_email;
 
@@ -369,6 +372,7 @@ serve(async (req) => {
         to: recipients,
         subject: subject,
         html: htmlContent,
+        ...(replyTo ? { reply_to: replyTo } : {}),
       }),
     });
 

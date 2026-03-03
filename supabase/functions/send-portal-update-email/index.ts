@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getResendApiKey } from "../_shared/get-resend-key.ts";
+import { getResendApiKey, getCompanyEmailSender } from "../_shared/get-resend-key.ts";
 import { createPortalShortLink } from "../_shared/short-links.ts";
 
 const corsHeaders = {
@@ -137,8 +137,11 @@ serve(async (req: Request) => {
     // Merge: company settings override app settings
     const settingsMap = { ...appSettingsMap, ...companySettingsMap };
 
-    const fromEmail = settingsMap.resend_from_email || "portal@caprobuilders.com";
-    const fromName = settingsMap.resend_from_name || "Capro Builders";
+    // Resolve sender from company_email_domains (supports platform domain + custom domain)
+    const senderConfig = project.company_id ? await getCompanyEmailSender(supabase, project.company_id) : null;
+    const fromEmail = senderConfig?.fromEmail || settingsMap.resend_from_email || "portal@caprobuilders.com";
+    const fromName = senderConfig?.fromName || settingsMap.resend_from_name || "Capro Builders";
+    const replyTo = senderConfig?.replyTo;
     const companyName = settingsMap.company_name || "Capro Builders";
     const appBaseUrl = settingsMap.app_base_url || "https://crm.ca-probuilders.com";
 
@@ -252,6 +255,7 @@ The {{company_name}} Team`;
           to: [project.customer_email],
           subject: finalSubject,
           html: htmlContent,
+          ...(replyTo ? { reply_to: replyTo } : {}),
         }),
       });
 
