@@ -3113,7 +3113,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 <CardTitle className="text-sm">Contracts & Agreements</CardTitle>
                 <Button size="sm" onClick={() => { setEditingAgreement(null); setAgreementDialogOpen(true); }}>
                   <Plus className="h-3 w-3 mr-1" />
-                  Add
+                  {agreements.some(a => a.agreement_type === "Contract") ? "Add Change Order / Addendum" : "Add"}
                 </Button>
               </div>
             </CardHeader>
