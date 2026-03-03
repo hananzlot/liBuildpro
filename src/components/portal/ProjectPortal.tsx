@@ -262,6 +262,12 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
 
   const { project, estimates, agreements, documents, paymentSchedule, token: tokenData } = portalData;
 
+  // Helper: check if an estimate is expired
+  const isExpired = (e: any) => e.expiration_date && new Date(e.expiration_date) < new Date();
+
+  // Active (non-expired) estimates for counts and header
+  const activeEstimates = estimates.filter((e: any) => !isExpired(e) || e.status === 'accepted');
+
   // Find the accepted estimate for scope of work
   const acceptedEstimate = estimates.find(e => e.status === 'accepted');
 
@@ -294,7 +300,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
 
   const tabs = [
     { value: 'project', label: 'Project', icon: ClipboardList },
-    { value: 'proposals', label: 'Proposals', icon: FileText, badge: estimates.length },
+    { value: 'proposals', label: 'Proposals', icon: FileText, badge: activeEstimates.length },
     { value: 'agreement', label: 'Agreement', icon: CheckCircle2 },
     { value: 'signed-docs', label: 'Signed Docs', icon: Briefcase },
     { value: 'invoices', label: 'Invoices', icon: Receipt },
@@ -360,21 +366,21 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               {/* Left: Project Info */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge className={`${getStatusColor(estimates.length > 1 ? 'Proposal' : (project.project_status || 'Proposal'))} text-white border-0 px-2 py-0.5 text-xs`}>
-                    {estimates.length > 1 ? `${estimates.length} Proposals` : (project.project_status || 'Proposal')}
+                  <Badge className={`${getStatusColor(activeEstimates.length > 1 ? 'Proposal' : (project.project_status || 'Proposal'))} text-white border-0 px-2 py-0.5 text-xs`}>
+                    {activeEstimates.length > 1 ? `${activeEstimates.length} Proposals` : (project.project_status || 'Proposal')}
                   </Badge>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                  {estimates.length > 1 
+                  {activeEstimates.length > 1 
                     ? (project.project_address || `${[project.customer_first_name, project.customer_last_name].filter(Boolean).join(' ') || 'Your Project'}`)
                     : (project.project_name || 'Your Project')
                   }
                 </h2>
                 {/* Show address info for multiple estimates */}
-                {estimates.length > 1 && (() => {
+                {activeEstimates.length > 1 && (() => {
                   // Check if estimates have different addresses
-                  const addressMap = new Map<string, any[]>();
-                  estimates.forEach((est: any) => {
+                  const addressMap = new Map<string, any[]>(); // uses activeEstimates
+                  activeEstimates.forEach((est: any) => {
                     const addr = est.job_address || project.project_address || '';
                     if (!addressMap.has(addr)) addressMap.set(addr, []);
                     addressMap.get(addr)!.push(est);
@@ -396,7 +402,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                   );
                 })()}
                 {/* Only show address below title for single-estimate projects */}
-                {estimates.length <= 1 && project.project_address && (
+                {activeEstimates.length <= 1 && project.project_address && (
                   <p className="text-white/70 flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4" />
                     {project.project_address}
