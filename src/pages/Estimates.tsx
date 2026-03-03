@@ -580,10 +580,6 @@ export default function Estimates() {
                               <Eye className="h-4 w-4 mr-2" />
                               Open Proposal Preview
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenCustomerPortal(estimate.id)}>
-                              <Globe className="h-4 w-4 mr-2" />
-                              Open Customer Portal
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                               setIsResendMode(true);
                               setSendDialogEstimate(estimate);
