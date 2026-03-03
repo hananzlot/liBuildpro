@@ -2,16 +2,33 @@ import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /**
  * Get the platform Resend API key.
- * Always uses the single platform RESEND_API_KEY environment variable.
- * Company-specific keys are no longer needed — domains are verified under the platform account.
+ * First checks app_settings table for a 'resend_api_key' row (managed via Super Admin UI).
+ * Falls back to the RESEND_API_KEY environment variable if not found in the database.
  */
 export async function getResendApiKey(
-  _supabase: SupabaseClient,
+  supabase: SupabaseClient,
   _companyId?: string | null
 ): Promise<string | null> {
+  // Try app_settings first (DB-managed via Super Admin UI)
+  try {
+    const { data } = await supabase
+      .from("app_settings")
+      .select("setting_value")
+      .eq("setting_key", "resend_api_key")
+      .maybeSingle();
+
+    if (data?.setting_value) {
+      console.log("Using Resend API key from app_settings");
+      return data.setting_value;
+    }
+  } catch (err) {
+    console.log("Could not read resend_api_key from app_settings:", err);
+  }
+
+  // Fallback to environment variable
   const envKey = Deno.env.get("RESEND_API_KEY");
   if (envKey) {
-    console.log("Using platform RESEND_API_KEY");
+    console.log("Using platform RESEND_API_KEY from env");
   }
   return envKey || null;
 }

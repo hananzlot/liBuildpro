@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getResendApiKey } from "../_shared/get-resend-key.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -15,24 +16,10 @@ serve(async (req) => {
   }
 
   try {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    if (!RESEND_API_KEY) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Platform RESEND_API_KEY not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const { action, companyId, domain, resendDomainId } = await req.json();
-
-    if (!companyId) {
-      return new Response(
-        JSON.stringify({ success: false, error: "companyId is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    const RESEND_API_KEY = await getResendApiKey(supabase);
+    if (!RESEND_API_KEY) {
 
     // Verify caller is admin for this company
     const authHeader = req.headers.get("Authorization");
