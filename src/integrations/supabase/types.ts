@@ -4191,6 +4191,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           company_id: string | null
           corporation_id: string | null
           created_at: string | null
@@ -4201,6 +4203,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           company_id?: string | null
           corporation_id?: string | null
           created_at?: string | null
@@ -4211,6 +4215,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           company_id?: string | null
           corporation_id?: string | null
           created_at?: string | null

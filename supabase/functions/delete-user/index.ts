@@ -58,8 +58,9 @@ Deno.serve(async (req) => {
 
     const isSuperAdmin = adminRoles.some(r => r.role === "super_admin");
 
-    const { userId } = await req.json();
-    requestSummary = { targetUserId: userId };
+    // mode: "archive" (default) or "permanent"
+    const { userId, mode = "archive" } = await req.json();
+    requestSummary = { targetUserId: userId, mode };
 
     if (!userId) {
       return new Response(JSON.stringify({ error: "User ID is required" }), {
@@ -121,6 +122,55 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── ARCHIVE MODE (soft delete) ──
+    if (mode === "archive") {
+      const { error: archiveError } = await supabaseAdmin
+        .from("profiles")
+        .update({ archived_at: new Date().toISOString(), archived_by: requestingUser.id })
+        .eq("id", userId);
+
+      if (archiveError) {
+        logEdgeFunctionRun({
+          functionName: 'delete-user',
+          companyId: targetCompanyId,
+          userId: requestingUserId,
+          requestSummary,
+          status: 'error',
+          durationMs: Date.now() - startTime,
+          errorMessage: archiveError.message,
+        });
+        return new Response(JSON.stringify({ error: archiveError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Also ban the user in auth so they can't log in
+      const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        ban_duration: '876000h', // ~100 years
+      });
+
+      if (banError) {
+        console.error("Failed to ban archived user:", banError.message);
+      }
+
+      logEdgeFunctionRun({
+        functionName: 'delete-user',
+        companyId: targetCompanyId,
+        userId: requestingUserId,
+        requestSummary,
+        responseSummary: { archivedUserId: userId },
+        status: 'success',
+        durationMs: Date.now() - startTime,
+      });
+
+      return new Response(JSON.stringify({ success: true, mode: "archived" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── PERMANENT DELETE MODE ──
     // Nullify audit_logs references to avoid FK constraint violation
     await supabaseAdmin
       .from("audit_logs")
@@ -156,7 +206,7 @@ Deno.serve(async (req) => {
       durationMs: Date.now() - startTime,
     });
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, mode: "permanent" }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
