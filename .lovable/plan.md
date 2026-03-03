@@ -1,48 +1,29 @@
 
 
-## Updated Plan: Soft-delete project on estimate deletion (only if no sibling estimates)
+## Plan: Delete All Demo Co Estimates and Proposals
 
-### Problem
-When an estimate is deleted, its linked project remains orphaned — but only if that was the **last** estimate on the project. Projects can have multiple estimates (confirmed: up to 8 in production data).
+**Company**: Demo Co #1 (`d95f6df1-ef3c-4e12-8743-69c6bfb280bc`)
 
-### Approach
-In the `deleteMutation` in `src/pages/Estimates.tsx`, after deleting the estimate:
+### Current State
+- **42 estimates** — all with zero groups and zero line items (empty shells)
+- **0 portal tokens** referencing these estimates
+- **0 generation jobs** referencing these estimates
+- **16 projects** linked to these estimates
 
-1. If the deleted estimate had a `project_id`, query how many **remaining** estimates still reference that project.
-2. If zero remain, call `soft_delete_early_stage_project(project_id)` to archive the project.
-3. If other estimates still exist, leave the project alone.
-4. Invalidate project/production query caches so the UI updates.
+### Deletion Steps (executed via Supabase data operations)
 
-### Changes
+1. **Delete `estimate_line_items`** for Demo Co estimates (currently 0, but included for safety)
+2. **Delete `estimate_groups`** for Demo Co estimates (currently 0, same reason)
+3. **Delete `estimates`** where `company_id = 'd95f6df1-...-69c6bfb280bc'` — removes all 42 records
+4. **Update linked projects** — clear `project_status` back or leave as-is (the projects themselves remain; only the estimate records are removed)
 
-**File: `src/pages/Estimates.tsx`**
+### What This Does NOT Touch
+- Projects themselves remain intact (only estimate records are deleted)
+- No other company's data is affected
+- No schema changes required
 
-Inside the `deleteMutation.mutationFn`, after the estimate row is deleted and before opportunity value recalculation:
-
-```typescript
-// After deleting the estimate row...
-
-// If project was linked, check if any other estimates still reference it
-if (projectId) {
-  const { count } = await supabase
-    .from("estimates")
-    .select("id", { count: "exact", head: true })
-    .eq("project_id", projectId);
-
-  if (count === 0) {
-    // No remaining estimates — soft-delete the project if early-stage
-    await supabase.rpc("soft_delete_early_stage_project", {
-      p_project_id: projectId,
-    });
-  }
-}
-```
-
-In `onSuccess`, add cache invalidation for projects:
-```typescript
-queryClient.invalidateQueries({ queryKey: ["projects"] });
-queryClient.invalidateQueries({ queryKey: ["production"] });
-```
-
-No database changes needed — `soft_delete_early_stage_project` RPC already exists and handles status validation and access control.
+### Technical Details
+- Deletions use the Supabase insert/data tool (DELETE statements)
+- Order matters: child tables first (line items → groups → estimates) to avoid FK violations
+- All scoped by `company_id` to ensure strict tenant isolation
 
