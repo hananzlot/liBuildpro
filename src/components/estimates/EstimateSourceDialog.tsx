@@ -79,19 +79,24 @@ export function EstimateSourceDialog({
       let contactMapByGhlId = new Map<string, { id: string | null; name: string | null; email: string | null; phone: string | null; source: string | null }>();
       
       if (contactUuids.length > 0) {
-        const { data: contacts } = await supabase
-          .from("contacts")
-          .select("id, ghl_id, contact_name, email, phone, source")
-          .in("id", contactUuids);
-        
-        contacts?.forEach(c => {
-          contactMapByUuid.set(c.id, {
-            name: c.contact_name,
-            email: c.email,
-            phone: c.phone,
-            source: c.source,
+        // Batch contact lookups to avoid URL-too-long errors (max ~200 per query)
+        const BATCH_SIZE = 150;
+        for (let i = 0; i < contactUuids.length; i += BATCH_SIZE) {
+          const batch = contactUuids.slice(i, i + BATCH_SIZE);
+          const { data: contacts } = await supabase
+            .from("contacts")
+            .select("id, ghl_id, contact_name, email, phone, source")
+            .in("id", batch);
+          
+          contacts?.forEach(c => {
+            contactMapByUuid.set(c.id, {
+              name: c.contact_name,
+              email: c.email,
+              phone: c.phone,
+              source: c.source,
+            });
           });
-        });
+        }
       }
       
       if (contactGhlIds.length > 0) {

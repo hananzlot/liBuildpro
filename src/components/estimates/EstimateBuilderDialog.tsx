@@ -1080,6 +1080,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Important: Must wait for draft restore attempt to complete, otherwise the reset effect
   // will wipe out the populated data. Only populate if no draft was restored.
   useEffect(() => {
+    const populateFromOpportunity = async () => {
     if (open && linkedOpportunity && !estimateId && didAttemptDraftRestore && !draftRestored) {
       // Set opportunity tracking (only if there's a real opportunity ID)
       if (linkedOpportunity.id) {
@@ -1102,16 +1103,40 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       const workScope = initialWorkScope || linkedOpportunity.scope_of_work || "";
       
       // Auto-fill form data from opportunity
+      // If contact_name/email are missing but we have a contact_uuid, fetch from DB
+      let contactName = linkedOpportunity.contact_name || null;
+      let contactEmail = linkedOpportunity.contact_email || null;
+      let contactPhone = linkedOpportunity.contact_phone || null;
+      
+      if (linkedOpportunity.contact_uuid && (!contactName || !contactEmail)) {
+        try {
+          const { data: contact } = await supabase
+            .from("contacts")
+            .select("contact_name, email, phone")
+            .eq("id", linkedOpportunity.contact_uuid)
+            .maybeSingle();
+          if (contact) {
+            contactName = contactName || contact.contact_name;
+            contactEmail = contactEmail || contact.email;
+            contactPhone = contactPhone || contact.phone;
+          }
+        } catch (err) {
+          console.warn("Failed to fetch contact info for estimate:", err);
+        }
+      }
+      
       setFormData(prev => ({
         ...prev,
-        customer_name: linkedOpportunity.contact_name || prev.customer_name,
-        customer_email: linkedOpportunity.contact_email || prev.customer_email,
-        customer_phone: linkedOpportunity.contact_phone || prev.customer_phone,
+        customer_name: contactName || prev.customer_name,
+        customer_email: contactEmail || prev.customer_email,
+        customer_phone: contactPhone || prev.customer_phone,
         job_address: linkedOpportunity.address || prev.job_address,
         work_scope_description: workScope || prev.work_scope_description,
         salesperson_name: linkedOpportunity.salesperson_name || prev.salesperson_name,
       }));
     }
+    };
+    populateFromOpportunity();
   }, [open, linkedOpportunity, estimateId, initialWorkScope, didAttemptDraftRestore, draftRestored]);
 
   // Apply default terms when they're loaded for new estimates
