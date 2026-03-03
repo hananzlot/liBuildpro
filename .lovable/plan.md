@@ -1,96 +1,44 @@
 
 
-## Better Email Onboarding: One Platform Account, Many Company Domains
+## Plan: Make the Super Admin UI control the platform Resend API key
 
-### The Core Insight
+**Problem**: The edge functions read `RESEND_API_KEY` from `Deno.env` (Supabase secrets), but the Super Admin UI saves to the `app_settings` database table. They're disconnected — changing the key in the UI does nothing.
 
-You do **not** need a separate Resend account per company. Resend supports **multiple verified domains under a single account**. You can send emails on behalf of any company using your one platform API key — each company just needs to add DNS records to verify their domain.
+**Solution**: Update `getResendApiKey()` in `supabase/functions/_shared/get-resend-key.ts` to first check `app_settings` for a `resend_api_key` row, and fall back to `Deno.env.get("RESEND_API_KEY")` if not found.
 
-### Current (Inefficient) Flow
+### Changes
 
-1. Each company creates their own Resend account
-2. They generate an API key
-3. They paste it into your admin UI
-4. You encrypt and store it per company
-5. Edge functions try the company key, then fall back to the platform key
+1. **Update `get-resend-key.ts`** — modify `getResendApiKey()` to:
+   - Accept a service-role Supabase client (already passed but ignored as `_supabase`)
+   - Query `app_settings` for `setting_key = 'resend_api_key'`
+   - If found and non-empty, use that value
+   - Otherwise fall back to `Deno.env.get("RESEND_API_KEY")`
 
-### Proposed (Streamlined) Flow
+2. **Seed the `app_settings` row** — create a migration to insert a `resend_api_key` row in `app_settings` if it doesn't exist (empty value), so the UI can display and update it.
 
-1. **You** maintain one Resend account with one API key (the platform `RESEND_API_KEY`)
-2. When onboarding a company, they provide their domain (e.g., `zbrosgroup.com`)
-3. Your app calls the Resend API to programmatically add the domain and get DNS records
-4. The company adds the DNS records (SPF, DKIM, DMARC) — you show them in-app
-5. Your app polls Resend to check verification status
-6. Once verified, emails send from `noreply@theircompany.com` using **your** single API key
+3. **Redeploy all edge functions** that import `get-resend-key.ts` (11 functions) so they pick up the new logic.
 
-### What Changes
+4. **Update `manage-email-domain/index.ts`** — it reads `RESEND_API_KEY` directly from `Deno.env`. Change it to also use the shared `getResendApiKey()` function for consistency.
 
-**New: Company Email Domain Onboarding UI**
-- Admin settings page per company: "Enter your email domain"
-- Calls Resend's `POST /domains` API to register the domain
-- Displays the required DNS records (TXT, CNAME) for the company to add
-- "Check Verification" button that calls Resend's `GET /domains/{id}` to check status
-- Stores domain + verification status in `company_settings`
+### Technical detail
 
-**New: Edge Function `manage-email-domain`**
-- Handles domain registration, verification checking, and deletion via the Resend API
-- Uses the single platform `RESEND_API_KEY` — no per-company keys needed
+The `getResendApiKey` function will change from:
+```ts
+// Current: only reads env var
+return Deno.env.get("RESEND_API_KEY") || null;
+```
+To:
+```ts
+// New: DB first, env fallback
+const { data } = await supabase
+  .from("app_settings")
+  .select("setting_value")
+  .eq("setting_key", "resend_api_key")
+  .maybeSingle();
 
-**Simplified: Email Sending**
-- All 10 business email functions use the platform `RESEND_API_KEY`
-- The "from" address is built dynamically: `noreply@{company_domain}` or falls back to the platform default
-- Remove the per-company encrypted key infrastructure (`store_resend_api_key_encrypted`, `get_resend_api_key_encrypted`, `get-resend-key.ts`)
-
-**Database Changes**
-- Add `company_settings` entries for `email_domain`, `email_domain_resend_id`, `email_domain_verified`, `email_from_name`
-- Or a new `company_email_domains` table with columns: `company_id`, `domain`, `resend_domain_id`, `verified`, `dns_records` (JSONB), `verified_at`
-
-### Onboarding Experience
-
-```text
-Company Admin Settings → Email Setup
-
-┌──────────────────────────────────────────┐
-│  Email Domain: zbrosgroup.com    [Save]  │
-│                                          │
-│  Status: ⏳ Pending DNS verification     │
-│                                          │
-│  Add these DNS records:                  │
-│  ┌──────────────────────────────────┐    │
-│  │ Type: TXT                        │    │
-│  │ Host: _resend.zbrosgroup.com     │    │
-│  │ Value: v=spf1 include:...        │    │
-│  └──────────────────────────────────┘    │
-│  ┌──────────────────────────────────┐    │
-│  │ Type: CNAME                      │    │
-│  │ Host: resend._domainkey...       │    │
-│  │ Value: ...                       │    │
-│  └──────────────────────────────────┘    │
-│                                          │
-│  [Check Verification]                    │
-│                                          │
-│  Once verified, emails will be sent      │
-│  from: noreply@zbrosgroup.com            │
-└──────────────────────────────────────────┘
+if (data?.setting_value) return data.setting_value;
+return Deno.env.get("RESEND_API_KEY") || null;
 ```
 
-### Auth Emails (Separate Concern)
-
-For auth emails (signup, password reset, magic links), use Lovable's managed auth email system — this is completely separate from business/portal emails and needs no Resend at all.
-
-### Implementation Steps
-
-1. Create `company_email_domains` table with domain, Resend domain ID, verification status, DNS records
-2. Create `manage-email-domain` edge function (register domain, check verification, delete)
-3. Build company-level email domain setup UI with DNS record display
-4. Update `_shared/get-resend-key.ts` to always use the platform key and look up the company's verified domain for the "from" address
-5. Remove per-company Resend API key encryption infrastructure
-6. Set up Lovable managed auth emails for auth-related emails
-
-### Technical Details
-
-- Resend API for domain management: `POST /domains`, `GET /domains/{id}`, `DELETE /domains/{id}`
-- DNS records returned by Resend include SPF, DKIM, and optionally DMARC — all displayed to the company admin
-- The platform `RESEND_API_KEY` env var (already exists) is the only key needed
-- Fallback: companies without a verified domain use your platform default sender (e.g., `noreply@zbrosgroup.com`)
+This means you can manage the key from Super Admin → App Default Settings, and all email functions will use it immediately without redeploying.
 
