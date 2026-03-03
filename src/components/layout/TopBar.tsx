@@ -22,7 +22,6 @@ const ADMIN_QUICK_MENU = [
     { title: "General", icon: Settings, tab: "settings" },
     { title: "Compliance", icon: FileSignature, tab: "compliance" },
     { title: "Chat", icon: MessageSquare, tab: "chat" },
-    { title: "Emails", icon: Mail, tab: "settings&category=emails" },
   ]},
   { label: "Integrations", items: [
     { title: "GoHighLevel", icon: LinkIcon, tab: "integrations" },
