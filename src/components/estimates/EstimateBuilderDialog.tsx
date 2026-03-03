@@ -21,7 +21,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Plus, Trash2, Save, Wand2, Loader2, GripVertical, 
   User, MapPin, Calendar, DollarSign, Percent, FileText,
-  ChevronDown, ChevronRight, FolderPlus, TrendingUp, Copy,
+  ChevronDown, ChevronRight, ChevronLeft, FolderPlus, TrendingUp, Copy,
   Upload, X, FileIcon, ArrowRight, AlertCircle, HelpCircle, CheckCircle2, Eye, Image
 } from "lucide-react";
 import { toast } from "sonner";
@@ -327,7 +327,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Prevent initial auto-save from overwriting an existing draft with empty defaults.
   // We only start auto-saving after we've attempted to restore from sessionStorage/DB.
   const [didAttemptDraftRestore, setDidAttemptDraftRestore] = useState(false);
-  
+
+  // Summary sidebar collapsed state (horizontal accordion)
+  const [summaryOpen, setSummaryOpen] = useState(false);
+
   // Draft persistence hook - saves form state to sessionStorage so it survives focus loss
   const { saveDraft, loadDraft, clearDraft } = useEstimateDraft(sourceEstimateId, open);
 
@@ -5029,104 +5032,125 @@ The more detail you provide, the more accurate the AI-generated estimate will be
             </Tabs>
           </div>
 
-          {/* Right Sidebar - Totals with Profit Metrics */}
-          <Collapsible defaultOpen={false} className="w-80 border-l bg-muted/30">
-            <div className="p-4">
-              <CollapsibleTrigger className="flex items-center justify-between w-full group">
-                <h3 className="font-semibold">Estimate Summary</h3>
-                <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-              </CollapsibleTrigger>
-            </div>
-            <CollapsibleContent className="px-4 pb-4 overflow-y-auto">
-            <div className="space-y-3 text-sm">
-              {/* Cost & Profit Section */}
-              <div className="p-3 bg-background rounded-lg border space-y-2">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Total Cost</span>
-                  <span>{formatCurrency(totals.totalCost)}</span>
-                </div>
-                <div className="flex justify-between text-green-600">
-                  <span>Gross Profit</span>
-                  <span className="font-medium">{formatCurrency(totals.grossProfit)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Margin</span>
-                  <span className={`font-medium ${totals.marginPercent >= 30 ? 'text-green-600' : totals.marginPercent >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
-                    {totals.marginPercent.toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal (Selling)</span>
-                <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
-              </div>
-              
-              {totals.discountAmount > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>Discount</span>
-                  <span>-{formatCurrency(totals.discountAmount)}</span>
-                </div>
-              )}
-              
-              <Separator />
-              
-              <div className="flex justify-between text-lg font-bold">
-                <span>Total</span>
-                <span>{formatCurrency(totals.total)}</span>
-              </div>
-              
-              {formData.deposit_required && (
-                <div className="flex justify-between text-primary">
-                  <span>Deposit</span>
-                  <span className="font-medium">{formatCurrency(totals.depositAmount)}</span>
-                </div>
-              )}
-            </div>
-
-            <Separator className="my-4" />
-
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Default Markup</span>
-                <span>{formData.default_markup_percent}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Areas</span>
-                <span>{groups.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Line Items</span>
-                <span>{groups.reduce((sum, g) => sum + g.items.length, 0)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Payment Phases</span>
-                <span>{paymentSchedule.length}</span>
-              </div>
-            </div>
-
-            {groups.length > 0 && (
-              <>
-                <Separator className="my-4" />
-                <h4 className="font-medium mb-2 text-sm">By Area</h4>
-                <div className="space-y-2 text-sm">
-                  {groups.map((group) => (
-                    <div key={group.id} className="flex justify-between items-start gap-2">
-                      <span className="text-muted-foreground flex-1 break-words">
-                        {group.group_name}
-                      </span>
-                      <span className="font-medium shrink-0">
-                        {formatCurrency(group.items.reduce((sum, i) => sum + i.line_total, 0))}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </>
+          {/* Right Sidebar - Totals with Profit Metrics (horizontal accordion) */}
+          <div className={`border-l bg-muted/30 transition-all duration-300 flex ${summaryOpen ? 'w-80' : 'w-8'}`}>
+            {/* Collapsed tab */}
+            {!summaryOpen && (
+              <button
+                onClick={() => setSummaryOpen(true)}
+                className="w-8 h-full flex items-center justify-center hover:bg-muted/50 transition-colors"
+                title="Open Estimate Summary"
+              >
+                <span className="writing-mode-vertical text-xs font-semibold text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                  <ChevronLeft className="h-3 w-3" />
+                  Summary
+                </span>
+              </button>
             )}
-            </CollapsibleContent>
-          </Collapsible>
+            {/* Expanded content */}
+            {summaryOpen && (
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4">
+                  <button
+                    onClick={() => setSummaryOpen(false)}
+                    className="flex items-center justify-between w-full group"
+                  >
+                    <h3 className="font-semibold">Estimate Summary</h3>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </div>
+                <div className="px-4 pb-4">
+                  <div className="space-y-3 text-sm">
+                    {/* Cost & Profit Section */}
+                    <div className="p-3 bg-background rounded-lg border space-y-2">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Total Cost</span>
+                        <span>{formatCurrency(totals.totalCost)}</span>
+                      </div>
+                      <div className="flex justify-between text-green-600">
+                        <span>Gross Profit</span>
+                        <span className="font-medium">{formatCurrency(totals.grossProfit)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Margin</span>
+                        <span className={`font-medium ${totals.marginPercent >= 30 ? 'text-green-600' : totals.marginPercent >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
+                          {totals.marginPercent.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal (Selling)</span>
+                      <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
+                    </div>
+                    
+                    {totals.discountAmount > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Discount</span>
+                        <span>-{formatCurrency(totals.discountAmount)}</span>
+                      </div>
+                    )}
+                    
+                    <Separator />
+                    
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Total</span>
+                      <span>{formatCurrency(totals.total)}</span>
+                    </div>
+                    
+                    {formData.deposit_required && (
+                      <div className="flex justify-between text-primary">
+                        <span>Deposit</span>
+                        <span className="font-medium">{formatCurrency(totals.depositAmount)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Default Markup</span>
+                      <span>{formData.default_markup_percent}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Areas</span>
+                      <span>{groups.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Line Items</span>
+                      <span>{groups.reduce((sum, g) => sum + g.items.length, 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Payment Phases</span>
+                      <span>{paymentSchedule.length}</span>
+                    </div>
+                  </div>
+
+                  {groups.length > 0 && (
+                    <>
+                      <Separator className="my-4" />
+                      <h4 className="font-medium mb-2 text-sm">By Area</h4>
+                      <div className="space-y-2 text-sm">
+                        {groups.map((group) => (
+                          <div key={group.id} className="flex justify-between items-start gap-2">
+                            <span className="text-muted-foreground flex-1 break-words">
+                              {group.group_name}
+                            </span>
+                            <span className="font-medium shrink-0">
+                              {formatCurrency(group.items.reduce((sum, i) => sum + i.line_total, 0))}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         </DialogContent>
       </Dialog>
