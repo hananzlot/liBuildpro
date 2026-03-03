@@ -366,8 +366,8 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               {/* Left: Project Info */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge className={`${getStatusColor(activeEstimates.length > 1 ? 'Proposal' : (project.project_status || 'Proposal'))} text-white border-0 px-2 py-0.5 text-xs`}>
-                    {activeEstimates.length > 1 ? `${activeEstimates.length} Proposals` : (project.project_status || 'Proposal')}
+                  <Badge className={`${getStatusColor(activeEstimates.length >= 1 ? 'Proposal' : (project.project_status || 'Proposal'))} text-white border-0 px-2 py-0.5 text-xs`}>
+                    {activeEstimates.length > 1 ? `${activeEstimates.length} Proposals` : activeEstimates.length === 1 ? 'Proposal' : (project.project_status || 'Proposal')}
                   </Badge>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
