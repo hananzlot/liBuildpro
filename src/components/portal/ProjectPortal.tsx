@@ -371,17 +371,33 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                     : (project.project_name || 'Your Project')
                   }
                 </h2>
-                {/* Show all estimate titles if multiple estimates exist */}
-                {estimates.length > 1 && (
-                  <div className="mt-1 space-y-0.5">
-                    {estimates.map((est: any) => (
-                      <p key={est.id} className="text-white/80 text-sm flex items-center gap-2">
-                        <FileText className="h-3 w-3" />
-                        {est.estimate_title}
-                      </p>
-                    ))}
-                  </div>
-                )}
+                {/* Show estimate titles if multiple estimates exist, deduplicated */}
+                {estimates.length > 1 && (() => {
+                  const uniqueTitles = [...new Set(estimates.map((est: any) => est.estimate_title).filter(Boolean))];
+                  // If all titles are the same (or just the customer name), show estimate numbers instead
+                  if (uniqueTitles.length <= 1) {
+                    return (
+                      <div className="mt-1 space-y-0.5">
+                        {estimates.map((est: any) => (
+                          <p key={est.id} className="text-white/80 text-sm flex items-center gap-2">
+                            <FileText className="h-3 w-3" />
+                            Proposal #{est.estimate_number}
+                          </p>
+                        ))}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="mt-1 space-y-0.5">
+                      {estimates.map((est: any) => (
+                        <p key={est.id} className="text-white/80 text-sm flex items-center gap-2">
+                          <FileText className="h-3 w-3" />
+                          {est.estimate_title}
+                        </p>
+                      ))}
+                    </div>
+                  );
+                })()}
                 {project.project_address && (
                   <p className="text-white/70 flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4" />
