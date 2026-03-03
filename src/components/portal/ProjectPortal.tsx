@@ -366,9 +366,19 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               {/* Left: Project Info */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge className={`${getStatusColor(activeEstimates.length >= 1 ? 'Proposal' : (project.project_status || 'Proposal'))} text-white border-0 px-2 py-0.5 text-xs`}>
-                    {activeEstimates.length > 1 ? `${activeEstimates.length} Proposals` : activeEstimates.length === 1 ? 'Proposal' : (project.project_status || 'Proposal')}
-                  </Badge>
+                  {(() => {
+                    const pendingEstimates = activeEstimates.filter((e: any) => e.status !== 'accepted');
+                    const statusLabel = pendingEstimates.length > 1 
+                      ? `${pendingEstimates.length} Proposals` 
+                      : pendingEstimates.length === 1 
+                        ? 'Proposal' 
+                        : (project.project_status || 'New Job');
+                    return (
+                      <Badge className={`${getStatusColor(statusLabel)} text-white border-0 px-2 py-0.5 text-xs`}>
+                        {statusLabel}
+                      </Badge>
+                    );
+                  })()}
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                   {activeEstimates.length > 1 
