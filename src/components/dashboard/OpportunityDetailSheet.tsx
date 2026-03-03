@@ -3250,7 +3250,7 @@ export function OpportunityDetailSheet({
                       <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handleSaveEmail} disabled={isSavingEmail}>
                         {isSavingEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setIsEditingEmail(false)}>
+                      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => { setIsEditingEmail(false); setEmailValidationError(null); }}>
                         <X className="h-3 w-3" />
                       </Button>
                     </div>
@@ -3259,6 +3259,7 @@ export function OpportunityDetailSheet({
                       <button
                         onClick={() => {
                           setEditedEmail(savedEmail ?? contact?.email ?? "");
+                          setEmailValidationError(null);
                           setIsEditingEmail(true);
                         }}
                         className="hover:underline text-left truncate"
