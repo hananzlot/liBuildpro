@@ -984,8 +984,10 @@ export type Database = {
           from_email: string | null
           from_name: string | null
           id: string
+          reply_to_email: string | null
           resend_domain_id: string | null
           updated_at: string
+          use_platform_domain: boolean
           verified: boolean
           verified_at: string | null
         }
@@ -997,8 +999,10 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          reply_to_email?: string | null
           resend_domain_id?: string | null
           updated_at?: string
+          use_platform_domain?: boolean
           verified?: boolean
           verified_at?: string | null
         }
@@ -1010,8 +1014,10 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          reply_to_email?: string | null
           resend_domain_id?: string | null
           updated_at?: string
+          use_platform_domain?: boolean
           verified?: boolean
           verified_at?: string | null
         }
