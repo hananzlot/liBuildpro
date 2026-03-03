@@ -20,7 +20,7 @@ import { DateRangeAppointmentsSheet } from "@/components/dashboard/DateRangeAppo
 import { CallLogsSheet } from "@/components/dashboard/CallLogsSheet";
 import { ActivitySheet } from "@/components/dashboard/ActivitySheet";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
-import { SourceManagement } from "@/components/dashboard/SourceManagement";
+
 import { UserManagement } from "@/components/dashboard/UserManagement";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
@@ -86,7 +86,7 @@ const Index = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [appointmentDetailSheetOpen, setAppointmentDetailSheetOpen] = useState(false);
   const [openedFromActivity, setOpenedFromActivity] = useState(false);
-  const [sourceManagementOpen, setSourceManagementOpen] = useState(false);
+  
   const [adminCleanupOpen, setAdminCleanupOpen] = useState(false);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [newEntryMode, setNewEntryMode] = useState<"entry" | "contact" | "opportunity">(() => {
@@ -173,7 +173,7 @@ const Index = () => {
         setAdminCleanupOpen(true);
         break;
       case 'sources':
-        setSourceManagementOpen(true);
+        navigate('/admin/settings?tab=sources');
         break;
       case 'users':
         setUserManagementOpen(true);
@@ -493,12 +493,8 @@ const Index = () => {
           </div>
         )}
 
-        {/* Source Management Dialog */}
-        <SourceManagement 
-          contacts={metrics?.allContacts || []} 
-          open={sourceManagementOpen} 
-          onOpenChange={setSourceManagementOpen} 
-        />
+
+
 
         {/* User Management Dialog */}
         <UserManagement open={userManagementOpen} onOpenChange={setUserManagementOpen} />
