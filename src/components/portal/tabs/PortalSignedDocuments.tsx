@@ -33,6 +33,9 @@ interface SignedDocument {
   signed_at: string | null;
   status: string;
   created_at: string;
+  signature_data: string | null;
+  signature_type: string | null;
+  signature_font: string | null;
 }
 
 export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDocumentsProps) {
@@ -144,6 +147,25 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
                           </p>
                         )}
                       </div>
+                      {/* Render e-signature */}
+                      {doc.signature_data && (
+                        <div className="mt-2 p-2 bg-white rounded border border-green-200 inline-block">
+                          {doc.signature_type === 'drawn' ? (
+                            <img
+                              src={doc.signature_data}
+                              alt={`Signature by ${doc.signer_name}`}
+                              className="h-10 max-w-[200px] object-contain"
+                            />
+                          ) : (
+                            <span
+                              className="text-lg italic font-semibold text-foreground"
+                              style={doc.signature_font ? { fontFamily: doc.signature_font } : undefined}
+                            >
+                              {doc.signature_data}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
