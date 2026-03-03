@@ -11,14 +11,14 @@ import { useAnalyticsPermissions, ANALYTICS_REPORTS } from "@/hooks/useAnalytics
 import { VersionBumpDialog } from "@/components/layout/VersionBumpDialog";
 import { AIQueueSheet } from "@/components/admin/AIQueueSheet";
 import { CompanySwitcher } from "@/components/layout/CompanySwitcher";
-import { UserSimulationPicker } from "@/components/layout/UserSimulationPicker";
+
 import { useLocation, useNavigate } from "react-router-dom";
 import { QuickCreateProjectSelector, type QuickCreateAction } from "./QuickCreateProjectSelector";
 import { useAppTabs } from "@/contexts/AppTabsContext";
 import { 
   LayoutDashboard, Briefcase, ListChecks, ExternalLink, LogOut, Key, User,
   Wrench, Settings, Pencil, Users, FileText, ChevronRight, ChevronDown, BarChart3,
-  FolderKanban, HardHat, Eye, EyeOff, Calculator, FileSignature, Send,
+  FolderKanban, HardHat, Eye, Calculator, FileSignature, Send,
   Building2, Calendar, CalendarDays, ClipboardList, Contact, BrainCircuit,
   Landmark, Pin, PinOff, Mail, MessageSquare, Link, DollarSign, Sparkles,
   Link2, Shield, Award, Plus, ChevronsUpDown, Activity, Receipt, CreditCard,
@@ -165,7 +165,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     user, profile, company, isAdmin, isSuperAdmin, isCorpAdmin, isMagazine, isProduction, 
     isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, 
     setSimulatedRole, availableRoles, canUseFeature, isViewingOtherCompany,
-    simulatedUserId, simulatedUserName, simulateAsUser, clearSimulation,
     hasMultipleCompanies
   } = useAuth();
   const { versionString, version } = useAppVersion();
@@ -616,58 +615,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                       </SidebarMenuItem>
                     )}
 
-                    {/* Role / User Simulation */}
-                    <SidebarMenuItem>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <SidebarMenuButton tooltip="Simulate" className={cn(ITEM_CLS, DEFAULT_CLS)}>
-                            {isSimulating ? <EyeOff className={ICON_CLS} /> : <Eye className={ICON_CLS} />}
-                            {!collapsed && (
-                              <span className="flex items-center gap-2 truncate">
-                                Simulate
-                                {isSimulating && (
-                                  <span className="inline-flex items-center h-4 px-1 rounded text-[9px] font-medium bg-blue-500/20 text-blue-400">
-                                    {simulatedUserId ? (simulatedUserName || 'User') : simulatedRole}
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                          </SidebarMenuButton>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent side="right" align="start" className="w-56">
-                          <DropdownMenuLabel>View as Role</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuRadioGroup value={simulatedUserId ? '' : (simulatedRole || '')} onValueChange={(v) => {
-                            if (v === '') { clearSimulation(); toast.info("Simulation disabled"); openTab('/', 'Dashboard'); }
-                            else { setSimulatedRole(v as AppRole); toast.info(`Now viewing as: ${v}`); }
-                          }}>
-                            <DropdownMenuRadioItem value="">
-                              <span className="flex items-center gap-2">My Actual Role {!isSimulating && <Badge variant="outline" className="h-4 px-1 text-[9px]">Active</Badge>}</span>
-                            </DropdownMenuRadioItem>
-                            <DropdownMenuSeparator />
-                            {availableRoles.map(r => <DropdownMenuRadioItem key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1).replace(/_/g, ' ')}</DropdownMenuRadioItem>)}
-                          </DropdownMenuRadioGroup>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuLabel>View as User</DropdownMenuLabel>
-                          <UserSimulationPicker
-                            onSelectUser={simulateAsUser}
-                            trigger={
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
-                                <Users className="h-4 w-4 mr-2" />
-                                {simulatedUserId ? (
-                                  <span className="flex items-center gap-2">
-                                    {simulatedUserName}
-                                    <Badge variant="outline" className="h-4 px-1 text-[9px]">Active</Badge>
-                                  </span>
-                                ) : (
-                                  "Pick a user…"
-                                )}
-                              </DropdownMenuItem>
-                            }
-                          />
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </SidebarMenuItem>
 
                     {/* AI Queue */}
                     <SidebarMenuItem>
