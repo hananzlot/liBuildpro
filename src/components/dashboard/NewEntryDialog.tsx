@@ -1362,7 +1362,7 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                       <Label htmlFor="contactEmail">Email</Label>
                       <Input
                         id="contactEmail"
-                        type="email"
+                        type="text"
                         value={email}
                         onChange={(e) => handleEmailChange(e.target.value)}
                         onBlur={handleEmailBlur}
@@ -1509,7 +1509,7 @@ export function NewEntryDialog({ users, onSuccess, userId, externalOpen, onExter
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs">Email</Label>
-                            <Input type="email" value={email} onChange={(e) => handleEmailChange(e.target.value)} onBlur={handleEmailBlur} placeholder="email@example.com" />
+                            <Input type="text" value={email} onChange={(e) => handleEmailChange(e.target.value)} onBlur={handleEmailBlur} placeholder="email@example.com" />
                             {emailError && <p className="text-xs text-destructive">{emailError}</p>}
                           </div>
                         </div>
