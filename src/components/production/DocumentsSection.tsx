@@ -172,17 +172,41 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     },
   });
 
-  // Fetch signed compliance documents
+  // Fetch signed compliance documents (may be linked by project_id or via estimate)
   const { data: complianceDocuments = [] } = useQuery({
     queryKey: ["project-compliance-docs", projectId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First try direct project_id match
+      const { data: directDocs, error: err1 } = await supabase
         .from("signed_compliance_documents")
         .select("id, document_name, file_url, signed_file_url, signed_at, status, signer_name, created_at")
         .eq("project_id", projectId)
         .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data.map(d => ({
+      if (err1) throw err1;
+
+      // Also find docs linked via estimates that belong to this project (project_id may be null on the doc)
+      const { data: estimateIds } = await supabase
+        .from("estimates")
+        .select("id")
+        .eq("project_id", projectId);
+
+      let viaDocs: typeof directDocs = [];
+      if (estimateIds && estimateIds.length > 0) {
+        const ids = estimateIds.map(e => e.id);
+        const { data, error: err2 } = await supabase
+          .from("signed_compliance_documents")
+          .select("id, document_name, file_url, signed_file_url, signed_at, status, signer_name, created_at")
+          .in("estimate_id", ids)
+          .order("created_at", { ascending: true });
+        if (err2) throw err2;
+        viaDocs = data || [];
+      }
+
+      // Merge and deduplicate by id
+      const allDocs = [...(directDocs || []), ...(viaDocs || [])];
+      const uniqueDocs = Array.from(new Map(allDocs.map(d => [d.id, d])).values());
+
+      return uniqueDocs.map(d => ({
         id: d.id,
         file_name: d.document_name + (d.status === 'signed' ? ' (Signed)' : ''),
         file_url: d.signed_file_url || d.file_url,
