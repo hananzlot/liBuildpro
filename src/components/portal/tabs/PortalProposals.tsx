@@ -477,12 +477,18 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       }
     },
     onSuccess: () => {
-      toast.success('Proposal signed successfully!');
+      // Close dialog and reset state first
       setSignatureDialogOpen(false);
       setSignatureData(null);
       setAgreedToTerms(false);
+      // Go back to proposals list so user sees updated status
+      setViewingProposal(false);
+      setSelectedEstimateId(null);
+      // Invalidate all relevant queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['estimate-details'] });
+      queryClient.invalidateQueries({ queryKey: ['project-portal'] });
       onRefresh?.();
+      toast.success('Proposal signed successfully! 🎉');
     },
     onError: (error: Error) => {
       toast.error(error.message);
