@@ -2963,12 +2963,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return { isValid: true, missing: [] as string[] };
   }, []);
 
-  // Helper to get validation error class for required fields
+  // Helper to get validation error class for required fields - always show red borders on empty required fields
   const getFieldErrorClass = useCallback((fieldValue: string | undefined | null) => {
-    if (!showValidationErrors) return "";
-    if (!fieldValue?.trim()) return "border-warning ring-1 ring-warning focus-visible:ring-warning";
+    if (!fieldValue?.trim()) return "border-destructive ring-1 ring-destructive/30 focus-visible:ring-destructive";
     return "";
-  }, [showValidationErrors]);
+  }, []);
 
   // Tab order for navigation - manual mode skips clarification
   const tabOrder: string[] = estimateMode === 'manual'
@@ -3215,7 +3214,28 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         <div className="flex flex-1 overflow-hidden">
           {/* Main Content Area */}
           <div className="flex-1 overflow-hidden">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            <Tabs value={activeTab} onValueChange={(newTab) => {
+              // Block navigation away from customer tab if required fields are missing
+              if (activeTab === 'customer' && newTab !== 'customer') {
+                const validation = validateCustomerTab();
+                if (!validation.isValid) {
+                  setShowValidationErrors(true);
+                  toast.error(`Please fill in: ${validation.missing.join(", ")}`);
+                  return;
+                }
+              }
+              // Block navigation away from scope tab if required fields are missing
+              if (activeTab === 'scope' && newTab !== 'scope' && newTab !== 'customer') {
+                const validation = validateScopeTab();
+                if (!validation.isValid) {
+                  setShowValidationErrors(true);
+                  toast.error(`Please fill in: ${validation.missing.join(", ")}`);
+                  return;
+                }
+              }
+              setShowValidationErrors(false);
+              setActiveTab(newTab);
+            }} className="h-full flex flex-col">
               <TabsList className="mx-6 mt-4 w-auto justify-start">
                 <TabsTrigger value="customer" className="flex items-center gap-2">
                   <User className="h-4 w-4" />
@@ -3446,7 +3466,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           }}
                           disabled={isProposalReadOnly}
                         >
-                          <SelectTrigger className={cn("h-8 text-sm", !formData.salesperson_name?.trim() ? "border-destructive" : "")}>
+                          <SelectTrigger className={cn("h-8 text-sm", getFieldErrorClass(formData.salesperson_name))}>
                             <SelectValue placeholder="Select salesperson..." />
                           </SelectTrigger>
                           <SelectContent>
