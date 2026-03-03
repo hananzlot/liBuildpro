@@ -173,13 +173,14 @@ export default function Estimates() {
       // First, get the estimate to find linked opportunity for value recalculation
       const { data: estimateToDelete } = await supabase
         .from("estimates")
-        .select("opportunity_id, opportunity_uuid")
+        .select("opportunity_id, opportunity_uuid, project_id")
         .eq("id", estimateId)
         .eq("company_id", companyId)
         .maybeSingle();
 
       const linkedOppGhlId = estimateToDelete?.opportunity_id;
       const linkedOppUuid = estimateToDelete?.opportunity_uuid;
+      const linkedProjectId = estimateToDelete?.project_id;
       
       // Get all client_portal_tokens for this estimate (we need ids to clean up dependent rows)
       const { data: tokens, error: tokenFetchError } = await supabase
@@ -272,6 +273,21 @@ export default function Estimates() {
 
       if (error) throw error;
 
+      // If project was linked, check if any other estimates still reference it
+      if (linkedProjectId) {
+        const { count } = await supabase
+          .from("estimates")
+          .select("id", { count: "exact", head: true })
+          .eq("project_id", linkedProjectId);
+
+        if (count === 0) {
+          // No remaining estimates — soft-delete the project if early-stage
+          await supabase.rpc("soft_delete_early_stage_project", {
+            p_project_id: linkedProjectId,
+          });
+        }
+      }
+
       // After successful deletion, recalculate opportunity value
       if (linkedOppGhlId) {
         await updateOpportunityValueFromEstimates(
@@ -284,6 +300,8 @@ export default function Estimates() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["estimates"] });
       queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["production"] });
       toast.success("Estimate deleted successfully");
     },
     onError: (error) => {
