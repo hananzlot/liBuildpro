@@ -178,7 +178,7 @@ export function OpportunitiesTable({
   tableDateRange: externalTableDateRange,
 }: OpportunitiesTableProps) {
   const { companyId } = useCompanyContext();
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const { openTab } = useAppTabs();
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
@@ -243,6 +243,47 @@ export function OpportunitiesTable({
   const [quickApptDate, setQuickApptDate] = useState("");
   const [quickApptTime, setQuickApptTime] = useState("09:00");
   const [isCreatingQuickAppt, setIsCreatingQuickAppt] = useState(false);
+  // Fetch company lead sources for inline editing
+  const { data: companyLeadSources = [] } = useQuery({
+    queryKey: ["lead-sources", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("lead_sources")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId && isAdmin,
+  });
+
+  // Inline source update handler
+  const handleInlineSourceUpdate = async (opp: Opportunity, newSource: string) => {
+    const contact = findContactByIdOrGhlId(contacts, opp.contact_uuid, opp.contact_id);
+    if (!contact) return;
+    const currentSource = contact.source || "";
+    if (newSource === currentSource) return;
+
+    try {
+      await supabase.functions.invoke("update-contact-source", {
+        body: {
+          contactId: opp.contact_id,
+          contactUuid: opp.contact_uuid,
+          source: newSource,
+          editedBy: user?.id || null,
+          opportunityGhlId: opp.ghl_id,
+        },
+      });
+      toast.success(`Source updated to "${newSource}"`);
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+    } catch (error) {
+      console.error("Error updating source:", error);
+      toast.error("Failed to update source");
+    }
+  };
 
   const uniqueStages = useMemo(() => {
     const stages = new Set<string>();
@@ -1311,7 +1352,27 @@ export function OpportunitiesTable({
                       </TableCell>
                       <TableCell className="text-xs">
                         <div className="flex flex-col gap-0.5 min-w-0">
-                         <span className="text-muted-foreground truncate" title={contact?.source || "-"}>{contact?.source || "-"}</span>
+                          {isAdmin && companyLeadSources.length > 0 ? (
+                            <Select
+                              value={contact?.source || ""}
+                              onValueChange={(val) => handleInlineSourceUpdate(opp, val)}
+                            >
+                              <SelectTrigger className="h-6 text-xs border-none bg-transparent shadow-none px-0 py-0 w-auto min-w-0 hover:bg-muted/50 rounded">
+                                <span className="truncate text-muted-foreground">
+                                  {contact?.source || "-"}
+                                </span>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {companyLeadSources.map((ls) => (
+                                  <SelectItem key={ls.id} value={ls.name} className="text-xs">
+                                    {ls.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-muted-foreground truncate" title={contact?.source || "-"}>{contact?.source || "-"}</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-xs">
