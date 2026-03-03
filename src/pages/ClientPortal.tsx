@@ -9,18 +9,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 // Set portal-specific browser tab title
-const usePortalTitle = () => {
+const usePortalTitle = (companyName?: string) => {
   useEffect(() => {
     const originalTitle = document.title;
-    document.title = 'CA Pro Customer Portal';
+    document.title = companyName
+      ? `${companyName} Customer Portal`
+      : 'Customer Portal';
     return () => {
       document.title = originalTitle;
     };
-  }, []);
+  }, [companyName]);
 };
 
 export default function ClientPortal() {
-  usePortalTitle();
   const [searchParams] = useSearchParams();
   const { token: pathToken } = useParams<{ token?: string }>();
   const [isPasscodeVerified, setIsPasscodeVerified] = useState(false);
@@ -29,7 +30,7 @@ export default function ClientPortal() {
   const token = pathToken || searchParams.get('token');
   const estimateToken = searchParams.get('estimate_token');
 
-  // Handle multi-signer estimate token - cache for 10 min to speed up portal loads
+  // Derive company_id from whichever token resolves first (used below)
   const { data: estimateTokenData, isLoading: isLoadingEstimateToken, error: estimateTokenError } = useQuery({
     queryKey: ['estimate-portal-token', estimateToken],
     queryFn: async () => {
@@ -98,6 +99,36 @@ export default function ClientPortal() {
     enabled: !!tokenData?.project_id && !isPasscodeVerified,
     staleTime: 10 * 60 * 1000,
   });
+
+  // Resolve company_id from available token data
+  const portalCompanyId = tokenData?.company_id || estimateTokenData?.company_id || null;
+
+  // Fetch company name for browser tab title
+  const { data: portalCompanyName } = useQuery({
+    queryKey: ['portal-company-name', portalCompanyId],
+    queryFn: async () => {
+      if (!portalCompanyId) return null;
+      // Try company_settings first
+      const { data: settings } = await supabase
+        .from('company_settings')
+        .select('setting_value')
+        .eq('company_id', portalCompanyId)
+        .eq('setting_key', 'company_name')
+        .maybeSingle();
+      if (settings?.setting_value) return settings.setting_value;
+      // Fallback to companies table
+      const { data: company } = await supabase
+        .from('companies')
+        .select('name')
+        .eq('id', portalCompanyId)
+        .maybeSingle();
+      return company?.name || null;
+    },
+    enabled: !!portalCompanyId,
+    staleTime: 30 * 60 * 1000,
+  });
+
+  usePortalTitle(portalCompanyName || undefined);
 
   const handlePasscodeVerified = useCallback(() => {
     setIsPasscodeVerified(true);
