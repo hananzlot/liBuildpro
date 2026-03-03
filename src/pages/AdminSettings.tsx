@@ -1043,6 +1043,30 @@ export default function AdminSettings() {
                       <SocialMediaLinks />
                       <InsuranceDocuments />
                       <LicenseCertificates />
+                      {/* Customer Portal Settings */}
+                      <Collapsible defaultOpen={false} className="group">
+                        <Card>
+                          <CollapsibleTrigger asChild>
+                            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                              <CardTitle className="flex items-center justify-between">
+                                <span className="flex items-center gap-2">
+                                  <Settings className="h-5 w-5" />
+                                  Customer Portal Settings
+                                </span>
+                                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                              </CardTitle>
+                              <CardDescription>
+                                Configure settings for the customer portal experience. The App Base URL is used for all portal links in emails (e.g., your custom domain).
+                              </CardDescription>
+                            </CardHeader>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <CardContent className="space-y-4 pt-0">
+                              {portalSettings?.map(renderSettingField)}
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Card>
+                      </Collapsible>
                     </>
                   )}
 
@@ -1135,30 +1159,6 @@ export default function AdminSettings() {
 
                   {settingsCategory === "operations" && (
                     <>
-                      {/* Customer Portal Settings */}
-                      <Collapsible defaultOpen={false} className="group">
-                        <Card>
-                          <CollapsibleTrigger asChild>
-                            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                              <CardTitle className="flex items-center justify-between">
-                                <span className="flex items-center gap-2">
-                                  <Settings className="h-5 w-5" />
-                                  Customer Portal Settings
-                                </span>
-                                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                              </CardTitle>
-                              <CardDescription>
-                                Configure settings for the customer portal experience. The App Base URL is used for all portal links in emails (e.g., your custom domain).
-                              </CardDescription>
-                            </CardHeader>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <CardContent className="space-y-4 pt-0">
-                              {portalSettings?.map(renderSettingField)}
-                            </CardContent>
-                          </CollapsibleContent>
-                        </Card>
-                      </Collapsible>
                       <ProjectStatusesManager />
                       <Collapsible defaultOpen={false} className="group">
                         <Card>
