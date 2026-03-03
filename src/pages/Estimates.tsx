@@ -425,6 +425,28 @@ export default function Estimates() {
         return;
       }
 
+      // Fallback: check for a portal token linked via the estimate's project_id
+      const { data: estimate } = await supabase
+        .from("estimates")
+        .select("project_id")
+        .eq("id", estimateId)
+        .maybeSingle();
+
+      if (estimate?.project_id) {
+        const { data: projectToken } = await supabase
+          .from("client_portal_tokens")
+          .select("token")
+          .eq("project_id", estimate.project_id)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (projectToken) {
+          const portalLink = `${window.location.origin}/portal?token=${projectToken.token}`;
+          window.open(portalLink, '_blank');
+          return;
+        }
+      }
+
       toast.error("No proposal link found");
     } catch (error) {
       console.error("Error opening proposal preview:", error);
