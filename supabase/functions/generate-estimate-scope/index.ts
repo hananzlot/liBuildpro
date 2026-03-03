@@ -200,7 +200,48 @@ function parseAIResponse(content: string, stage: string): any {
     throw new Error(`[${stage}] Response was truncated. Try simplifying the scope.`);
   }
   
-  return JSON.parse(jsonStr);
+  // First attempt: direct parse
+  try {
+    return JSON.parse(jsonStr);
+  } catch (_firstError) {
+    // Second attempt: clean trailing content after the last matching brace
+    // Find the position of the outermost closing brace
+    let depth = 0;
+    let endPos = -1;
+    for (let i = 0; i < jsonStr.length; i++) {
+      if (jsonStr[i] === '{') depth++;
+      else if (jsonStr[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          endPos = i;
+          break;
+        }
+      }
+    }
+    
+    if (endPos > 0) {
+      const trimmed = jsonStr.substring(0, endPos + 1);
+      try {
+        return JSON.parse(trimmed);
+      } catch (_secondError) {
+        // Fall through
+      }
+    }
+    
+    // Third attempt: fix trailing commas and control characters
+    const cleaned = jsonStr
+      .replace(/,\s*}/g, '}')
+      .replace(/,\s*]/g, ']')
+      .replace(/[\x00-\x1F\x7F]/g, '');
+    
+    try {
+      return JSON.parse(cleaned);
+    } catch (finalError) {
+      console.error(`[${stage}] Failed to parse AI response. First 500 chars:`, jsonStr.substring(0, 500));
+      console.error(`[${stage}] Last 200 chars:`, jsonStr.substring(jsonStr.length - 200));
+      throw finalError;
+    }
+  }
 }
 
 // Create Supabase client for job updates
