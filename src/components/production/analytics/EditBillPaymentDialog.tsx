@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Dialog,
   DialogContent,
@@ -80,6 +81,8 @@ export function EditBillPaymentDialog({
 }: EditBillPaymentDialogProps) {
   const queryClient = useQueryClient();
   const { companyId } = useCompanyContext();
+  const { isAdmin, isSuperAdmin } = useAuth();
+  const canAddBank = isAdmin || isSuperAdmin;
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [amount, setAmount] = useState<string>("");
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
@@ -466,7 +469,7 @@ export function EditBillPaymentDialog({
                         {bankSearch ? `No bank found. Click below to add "${bankSearch}".` : "Type to search or add a bank."}
                       </CommandEmpty>
                       <CommandGroup>
-                        {bankSearch && !filteredBanks.some(b => b.name?.toLowerCase() === bankSearch.toLowerCase()) && (
+                        {canAddBank && bankSearch && !filteredBanks.some(b => b.name?.toLowerCase() === bankSearch.toLowerCase()) && (
                           <CommandItem
                             value={`add-${bankSearch}`}
                             onSelect={() => handleAddBank(bankSearch)}

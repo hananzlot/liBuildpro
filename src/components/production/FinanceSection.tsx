@@ -4599,6 +4599,8 @@ function PaymentDialog({
   invoices: Invoice[];
 }) {
   const { companyId } = useCompanyContext();
+  const { isAdmin: isAdminUser, isSuperAdmin: isSuperAdminUser } = useAuth();
+  const canAddBank = isAdminUser || isSuperAdminUser;
   const initialFormData = {
     bank_id: "",
     projected_received_date: "",
@@ -4805,7 +4807,7 @@ function PaymentDialog({
                         {bankSearch ? `No bank found. Press enter or click below to add "${bankSearch}".` : "Type to search or add a bank."}
                       </CommandEmpty>
                       <CommandGroup>
-                        {bankSearch && !filteredBanks.some(b => b.name.toLowerCase() === bankSearch.toLowerCase()) && (
+                        {canAddBank && bankSearch && !filteredBanks.some(b => b.name.toLowerCase() === bankSearch.toLowerCase()) && (
                           <CommandItem
                             value={`add-${bankSearch}`}
                             onSelect={() => handleAddBank(bankSearch)}
@@ -6233,6 +6235,8 @@ function QuickPayDialog({
   isPending: boolean;
 }) {
   const { companyId } = useCompanyContext();
+  const { isAdmin: isAdminUser, isSuperAdmin: isSuperAdminUser } = useAuth();
+  const canAddBank = isAdminUser || isSuperAdminUser;
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     payment_date: new Date().toISOString().split('T')[0],
@@ -6405,7 +6409,7 @@ function QuickPayDialog({
                       {bankSearch ? `No bank found. Click below to add "${bankSearch}".` : "Type to search or add a bank."}
                     </CommandEmpty>
                     <CommandGroup>
-                      {bankSearch && !filteredBanks.some(b => b.name.toLowerCase() === bankSearch.toLowerCase()) && (
+                      {canAddBank && bankSearch && !filteredBanks.some(b => b.name.toLowerCase() === bankSearch.toLowerCase()) && (
                         <CommandItem
                           value={`add-${bankSearch}`}
                           onSelect={() => handleAddBank(bankSearch)}
