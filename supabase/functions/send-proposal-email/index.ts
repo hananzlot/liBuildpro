@@ -116,6 +116,18 @@ serve(async (req) => {
       companyName = settingsMap.company_name || null;
     }
 
+    // Fallback: get company name from companies table if not in settings
+    if (!companyName && companyId) {
+      const { data: companyRecord } = await supabase
+        .from("companies")
+        .select("name")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (companyRecord?.name) {
+        companyName = companyRecord.name;
+      }
+    }
+
     // Check if required email settings are configured
     if (!fromEmail || !fromName || !companyName) {
       const missingSettings = [];
