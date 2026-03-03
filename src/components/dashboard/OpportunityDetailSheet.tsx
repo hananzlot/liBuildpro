@@ -1445,11 +1445,34 @@ export function OpportunityDetailSheet({
     enabled: !!companyId,
   });
 
+  // Fetch active lead sources from the lead_sources table
+  const { data: companyLeadSources = [] } = useQuery({
+    queryKey: ["lead-sources", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data } = await supabase
+        .from("lead_sources")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
   const availableSources = useMemo(() => {
     const archivedSet = new Set(
       archivedSourcesData.map(a => a.source_name.toLowerCase())
     );
     const sourceSet = new Set<string>();
+    // Add sources from the lead_sources table first (primary source of truth)
+    companyLeadSources.forEach(ls => {
+      const normalized = normalizeSourceName(ls.name);
+      if (!archivedSet.has(normalized.toLowerCase())) {
+        sourceSet.add(normalized);
+      }
+    });
     // Add sources from contacts (excluding archived)
     contacts.forEach(c => {
       if (c.source) {
@@ -1472,7 +1495,7 @@ export function OpportunityDetailSheet({
       console.error("Error parsing custom sources:", e);
     }
     return Array.from(sourceSet).sort();
-  }, [contacts, archivedSourcesData]);
+  }, [contacts, archivedSourcesData, companyLeadSources]);
   const handleEditClick = () => {
     // Use savedValues if available (for re-editing without closing), otherwise use opportunity prop
     setEditedStatus(savedValues.status ?? opportunity?.status?.toLowerCase() ?? "open");
