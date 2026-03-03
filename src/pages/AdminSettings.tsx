@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, Target, GitBranch, Plus, Trash2, Eye, EyeOff, ExternalLink, Calendar, Link2, FileSignature } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, Target, GitBranch, Plus, Trash2, Eye, EyeOff, ExternalLink, Calendar, Link2, FileSignature } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { JunkContactsCleanup } from "@/components/admin/JunkContactsCleanup";
@@ -147,8 +147,7 @@ export default function AdminSettings() {
   const [savingResendKey, setSavingResendKey] = useState(false);
   const [showResendKey, setShowResendKey] = useState(false);
   
-  // Source management dialog state
-  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  // Source management is inline on the Sources tab (dialog deprecated)
   
   // User management dialog state (kept for non-inline usage from Index.tsx)
   const [userDialogOpen, setUserDialogOpen] = useState(false);
@@ -1691,27 +1690,7 @@ export default function AdminSettings() {
 
           {/* Sources Tab */}
           <TabsContent value="sources" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Pencil className="h-5 w-5" />
-                  Manage Sources
-                </CardTitle>
-                <CardDescription>
-                  Add new sources or rename existing ones across all opportunities
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => setSourceDialogOpen(true)}>
-                  Open Source Manager
-                </Button>
-              </CardContent>
-            </Card>
-            <SourceManagement
-              contacts={contacts}
-              open={sourceDialogOpen}
-              onOpenChange={setSourceDialogOpen}
-            />
+            <SourceManagement contacts={contacts} inline />
           </TabsContent>
 
 
