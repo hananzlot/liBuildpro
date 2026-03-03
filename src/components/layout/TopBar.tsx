@@ -20,7 +20,6 @@ import { useAppTabs } from "@/contexts/AppTabsContext";
 const ADMIN_QUICK_MENU = [
   { label: "Core Settings", items: [
     { title: "General", icon: Settings, tab: "settings" },
-    { title: "Emails", icon: Mail, tab: "emails" },
     { title: "Compliance", icon: FileSignature, tab: "compliance" },
     { title: "Chat", icon: MessageSquare, tab: "chat" },
   ]},

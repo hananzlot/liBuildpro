@@ -1044,6 +1044,168 @@ export default function AdminSettings() {
                       <SocialMediaLinks />
                       <InsuranceDocuments />
                       <LicenseCertificates />
+
+                      {/* Email Settings - Section 5 */}
+                      {companyId && <CompanyEmailDomainSetup companyId={companyId} />}
+
+                      <Collapsible defaultOpen={false} className="group">
+                        <Card>
+                          <CollapsibleTrigger asChild>
+                            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                              <CardTitle className="flex items-center justify-between">
+                                <span className="flex items-center gap-2">
+                                  <Key className="h-5 w-5" />
+                                  Legacy Resend API Key (Optional)
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  {resendKeyConfigured === true && (
+                                    <Badge variant="default" className="bg-primary">
+                                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                                      Configured
+                                    </Badge>
+                                  )}
+                                  <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                </div>
+                              </CardTitle>
+                              <CardDescription>
+                                Only needed if you want to use your own Resend API key instead of the platform key.
+                              </CardDescription>
+                            </CardHeader>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <CardContent className="space-y-4 pt-0">
+                              <div className="space-y-2">
+                                <Label htmlFor="resend_api_key_new">Resend API Key</Label>
+                                <div className="flex gap-2">
+                                  <div className="relative flex-1">
+                                    <Input
+                                      id="resend_api_key_new"
+                                      type={showResendKey ? "text" : "password"}
+                                      value={resendApiKey}
+                                      onChange={(e) => setResendApiKey(e.target.value)}
+                                      placeholder={resendKeyConfigured ? "Enter new key to update..." : "re_..."}
+                                      className="pr-10"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                      onClick={() => setShowResendKey(!showResendKey)}
+                                    >
+                                      {showResendKey ? (
+                                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                      ) : (
+                                        <Eye className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    onClick={handleTestResendKey}
+                                    disabled={testingApiKey === "resend" || !resendApiKey.trim()}
+                                  >
+                                    {testingApiKey === "resend" ? (
+                                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                    ) : (
+                                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                                    )}
+                                    Test
+                                  </Button>
+                                  <Button
+                                    onClick={handleSaveResendKey}
+                                    disabled={savingResendKey || !resendApiKey.trim()}
+                                  >
+                                    {savingResendKey ? (
+                                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                    ) : (
+                                      <Save className="h-4 w-4 mr-1" />
+                                    )}
+                                    Save
+                                  </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {resendKeyConfigured 
+                                    ? "Your Resend API key is configured. Enter a new key above to update it."
+                                    : "Enter your Resend API key to enable email sending for proposals and notifications."}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Card>
+                      </Collapsible>
+
+                      <Collapsible defaultOpen={false} className="group">
+                        <Card>
+                          <CollapsibleTrigger asChild>
+                            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                              <CardTitle className="flex items-center justify-between">
+                                <span className="flex items-center gap-2">
+                                  <Mail className="h-5 w-5" />
+                                  Email Sender Settings
+                                </span>
+                                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                              </CardTitle>
+                              <CardDescription>
+                                Configure email sending for proposals and notifications. Make sure your domain is verified at{" "}
+                                <a
+                                  href="https://resend.com/domains"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  resend.com/domains
+                                </a>
+                              </CardDescription>
+                            </CardHeader>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <CardContent className="space-y-4 pt-0">
+                              {emailSettings?.map(renderSettingField)}
+
+                              {!emailSettings?.some(s => s.setting_key === "notification_email") && (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label htmlFor="notification_email">Notification Email(s)</Label>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        updateSetting.mutate({ key: "notification_email", value: editedSettings["notification_email"] || "" });
+                                      }}
+                                      disabled={updateSetting.isPending || !editedSettings["notification_email"]}
+                                    >
+                                      <Save className="h-3 w-3 mr-1" />
+                                      Save
+                                    </Button>
+                                  </div>
+                                  <Input
+                                    id="notification_email"
+                                    value={editedSettings["notification_email"] ?? ""}
+                                    onChange={(e) => handleChange("notification_email", e.target.value)}
+                                    placeholder="admin@company.com, sales@company.com"
+                                  />
+                                  <p className="text-xs text-muted-foreground">
+                                    Comma-separated list of emails to receive proposal accepted/declined notifications
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                                <div className="text-amber-800">
+                                  <strong>Important:</strong> The "From Email" must use a domain you've verified in Resend.
+                                  For example, if you verified <code>caprobuilders.com</code>, use an email like{" "}
+                                  <code>proposals@caprobuilders.com</code>.
+                                </div>
+                              </div>
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Card>
+                      </Collapsible>
+
+                      <EmailTemplatesManager />
+
                       {/* Customer Portal Settings */}
                       <Collapsible defaultOpen={false} className="group">
                         <Card>
@@ -1365,172 +1527,13 @@ export default function AdminSettings() {
             <QuickBooksIntegration />
           </TabsContent>
 
-          {/* Emails Tab */}
+          {/* Emails tab now redirects to settings/company - kept for backward compat */}
           <TabsContent value="emails" className="mt-6 space-y-6">
-            {/* Company Email Domain Setup */}
-            {companyId && <CompanyEmailDomainSetup companyId={companyId} />}
-
-            {/* Legacy Resend API Configuration - Collapsible */}
-            <Collapsible defaultOpen={false} className="group">
-              <Card>
-                <CollapsibleTrigger asChild>
-                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <Key className="h-5 w-5" />
-                        Legacy Resend API Key (Optional)
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {resendKeyConfigured === true && (
-                          <Badge variant="default" className="bg-primary">
-                            <CheckCircle2 className="h-3 w-3 mr-1" />
-                            Configured
-                          </Badge>
-                        )}
-                        <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                      </div>
-                    </CardTitle>
-                    <CardDescription>
-                      Only needed if you want to use your own Resend API key instead of the platform key.
-                    </CardDescription>
-                  </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="space-y-4 pt-0">
-                    <div className="space-y-2">
-                      <Label htmlFor="resend_api_key_new">Resend API Key</Label>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Input
-                            id="resend_api_key_new"
-                            type={showResendKey ? "text" : "password"}
-                            value={resendApiKey}
-                            onChange={(e) => setResendApiKey(e.target.value)}
-                            placeholder={resendKeyConfigured ? "Enter new key to update..." : "re_..."}
-                            className="pr-10"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                            onClick={() => setShowResendKey(!showResendKey)}
-                          >
-                            {showResendKey ? (
-                              <EyeOff className="h-4 w-4 text-muted-foreground" />
-                            ) : (
-                              <Eye className="h-4 w-4 text-muted-foreground" />
-                            )}
-                          </Button>
-                        </div>
-                        <Button
-                          variant="outline"
-                          onClick={handleTestResendKey}
-                          disabled={testingApiKey === "resend" || !resendApiKey.trim()}
-                        >
-                          {testingApiKey === "resend" ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                          ) : (
-                            <CheckCircle2 className="h-4 w-4 mr-1" />
-                          )}
-                          Test
-                        </Button>
-                        <Button
-                          onClick={handleSaveResendKey}
-                          disabled={savingResendKey || !resendApiKey.trim()}
-                        >
-                          {savingResendKey ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                          ) : (
-                            <Save className="h-4 w-4 mr-1" />
-                          )}
-                          Save
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {resendKeyConfigured 
-                          ? "Your Resend API key is configured. Enter a new key above to update it."
-                          : "Enter your Resend API key to enable email sending for proposals and notifications."}
-                      </p>
-                    </div>
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-
-            {/* Email Settings (Resend) */}
-            <Collapsible defaultOpen={false} className="group">
-              <Card>
-                <CollapsibleTrigger asChild>
-                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <Mail className="h-5 w-5" />
-                        Email Sender Settings
-                      </span>
-                      <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                    </CardTitle>
-                    <CardDescription>
-                      Configure email sending for proposals and notifications. Make sure your domain is verified at{" "}
-                      <a
-                        href="https://resend.com/domains"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        resend.com/domains
-                      </a>
-                    </CardDescription>
-                  </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="space-y-4 pt-0">
-                    {emailSettings?.map(renderSettingField)}
-
-                    {/* Add notification_email if it doesn't exist */}
-                    {!emailSettings?.some(s => s.setting_key === "notification_email") && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="notification_email">Notification Email(s)</Label>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              updateSetting.mutate({ key: "notification_email", value: editedSettings["notification_email"] || "" });
-                            }}
-                            disabled={updateSetting.isPending || !editedSettings["notification_email"]}
-                          >
-                            <Save className="h-3 w-3 mr-1" />
-                            Save
-                          </Button>
-                        </div>
-                        <Input
-                          id="notification_email"
-                          value={editedSettings["notification_email"] ?? ""}
-                          onChange={(e) => handleChange("notification_email", e.target.value)}
-                          placeholder="admin@company.com, sales@company.com"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Comma-separated list of emails to receive proposal accepted/declined notifications
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                      <div className="text-amber-800">
-                        <strong>Important:</strong> The "From Email" must use a domain you've verified in Resend.
-                        For example, if you verified <code>caprobuilders.com</code>, use an email like{" "}
-                        <code>proposals@caprobuilders.com</code>.
-                      </div>
-                    </div>
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-
-            {/* Email Templates */}
-            <EmailTemplatesManager />
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                Email settings have moved to <strong>Company Profile</strong> under the General settings tab.
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Payables & Receivables Tab */}
