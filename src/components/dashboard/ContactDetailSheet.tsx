@@ -763,7 +763,7 @@ export function ContactDetailSheet({
                     value={localContact.email}
                     placeholder="No email"
                     isAdmin={true}
-                    type="email"
+                    type="text"
                     linkPrefix="mailto:"
                     copyable
                     onSave={handleUpdateEmail}
