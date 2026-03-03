@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SignatureCanvas } from './SignatureCanvas';
+import { PdfCanvasViewer } from './PdfCanvasViewer';
 import {
   FileText,
   CheckCircle2,
@@ -506,15 +507,12 @@ export function ComplianceSigningFlow({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="flex-1 min-h-0 -mx-6 px-6">
-              <div className="h-[60vh] border rounded-lg overflow-hidden bg-muted/30">
-                <iframe
-                  src={selectedDocument?.file_url}
-                  className="w-full h-full"
-                  title={selectedDocument?.document_name}
+              <ScrollArea className="h-[60vh] border rounded-lg overflow-hidden bg-muted/30">
+                <PdfCanvasViewer
+                  fileUrl={selectedDocument?.file_url || ''}
+                  className="min-h-full"
                 />
-              </div>
-            </div>
+              </ScrollArea>
 
             <div className="flex gap-3 pt-4">
               <Button
