@@ -105,16 +105,63 @@ export function ComplianceSigningFlow({
 
       if (existingError) throw existingError;
 
-      if (existing && existing.length > 0) {
-        // Fetch template info for each document
-        const templateIds = existing.map(d => d.template_id).filter(Boolean);
-        const { data: templates } = await supabase
-          .from('compliance_document_templates')
-          .select('id, name, requires_separate_signature, is_main_contract')
-          .in('id', templateIds);
+      // Fetch ALL active templates for this company to check for missing ones
+      const { data: allTemplates } = await supabase
+        .from('compliance_document_templates')
+        .select('*')
+        .eq('company_id', companyId)
+        .eq('is_active', true)
+        .order('display_order');
 
-        const templateMap = new Map(templates?.map(t => [t.id, t]) || []);
-        
+      if (existing && existing.length > 0 && allTemplates) {
+        // Check if any active templates are missing from existing signed docs
+        const existingTemplateIds = new Set(existing.map(d => d.template_id));
+        const missingTemplates = allTemplates.filter(t => !existingTemplateIds.has(t.id));
+
+        if (missingTemplates.length > 0) {
+          // Generate docs for missing templates
+          const { data: generatedDocs } = await supabase
+            .from('estimate_compliance_documents')
+            .select('*')
+            .eq('estimate_id', estimateId);
+
+          const generatedUrlMap = new Map(
+            (generatedDocs || []).map((d: any) => [d.template_id, d.generated_file_url])
+          );
+
+          const { data: estimateData } = await supabase
+            .from('estimates')
+            .select('project_id')
+            .eq('id', estimateId)
+            .maybeSingle();
+
+          const newDocs = missingTemplates.map(template => ({
+            company_id: companyId,
+            estimate_id: estimateId,
+            project_id: estimateData?.project_id || null,
+            template_id: template.id,
+            document_name: template.name,
+            document_type: template.is_main_contract ? 'main_contract' : 'compliance',
+            file_url: generatedUrlMap.get(template.id) || template.template_file_url,
+            status: 'pending',
+          }));
+
+          const { data: createdDocs } = await supabase
+            .from('signed_compliance_documents')
+            .insert(newDocs)
+            .select();
+
+          // Merge existing + newly created
+          const allDocs = [...existing, ...(createdDocs || [])];
+          const templateMap = new Map(allTemplates.map(t => [t.id, t]));
+          return allDocs.map(doc => ({
+            ...doc,
+            template: templateMap.get(doc.template_id) || null,
+          })) as ComplianceDocument[];
+        }
+
+        // All templates accounted for - return existing
+        const templateMap = new Map(allTemplates.map(t => [t.id, t]));
         return existing.map(doc => ({
           ...doc,
           template: templateMap.get(doc.template_id) || null,
