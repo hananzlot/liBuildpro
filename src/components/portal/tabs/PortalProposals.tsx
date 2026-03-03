@@ -376,6 +376,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       }
 
       // AUTO-CREATE AGREEMENT, PAYMENT PHASES, AND UPDATE PROJECT
+      let createdAgreementId: string | null = null;
       if (projectId && selectedEstimate) {
         const signedDate = new Date().toISOString().split('T')[0];
         
@@ -397,7 +398,8 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         if (agreementError) {
           console.error('Failed to create agreement:', agreementError);
         } else {
-          console.log('Created project agreement:', agreementData?.id);
+          createdAgreementId = agreementData?.id || null;
+          console.log('Created project agreement:', createdAgreementId);
 
           // Fetch payment schedule from estimate and create payment phases
           const { data: paymentSchedule } = await supabase
@@ -447,6 +449,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           projectId: projectId,
           signerName: signerName,
           signedAt: new Date().toISOString(),
+          agreementId: createdAgreementId,
         },
       }).then(result => {
         if (result.error) {

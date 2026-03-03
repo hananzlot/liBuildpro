@@ -417,7 +417,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
     estimate: ProposalEstimate, 
     companyId: string,
     signedDate: string
-  ) => {
+  ): Promise<string | null> => {
     try {
       // Create project agreement
       const { data: agreementData, error: agreementError } = await supabase
@@ -436,7 +436,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
 
       if (agreementError) {
         console.error('Failed to create agreement:', agreementError);
-        return;
+        return null;
       }
 
       console.log('Created project agreement:', agreementData?.id);
@@ -481,8 +481,10 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         })
         .eq('id', projectId);
 
+      return agreementData?.id || null;
     } catch (err) {
       console.error('Error creating agreement/payment phases:', err);
+      return null;
     }
   };
 
@@ -544,7 +546,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             const signedDate = new Date().toISOString().split('T')[0];
             
             // Create agreement and payment phases from estimate
-            await createAgreementAndPaymentPhases(
+            const createdAgreementId = await createAgreementAndPaymentPhases(
               portalData!.estimate.project_id,
               portalData!.estimate,
               portalData!.token.company_id,
@@ -559,6 +561,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                 signerName: signerName,
                 signedAt: new Date().toISOString(),
                 isMultiSigner: true,
+                agreementId: createdAgreementId,
               },
             }).catch((err) => console.error('Failed to generate contract PDF:', err));
           }
@@ -601,7 +604,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           const signedDate = new Date().toISOString().split('T')[0];
           
           // Create agreement and payment phases from estimate
-          await createAgreementAndPaymentPhases(
+          const createdAgreementId2 = await createAgreementAndPaymentPhases(
             portalData!.estimate.project_id,
             portalData!.estimate,
             portalData!.token.company_id,
@@ -615,6 +618,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
               projectId: portalData!.estimate.project_id,
               signerName: signerName,
               signedAt: new Date().toISOString(),
+              agreementId: createdAgreementId2,
             },
           }).catch((err) => console.error('Failed to generate contract PDF:', err));
         }

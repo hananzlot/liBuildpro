@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { estimateId, projectId, signerName, signedAt } = await req.json();
+    const { estimateId, projectId, signerName, signedAt, agreementId } = await req.json();
 
     console.log('Generating contract PDF for estimate:', estimateId);
 
@@ -945,34 +945,34 @@ serve(async (req) => {
     if (projectId) {
       const contractNumber = `CNT-${estimate.estimate_number}`;
       
-      // Update existing agreement or create if doesn't exist
-      const { data: existingAgreement } = await supabase
-        .from('project_agreements')
-        .select('id')
-        .eq('project_id', projectId)
-        .eq('agreement_number', contractNumber)
-        .maybeSingle();
-
-      if (existingAgreement) {
+      if (agreementId) {
+        // Use the provided agreement ID directly (preferred - avoids duplicates)
         await supabase
           .from('project_agreements')
           .update({ attachment_url: publicUrl })
-          .eq('id', existingAgreement.id);
+          .eq('id', agreementId);
         
-        console.log('Updated existing agreement with PDF attachment');
+        console.log('Updated agreement', agreementId, 'with PDF attachment');
       } else {
-        // Create new agreement with attachment
-        await supabase.from('project_agreements').insert({
-          project_id: projectId,
-          agreement_number: contractNumber,
-          agreement_signed_date: new Date().toISOString().split('T')[0],
-          agreement_type: 'Contract',
-          total_price: estimate.total || 0,
-          description_of_work: estimate.work_scope_description || estimate.estimate_title,
-          attachment_url: publicUrl,
-        });
-        
-        console.log('Created new agreement with PDF attachment');
+        // Fallback: look up by project_id + agreement_number (legacy path)
+        const { data: existingAgreement } = await supabase
+          .from('project_agreements')
+          .select('id')
+          .eq('project_id', projectId)
+          .eq('agreement_number', contractNumber)
+          .maybeSingle();
+
+        if (existingAgreement) {
+          await supabase
+            .from('project_agreements')
+            .update({ attachment_url: publicUrl })
+            .eq('id', existingAgreement.id);
+          
+          console.log('Updated existing agreement with PDF attachment');
+        } else {
+          // Do NOT create a new agreement here - it should have been created by the client
+          console.warn('No agreement found for contract', contractNumber, '- skipping attachment. Agreement should be created by the signing flow.');
+        }
       }
     }
 
