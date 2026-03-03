@@ -3242,7 +3242,7 @@ export function OpportunityDetailSheet({
                         placeholder="Enter email..."
                         className="h-7 text-sm flex-1"
                         autoFocus
-                        type="email"
+                        type="text"
                       />
                       {emailValidationError && (
                         <p className="text-xs text-destructive mt-0.5 w-full">{emailValidationError}</p>
