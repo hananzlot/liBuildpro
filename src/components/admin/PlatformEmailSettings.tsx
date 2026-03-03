@@ -124,6 +124,7 @@ export function PlatformEmailSettings() {
       // Call the edge function directly for testing
       const { data, error } = await supabase.functions.invoke('send-auth-email', {
         body: {
+          _test_mode: true,
           user: {
             id: user.id,
             email: user.email,
