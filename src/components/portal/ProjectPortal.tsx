@@ -363,7 +363,6 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                   <Badge className={`${getStatusColor(estimates.length > 1 ? 'Proposal' : (project.project_status || 'Proposal'))} text-white border-0 px-2 py-0.5 text-xs`}>
                     {estimates.length > 1 ? `${estimates.length} Proposals` : (project.project_status || 'Proposal')}
                   </Badge>
-                  <span className="text-white/60 text-sm font-mono">#{project.project_number}</span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                   {estimates.length > 1 

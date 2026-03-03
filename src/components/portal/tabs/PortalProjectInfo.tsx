@@ -175,6 +175,12 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
               )}
               
               <div className="grid grid-cols-2 gap-4 pt-2">
+                {project.project_number && (
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Project #</p>
+                    <p className="font-semibold text-slate-900">{project.project_number}</p>
+                  </div>
+                )}
                 {project.project_type && (
                   <div className="bg-slate-50 rounded-xl p-4">
                     <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Type</p>
