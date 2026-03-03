@@ -167,10 +167,18 @@ export function ComplianceSigningFlow({
         (updatedGeneratedDocs || []).map((d: any) => [d.template_id, d.generated_file_url])
       );
 
+      // Get the project_id from the estimate so compliance docs are linked to the project
+      const { data: estimateData } = await supabase
+        .from('estimates')
+        .select('project_id')
+        .eq('id', estimateId)
+        .maybeSingle();
+
       // Create signed_compliance_documents records for each template
       const docsToCreate = templates.map(template => ({
         company_id: companyId,
         estimate_id: estimateId,
+        project_id: estimateData?.project_id || null,
         template_id: template.id,
         document_name: template.name,
         document_type: template.is_main_contract ? 'main_contract' : 'compliance',
