@@ -8111,22 +8111,26 @@ function CommissionPaymentDialog({
     bank_name: "",
   });
 
-  // Fetch existing bank names from banks table scoped by company
+  // Fetch existing banks from banks table scoped by company
   const { companyId } = useCompanyContext();
-  const { data: existingBanks = [] } = useQuery({
+  const { data: banksRaw = [] } = useQuery({
     queryKey: ["banks", companyId],
     queryFn: async () => {
       if (!companyId) return [];
       const { data, error } = await supabase
         .from("banks")
-        .select("name")
+        .select("id, name")
         .eq("company_id", companyId)
         .order("name");
       if (error) throw error;
-      return data.map(b => b.name).filter((name): name is string => typeof name === 'string');
+      return data || [];
     },
     enabled: open && !!companyId,
   });
+  // Safely extract bank names regardless of cached data shape
+  const existingBanks = banksRaw
+    .map((b: any) => (typeof b === 'string' ? b : b?.name))
+    .filter((name: unknown): name is string => typeof name === 'string');
 
   // Reset form when dialog opens/closes or editing changes
   useEffect(() => {
