@@ -30,6 +30,17 @@ export function SignatureCanvas({ onSignatureComplete, signerName, isInitials = 
   const [hasDrawn, setHasDrawn] = useState(false);
   const [activeTab, setActiveTab] = useState<'type' | 'draw'>('type');
 
+  // Auto-complete typed signature whenever name or font changes
+  useEffect(() => {
+    if (activeTab === 'type' && typedName.trim()) {
+      onSignatureComplete({
+        type: 'typed',
+        data: typedName,
+        font: selectedFont,
+      });
+    }
+  }, [typedName, selectedFont, activeTab]);
+
   useEffect(() => {
     // Load Google Fonts for signatures
     const link = document.createElement('link');
@@ -258,15 +269,17 @@ export function SignatureCanvas({ onSignatureComplete, signerName, isInitials = 
         </TabsContent>
       </Tabs>
 
-      <Button
-        onClick={handleComplete}
-        disabled={!isValid}
-        className="w-full"
-        size="lg"
-      >
-        <Check className="h-4 w-4 mr-2" />
-        Apply {isInitials ? 'Initials' : 'Signature'}
-      </Button>
+      {activeTab === 'draw' && (
+        <Button
+          onClick={handleComplete}
+          disabled={!isValid}
+          className="w-full"
+          size="lg"
+        >
+          <Check className="h-4 w-4 mr-2" />
+          Apply {isInitials ? 'Initials' : 'Signature'}
+        </Button>
+      )}
     </div>
   );
 }
