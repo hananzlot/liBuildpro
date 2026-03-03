@@ -630,7 +630,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
       
       if (error) throw error;
       
-      return data?.map(s => s.name) || [];
+      return data?.map(s => s.name).filter((n): n is string => typeof n === 'string' && n.length > 0) || [];
     },
     enabled: open && !!companyId,
   });
