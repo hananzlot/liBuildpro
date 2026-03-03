@@ -508,7 +508,7 @@ export default function Estimates() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[40px]"></TableHead>
+            <TableHead className="w-[28px] px-1"></TableHead>
             <TableHead className="w-[8%]">#</TableHead>
             <TableHead className="w-[20%]">Customer</TableHead>
             <TableHead className="w-[22%]">Title</TableHead>
@@ -523,7 +523,7 @@ export default function Estimates() {
         <TableBody>
           {estimateList.map((estimate) => (
             <TableRow key={estimate.id}>
-              <TableCell className="w-[40px] px-2">
+              <TableCell className="w-[28px] px-1">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
