@@ -245,7 +245,7 @@ export default function Production() {
   const returnToParam = searchParams.get('returnTo');
   const returnToOppId = searchParams.get('oppId');
   const openBillDialog = searchParams.get('openBill') === 'true';
-  const autoOpenFinanceDialog = searchParams.get('autoOpen') as 'invoice' | 'payment' | 'bill' | null;
+  const autoOpenFinanceDialog = searchParams.get('autoOpen') as 'invoice' | 'payment' | 'bill' | 'change-order' | null;
   
   // Redirect non-admin users away from analytics view if they don't have a specific tab
   // Admin can access full analytics, production users can only access AR/AP tabs directly

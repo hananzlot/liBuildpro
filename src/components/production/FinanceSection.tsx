@@ -111,7 +111,7 @@ interface FinanceSectionProps {
   onNavigateToSubcontractors?: () => void; // kept for backward compat but no longer used by BillDialog
   autoOpenBillDialog?: boolean;
   /** Auto-open a specific dialog when the component mounts (invoice, payment, bill) */
-  autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | null;
+  autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | 'change-order' | null;
   /** Initial sub-tab for Finance section (agreements, phases, invoices, bills, commission) */
   initialSubTab?: string;
   initialBillsSubTab?: 'bills' | 'history';
@@ -343,6 +343,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       } else if (autoOpenFinanceDialog === 'bill') {
         setActiveSubTab("bills");
         setBillDialogOpen(true);
+      } else if (autoOpenFinanceDialog === 'change-order') {
+        setActiveSubTab("agreements");
+        setEditingAgreement(null);
+        setPreselectedAgreementType("Change Order");
+        setAgreementDialogOpen(true);
       }
     }
   }, [autoOpenFinanceDialog, hasAutoOpenedFinanceDialog]);
@@ -371,6 +376,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [invoiceSelectForPayment, setInvoiceSelectForPayment] = useState<Invoice[] | null>(null);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [editingAgreement, setEditingAgreement] = useState<Agreement | null>(null);
+  const [preselectedAgreementType, setPreselectedAgreementType] = useState<string | null>(null);
   const [editingPhase, setEditingPhase] = useState<PaymentPhase | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [historyBill, setHistoryBill] = useState<Bill | null>(null);
@@ -3706,6 +3712,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           setExtractedPhasesAgreementId(agreementId);
           setExtractedPhasesDialogOpen(true);
         }}
+        existingAgreements={agreements}
+        preselectedType={preselectedAgreementType}
+        onPreselectedTypeConsumed={() => setPreselectedAgreementType(null)}
       />
 
       {/* Extracted Phases Review Dialog */}
@@ -5476,6 +5485,9 @@ function AgreementDialog({
   paymentPhases,
   companyId,
   onPhasesExtracted,
+  existingAgreements = [],
+  preselectedType,
+  onPreselectedTypeConsumed,
 }: {
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -5486,6 +5498,9 @@ function AgreementDialog({
   paymentPhases: PaymentPhase[];
   companyId: string;
   onPhasesExtracted?: (phases: ExtractedPhase[], agreementId: string | null) => void;
+  existingAgreements?: Agreement[];
+  preselectedType?: string | null;
+  onPreselectedTypeConsumed?: () => void;
 }) {
   const initialFormData = {
     agreement_number: "",
@@ -5560,15 +5575,45 @@ function AgreementDialog({
     // For new agreements, draft will auto-load from sessionStorage
   }, [open, agreement]);
 
+  // Determine available agreement types based on existing agreements
+  const hasContract = existingAgreements.some(a => a.agreement_type === "Contract");
+  const availableTypes = useMemo(() => {
+    // When editing, show all types
+    if (agreement) return ["Contract", "Change Order", "Addendum"];
+    // First agreement must be Contract
+    if (!hasContract) return ["Contract"];
+    // After contract exists, only Change Order and Addendum
+    return ["Change Order", "Addendum"];
+  }, [agreement, hasContract]);
+
+  // Apply preselected type or auto-select when only one option available
+  useEffect(() => {
+    if (!open || agreement) return;
+    if (preselectedType && !formData.agreement_type) {
+      updateFormData({ agreement_type: preselectedType });
+      onPreselectedTypeConsumed?.();
+    } else if (availableTypes.length === 1 && !formData.agreement_type) {
+      updateFormData({ agreement_type: availableTypes[0] });
+    }
+  }, [open, agreement, preselectedType, availableTypes]);
+
   const [dateError, setDateError] = useState("");
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!agreement && !formData.agreement_signed_date) {
-      setDateError("Date signed is required");
+    const errors: Record<string, string> = {};
+    if (!formData.agreement_type) errors.agreement_type = "Type is required";
+    if (!formData.agreement_signed_date) errors.agreement_signed_date = "Date signed is required";
+    if (!formData.total_price || parseFloat(formData.total_price) <= 0) errors.total_price = "Total value is required";
+    if (!formData.description_of_work?.trim()) errors.description_of_work = "Description of work is required";
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
       return;
     }
+    setValidationErrors({});
     setDateError("");
 
     await onSave(
@@ -5640,7 +5685,11 @@ function AgreementDialog({
 
   // Wrap onOpenChange to clear draft when closing
   const handleOpenChange = (value: boolean) => {
-    if (!value) clearDraft();
+    if (!value) {
+      clearDraft();
+      setValidationErrors({});
+      setDateError("");
+    }
     onOpenChange(value);
   };
 
@@ -5662,17 +5711,21 @@ function AgreementDialog({
               />
             </div>
             <div>
-              <Label>Type</Label>
-              <Select value={formData.agreement_type} onValueChange={(v) => updateFormData({ agreement_type: v })}>
-                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+              <Label>Type <span className="text-destructive">*</span></Label>
+              <Select value={formData.agreement_type} onValueChange={(v) => { updateFormData({ agreement_type: v }); setValidationErrors(prev => ({ ...prev, agreement_type: "" })); }}>
+                <SelectTrigger className={validationErrors.agreement_type ? "border-destructive" : ""}>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Contract">Contract</SelectItem>
-                  <SelectItem value="Change Order">Change Order</SelectItem>
-                  <SelectItem value="Addendum">Addendum</SelectItem>
-                  <SelectItem value="Amendment">Amendment</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  {availableTypes.map(type => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {validationErrors.agreement_type && <p className="text-xs text-destructive mt-1">{validationErrors.agreement_type}</p>}
+              {!agreement && !hasContract && (
+                <p className="text-xs text-muted-foreground mt-1">First agreement must be a Contract</p>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -5681,14 +5734,21 @@ function AgreementDialog({
               <Input 
                 type="date" 
                 value={formData.agreement_signed_date} 
-                onChange={(e) => { updateFormData({ agreement_signed_date: e.target.value }); setDateError(""); }} 
-                required 
+                onChange={(e) => { updateFormData({ agreement_signed_date: e.target.value }); setDateError(""); setValidationErrors(prev => ({ ...prev, agreement_signed_date: "" })); }} 
+                className={validationErrors.agreement_signed_date ? "border-destructive" : ""}
               />
-              {dateError && <p className="text-xs text-destructive mt-1">{dateError}</p>}
+              {(dateError || validationErrors.agreement_signed_date) && <p className="text-xs text-destructive mt-1">{dateError || validationErrors.agreement_signed_date}</p>}
             </div>
             <div>
-              <Label>Total Value ($)</Label>
-              <Input type="text" inputMode="decimal" value={formData.total_price} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateFormData({ total_price: val }); }} />
+              <Label>Total Value ($) <span className="text-destructive">*</span></Label>
+              <Input 
+                type="text" 
+                inputMode="decimal" 
+                value={formData.total_price} 
+                onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { updateFormData({ total_price: val }); setValidationErrors(prev => ({ ...prev, total_price: "" })); } }} 
+                className={validationErrors.total_price ? "border-destructive" : ""}
+              />
+              {validationErrors.total_price && <p className="text-xs text-destructive mt-1">{validationErrors.total_price}</p>}
             </div>
           </div>
           {/* Warning when contract amount doesn't match phases total */}
@@ -5710,8 +5770,14 @@ function AgreementDialog({
             return null;
           })()}
           <div>
-            <Label>Description of Work</Label>
-            <Input value={formData.description_of_work} onChange={(e) => updateFormData({ description_of_work: e.target.value })} placeholder="Scope of work covered" />
+            <Label>Description of Work <span className="text-destructive">*</span></Label>
+            <Input 
+              value={formData.description_of_work} 
+              onChange={(e) => { updateFormData({ description_of_work: e.target.value }); setValidationErrors(prev => ({ ...prev, description_of_work: "" })); }} 
+              placeholder="Scope of work covered" 
+              className={validationErrors.description_of_work ? "border-destructive" : ""}
+            />
+            {validationErrors.description_of_work && <p className="text-xs text-destructive mt-1">{validationErrors.description_of_work}</p>}
           </div>
           <div>
             <Label>Contract Document</Label>

@@ -443,6 +443,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         <FileText className="h-4 w-4 mr-2" />New Estimate
       </DropdownMenuItem>
       <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickCreateFinance('new-change-order'); }}>
+        <FileSignature className="h-4 w-4 mr-2" />New Change Order
+      </DropdownMenuItem>
       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickCreateFinance('new-invoice'); }}>
         <Receipt className="h-4 w-4 mr-2" />New Invoice
       </DropdownMenuItem>
