@@ -2215,6 +2215,23 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       let savedEstimateId = currentEstimateId;
 
       if (isEditing && currentEstimateId) {
+        // SAFETY GUARD: If we're editing an existing estimate that had line items (subtotal > 0)
+        // but the current groups array is empty, something went wrong during loading.
+        // Abort the save to prevent data loss rather than wiping all line items.
+        if (estimateMode !== 'manual' && groups.length === 0) {
+          // Check if the estimate actually has existing data in the DB
+          const { count: existingItemCount } = await supabase
+            .from("estimate_line_items")
+            .select("id", { count: "exact", head: true })
+            .eq("estimate_id", currentEstimateId);
+          
+          if (existingItemCount && existingItemCount > 0) {
+            throw new Error(
+              "Line items failed to load properly. Please close and reopen the estimate editor, then try saving again. Your data has NOT been lost."
+            );
+          }
+        }
+
         // Update existing estimate - scope by company_id for security
         const { error: updateError } = await supabase
           .from("estimates")
