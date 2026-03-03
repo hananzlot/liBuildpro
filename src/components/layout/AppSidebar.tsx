@@ -682,55 +682,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                       </SidebarMenuButton>
                     </SidebarMenuItem>
 
-                    {/* Admin Settings (collapsible sub-menu) */}
-                    <Collapsible open={openMenus['Admin Settings'] || location.pathname === '/admin/settings'}
-                      onOpenChange={() => toggleMenu('Admin Settings')} className="group/collapsible">
-                      <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton tooltip="Settings" isActive={location.pathname === '/admin/settings'}
-                            className={cn(ITEM_CLS, "relative", location.pathname === '/admin/settings' ? ACTIVE_CLS : DEFAULT_CLS)}>
-                            {location.pathname === '/admin/settings' && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary" />}
-                            <Settings className={ICON_CLS} />
-                            {!collapsed && (
-                              <>
-                                <span className="flex-1 truncate">Settings</span>
-                                <ChevronRight className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", (openMenus['Admin Settings'] || location.pathname === '/admin/settings') && "rotate-90")} />
-                              </>
-                            )}
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            {ADMIN_SUB_ITEMS.map(group => (
-                              <React.Fragment key={group.label}>
-                                <div className="px-2 py-1 text-[9px] font-semibold text-sidebar-muted-foreground uppercase tracking-wider mt-1.5 first:mt-0">
-                                  {group.label}
-                                </div>
-                                {group.items.map(item => {
-                                  const sp = new URLSearchParams(location.search);
-                                  const ct = sp.get('tab') || 'settings';
-                                  const isSubActive = location.pathname === '/admin/settings' && ct === item.tab;
-                                  return (
-                                    <SidebarMenuSubItem key={item.tab}>
-                                      <SidebarMenuSubButton asChild isActive={isSubActive}>
-                                        <a href={`/admin/settings?tab=${item.tab}`}
-                                          onClick={(e) => { e.preventDefault(); openTab(`/admin/settings?tab=${item.tab}`, item.title); closeSidebar(); }}
-                                          className={cn("flex items-center gap-2", isSubActive
-                                            ? "bg-sidebar-surface-active text-sidebar-accent-foreground font-medium"
-                                            : "text-sidebar-muted-foreground hover:bg-sidebar-surface-hover hover:text-sidebar-foreground"
-                                          )}>
-                                          <item.icon className="h-3.5 w-3.5" /><span>{item.title}</span>
-                                        </a>
-                                      </SidebarMenuSubButton>
-                                    </SidebarMenuSubItem>
-                                  );
-                                })}
-                              </React.Fragment>
-                            ))}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
                   </SidebarMenu>
                 </SidebarGroupContent>
               </CollapsibleContent>
