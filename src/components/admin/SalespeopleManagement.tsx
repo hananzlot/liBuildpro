@@ -557,6 +557,7 @@ export function SalespeopleManagement() {
         setCopiedId(salesperson.id);
         setTimeout(() => setCopiedId(null), 2000);
         toast.success('Portal link copied to clipboard');
+        window.open(longUrl, '_blank');
         return;
       }
 
@@ -585,6 +586,7 @@ export function SalespeopleManagement() {
       
       queryClient.invalidateQueries({ queryKey: ['salesperson-portal-tokens', companyId] });
       toast.success('Portal link generated and copied to clipboard');
+      window.open(longUrl, '_blank');
     } catch (error) {
       toast.error(`Failed to generate link: ${(error as Error).message}`);
     } finally {
@@ -1068,7 +1070,7 @@ export function SalespeopleManagement() {
                                   ) : (
                                     <Link2 className="h-4 w-4 mr-2" />
                                   )}
-                                  {hasToken ? 'Copy Portal Link' : 'Generate Portal Link'}
+                                  {hasToken ? 'Copy & Open Portal' : 'Generate Portal Link'}
                                 </DropdownMenuItem>
                                 {hasToken && (
                                   <DropdownMenuItem onClick={() => regeneratePortalLink(person)} disabled={isGenerating}>
