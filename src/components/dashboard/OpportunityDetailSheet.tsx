@@ -344,6 +344,7 @@ export function OpportunityDetailSheet({
   const [isInlineEditingStatus, setIsInlineEditingStatus] = useState(false);
   const [isHeaderEditingStatus, setIsHeaderEditingStatus] = useState(false);
   const [isInlineEditingAssignedTo, setIsInlineEditingAssignedTo] = useState(false);
+  const [isInlineEditingSource, setIsInlineEditingSource] = useState(false);
   const [isSavingInline, setIsSavingInline] = useState(false);
 
   // Won date editing (admin only)
@@ -1690,7 +1691,37 @@ export function OpportunityDetailSheet({
     }
   };
 
-  // Inline save for status change (without entering full edit mode)
+  // Inline save for source change (without entering full edit mode)
+  const handleInlineSourceChange = async (newSource: string) => {
+    if (!opportunity || newSource === "__placeholder__" || newSource === "__custom__") return;
+    setIsSavingInline(true);
+    try {
+      const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
+      const originalSource = contact?.source || "";
+      if (newSource !== originalSource && (opportunity.contact_id || opportunity.contact_uuid)) {
+        await supabase.functions.invoke("update-contact-source", {
+          body: {
+            contactId: opportunity.contact_id,
+            contactUuid: opportunity.contact_uuid,
+            source: newSource,
+            editedBy: user?.id || null,
+            opportunityGhlId: opportunity.ghl_id,
+          },
+        });
+      }
+      setSavedValues(prev => ({ ...prev, source: newSource }));
+      toast.success("Source updated");
+      setIsInlineEditingSource(false);
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+    } catch (error) {
+      console.error("Error updating source:", error);
+      toast.error("Failed to update source");
+    } finally {
+      setIsSavingInline(false);
+    }
+  };
+
   // Check for existing contact projects and prompt user before creating a new one
   const checkAndOfferCreateProject = async (opportunityIdentifier: string) => {
     try {
@@ -3572,9 +3603,33 @@ export function OpportunityDetailSheet({
                         + Add New Source
                       </SelectItem>
                     </SelectContent>
-                  </Select> : <div className="font-medium truncate">
-                  {savedValues.source ?? (contact?.source ? normalizeSourceName(contact.source) : "No source")}
-                </div>}
+                  </Select> : isAdmin && isInlineEditingSource ? <Select
+                    value={(savedValues.source ?? (contact?.source ? normalizeSourceName(contact.source) : "")) || "__placeholder__"}
+                    onValueChange={handleInlineSourceChange}
+                    disabled={isSavingInline}
+                    onOpenChange={open => {
+                      if (!open && !isSavingInline) setIsInlineEditingSource(false);
+                    }}
+                    defaultOpen
+                  >
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      {availableSources.map(source => (
+                        <SelectItem key={source} value={source} className="text-xs">
+                          {source}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select> : <button
+                    className={`font-medium truncate text-left w-full ${isAdmin ? "hover:underline cursor-pointer" : ""}`}
+                    onClick={() => { if (isAdmin) setIsInlineEditingSource(true); }}
+                    disabled={!isAdmin}
+                  >
+                    {savedValues.source ?? (contact?.source ? normalizeSourceName(contact.source) : "No source")}
+                    {isAdmin && <Pencil className="h-2.5 w-2.5 inline ml-1 opacity-50" />}
+                  </button>}
             </div>
           </div>
 
