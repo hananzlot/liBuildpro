@@ -639,6 +639,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const groupedLeadSources = useMemo(() => {
     const groups: Record<string, string[]> = {};
     existingLeadSources.forEach(source => {
+      if (typeof source !== 'string' || !source) return;
       const firstLetter = source.charAt(0).toUpperCase();
       if (!groups[firstLetter]) {
         groups[firstLetter] = [];
