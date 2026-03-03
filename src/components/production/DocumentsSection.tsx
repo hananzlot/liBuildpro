@@ -63,7 +63,7 @@ interface Document {
   category: string | null;
   notes: string | null;
   created_at: string;
-  source: "document" | "bill" | "agreement";
+  source: "document" | "bill" | "agreement" | "compliance";
 }
 
 const categoryColors: Record<string, string> = {
@@ -172,6 +172,31 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     },
   });
 
+  // Fetch signed compliance documents
+  const { data: complianceDocuments = [] } = useQuery({
+    queryKey: ["project-compliance-docs", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("signed_compliance_documents")
+        .select("id, document_name, file_url, signed_file_url, signed_at, status, signer_name, created_at")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data.map(d => ({
+        id: d.id,
+        file_name: d.document_name + (d.status === 'signed' ? ' (Signed)' : ''),
+        file_url: d.signed_file_url || d.file_url,
+        file_type: null,
+        category: "Compliance",
+        notes: d.signer_name && d.signed_at 
+          ? `Signed by ${d.signer_name} on ${new Date(d.signed_at).toLocaleDateString()}`
+          : null,
+        created_at: d.signed_at || d.created_at,
+        source: "compliance" as const,
+      }));
+    },
+  });
+
   // Combine all documents, filtering out images (they belong in Photos section)
   const allDocuments: Document[] = [
     ...projectDocuments.filter(doc => 
@@ -180,6 +205,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     ),
     ...billAttachments,
     ...agreementAttachments,
+    ...complianceDocuments,
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   // Upload mutation
