@@ -3102,27 +3102,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           Debug
         </Button>
       )}
-      {/* Hide AI Generate Scope button for read-only proposals */}
-      {!isProposalReadOnly && (
-        isGeneratingScope ? (
-          <Button
-            variant="outline"
-            onClick={() => setShowAiProgress(true)}
-            className="border-primary/50 text-primary"
-          >
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            View Progress
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            onClick={generateScope}
-          >
-            <Wand2 className="mr-2 h-4 w-4" />
-            {groups.length > 0 ? 'Regenerate AI Scope' : 'AI Generate Scope'}
-          </Button>
-        )
-      )}
+      {/* AI Generate Scope button moved to Estimate Method card in scope tab */}
       {isEditing && (
         <Button 
           variant="outline" 
@@ -3537,30 +3517,56 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     <Card>
                       <CardContent className="pt-4 pb-3">
                         <Label className="text-sm font-bold mb-2 block">Estimate Method</Label>
-                        <RadioGroup
-                          value={estimateMode}
-                          onValueChange={(val) => setEstimateMode(val as 'ai' | 'manual')}
-                          className="flex gap-6"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="ai" id="mode-ai" />
-                            <Label htmlFor="mode-ai" className="text-sm cursor-pointer font-medium">
-                              <span className="flex items-center gap-1.5">
-                                <Wand2 className="h-3.5 w-3.5" />
-                                AI Generated
-                              </span>
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="manual" id="mode-manual" />
-                            <Label htmlFor="mode-manual" className="text-sm cursor-pointer font-medium">
-                              <span className="flex items-center gap-1.5">
-                                <DollarSign className="h-3.5 w-3.5" />
-                                Manual Entry
-                              </span>
-                            </Label>
-                          </div>
-                        </RadioGroup>
+                        <div className="flex items-center gap-6">
+                          <RadioGroup
+                            value={estimateMode}
+                            onValueChange={(val) => setEstimateMode(val as 'ai' | 'manual')}
+                            className="flex gap-6"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="ai" id="mode-ai" />
+                              <Label htmlFor="mode-ai" className="text-sm cursor-pointer font-medium">
+                                <span className="flex items-center gap-1.5">
+                                  <Wand2 className="h-3.5 w-3.5" />
+                                  AI Generated
+                                </span>
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="manual" id="mode-manual" />
+                              <Label htmlFor="mode-manual" className="text-sm cursor-pointer font-medium">
+                                <span className="flex items-center gap-1.5">
+                                  <DollarSign className="h-3.5 w-3.5" />
+                                  Manual Entry
+                                </span>
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                          {estimateMode === 'ai' && (
+                            <div className="ml-auto">
+                              {isGeneratingScope ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setShowAiProgress(true)}
+                                  className="border-primary/50 text-primary"
+                                >
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  View Progress
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={generateScope}
+                                >
+                                  <Wand2 className="mr-2 h-4 w-4" />
+                                  {groups.length > 0 ? 'Regenerate AI Scope' : 'AI Generate Scope'}
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   )}
