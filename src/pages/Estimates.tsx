@@ -598,10 +598,6 @@ export default function Estimates() {
                               <Upload className="h-4 w-4 mr-2" />
                               Upload Documents
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenProposalPreview(estimate.id)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              Open Proposal Preview
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                               setIsResendMode(true);
                               setSendDialogEstimate(estimate);
