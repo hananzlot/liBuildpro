@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Mail, CheckCircle2, AlertCircle, Loader2, Copy, Trash2, RefreshCw, Send, Globe, ExternalLink } from 'lucide-react';
+import { Mail, CheckCircle2, AlertCircle, Loader2, Copy, Trash2, RefreshCw, Send, Globe, ExternalLink, Zap, Shield } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface DnsRecord {
   type: string;
@@ -38,6 +39,8 @@ interface EmailDomainData {
   from_name: string | null;
   from_email: string | null;
   verified_at: string | null;
+  use_platform_domain: boolean;
+  reply_to_email: string | null;
 }
 
 interface CompanyEmailDomainSetupProps {
@@ -71,17 +74,13 @@ const REGISTRAR_MAP: { pattern: RegExp; name: string; dnsUrl: string }[] = [
 
 async function detectRegistrar(domain: string): Promise<{ name: string; dnsUrl: string } | null> {
   try {
-    // Use Google Public DNS API to look up NS records
     const res = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=NS`);
     if (!res.ok) return null;
     const data = await res.json();
-    
     if (!data.Answer || data.Answer.length === 0) return null;
-    
     const nsRecords = data.Answer
       .filter((a: { type: number }) => a.type === 2)
       .map((a: { data: string }) => a.data.toLowerCase());
-    
     for (const ns of nsRecords) {
       for (const registrar of REGISTRAR_MAP) {
         if (registrar.pattern.test(ns)) {
@@ -89,11 +88,32 @@ async function detectRegistrar(domain: string): Promise<{ name: string; dnsUrl: 
         }
       }
     }
-    
     return null;
   } catch {
     return null;
   }
+}
+
+// Fetch platform sender info for Quick Setup preview
+function usePlatformSender() {
+  return useQuery({
+    queryKey: ['platform-sender-info'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('setting_key, setting_value')
+        .in('setting_key', ['platform_resend_from_email', 'platform_resend_from_name']);
+      
+      const map: Record<string, string> = {};
+      data?.forEach(row => {
+        if (row.setting_value) map[row.setting_key] = row.setting_value;
+      });
+      return {
+        fromEmail: map['platform_resend_from_email'] || null,
+        fromName: map['platform_resend_from_name'] || null,
+      };
+    },
+  });
 }
 
 export function CompanyEmailDomainSetup({ companyId }: CompanyEmailDomainSetupProps) {
@@ -104,6 +124,12 @@ export function CompanyEmailDomainSetup({ companyId }: CompanyEmailDomainSetupPr
   const [detectingRegistrar, setDetectingRegistrar] = useState(false);
   const [itEmail, setItEmail] = useState('');
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+
+  // Quick Setup state
+  const [quickFromName, setQuickFromName] = useState('');
+  const [quickReplyTo, setQuickReplyTo] = useState('');
+
+  const { data: platformSender } = usePlatformSender();
 
   const { data: emailDomain, isLoading } = useQuery({
     queryKey: ['company-email-domain', companyId],
@@ -121,11 +147,10 @@ export function CompanyEmailDomainSetup({ companyId }: CompanyEmailDomainSetupPr
   });
 
   // Auto-poll verification every 60 seconds when domain is pending
-  const isPending = emailDomain && !emailDomain.verified;
+  const isPending = emailDomain && !emailDomain.verified && !emailDomain.use_platform_domain;
 
   const autoVerify = useCallback(async () => {
     if (!emailDomain?.resend_domain_id || emailDomain.verified) return;
-    
     try {
       const { data, error } = await supabase.functions.invoke('manage-email-domain', {
         body: { action: 'verify', companyId, resendDomainId: emailDomain.resend_domain_id },
@@ -135,7 +160,6 @@ export function CompanyEmailDomainSetup({ companyId }: CompanyEmailDomainSetupPr
         queryClient.invalidateQueries({ queryKey: ['company-email-domain', companyId] });
         toast.success('🎉 Domain verified! Emails will now be sent from your domain.');
       } else {
-        // Silently refresh DNS record statuses
         queryClient.invalidateQueries({ queryKey: ['company-email-domain', companyId] });
       }
     } catch {
@@ -151,17 +175,16 @@ export function CompanyEmailDomainSetup({ companyId }: CompanyEmailDomainSetupPr
 
   // Detect registrar when domain is set
   useEffect(() => {
-    if (!emailDomain?.domain || emailDomain.verified) {
+    if (!emailDomain?.domain || emailDomain.verified || emailDomain.use_platform_domain) {
       setRegistrar(null);
       return;
     }
-    
     setDetectingRegistrar(true);
     detectRegistrar(emailDomain.domain).then((r) => {
       setRegistrar(r);
       setDetectingRegistrar(false);
     });
-  }, [emailDomain?.domain, emailDomain?.verified]);
+  }, [emailDomain?.domain, emailDomain?.verified, emailDomain?.use_platform_domain]);
 
   const registerMutation = useMutation({
     mutationFn: async ({ domain, fromName }: { domain: string; fromName: string }) => {
@@ -179,6 +202,34 @@ export function CompanyEmailDomainSetup({ companyId }: CompanyEmailDomainSetupPr
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to register domain');
+    },
+  });
+
+  const quickSetupMutation = useMutation({
+    mutationFn: async ({ fromName, replyToEmail }: { fromName: string; replyToEmail: string }) => {
+      // Upsert into company_email_domains with use_platform_domain = true
+      const { error } = await supabase
+        .from('company_email_domains')
+        .upsert({
+          company_id: companyId,
+          domain: 'platform', // placeholder — not a real domain
+          use_platform_domain: true,
+          reply_to_email: replyToEmail,
+          from_name: fromName,
+          verified: false,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'company_id' });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-email-domain', companyId] });
+      toast.success('Quick email setup complete! Emails will be sent using the platform domain.');
+      setQuickFromName('');
+      setQuickReplyTo('');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to save quick setup');
     },
   });
 
@@ -207,20 +258,28 @@ export function CompanyEmailDomainSetup({ companyId }: CompanyEmailDomainSetupPr
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
+      if (emailDomain?.use_platform_domain) {
+        // Just delete the DB row, no Resend domain to remove
+        const { error } = await supabase
+          .from('company_email_domains')
+          .delete()
+          .eq('company_id', companyId);
+        if (error) throw error;
+        return;
+      }
       if (!emailDomain?.resend_domain_id) throw new Error('No domain to delete');
       const { data, error } = await supabase.functions.invoke('manage-email-domain', {
         body: { action: 'delete', companyId, resendDomainId: emailDomain.resend_domain_id },
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Deletion failed');
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['company-email-domain', companyId] });
-      toast.success('Domain removed');
+      toast.success('Email configuration removed');
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove domain');
+      toast.error(error instanceof Error ? error.message : 'Failed to remove configuration');
     },
   });
 
@@ -263,58 +322,87 @@ export function CompanyEmailDomainSetup({ companyId }: CompanyEmailDomainSetupPr
     );
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Mail className="h-5 w-5" />
-          <CardTitle className="text-lg">Email Domain</CardTitle>
-        </div>
-        <CardDescription>
-          Set up your company's email domain so emails are sent from your brand (e.g., noreply@yourcompany.com)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {!emailDomain ? (
-          /* Register new domain */
-          <div className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email_domain">Email Domain</Label>
-              <Input
-                id="email_domain"
-                placeholder="yourcompany.com"
-                value={newDomain}
-                onChange={(e) => setNewDomain(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter the domain you want to send emails from (e.g., yourcompany.com)
-              </p>
+  // If using platform domain (Quick Setup active)
+  if (emailDomain?.use_platform_domain) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-amber-500" />
+            <CardTitle className="text-lg">Email — Quick Setup Active</CardTitle>
+          </div>
+          <CardDescription>
+            Emails are sent using the platform's verified domain with your company branding.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="p-4 border rounded-lg bg-muted/30 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">From:</span>
+              <span className="text-sm font-medium">
+                "{emailDomain.from_name || 'Your Company'} via {platformSender?.fromName || 'Platform'}" &lt;{platformSender?.fromEmail || 'noreply@platform.com'}&gt;
+              </span>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="from_name">From Name</Label>
-              <Input
-                id="from_name"
-                placeholder="Your Company Name"
-                value={fromName}
-                onChange={(e) => setFromName(e.target.value)}
-              />
-            </div>
+            {emailDomain.reply_to_email && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Reply-To:</span>
+                <span className="text-sm font-medium">{emailDomain.reply_to_email}</span>
+              </div>
+            )}
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            Replies from your clients will go to <strong>{emailDomain.reply_to_email || 'no reply-to configured'}</strong>. 
+            You can upgrade to a custom domain at any time for full branding.
+          </p>
+
+          <div className="flex gap-2">
             <Button
-              onClick={() => registerMutation.mutate({ domain: newDomain.trim(), fromName: fromName.trim() })}
-              disabled={registerMutation.isPending || !newDomain.trim()}
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (confirm('Switch to custom domain setup? This will remove the quick setup.')) {
+                  deleteMutation.mutate();
+                }
+              }}
+              disabled={deleteMutation.isPending}
             >
-              {registerMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Registering...
-                </>
-              ) : (
-                'Register Domain'
-              )}
+              <Shield className="h-4 w-4 mr-2" />
+              Switch to Custom Domain
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (confirm('Remove email configuration? Emails will fall back to platform defaults.')) {
+                  deleteMutation.mutate();
+                }
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Remove
             </Button>
           </div>
-        ) : (
-          /* Domain exists — show status and DNS records */
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Existing domain (custom domain flow)
+  if (emailDomain) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            <CardTitle className="text-lg">Email Domain</CardTitle>
+          </div>
+          <CardDescription>
+            Set up your company's email domain so emails are sent from your brand (e.g., noreply@yourcompany.com)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -448,7 +536,6 @@ export function CompanyEmailDomainSetup({ companyId }: CompanyEmailDomainSetupPr
                     )}
                   </Button>
 
-                  {/* Email to IT button */}
                   <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
                     <DialogTrigger asChild>
                       <Button variant="outline">
@@ -520,7 +607,146 @@ export function CompanyEmailDomainSetup({ companyId }: CompanyEmailDomainSetupPr
               </p>
             )}
           </div>
-        )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // No domain configured — show setup options
+  const platformAvailable = !!platformSender?.fromEmail;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Mail className="h-5 w-5" />
+          <CardTitle className="text-lg">Email Domain</CardTitle>
+        </div>
+        <CardDescription>
+          Set up how your company sends emails to clients (proposals, portal notifications, etc.)
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue={platformAvailable ? 'quick' : 'custom'} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="quick" className="gap-2" disabled={!platformAvailable}>
+              <Zap className="h-4 w-4" />
+              Quick Setup
+            </TabsTrigger>
+            <TabsTrigger value="custom" className="gap-2">
+              <Shield className="h-4 w-4" />
+              Custom Domain
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="quick" className="space-y-4">
+            <Alert className="border-amber-500/20 bg-amber-500/5">
+              <Zap className="h-4 w-4 text-amber-500" />
+              <AlertDescription>
+                <strong>No DNS setup needed!</strong> Emails will be sent from the platform's verified domain with your company name. 
+                Client replies go to your email address.
+              </AlertDescription>
+            </Alert>
+
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="quick_from_name">Your Company Name *</Label>
+                <Input
+                  id="quick_from_name"
+                  placeholder="Acme Roofing"
+                  value={quickFromName}
+                  onChange={(e) => setQuickFromName(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="quick_reply_to">Reply-To Email *</Label>
+                <Input
+                  id="quick_reply_to"
+                  type="email"
+                  placeholder="info@yourcompany.com"
+                  value={quickReplyTo}
+                  onChange={(e) => setQuickReplyTo(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  When clients reply to your emails, replies will go to this address.
+                </p>
+              </div>
+            </div>
+
+            {quickFromName && platformSender?.fromEmail && (
+              <div className="p-3 border rounded-lg bg-muted/30 text-sm space-y-1">
+                <p className="text-muted-foreground">Preview:</p>
+                <p><strong>From:</strong> "{quickFromName} via {platformSender.fromName || 'Platform'}" &lt;{platformSender.fromEmail}&gt;</p>
+                {quickReplyTo && <p><strong>Reply-To:</strong> {quickReplyTo}</p>}
+              </div>
+            )}
+
+            <Button
+              onClick={() => quickSetupMutation.mutate({ fromName: quickFromName.trim(), replyToEmail: quickReplyTo.trim() })}
+              disabled={quickSetupMutation.isPending || !quickFromName.trim() || !quickReplyTo.trim()}
+            >
+              {quickSetupMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Setting up...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Enable Quick Setup
+                </>
+              )}
+            </Button>
+          </TabsContent>
+
+          <TabsContent value="custom" className="space-y-4">
+            <Alert>
+              <Shield className="h-4 w-4" />
+              <AlertDescription>
+                Verify your own domain for full branding control. Emails will come from your domain (e.g., noreply@yourcompany.com). 
+                Requires DNS record configuration.
+              </AlertDescription>
+            </Alert>
+
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email_domain">Email Domain</Label>
+                <Input
+                  id="email_domain"
+                  placeholder="yourcompany.com"
+                  value={newDomain}
+                  onChange={(e) => setNewDomain(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter the domain you want to send emails from (e.g., yourcompany.com)
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="from_name">From Name</Label>
+                <Input
+                  id="from_name"
+                  placeholder="Your Company Name"
+                  value={fromName}
+                  onChange={(e) => setFromName(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={() => registerMutation.mutate({ domain: newDomain.trim(), fromName: fromName.trim() })}
+              disabled={registerMutation.isPending || !newDomain.trim()}
+            >
+              {registerMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Registering...
+                </>
+              ) : (
+                'Register Domain'
+              )}
+            </Button>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
