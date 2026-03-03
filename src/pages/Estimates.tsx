@@ -504,7 +504,7 @@ export default function Estimates() {
     const isProposalsTab = tableType === 'proposals';
 
     return (
-      <div className="overflow-auto max-h-[calc(100vh-280px)]">
+      <div>
       <Table>
         <TableHeader>
           <TableRow>
@@ -747,75 +747,83 @@ export default function Estimates() {
           </TabsList>
 
           <TabsContent value="list" className="mt-2">
-            {renderEstimateTable(
-              recentDraftEstimates,
-              "No Draft Estimates",
-              <Calculator className="h-12 w-12 text-muted-foreground mb-4" />,
-              'list'
-            )}
-            {oldDraftEstimates.length > 0 && (
-              <Collapsible className="mt-4">
-                <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 px-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group">
-                  <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-                  <Archive className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium text-muted-foreground">Old Estimates</span>
-                  <Badge variant="secondary" className="ml-auto text-xs">{oldDraftEstimates.length}</Badge>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2">
-                  {renderEstimateTable(
-                    oldDraftEstimates,
-                    "No Old Estimates",
-                    <Calculator className="h-12 w-12 text-muted-foreground mb-4" />,
-                    'list'
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-            )}
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
+              {renderEstimateTable(
+                recentDraftEstimates,
+                "No Draft Estimates",
+                <Calculator className="h-12 w-12 text-muted-foreground mb-4" />,
+                'list'
+              )}
+              {oldDraftEstimates.length > 0 && (
+                <Collapsible className="mt-4">
+                  <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 px-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group">
+                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                    <Archive className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Old Estimates</span>
+                    <Badge variant="secondary" className="ml-auto text-xs">{oldDraftEstimates.length}</Badge>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    {renderEstimateTable(
+                      oldDraftEstimates,
+                      "No Old Estimates",
+                      <Calculator className="h-12 w-12 text-muted-foreground mb-4" />,
+                      'list'
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="proposals" className="mt-2">
-            {renderEstimateTable(
-              liveProposalEstimates,
-              "No Proposals Sent",
-              <Send className="h-12 w-12 text-muted-foreground mb-4" />,
-              'proposals'
-            )}
-            {expiredProposalEstimates.length > 0 && (
-              <Collapsible className="mt-4">
-                <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 px-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group">
-                  <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium text-muted-foreground">Expired Proposals</span>
-                  <Badge variant="secondary" className="ml-auto text-xs">{expiredProposalEstimates.length}</Badge>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2">
-                  {renderEstimateTable(
-                    expiredProposalEstimates,
-                    "No Expired Proposals",
-                    <Send className="h-12 w-12 text-muted-foreground mb-4" />,
-                    'proposals'
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-            )}
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
+              {renderEstimateTable(
+                liveProposalEstimates,
+                "No Proposals Sent",
+                <Send className="h-12 w-12 text-muted-foreground mb-4" />,
+                'proposals'
+              )}
+              {expiredProposalEstimates.length > 0 && (
+                <Collapsible className="mt-4">
+                  <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 px-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors group">
+                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Expired Proposals</span>
+                    <Badge variant="secondary" className="ml-auto text-xs">{expiredProposalEstimates.length}</Badge>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    {renderEstimateTable(
+                      expiredProposalEstimates,
+                      "No Expired Proposals",
+                      <Send className="h-12 w-12 text-muted-foreground mb-4" />,
+                      'proposals'
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="contracts" className="mt-2">
-            {renderEstimateTable(
-              contractEstimates,
-              "No Contracts Yet",
-              <FileSignature className="h-12 w-12 text-muted-foreground mb-4" />,
-              'contracts'
-            )}
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
+              {renderEstimateTable(
+                contractEstimates,
+                "No Contracts Yet",
+                <FileSignature className="h-12 w-12 text-muted-foreground mb-4" />,
+                'contracts'
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="declined" className="mt-2">
-            {renderEstimateTable(
-              declinedEstimates,
-              "No Declined Proposals",
-              <Trash2 className="h-12 w-12 text-muted-foreground mb-4" />,
-              'declined'
-            )}
+            <div className="overflow-auto max-h-[calc(100vh-280px)]">
+              {renderEstimateTable(
+                declinedEstimates,
+                "No Declined Proposals",
+                <Trash2 className="h-12 w-12 text-muted-foreground mb-4" />,
+                'declined'
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
