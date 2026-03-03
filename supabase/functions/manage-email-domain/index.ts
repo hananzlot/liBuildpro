@@ -18,8 +18,22 @@ serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
+    const { action, companyId, domain, resendDomainId } = await req.json();
+
+    if (!companyId) {
+      return new Response(
+        JSON.stringify({ success: false, error: "companyId is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const RESEND_API_KEY = await getResendApiKey(supabase);
     if (!RESEND_API_KEY) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Platform RESEND_API_KEY not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Verify caller is admin for this company
     const authHeader = req.headers.get("Authorization");
