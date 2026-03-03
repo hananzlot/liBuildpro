@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { GlobalAdminSearch } from "./GlobalAdminSearch";
+import ibuildproLogo from "@/assets/ibuildpro-logo.png";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, ExternalLink, Settings, Mail, FileSignature, Shield, Award, MessageSquare, Link as LinkIcon, DollarSign, Sparkles, Pencil, Link2, Users, Eye, Wrench, FileText, Activity } from "lucide-react";
@@ -57,6 +58,7 @@ export function TopBar({ showNotifications = true, headerContent }: TopBarProps)
     <header className="h-12 shadow-xs bg-card backdrop-blur-sm sticky top-0 z-30 flex items-center justify-between px-4 shrink-0">
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <SidebarTrigger />
+        <img src={ibuildproLogo} alt="iBuildPro" className="h-7 w-auto shrink-0" />
         <GlobalAdminSearch />
         {headerContent}
       </div>
