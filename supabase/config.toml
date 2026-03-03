@@ -236,3 +236,6 @@ verify_jwt = false
 
 [functions.summarize-audit-log]
 verify_jwt = false
+
+[functions.manage-email-domain]
+verify_jwt = false

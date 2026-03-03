@@ -975,6 +975,56 @@ export type Database = {
           },
         ]
       }
+      company_email_domains: {
+        Row: {
+          company_id: string
+          created_at: string
+          dns_records: Json | null
+          domain: string
+          from_email: string | null
+          from_name: string | null
+          id: string
+          resend_domain_id: string | null
+          updated_at: string
+          verified: boolean
+          verified_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          dns_records?: Json | null
+          domain: string
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          resend_domain_id?: string | null
+          updated_at?: string
+          verified?: boolean
+          verified_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          dns_records?: Json | null
+          domain?: string
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          resend_domain_id?: string | null
+          updated_at?: string
+          verified?: boolean
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_email_domains_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_integrations: {
         Row: {
           api_key_encrypted: string | null
