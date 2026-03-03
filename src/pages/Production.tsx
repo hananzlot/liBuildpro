@@ -2044,16 +2044,6 @@ export default function Production() {
                           <div className="flex items-end justify-end gap-0.5">Cost <SortIcon column="est_proj_cost" /></div>
                         </TableHead>
                         )}
-                        {isColumnVisible('bills_received') && (
-                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('bills_received')}>
-                          <div className="flex items-end justify-end gap-0.5">Bills Recv <SortIcon column="bills_received" /></div>
-                        </TableHead>
-                        )}
-                        {isColumnVisible('bills_paid') && (
-                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('bills_paid')}>
-                          <div className="flex items-end justify-end gap-0.5">Bills Paid <SortIcon column="bills_paid" /></div>
-                        </TableHead>
-                        )}
                         {isColumnVisible('inv_collected') && (
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('inv_collected')}>
                           <div className="flex items-end justify-end gap-0.5">Inv Collect <SortIcon column="inv_collected" /></div>
@@ -2062,6 +2052,16 @@ export default function Production() {
                         {isColumnVisible('inv_balance') && (
                         <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('inv_balance')}>
                           <div className="flex items-end justify-end gap-0.5">Inv Bal <SortIcon column="inv_balance" /></div>
+                        </TableHead>
+                        )}
+                        {isColumnVisible('bills_received') && (
+                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('bills_received')}>
+                          <div className="flex items-end justify-end gap-0.5">Bills Recv <SortIcon column="bills_received" /></div>
+                        </TableHead>
+                        )}
+                        {isColumnVisible('bills_paid') && (
+                        <TableHead className="w-[7%] text-right cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('bills_paid')}>
+                          <div className="flex items-end justify-end gap-0.5">Bills Paid <SortIcon column="bills_paid" /></div>
                         </TableHead>
                         )}
                         {isColumnVisible('proj_balance') && (
@@ -2270,16 +2270,6 @@ export default function Production() {
                               )}
                             </TableCell>
                             )}
-                            {isColumnVisible('bills_received') && (
-                            <TableCell className="text-right text-[10px] truncate">
-                              {formatCurrency(financials?.totalBillsReceived)}
-                            </TableCell>
-                            )}
-                            {isColumnVisible('bills_paid') && (
-                            <TableCell className="text-right text-[10px] truncate">
-                              {formatCurrency(financials?.totalBillsPaid)}
-                            </TableCell>
-                            )}
                             {isColumnVisible('inv_collected') && (
                             <TableCell className="text-right text-[10px] text-emerald-600 truncate">
                               {formatCurrency(financials?.invoicesCollected)}
@@ -2288,6 +2278,16 @@ export default function Production() {
                             {isColumnVisible('inv_balance') && (
                             <TableCell className="text-right text-[10px] text-amber-600 truncate">
                               {formatCurrency(financials?.invoiceBalanceDue)}
+                            </TableCell>
+                            )}
+                            {isColumnVisible('bills_received') && (
+                            <TableCell className="text-right text-[10px] truncate">
+                              {formatCurrency(financials?.totalBillsReceived)}
+                            </TableCell>
+                            )}
+                            {isColumnVisible('bills_paid') && (
+                            <TableCell className="text-right text-[10px] truncate">
+                              {formatCurrency(financials?.totalBillsPaid)}
                             </TableCell>
                             )}
                             {isColumnVisible('proj_balance') && (
