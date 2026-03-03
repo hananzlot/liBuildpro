@@ -29,15 +29,15 @@ const ADMIN_QUICK_MENU = [
     { title: "Compliance", icon: FileSignature, tab: "compliance" },
     { title: "Chat", icon: MessageSquare, tab: "chat" },
   ]},
-  { label: "Integrations", items: [
-    { title: "GoHighLevel", icon: LinkIcon, tab: "integrations" },
-    { title: "QuickBooks", icon: DollarSign, tab: "quickbooks" },
-    { title: "APIs & AI", icon: Sparkles, tab: "custom" },
-  ]},
   { label: "Sales & Operations", items: [
     { title: "Lead Sources", icon: Pencil, tab: "sources" },
     { title: "Short Links", icon: Link2, tab: "shortlinks" },
     { title: "Accounting", icon: DollarSign, tab: "payables" },
+  ]},
+  { label: "Integrations", items: [
+    { title: "GoHighLevel", icon: LinkIcon, tab: "integrations" },
+    { title: "QuickBooks", icon: DollarSign, tab: "quickbooks" },
+    { title: "APIs & AI", icon: Sparkles, tab: "custom" },
   ]},
   { label: "System", items: [
     
