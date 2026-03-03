@@ -4,7 +4,8 @@ import { GlobalAdminSearch } from "./GlobalAdminSearch";
 import ibuildproLogo from "@/assets/ibuildpro-logo.png";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { Button } from "@/components/ui/button";
-import { HelpCircle, ExternalLink, Settings, Mail, FileSignature, Shield, Award, MessageSquare, Link as LinkIcon, DollarSign, Sparkles, Pencil, Link2, Users, Eye, Wrench, FileText, Activity } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { HelpCircle, ExternalLink, Settings, Mail, FileSignature, Shield, Award, MessageSquare, Link as LinkIcon, DollarSign, Sparkles, Pencil, Link2, Users, Eye, EyeOff, Wrench, FileText, Activity } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,10 +13,15 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppTabs } from "@/contexts/AppTabsContext";
+import { UserSimulationPicker } from "./UserSimulationPicker";
+import { toast } from "sonner";
+import type { AppRole } from "@/contexts/AuthContext";
 
 const ADMIN_QUICK_MENU = [
   { label: "Core Settings", items: [
@@ -48,7 +54,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ showNotifications = true, headerContent }: TopBarProps) {
-  const { isAdmin, isSuperAdmin } = useAuth();
+  const { isAdmin, isSuperAdmin, isSimulating, simulatedRole, simulatedUserId, simulatedUserName, setSimulatedRole, simulateAsUser, clearSimulation, availableRoles } = useAuth();
   const { openTab } = useAppTabs();
 
   const showAdminSettings = isAdmin || isSuperAdmin;
@@ -86,6 +92,59 @@ export function TopBar({ showNotifications = true, headerContent }: TopBarProps)
           </TooltipTrigger>
           <TooltipContent>Open Web Search</TooltipContent>
         </Tooltip>
+
+        {/* Simulate - Super Admin only */}
+        {isSuperAdmin && (
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className={`h-8 w-8 ${isSimulating ? 'text-blue-500' : ''}`}>
+                    {isSimulating ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isSimulating 
+                  ? `Simulating: ${simulatedUserId ? (simulatedUserName || 'User') : simulatedRole}`
+                  : 'Simulate'
+                }
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>View as Role</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup value={simulatedUserId ? '' : (simulatedRole || '')} onValueChange={(v) => {
+                if (v === '') { clearSimulation(); toast.info("Simulation disabled"); openTab('/', 'Dashboard'); }
+                else { setSimulatedRole(v as AppRole); toast.info(`Now viewing as: ${v}`); }
+              }}>
+                <DropdownMenuRadioItem value="">
+                  <span className="flex items-center gap-2">My Actual Role {!isSimulating && <Badge variant="outline" className="h-4 px-1 text-[9px]">Active</Badge>}</span>
+                </DropdownMenuRadioItem>
+                <DropdownMenuSeparator />
+                {availableRoles.map(r => <DropdownMenuRadioItem key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1).replace(/_/g, ' ')}</DropdownMenuRadioItem>)}
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>View as User</DropdownMenuLabel>
+              <UserSimulationPicker
+                onSelectUser={simulateAsUser}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="cursor-pointer">
+                    <Users className="h-4 w-4 mr-2" />
+                    {simulatedUserId ? (
+                      <span className="flex items-center gap-2">
+                        {simulatedUserName}
+                        <Badge variant="outline" className="h-4 px-1 text-[9px]">Active</Badge>
+                      </span>
+                    ) : (
+                      "Pick a user…"
+                    )}
+                  </DropdownMenuItem>
+                }
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Admin Settings Quick Access */}
         {showAdminSettings && (
