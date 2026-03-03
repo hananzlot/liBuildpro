@@ -326,10 +326,48 @@ serve(async (req: Request): Promise<Response> => {
 
     // Parse the request body
     const body = await req.text();
+    const parsedBody = JSON.parse(body);
     let payload: AuthEmailPayload;
 
-    // Verify webhook signature if secret is configured
-    if (hookSecret) {
+    // Check for test mode - called from admin UI with auth token
+    const isTestMode = parsedBody._test_mode === true;
+
+    if (isTestMode) {
+      // Verify the caller is an authenticated admin user
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      const testSupabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user: callingUser }, error: authError } = await testSupabase.auth.getUser();
+      if (authError || !callingUser) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      // Verify admin role
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", callingUser.id)
+        .in("role", ["super_admin", "admin", "corp_admin"])
+        .maybeSingle();
+      if (!roleData) {
+        return new Response(
+          JSON.stringify({ error: "Admin access required" }),
+          { status: 403, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      console.log(`Test mode: admin ${callingUser.email} sending test email`);
+      payload = parsedBody as AuthEmailPayload;
+    } else if (hookSecret) {
+      // Verify webhook signature for production calls from Supabase auth hooks
       const webhookId = req.headers.get("webhook-id");
       const webhookTimestamp = req.headers.get("webhook-timestamp");
       const webhookSignature = req.headers.get("webhook-signature");
@@ -351,7 +389,6 @@ serve(async (req: Request): Promise<Response> => {
         }) as AuthEmailPayload;
       } catch (verifyError) {
         console.error("Webhook verification failed:", verifyError);
-        console.error("Hook secret length:", hookSecret.length);
         return new Response(
           JSON.stringify({ error: "Invalid webhook signature" }),
           { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -360,7 +397,7 @@ serve(async (req: Request): Promise<Response> => {
     } else {
       // No secret configured - just parse the body (development mode)
       console.warn("SEND_EMAIL_HOOK_SECRET not configured - running in development mode");
-      payload = JSON.parse(body);
+      payload = parsedBody;
     }
 
     const emailType = payload.email_data.email_action_type;
