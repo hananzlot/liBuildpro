@@ -1,0 +1,1 @@
+UPDATE app_settings SET setting_value = 'https://zbrosgroup.com', updated_at = now() WHERE setting_key = 'app_base_url';
