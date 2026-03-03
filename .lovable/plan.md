@@ -1,90 +1,96 @@
 
 
-## Redesign Company Settings: Vertical Tab Navigation + All Collapsed
+## Better Email Onboarding: One Platform Account, Many Company Domains
 
-The current section-based layout still results in a long scrollable page. A better pattern is a **vertical tab navigation** (like GitHub/Stripe settings) where users select a category on the left and only see that category's cards on the right.
+### The Core Insight
 
-### Current Problems
-- Even with sections and jump links, users still see all 10 cards at once
-- "Jump to" buttons are redundant with proper navigation
-- Having some cards auto-expanded adds visual noise
+You do **not** need a separate Resend account per company. Resend supports **multiple verified domains under a single account**. You can send emails on behalf of any company using your one platform API key — each company just needs to add DNS records to verify their domain.
 
-### Proposed Layout
+### Current (Inefficient) Flow
+
+1. Each company creates their own Resend account
+2. They generate an API key
+3. They paste it into your admin UI
+4. You encrypt and store it per company
+5. Edge functions try the company key, then fall back to the platform key
+
+### Proposed (Streamlined) Flow
+
+1. **You** maintain one Resend account with one API key (the platform `RESEND_API_KEY`)
+2. When onboarding a company, they provide their domain (e.g., `zbrosgroup.com`)
+3. Your app calls the Resend API to programmatically add the domain and get DNS records
+4. The company adds the DNS records (SPF, DKIM, DMARC) — you show them in-app
+5. Your app polls Resend to check verification status
+6. Once verified, emails send from `noreply@theircompany.com` using **your** single API key
+
+### What Changes
+
+**New: Company Email Domain Onboarding UI**
+- Admin settings page per company: "Enter your email domain"
+- Calls Resend's `POST /domains` API to register the domain
+- Displays the required DNS records (TXT, CNAME) for the company to add
+- "Check Verification" button that calls Resend's `GET /domains/{id}` to check status
+- Stores domain + verification status in `company_settings`
+
+**New: Edge Function `manage-email-domain`**
+- Handles domain registration, verification checking, and deletion via the Resend API
+- Uses the single platform `RESEND_API_KEY` — no per-company keys needed
+
+**Simplified: Email Sending**
+- All 10 business email functions use the platform `RESEND_API_KEY`
+- The "from" address is built dynamically: `noreply@{company_domain}` or falls back to the platform default
+- Remove the per-company encrypted key infrastructure (`store_resend_api_key_encrypted`, `get_resend_api_key_encrypted`, `get-resend-key.ts`)
+
+**Database Changes**
+- Add `company_settings` entries for `email_domain`, `email_domain_resend_id`, `email_domain_verified`, `email_from_name`
+- Or a new `company_email_domains` table with columns: `company_id`, `domain`, `resend_domain_id`, `verified`, `dns_records` (JSONB), `verified_at`
+
+### Onboarding Experience
 
 ```text
-┌──────────────────┬──────────────────────────────────┐
-│ ▸ Company Profile│  Company Logo          [card]    │
-│   Sales & Pipeline  Company Info        [card]    │
-│   Operations     │  Social Media Links   [card]    │
-│                  │                                  │
-│                  │  (only cards for selected        │
-│                  │   category are shown)            │
-└──────────────────┴──────────────────────────────────┘
+Company Admin Settings → Email Setup
+
+┌──────────────────────────────────────────┐
+│  Email Domain: zbrosgroup.com    [Save]  │
+│                                          │
+│  Status: ⏳ Pending DNS verification     │
+│                                          │
+│  Add these DNS records:                  │
+│  ┌──────────────────────────────────┐    │
+│  │ Type: TXT                        │    │
+│  │ Host: _resend.zbrosgroup.com     │    │
+│  │ Value: v=spf1 include:...        │    │
+│  └──────────────────────────────────┘    │
+│  ┌──────────────────────────────────┐    │
+│  │ Type: CNAME                      │    │
+│  │ Host: resend._domainkey...       │    │
+│  │ Value: ...                       │    │
+│  └──────────────────────────────────┘    │
+│                                          │
+│  [Check Verification]                    │
+│                                          │
+│  Once verified, emails will be sent      │
+│  from: noreply@zbrosgroup.com            │
+└──────────────────────────────────────────┘
 ```
 
-On mobile, the left sidebar becomes horizontal pill tabs above the content.
+### Auth Emails (Separate Concern)
 
-### Implementation
+For auth emails (signup, password reset, magic links), use Lovable's managed auth email system — this is completely separate from business/portal emails and needs no Resend at all.
 
-**File: `src/pages/AdminSettings.tsx`**
+### Implementation Steps
 
-1. **Add state** for the active settings category:
-   ```tsx
-   const [settingsCategory, setSettingsCategory] = useState<"company" | "sales" | "operations">("company");
-   ```
+1. Create `company_email_domains` table with domain, Resend domain ID, verification status, DNS records
+2. Create `manage-email-domain` edge function (register domain, check verification, delete)
+3. Build company-level email domain setup UI with DNS record display
+4. Update `_shared/get-resend-key.ts` to always use the platform key and look up the company's verified domain for the "from" address
+5. Remove per-company Resend API key encryption infrastructure
+6. Set up Lovable managed auth emails for auth-related emails
 
-2. **Replace** the "Jump to" buttons and section headers/separators with a sidebar + content layout:
-   ```tsx
-   <div className="flex flex-col md:flex-row gap-6">
-     {/* Sidebar - vertical on desktop, horizontal on mobile */}
-     <div className="flex md:flex-col gap-1 md:w-48 md:shrink-0">
-       <Button variant={settingsCategory === "company" ? "secondary" : "ghost"} 
-               className="justify-start" onClick={() => setSettingsCategory("company")}>
-         <Building className="h-4 w-4 mr-2" /> Company Profile
-       </Button>
-       <Button variant={settingsCategory === "sales" ? "secondary" : "ghost"}
-               className="justify-start" onClick={() => setSettingsCategory("sales")}>
-         <Target className="h-4 w-4 mr-2" /> Sales & Pipeline
-       </Button>
-       <Button variant={settingsCategory === "operations" ? "secondary" : "ghost"}
-               className="justify-start" onClick={() => setSettingsCategory("operations")}>
-         <Settings className="h-4 w-4 mr-2" /> Operations & Display
-       </Button>
-     </div>
+### Technical Details
 
-     {/* Content area - only shows selected category */}
-     <div className="flex-1 space-y-4">
-       {settingsCategory === "company" && (
-         <>
-           <LogoUpload />           {/* defaultOpen removed */}
-           <CompanySettingsCard />
-           <SocialMediaLinks />
-         </>
-       )}
-       {settingsCategory === "sales" && (
-         <>
-           <PipelineConfig />       {/* defaultOpen removed */}
-           <OpportunityStages />
-           <StageBadges />
-           <EstimateSettings />
-         </>
-       )}
-       {settingsCategory === "operations" && (
-         <>
-           <CustomerPortal />       {/* defaultOpen removed */}
-           <ProjectStatuses />
-           <DashboardKPI />
-         </>
-       )}
-     </div>
-   </div>
-   ```
-
-3. **Collapse all cards by default** — change `defaultOpen` to `false` (or remove the prop) on LogoUpload, Pipeline Configuration, and Customer Portal Settings.
-
-4. **Remove** the "Jump to" navigation bar, section headers (`<h3>`), separators, section wrapper `<div>`s, and `scroll-mt-6` / `id` attributes — all replaced by the sidebar.
-
-5. **Remove** grid layouts (`grid-cols-2`) — with only 3-4 cards visible at a time, a single-column stack is cleaner and avoids mismatched card heights.
-
-This reduces cognitive load significantly: users see 3-4 cards max instead of 10, with clear category switching.
+- Resend API for domain management: `POST /domains`, `GET /domains/{id}`, `DELETE /domains/{id}`
+- DNS records returned by Resend include SPF, DKIM, and optionally DMARC — all displayed to the company admin
+- The platform `RESEND_API_KEY` env var (already exists) is the only key needed
+- Fallback: companies without a verified domain use your platform default sender (e.g., `noreply@zbrosgroup.com`)
 
