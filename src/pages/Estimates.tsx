@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload, ChevronDown, ChevronRight, Eye, Globe, Archive, Clock, MoreVertical } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload, ChevronDown, ChevronRight, Eye, Globe, Archive, Clock, MoreVertical, Copy } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
@@ -541,10 +541,18 @@ export default function Estimates() {
                         Create New Estimate
                       </DropdownMenuItem>
                     ) : estimate.status === 'accepted' ? (
-                      <DropdownMenuItem onClick={() => setPrintEstimateId(estimate.id)}>
-                        <Printer className="h-4 w-4 mr-2" />
-                        Print Contract
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem onClick={() => setPrintEstimateId(estimate.id)}>
+                          <Printer className="h-4 w-4 mr-2" />
+                          Print Contract
+                        </DropdownMenuItem>
+                        {isAdmin && (
+                          <DropdownMenuItem onClick={() => openTab(`/estimate/clone:${estimate.id}`, `Clone Contract #${estimate.estimate_number}`)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate to Estimate
+                          </DropdownMenuItem>
+                        )}
+                      </>
                     ) : (
                       <>
                         <DropdownMenuItem onClick={() => openTab(
