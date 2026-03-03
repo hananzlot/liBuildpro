@@ -108,7 +108,7 @@ interface ProjectDetailSheetProps {
   initialFinanceSectionTab?: string;
   initialFinanceSubTab?: 'bills' | 'history';
   /** Auto-open a specific finance dialog (invoice, payment, bill) */
-  autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | null;
+  autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | 'change-order' | null;
   highlightInvoiceId?: string | null;
   highlightBillId?: string | null;
   highlightPaymentId?: string | null;
