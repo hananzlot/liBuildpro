@@ -3398,14 +3398,12 @@ export function OpportunityDetailSheet({
                   <button className="font-medium hover:underline text-left cursor-pointer" onClick={() => setIsInlineEditingPipeline(true)}>
                     {hasAdminPipelineConfig ? (adminPipelineName || "Main") : (savedValues.pipeline_name ?? opportunity.pipeline_name ?? "-")}
                   </button>
-                  {(savedValues.stage_name ?? opportunity.stage_name) && (
-                    <>
-                      <span className="text-muted-foreground">›</span>
-                      <button className="text-muted-foreground font-normal hover:underline hover:text-foreground cursor-pointer" onClick={() => setIsInlineEditingStage(true)}>
-                        {savedValues.stage_name ?? opportunity.stage_name}
-                      </button>
-                    </>
-                  )}
+                  <>
+                    <span className="text-muted-foreground">›</span>
+                    <button className="text-muted-foreground font-normal hover:underline hover:text-foreground cursor-pointer" onClick={() => setIsInlineEditingStage(true)}>
+                      {savedValues.stage_name ?? opportunity.stage_name ?? "No stage"}
+                    </button>
+                  </>
                 </span>}
             </div>
 
