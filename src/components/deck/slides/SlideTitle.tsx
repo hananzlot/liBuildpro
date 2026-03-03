@@ -9,7 +9,7 @@ export default function SlideTitle() {
           <Hammer className="w-12 h-12 text-white" />
         </div>
          <h1 className="text-[80px] font-bold leading-[1.05] tracking-tight bg-gradient-to-r from-white via-white to-indigo-200 bg-clip-text text-transparent">
-           BuildFlow<br />Contractor CRM
+           iBuildPro<br />Contractor CRM
          </h1>
         <p className="mt-8 text-[28px] text-indigo-200/80 max-w-[900px] leading-relaxed">
           Dispatch · Estimates · Production · Analytics · Client Portal — unified in a single platform built for home services companies.
