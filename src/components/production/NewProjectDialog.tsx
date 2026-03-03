@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
-import { Plus } from "lucide-react";
+import { Plus, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { logAudit } from "@/hooks/useAuditLog";
 import {
   Dialog,
@@ -73,6 +74,8 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
   const [showAddSalesperson, setShowAddSalesperson] = useState(false);
   const [newLeadSource, setNewLeadSource] = useState("");
   const [showAddLeadSource, setShowAddLeadSource] = useState(false);
+  const [duplicateProjects, setDuplicateProjects] = useState<Array<{ id: string; project_number: number | null; project_name: string | null; project_status: string | null }>>([]);
+  const [duplicateAcknowledged, setDuplicateAcknowledged] = useState(false);
 
   const { data: corpCompanies } = useQuery({
     queryKey: ["corp-companies-for-new-project", corporationId],
@@ -174,6 +177,8 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
   useEffect(() => {
     if (open) {
       setSelectedCompanyId(contextCompanyId);
+      setDuplicateProjects([]);
+      setDuplicateAcknowledged(false);
     }
   }, [open, contextCompanyId]);
 
@@ -246,7 +251,48 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const checkForDuplicates = async (): Promise<boolean> => {
+    if (!companyId) return false;
+    
+    const customerName = `${draft.customer_first_name} ${draft.customer_last_name}`.trim().toLowerCase();
+    const projectName = draft.project_name.trim().toLowerCase();
+    
+    if (!customerName && !projectName) return false;
+
+    // Build OR filter for matching projects
+    const filters: string[] = [];
+    if (projectName) {
+      filters.push(`project_name.ilike.%${draft.project_name.trim()}%`);
+    }
+
+    if (!filters.length) return false;
+
+    const { data: matches } = await supabase
+      .from("projects")
+      .select("id, project_number, project_name, project_status, customer_first_name, customer_last_name")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .or(filters.join(","));
+
+    // Further filter: must also match customer name if provided
+    const relevant = (matches || []).filter(p => {
+      if (customerName) {
+        const existingName = `${p.customer_first_name || ""} ${p.customer_last_name || ""}`.trim().toLowerCase();
+        if (existingName === customerName) return true;
+      }
+      // Also match by exact project name
+      if (projectName && (p.project_name || "").trim().toLowerCase() === projectName) return true;
+      return false;
+    });
+
+    if (relevant.length > 0) {
+      setDuplicateProjects(relevant);
+      return true;
+    }
+    return false;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft.project_name.trim()) {
       toast.error("Project name is required");
@@ -256,6 +302,15 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
       toast.error("Lead Cost % is required");
       return;
     }
+
+    // Check for duplicates if not already acknowledged
+    if (!duplicateAcknowledged) {
+      const hasDupes = await checkForDuplicates();
+      if (hasDupes) return; // Show warning, don't submit
+    }
+
+    setDuplicateProjects([]);
+    setDuplicateAcknowledged(false);
     createProjectMutation.mutate();
   };
 
@@ -526,6 +581,47 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
               </div>
             </div>
 
+            {/* Duplicate Warning */}
+            {duplicateProjects.length > 0 && !duplicateAcknowledged && (
+              <Alert variant="destructive" className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950/30 text-yellow-800 dark:text-yellow-200">
+                <AlertTriangle className="h-4 w-4 !text-yellow-600" />
+                <AlertDescription className="space-y-2">
+                  <p className="font-medium">Possible duplicate project(s) found:</p>
+                  <ul className="text-sm space-y-1 ml-2">
+                    {duplicateProjects.map(p => (
+                      <li key={p.id}>
+                        • #{p.project_number} — {p.project_name} ({p.project_status})
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="border-yellow-500 text-yellow-700 hover:bg-yellow-100 dark:text-yellow-300 dark:hover:bg-yellow-900"
+                      onClick={() => {
+                        setDuplicateAcknowledged(true);
+                        setDuplicateProjects([]);
+                      }}
+                    >
+                      Proceed Anyway
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setDuplicateProjects([]);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <DialogFooter>
               <Button 
                 type="button" 
@@ -538,7 +634,7 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                 type="submit" 
                 disabled={createProjectMutation.isPending}
               >
-                {createProjectMutation.isPending ? "Creating..." : "Create Project"}
+                {createProjectMutation.isPending ? "Creating..." : duplicateAcknowledged ? "Create Anyway" : "Create Project"}
               </Button>
             </DialogFooter>
           </form>
