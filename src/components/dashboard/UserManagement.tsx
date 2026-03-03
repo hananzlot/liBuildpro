@@ -821,11 +821,6 @@ export function UserManagement({ open, onOpenChange, inline = false }: UserManag
                               </Badge>
                             ) : null;
                           })()}
-                          {activeRoles.map(r => (
-                            <Badge key={r.role} variant="secondary" className={`text-xs ${r.color}`}>
-                              {r.label}
-                            </Badge>
-                          ))}
                         </div>
                         {/* Company management button */}
                         {canManageMultiCompany && (
@@ -884,38 +879,44 @@ export function UserManagement({ open, onOpenChange, inline = false }: UserManag
                       </div>
                     </div>
 
-                    {/* Role toggles */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-2 ml-13">
+                    {/* Role toggles - compact chip style */}
+                    <div className="flex flex-wrap gap-1.5 ml-13">
                       {userRolesForProfile.map((roleInfo) => {
-                        // Regular admins cannot modify any roles for super_admin users
                         const cannotModifySuperAdminUser = isUserSuperAdmin && !isSuperAdmin;
-                        // Only super_admin users can modify super_admin role
                         const isSuperAdminRole = roleInfo.role === 'super_admin';
                         const canModifyThisRole = isSuperAdminRole ? isSuperAdmin : true;
                         const isDisabled = !canModifyThisRole || cannotModifySuperAdminUser;
 
                         return (
-                          <div key={roleInfo.role} className="flex items-center gap-2">
+                          <button
+                            key={roleInfo.role}
+                            type="button"
+                            disabled={isDisabled || roleInfo.isUpdating}
+                            onClick={() => {
+                              toggleRoleMutation.mutate({
+                                userId: profile.id,
+                                role: roleInfo.role,
+                                hasRole: roleInfo.active,
+                              });
+                            }}
+                            className={`
+                              inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+                              transition-all duration-150 border
+                              ${roleInfo.isUpdating ? 'opacity-50' : ''}
+                              ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:shadow-sm'}
+                              ${roleInfo.active
+                                ? `${roleInfo.color} border-current/20`
+                                : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'
+                              }
+                            `}
+                          >
                             {roleInfo.isUpdating ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-3 w-3 animate-spin" />
                             ) : (
-                              <Switch
-                                checked={roleInfo.active}
-                                disabled={isDisabled}
-                                onCheckedChange={() => {
-                                  toggleRoleMutation.mutate({
-                                    userId: profile.id,
-                                    role: roleInfo.role,
-                                    hasRole: roleInfo.active,
-                                  });
-                                }}
-                              />
+                              <span className={`h-1.5 w-1.5 rounded-full ${roleInfo.active ? 'bg-current' : 'bg-muted-foreground/30'}`} />
                             )}
-                            <span className={`text-xs ${isDisabled ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
-                              {roleInfo.label}
-                              {isDisabled && ' 🔒'}
-                            </span>
-                          </div>
+                            {roleInfo.label}
+                          </button>
                         );
                       })}
                     </div>
