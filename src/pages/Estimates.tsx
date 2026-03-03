@@ -508,8 +508,8 @@ export default function Estimates() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[5px] p-0"></TableHead>
-            <TableHead className="w-[8%] pl-0">#</TableHead>
+            <TableHead className="w-8 p-0 m-0"></TableHead>
+            <TableHead className="w-[8%] p-0 pl-1">#</TableHead>
             <TableHead className="w-[20%]">Customer</TableHead>
             <TableHead className="w-[22%]">Title</TableHead>
             <TableHead className="w-[12%]">Salesperson</TableHead>
@@ -523,7 +523,7 @@ export default function Estimates() {
         <TableBody>
           {estimateList.map((estimate) => (
             <TableRow key={estimate.id}>
-              <TableCell className="w-[5px] p-0">
+              <TableCell className="w-8 p-0 m-0">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -607,7 +607,7 @@ export default function Estimates() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
-              <TableCell className="font-mono text-muted-foreground font-medium">
+              <TableCell className="font-mono text-muted-foreground font-medium p-0 pl-1">
                 {formatEstimateNumber(estimate, tableType)}
               </TableCell>
               <TableCell>
