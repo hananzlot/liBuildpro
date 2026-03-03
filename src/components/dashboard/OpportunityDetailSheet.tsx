@@ -3233,10 +3233,14 @@ export function OpportunityDetailSheet({
                         onChange={(e) => {
                           const val = e.target.value;
                           setEditedEmail(val);
-                          if (val.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim())) {
-                            setEmailValidationError("Please enter a valid email address");
-                          } else {
+                          if (emailValidationError) {
                             setEmailValidationError(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          const trimmed = editedEmail.trim();
+                          if (trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+                            setEmailValidationError("Please enter a valid email address");
                           }
                         }}
                         placeholder="Enter email..."
