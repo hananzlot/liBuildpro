@@ -87,6 +87,7 @@ export default function Estimates() {
   const [printEstimateId, setPrintEstimateId] = useState<string | null>(null);
   const [previewEstimateId, setPreviewEstimateId] = useState<string | null>(null);
   const [uploadDialogEstimate, setUploadDialogEstimate] = useState<Estimate | null>(null);
+  const [deleteConfirmEstimate, setDeleteConfirmEstimate] = useState<Estimate | null>(null);
   
   // New estimate source dialog state
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
@@ -652,11 +653,7 @@ export default function Estimates() {
                     {isAdmin && (
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
-                        onClick={() => {
-                          if (confirm(`Delete estimate ${formatEstimateNumber(estimate)} for ${estimate.customer_name}? This action cannot be undone.`)) {
-                            deleteMutation.mutate(estimate.id);
-                          }
-                        }}
+                        onClick={() => setDeleteConfirmEstimate(estimate)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
@@ -865,6 +862,32 @@ export default function Estimates() {
           customerName={uploadDialogEstimate.customer_name}
         />
       )}
+
+      {/* Delete Estimate Confirmation */}
+      <AlertDialog open={!!deleteConfirmEstimate} onOpenChange={(open) => !open && setDeleteConfirmEstimate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Estimate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete estimate {deleteConfirmEstimate ? formatEstimateNumber(deleteConfirmEstimate) : ""} for {deleteConfirmEstimate?.customer_name}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirmEstimate) {
+                  deleteMutation.mutate(deleteConfirmEstimate.id);
+                }
+                setDeleteConfirmEstimate(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
