@@ -31,6 +31,7 @@ import { QuickBooksIntegration } from "@/components/admin/QuickBooksIntegration"
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
 import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsEditor";
+import { PipelineStagesEditor } from "@/components/admin/PipelineStagesEditor";
 import { ComplianceTemplatesManager } from "@/components/admin/ComplianceTemplatesManager";
 import { InsuranceDocuments } from "@/components/admin/InsuranceDocuments";
 import { LicenseCertificates } from "@/components/admin/LicenseCertificates";
@@ -1114,30 +1115,7 @@ export default function AdminSettings() {
                           </CollapsibleContent>
                         </Card>
                       </Collapsible>
-                      {/* Opportunity Stage Names */}
-                      <Collapsible defaultOpen={false} className="group">
-                        <Card>
-                          <CollapsibleTrigger asChild>
-                            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                              <CardTitle className="flex items-center justify-between">
-                                <span className="flex items-center gap-2">
-                                  <GitBranch className="h-5 w-5" />
-                                  Opportunity Stage Names
-                                </span>
-                                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                              </CardTitle>
-                              <CardDescription>
-                                Customize the names for key pipeline stages
-                              </CardDescription>
-                            </CardHeader>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <CardContent className="space-y-4 pt-0">
-                              {opportunityStageSettings?.map(renderSettingField)}
-                            </CardContent>
-                          </CollapsibleContent>
-                        </Card>
-                      </Collapsible>
+                      <PipelineStagesEditor />
                       <StageBadgeMappingsEditor />
                       {/* Estimate Settings */}
                       <Collapsible defaultOpen={false} className="group">
