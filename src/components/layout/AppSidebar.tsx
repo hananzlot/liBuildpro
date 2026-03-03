@@ -165,7 +165,8 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     user, profile, company, isAdmin, isSuperAdmin, isCorpAdmin, isMagazine, isProduction, 
     isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, 
     setSimulatedRole, availableRoles, canUseFeature, isViewingOtherCompany,
-    simulatedUserId, simulatedUserName, simulateAsUser, clearSimulation
+    simulatedUserId, simulatedUserName, simulateAsUser, clearSimulation,
+    hasMultipleCompanies
   } = useAuth();
   const { versionString, version } = useAppVersion();
   const { totalUnpaidAR, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
@@ -525,7 +526,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         </div>
 
         {/* Company Switcher */}
-        {(isSuperAdmin || isCorpAdmin) && !collapsed && <CompanySwitcher />}
+        {(isSuperAdmin || isCorpAdmin || hasMultipleCompanies) && !collapsed && <CompanySwitcher />}
 
         {/* Quick Create button — below company switcher */}
         {!collapsed ? (
