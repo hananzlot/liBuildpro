@@ -4,34 +4,56 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronDown, GitBranch, GripVertical, Pencil, Plus, Trash2, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
-type Stage = {
-  id: string;
-  name: string;
-  position: number;
-};
+type Stage = { id: string; name: string; position: number; pipeline_id: string | null };
+type Pipeline = { id: string; name: string; is_default: boolean };
 
 export function PipelineStagesEditor() {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [newStageName, setNewStageName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
 
-  const { data: stages = [], isLoading } = useQuery({
-    queryKey: ["pipeline-stages-admin", companyId],
+  const { data: pipelines = [] } = useQuery({
+    queryKey: ["pipelines-admin", companyId],
     enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("pipeline_stages")
-        .select("id, name, position")
+        .from("pipelines")
+        .select("id, name, is_default")
         .eq("company_id", companyId!)
         .order("position", { ascending: true });
+      if (error) throw error;
+      return data as Pipeline[];
+    },
+  });
+
+  // Auto-select default pipeline
+  const activePipelineId = selectedPipelineId ?? pipelines.find(p => p.is_default)?.id ?? pipelines[0]?.id ?? null;
+
+  const { data: stages = [], isLoading } = useQuery({
+    queryKey: ["pipeline-stages-admin", companyId, activePipelineId],
+    enabled: !!companyId && !!activePipelineId,
+    queryFn: async () => {
+      const query = supabase
+        .from("pipeline_stages")
+        .select("id, name, position, pipeline_id")
+        .eq("company_id", companyId!)
+        .order("position", { ascending: true });
+
+      if (activePipelineId) {
+        query.eq("pipeline_id", activePipelineId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as Stage[];
     },
@@ -44,32 +66,19 @@ export function PipelineStagesEditor() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      const { error } = await supabase
-        .from("pipeline_stages")
-        .update({ name })
-        .eq("id", id);
+      const { error } = await supabase.from("pipeline_stages").update({ name }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      invalidate();
-      setEditingId(null);
-      toast.success("Stage renamed");
-    },
+    onSuccess: () => { invalidate(); setEditingId(null); toast.success("Stage renamed"); },
     onError: (e) => toast.error(e.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("pipeline_stages")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("pipeline_stages").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      invalidate();
-      toast.success("Stage deleted");
-    },
+    onSuccess: () => { invalidate(); toast.success("Stage deleted"); },
     onError: (e) => toast.error(e.message),
   });
 
@@ -78,28 +87,18 @@ export function PipelineStagesEditor() {
       const nextPosition = stages.length > 0 ? Math.max(...stages.map(s => s.position)) + 1 : 0;
       const { error } = await supabase
         .from("pipeline_stages")
-        .insert({ company_id: companyId!, name, position: nextPosition });
+        .insert({ company_id: companyId!, pipeline_id: activePipelineId, name, position: nextPosition });
       if (error) throw error;
     },
-    onSuccess: () => {
-      invalidate();
-      setNewStageName("");
-      setIsAdding(false);
-      toast.success("Stage added");
-    },
+    onSuccess: () => { invalidate(); setNewStageName(""); setIsAdding(false); toast.success("Stage added"); },
     onError: (e) => toast.error(e.message),
   });
 
-  const startEdit = (stage: Stage) => {
-    setEditingId(stage.id);
-    setEditingName(stage.name);
-  };
-
+  const startEdit = (stage: Stage) => { setEditingId(stage.id); setEditingName(stage.name); };
   const confirmEdit = () => {
     if (!editingId || !editingName.trim()) return;
     updateMutation.mutate({ id: editingId, name: editingName.trim() });
   };
-
   const confirmAdd = () => {
     if (!newStageName.trim()) return;
     addMutation.mutate(newStageName.trim());
@@ -118,38 +117,42 @@ export function PipelineStagesEditor() {
               <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
             </CardTitle>
             <CardDescription>
-              Add, rename, or remove pipeline stages for opportunities
+              Add, rename, or remove stages for each pipeline
             </CardDescription>
           </CardHeader>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <CardContent className="space-y-2 pt-0">
+          <CardContent className="space-y-3 pt-0">
+            {/* Pipeline selector */}
+            {pipelines.length > 1 && (
+              <Select value={activePipelineId ?? ""} onValueChange={setSelectedPipelineId}>
+                <SelectTrigger className="h-8 text-sm w-full max-w-xs">
+                  <SelectValue placeholder="Select pipeline" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pipelines.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}{p.is_default ? " (Default)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Loading stages…</p>
             ) : stages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No stages configured yet.</p>
+              <p className="text-sm text-muted-foreground">No stages configured for this pipeline.</p>
             ) : (
               <div className="space-y-1">
                 {stages.map((stage, idx) => (
-                  <div
-                    key={stage.id}
-                    className="flex items-center gap-2 rounded-md border border-border/50 bg-background px-3 py-2"
-                  >
+                  <div key={stage.id} className="flex items-center gap-2 rounded-md border border-border/50 bg-background px-3 py-2">
                     <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                     <span className="text-xs text-muted-foreground w-5 shrink-0">{idx + 1}</span>
-
                     {editingId === stage.id ? (
                       <>
-                        <Input
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          className="h-7 text-sm flex-1"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") confirmEdit();
-                            if (e.key === "Escape") setEditingId(null);
-                          }}
-                        />
+                        <Input value={editingName} onChange={(e) => setEditingName(e.target.value)} className="h-7 text-sm flex-1" autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") confirmEdit(); if (e.key === "Escape") setEditingId(null); }} />
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={confirmEdit} disabled={updateMutation.isPending}>
                           <Check className="h-3.5 w-3.5 text-emerald-600" />
                         </Button>
@@ -163,17 +166,9 @@ export function PipelineStagesEditor() {
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(stage)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => {
-                            if (confirm(`Delete stage "${stage.name}"?`)) {
-                              deleteMutation.mutate(stage.id);
-                            }
-                          }}
-                          disabled={deleteMutation.isPending}
-                        >
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => { if (confirm(`Delete stage "${stage.name}"?`)) deleteMutation.mutate(stage.id); }}
+                          disabled={deleteMutation.isPending}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </>
@@ -185,23 +180,12 @@ export function PipelineStagesEditor() {
 
             {isAdding ? (
               <div className="flex items-center gap-2 pt-1">
-                <Input
-                  value={newStageName}
-                  onChange={(e) => setNewStageName(e.target.value)}
-                  placeholder="New stage name"
-                  className="h-8 text-sm flex-1"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") confirmAdd();
-                    if (e.key === "Escape") { setIsAdding(false); setNewStageName(""); }
-                  }}
-                />
+                <Input value={newStageName} onChange={(e) => setNewStageName(e.target.value)} placeholder="New stage name" className="h-8 text-sm flex-1" autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") confirmAdd(); if (e.key === "Escape") { setIsAdding(false); setNewStageName(""); } }} />
                 <Button size="sm" className="h-8" onClick={confirmAdd} disabled={addMutation.isPending || !newStageName.trim()}>
                   <Check className="h-3.5 w-3.5 mr-1" /> Add
                 </Button>
-                <Button size="sm" variant="ghost" className="h-8" onClick={() => { setIsAdding(false); setNewStageName(""); }}>
-                  Cancel
-                </Button>
+                <Button size="sm" variant="ghost" className="h-8" onClick={() => { setIsAdding(false); setNewStageName(""); }}>Cancel</Button>
               </div>
             ) : (
               <Button variant="outline" size="sm" className="mt-2" onClick={() => setIsAdding(true)}>

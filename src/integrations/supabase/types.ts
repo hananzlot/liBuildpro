@@ -4002,6 +4002,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          pipeline_id: string | null
           position: number
           updated_at: string
         }
@@ -4010,6 +4011,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          pipeline_id?: string | null
           position?: number
           updated_at?: string
         }
@@ -4018,12 +4020,58 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          pipeline_id?: string | null
           position?: number
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "pipeline_stages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_stages_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipelines: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipelines_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
