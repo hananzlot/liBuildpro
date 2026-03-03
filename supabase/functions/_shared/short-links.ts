@@ -72,7 +72,7 @@ export async function getCompanyBaseUrl(
     .eq('setting_key', 'app_base_url')
     .maybeSingle();
 
-  return (appSetting as any)?.setting_value || 'https://crm.ca-probuilders.com';
+  return (appSetting as any)?.setting_value || 'https://zbrosgroup.com';
 }
 
 interface CreateShortLinkOptions {
