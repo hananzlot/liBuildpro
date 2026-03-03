@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload, ChevronDown, ChevronRight, Eye, Globe, Archive, Clock, MoreHorizontal } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload, ChevronDown, ChevronRight, Eye, Globe, Archive, Clock, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
@@ -508,6 +508,7 @@ export default function Estimates() {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-[40px]"></TableHead>
             <TableHead className="w-[8%]">#</TableHead>
             <TableHead className="w-[20%]">Customer</TableHead>
             <TableHead className="w-[22%]">Title</TableHead>
@@ -517,93 +518,19 @@ export default function Estimates() {
             {isDeclinedTab && <TableHead className="w-[10%]">Declined</TableHead>}
             {!isContractsTab && !isDeclinedTab && <TableHead className="w-[8%]">Status</TableHead>}
             <TableHead className="w-[10%] text-right">Total</TableHead>
-            <TableHead className="w-[10%]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {estimateList.map((estimate) => (
             <TableRow key={estimate.id}>
-              <TableCell className="font-mono text-muted-foreground font-medium">
-                {formatEstimateNumber(estimate, tableType)}
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-col">
-                  <span className="font-medium">{estimate.customer_name}</span>
-                  {estimate.customer_email && (
-                    <span className="text-xs text-muted-foreground">{estimate.customer_email}</span>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-col">
-                  <span>{estimate.estimate_title}</span>
-                  {estimate.job_address && (
-                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                      {estimate.job_address}
-                    </span>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <span className="text-muted-foreground">
-                  {estimate.salesperson_name || '-'}
-                </span>
-              </TableCell>
-              <TableCell className="whitespace-nowrap">
-                <div className="flex flex-col">
-                  <span className="text-sm">{format(new Date(estimate.estimate_date), "MM/dd/yy")}</span>
-                  {estimate.expiration_date && !isContractsTab && !isDeclinedTab && (
-                    <span className="text-xs text-muted-foreground">
-                      Exp: {format(new Date(estimate.expiration_date), "MM/dd/yy")}
-                    </span>
-                  )}
-                </div>
-              </TableCell>
-              {isContractsTab && (
-                <TableCell className="whitespace-nowrap">
-                  {estimate.signed_at ? (
-                    <span className="text-green-600 font-medium text-sm">
-                      {format(new Date(estimate.signed_at), "MM/dd/yy")}
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
-                </TableCell>
-              )}
-              {isDeclinedTab && (
-                <TableCell className="whitespace-nowrap">
-                  {estimate.declined_at ? (
-                    <span className="text-red-600 font-medium text-sm">
-                      {format(new Date(estimate.declined_at), "MM/dd/yy")}
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
-                </TableCell>
-              )}
-              {!isContractsTab && !isDeclinedTab && (
-                <TableCell>
-                  <BadgePill intent={
-                    estimate.status === 'accepted' ? 'success' :
-                    estimate.status === 'declined' ? 'danger' :
-                    estimate.status === 'sent' || estimate.status === 'viewed' ? 'primary' :
-                    estimate.status === 'needs_changes' ? 'warning' : 'muted'
-                  }>
-                    {statusLabels[estimate.status]}
-                  </BadgePill>
-                </TableCell>
-              )}
-              <TableCell className="text-right font-semibold">
-                {formatCurrency(estimate.total)}
-              </TableCell>
-              <TableCell>
+              <TableCell className="w-[40px] px-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
+                      <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="start">
                     <DropdownMenuItem onClick={() => setPreviewEstimateId(estimate.id)}>
                       <FileSearch className="h-4 w-4 mr-2" />
                       Preview as Customer
@@ -679,6 +606,79 @@ export default function Estimates() {
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
+              </TableCell>
+              <TableCell className="font-mono text-muted-foreground font-medium">
+                {formatEstimateNumber(estimate, tableType)}
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col">
+                  <span className="font-medium">{estimate.customer_name}</span>
+                  {estimate.customer_email && (
+                    <span className="text-xs text-muted-foreground">{estimate.customer_email}</span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col">
+                  <span>{estimate.estimate_title}</span>
+                  {estimate.job_address && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                      {estimate.job_address}
+                    </span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
+                <span className="text-muted-foreground">
+                  {estimate.salesperson_name || '-'}
+                </span>
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                <div className="flex flex-col">
+                  <span className="text-sm">{format(new Date(estimate.estimate_date), "MM/dd/yy")}</span>
+                  {estimate.expiration_date && !isContractsTab && !isDeclinedTab && (
+                    <span className="text-xs text-muted-foreground">
+                      Exp: {format(new Date(estimate.expiration_date), "MM/dd/yy")}
+                    </span>
+                  )}
+                </div>
+              </TableCell>
+              {isContractsTab && (
+                <TableCell className="whitespace-nowrap">
+                  {estimate.signed_at ? (
+                    <span className="text-green-600 font-medium text-sm">
+                      {format(new Date(estimate.signed_at), "MM/dd/yy")}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+              )}
+              {isDeclinedTab && (
+                <TableCell className="whitespace-nowrap">
+                  {estimate.declined_at ? (
+                    <span className="text-red-600 font-medium text-sm">
+                      {format(new Date(estimate.declined_at), "MM/dd/yy")}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+              )}
+              {!isContractsTab && !isDeclinedTab && (
+                <TableCell>
+                  <BadgePill intent={
+                    estimate.status === 'accepted' ? 'success' :
+                    estimate.status === 'declined' ? 'danger' :
+                    estimate.status === 'sent' || estimate.status === 'viewed' ? 'primary' :
+                    estimate.status === 'needs_changes' ? 'warning' : 'muted'
+                  }>
+                    {statusLabels[estimate.status]}
+                  </BadgePill>
+                </TableCell>
+              )}
+              <TableCell className="text-right font-semibold">
+                {formatCurrency(estimate.total)}
               </TableCell>
             </TableRow>
           ))}
