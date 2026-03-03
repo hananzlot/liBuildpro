@@ -58,7 +58,7 @@ export function ComplianceSigningFlow({
   onAllSigned,
 }: ComplianceSigningFlowProps) {
   const queryClient = useQueryClient();
-  const [currentStep, setCurrentStep] = useState<'list' | 'sign'>('list');
+  const [currentStep, setCurrentStep] = useState<'list' | 'preview' | 'sign'>('list');
   const [selectedDocument, setSelectedDocument] = useState<ComplianceDocument | null>(null);
   const [signerName, setSignerName] = useState(customerName);
   const [signerEmail, setSignerEmail] = useState(customerEmail);
@@ -264,7 +264,7 @@ export function ComplianceSigningFlow({
     }
 
     setSelectedDocument(doc);
-    setCurrentStep('sign');
+    setCurrentStep('preview');
   };
 
   if (isLoading) {
@@ -439,6 +439,48 @@ export function ComplianceSigningFlow({
               )}
             </div>
           </>
+        ) : currentStep === 'preview' ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Review: {selectedDocument?.document_name}
+              </DialogTitle>
+              <DialogDescription>
+                Please review the document below. Once reviewed, click "Proceed to Sign" to add your signature.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 min-h-0 -mx-6 px-6">
+              <div className="h-[60vh] border rounded-lg overflow-hidden bg-muted/30">
+                <iframe
+                  src={selectedDocument?.file_url}
+                  className="w-full h-full"
+                  title={selectedDocument?.document_name}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCurrentStep('list');
+                  setSelectedDocument(null);
+                }}
+                className="flex-1"
+              >
+                Back
+              </Button>
+              <Button
+                onClick={() => setCurrentStep('sign')}
+                className="flex-1"
+              >
+                <FileSignature className="h-4 w-4 mr-2" />
+                Proceed to Sign
+              </Button>
+            </div>
+          </>
         ) : (
           <>
             <DialogHeader>
@@ -447,28 +489,26 @@ export function ComplianceSigningFlow({
                 Sign: {selectedDocument?.document_name}
               </DialogTitle>
               <DialogDescription>
-                Review the document and add your signature below.
+                Add your signature below to sign this document.
               </DialogDescription>
             </DialogHeader>
 
             <ScrollArea className="flex-1 -mx-6 px-6">
               <div className="space-y-4 py-4">
-                {/* Document Preview */}
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-medium">{selectedDocument?.document_name}</span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(selectedDocument?.file_url, '_blank')}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View Document
-                    </Button>
+                {/* Link back to preview */}
+                <div className="p-3 bg-muted/50 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">{selectedDocument?.document_name}</span>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentStep('preview')}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    Review Again
+                  </Button>
                 </div>
 
                 <Separator />
