@@ -33,7 +33,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle, Eye, EyeOff, RotateCcw, ChevronUp, ChevronDown, MoreHorizontal, RefreshCw } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle, Eye, EyeOff, RotateCcw, ChevronUp, ChevronDown, MoreVertical, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -958,8 +958,9 @@ export function SalespeopleManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-7 min-w-7 max-w-7 p-0"></TableHead>
                   <TableHead 
-                    className="cursor-pointer hover:bg-muted/50"
+                    className="cursor-pointer hover:bg-muted/50 p-0 pl-1"
                     onClick={() => {
                       if (sortField === 'name') setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
                       else { setSortField('name'); setSortDirection('asc'); }
@@ -986,8 +987,6 @@ export function SalespeopleManagement() {
                   )}
                   <TableHead className="hidden sm:table-cell">Phone</TableHead>
                   <TableHead className="hidden md:table-cell">Email</TableHead>
-                  
-                  <TableHead className="w-[140px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -999,57 +998,18 @@ export function SalespeopleManagement() {
 
                   return (
                     <TableRow key={person.id} className={isArchived ? "opacity-60 bg-muted/30" : ""}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <span className={isArchived ? "text-muted-foreground" : ""}>
-                            {person.name}
-                          </span>
-                          {isArchived && (
-                            <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
-                              Archived
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      {isUnified && (
-                        <TableCell className="text-xs">
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
-                            {getCompanyName(person.company_id)}
-                          </Badge>
-                        </TableCell>
-                      )}
-                      <TableCell className="hidden sm:table-cell">
-                        {person.phone ? (
-                          <span className="flex items-center gap-1 text-sm">
-                            <Phone className="h-3 w-3" />
-                            {person.phone}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {person.email ? (
-                          <span className="flex items-center gap-1 text-sm">
-                            <Mail className="h-3 w-3" />
-                            {person.email}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
+                      <TableCell className="w-7 min-w-7 max-w-7 p-0">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
                               {restoreMutation.isPending ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                <MoreHorizontal className="h-4 w-4" />
+                                <MoreVertical className="h-4 w-4" />
                               )}
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="start">
                             {isArchived ? (
                               <DropdownMenuItem
                                 onClick={() => restoreMutation.mutate(person.id)}
@@ -1094,6 +1054,46 @@ export function SalespeopleManagement() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
+                      <TableCell className="font-medium p-0 pl-1">
+                        <div className="flex items-center gap-2">
+                          <span className={isArchived ? "text-muted-foreground" : ""}>
+                            {person.name}
+                          </span>
+                          {isArchived && (
+                            <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                              Archived
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      {isUnified && (
+                        <TableCell className="text-xs">
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 font-normal">
+                            {getCompanyName(person.company_id)}
+                          </Badge>
+                        </TableCell>
+                      )}
+                      <TableCell className="hidden sm:table-cell">
+                        {person.phone ? (
+                          <span className="flex items-center gap-1 text-sm">
+                            <Phone className="h-3 w-3" />
+                            {person.phone}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {person.email ? (
+                          <span className="flex items-center gap-1 text-sm">
+                            <Mail className="h-3 w-3" />
+                            {person.email}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                      
                     </TableRow>
                   );
                 })}

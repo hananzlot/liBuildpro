@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Bell, Check, CheckCheck, Calendar, DollarSign,
   ClipboardList, AlertTriangle, Receipt, FileText,
-  MoreHorizontal, EyeOff, Clock,
+  MoreVertical, EyeOff, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -188,7 +188,7 @@ export function NotificationBell() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
-                              <MoreHorizontal className="h-3.5 w-3.5" />
+                              <MoreVertical className="h-3.5 w-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>

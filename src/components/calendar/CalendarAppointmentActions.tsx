@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, X, Loader2, UserCheck, MoreHorizontal, RefreshCw, Clock } from "lucide-react";
+import { Check, X, Loader2, UserCheck, MoreVertical, RefreshCw, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -246,7 +246,7 @@ export function CalendarAppointmentActions({
             {isUpdatingStatus ? (
               <Loader2 className={`animate-spin ${compact ? "h-2.5 w-2.5" : "h-3 w-3"}`} />
             ) : (
-              <MoreHorizontal className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} />
+              <MoreVertical className={compact ? "h-2.5 w-2.5" : "h-3 w-3"} />
             )}
           </button>
         </DropdownMenuTrigger>
