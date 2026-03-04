@@ -184,6 +184,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
         .from("signed_compliance_documents")
         .select("id, document_name, file_url, signed_file_url, signed_at, status, signer_name, signer_email, signature_data, signature_type, signature_font, ip_address, user_agent, created_at")
         .eq("project_id", projectId)
+        .eq("status", "signed")
         .order("created_at", { ascending: true });
       if (err1) throw err1;
 
@@ -200,6 +201,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
           .from("signed_compliance_documents")
           .select("id, document_name, file_url, signed_file_url, signed_at, status, signer_name, signer_email, signature_data, signature_type, signature_font, ip_address, user_agent, created_at")
           .in("estimate_id", ids)
+          .eq("status", "signed")
           .order("created_at", { ascending: true });
         if (err2) throw err2;
         viaDocs = data || [];
