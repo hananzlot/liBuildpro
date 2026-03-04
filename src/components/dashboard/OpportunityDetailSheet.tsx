@@ -3302,59 +3302,59 @@ export function OpportunityDetailSheet({
                     </>
                   )}
                 </div>
-
-                {/* Scope of Work */}
-                <div className="border rounded-lg overflow-hidden mt-2">
-                  <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Scope of Work
-                      </span>
-                      {!scopeOfWork && !isEditingScope && <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
-                          Missing
-                        </Badge>}
-                    </div>
-                    {!isEditingScope && <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => {
-                    setEditedScope(scopeOfWork || "");
-                    setIsEditingScope(true);
-                  }}>
-                        <Pencil className="h-3 w-3 mr-1" />
-                        {scopeOfWork ? "Edit" : "Add"}
-                      </Button>}
-                  </div>
-                  <div className="p-3">
-                    {isEditingScope ? <div className="space-y-2">
-                        <Textarea value={editedScope} onChange={e => setEditedScope(e.target.value)} placeholder="Enter scope of work..." className="min-h-[80px] text-sm resize-none" disabled={isSavingScope} />
-                        <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="ghost" className="h-7" onClick={() => setIsEditingScope(false)} disabled={isSavingScope}>
-                            Cancel
-                          </Button>
-                          <Button size="sm" className="h-7" onClick={handleSaveScope} disabled={isSavingScope}>
-                            {isSavingScope ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                            Save
-                          </Button>
-                        </div>
-                      </div> : scopeOfWork ? (
-                        <div>
-                          <p className={`text-sm whitespace-pre-wrap${!isScopeExpanded ? ' line-clamp-4' : ''}`}>{scopeOfWork}</p>
-                          {(() => {
-                            const lineCount = (scopeOfWork.match(/\n/g) || []).length;
-                            const needsToggle = scopeOfWork.length > 300 || lineCount >= 4;
-                            return needsToggle ? (
-                              <button
-                                onClick={() => setIsScopeExpanded(e => !e)}
-                                className="mt-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                {isScopeExpanded ? <><ChevronUp className="h-3 w-3" /> Show less</> : <><ChevronDown className="h-3 w-3" /> Show more</>}
-                              </button>
-                            ) : null;
-                          })()}
-                        </div>
-                      ) : <p className="text-sm text-muted-foreground/60 italic">No scope of work defined</p>}
-                  </div>
-                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Scope of Work - separate section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Scope of Work
+                </span>
+                {!scopeOfWork && !isEditingScope && <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                    Missing
+                  </Badge>}
+              </div>
+              {!isEditingScope && <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => {
+              setEditedScope(scopeOfWork || "");
+              setIsEditingScope(true);
+            }}>
+                  <Pencil className="h-3 w-3 mr-1" />
+                  {scopeOfWork ? "Edit" : "Add"}
+                </Button>}
+            </div>
+            <div className="p-3">
+              {isEditingScope ? <div className="space-y-2">
+                  <Textarea value={editedScope} onChange={e => setEditedScope(e.target.value)} placeholder="Enter scope of work..." className="min-h-[80px] text-sm resize-none" disabled={isSavingScope} />
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" className="h-7" onClick={() => setIsEditingScope(false)} disabled={isSavingScope}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" className="h-7" onClick={handleSaveScope} disabled={isSavingScope}>
+                      {isSavingScope ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                      Save
+                    </Button>
+                  </div>
+                </div> : scopeOfWork ? (
+                  <div>
+                    <p className={`text-sm whitespace-pre-wrap${!isScopeExpanded ? ' line-clamp-4' : ''}`}>{scopeOfWork}</p>
+                    {(() => {
+                      const lineCount = (scopeOfWork.match(/\n/g) || []).length;
+                      const needsToggle = scopeOfWork.length > 300 || lineCount >= 4;
+                      return needsToggle ? (
+                        <button
+                          onClick={() => setIsScopeExpanded(e => !e)}
+                          className="mt-1 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {isScopeExpanded ? <><ChevronUp className="h-3 w-3" /> Show less</> : <><ChevronDown className="h-3 w-3" /> Show more</>}
+                        </button>
+                      ) : null;
+                    })()}
+                  </div>
+                ) : <p className="text-sm text-muted-foreground/60 italic">No scope of work defined</p>}
             </div>
           </div>
 
