@@ -562,11 +562,16 @@ export function GlobalAdminSearch() {
           phoneMatch = phone.includes(queryDigits) || phone.endsWith(queryDigits);
         }
 
+        // Match opportunity number
+        const oppNum = opp.opportunity_number?.toString() || "";
+        const oppNumMatch = oppNum.length > 0 && oppNum.includes(searchQuery.trim());
+
         return (
           name.includes(queryLower) ||
           contactName.includes(queryLower) ||
           address.includes(queryLower) ||
-          phoneMatch
+          phoneMatch ||
+          oppNumMatch
         );
       })
       .slice(0, 8);
