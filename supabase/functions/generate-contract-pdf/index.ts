@@ -621,7 +621,7 @@ serve(async (req) => {
         page.drawText(sanitizeLine(phase.phase_name), { x: margin + 5, y: yPos, size: 10, font: helvetica, color: black });
         page.drawText(`${phase.percent}%`, { x: margin + 300, y: yPos, size: 10, font: helvetica, color: black });
         // Right-align payment amount
-        const paymentAmtText = formatCurrency((estimate.total * phase.percent) / 100);
+        const paymentAmtText = formatCurrency(phase.amount ?? ((estimate.total * (phase.percent || 0)) / 100));
         const paymentAmtWidth = helveticaBold.widthOfTextAtSize(paymentAmtText, 10);
         page.drawText(paymentAmtText, { x: paymentRightEdge - paymentAmtWidth, y: yPos, size: 10, font: helveticaBold, color: black });
         yPos -= 14;
