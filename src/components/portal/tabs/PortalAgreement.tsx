@@ -130,96 +130,15 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
 
   const openAgreementPdf = async (agreement: any) => {
     if (!agreement?.attachment_url) return;
-
-    // For non-contract docs, open the stored PDF as-is
-    if (!isContractAgreement(agreement)) {
-      setPdfUrl(agreement.attachment_url);
-      return;
-    }
-
-    const estimateNumber = parseAgreementEstimateNumber(agreement.agreement_number);
-    if (!estimateNumber) {
-      setPdfUrl(agreement.attachment_url);
-      return;
-    }
-
-    setGeneratingAgreementId(agreement.id);
-    try {
-      const { data: estimateRow, error: estimateError } = await supabase
-        .from('estimates')
-        .select('id')
-        .eq('estimate_number', estimateNumber)
-        .eq('project_id', agreement.project_id)
-        .maybeSingle();
-
-      if (estimateError) throw estimateError;
-      if (!estimateRow?.id) throw new Error('Estimate not found for this contract');
-
-      const { data, error } = await supabase.functions.invoke('generate-contract-pdf', {
-        body: {
-          estimateId: estimateRow.id,
-          projectId: agreement.project_id,
-        },
-      });
-
-      if (error) throw error;
-      if (!data?.url) throw new Error('Failed to generate contract PDF');
-
-      setPdfUrl(data.url);
-    } catch (err) {
-      console.error('Failed to generate contract PDF:', err);
-      toast.error('Could not regenerate PDF; opening existing file.');
-      setPdfUrl(agreement.attachment_url);
-    } finally {
-      setGeneratingAgreementId(null);
-    }
+    // Portal users are anonymous — always open the stored PDF directly
+    // (estimate lookup and edge function calls require authenticated access)
+    setPdfUrl(agreement.attachment_url);
   };
 
   const downloadAgreementPdf = async (agreement: any) => {
     if (!agreement?.attachment_url) return;
-
-    // For non-contract docs, download/open the stored PDF as-is
-    if (!isContractAgreement(agreement)) {
-      window.open(agreement.attachment_url, '_blank');
-      return;
-    }
-
-    const estimateNumber = parseAgreementEstimateNumber(agreement.agreement_number);
-    if (!estimateNumber) {
-      window.open(agreement.attachment_url, '_blank');
-      return;
-    }
-
-    setGeneratingAgreementId(agreement.id);
-    try {
-      const { data: estimateRow, error: estimateError } = await supabase
-        .from('estimates')
-        .select('id')
-        .eq('estimate_number', estimateNumber)
-        .eq('project_id', agreement.project_id)
-        .maybeSingle();
-
-      if (estimateError) throw estimateError;
-      if (!estimateRow?.id) throw new Error('Estimate not found for this contract');
-
-      const { data, error } = await supabase.functions.invoke('generate-contract-pdf', {
-        body: {
-          estimateId: estimateRow.id,
-          projectId: agreement.project_id,
-        },
-      });
-
-      if (error) throw error;
-      if (!data?.url) throw new Error('Failed to generate contract PDF');
-
-      window.open(data.url, '_blank');
-    } catch (err) {
-      console.error('Failed to generate contract PDF:', err);
-      toast.error('Could not regenerate PDF; opening existing file.');
-      window.open(agreement.attachment_url, '_blank');
-    } finally {
-      setGeneratingAgreementId(null);
-    }
+    // Portal users are anonymous — directly open the stored PDF
+    window.open(agreement.attachment_url, '_blank');
   };
 
   if (!hasAgreement) {
