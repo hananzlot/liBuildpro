@@ -1681,7 +1681,7 @@ export default function Production() {
               {/* Page Header: Title + KPI stats + Actions */}
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <h2 className="text-lg font-semibold text-foreground tracking-tight">Operations</h2>
+                  <h2 className="text-lg font-semibold text-foreground tracking-tight">Production</h2>
                   <div className="hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
                     <span><span className="font-medium text-foreground">{totalProjects}</span> Projects</span>
                     <span className="text-border">•</span>
