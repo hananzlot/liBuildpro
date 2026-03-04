@@ -55,6 +55,7 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
           .from('signed_compliance_documents')
           .select('*')
           .eq('project_id', projectId)
+          .eq('status', 'signed')
           .order('created_at', { ascending: true });
         if (error) throw error;
         if (data && data.length > 0) return data as SignedDocument[];
@@ -66,6 +67,7 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
           .from('signed_compliance_documents')
           .select('*')
           .eq('estimate_id', estimateId)
+          .eq('status', 'signed')
           .order('created_at', { ascending: true });
         if (error) throw error;
         return data as SignedDocument[];
@@ -99,8 +101,7 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
     );
   }
 
-  const signedDocs = documents.filter(d => d.status === 'signed');
-  const pendingDocs = documents.filter(d => d.status === 'pending');
+  const signedDocs = documents;
 
   const handleView = (doc: SignedDocument) => {
     setSelectedDoc(doc);
@@ -223,38 +224,6 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
         </div>
       )}
 
-      {/* Pending Documents */}
-      {pendingDocs.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="font-medium flex items-center gap-2 text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            Pending Signatures
-          </h3>
-          {pendingDocs.map((doc) => (
-            <Card key={doc.id} className="bg-muted/30">
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded bg-muted">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{doc.document_name}</p>
-                        {doc.document_type === 'main_contract' && (
-                          <Badge variant="outline" className="text-xs">Main Contract</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">Awaiting your signature</p>
-                    </div>
-                  </div>
-                  <Badge variant="secondary">Pending</Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
 
       {/* Compliance Doc Viewer with Signature Certificate */}
       {selectedDoc && (
