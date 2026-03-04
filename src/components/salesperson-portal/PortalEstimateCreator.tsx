@@ -47,6 +47,8 @@ interface Project {
   project_address: string | null;
   customer_first_name: string | null;
   customer_last_name: string | null;
+  customer_email: string | null;
+  cell_phone: string | null;
   opportunity_id: string | null;
   opportunity_uuid: string | null;
   contact_uuid: string | null;
@@ -146,7 +148,7 @@ export function PortalEstimateCreator({
     queryFn: async () => {
       const { data: directProjects, error: directError } = await supabase
         .from("projects")
-        .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, opportunity_id, opportunity_uuid, contact_uuid, lead_source")
+        .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, customer_email, cell_phone, opportunity_id, opportunity_uuid, contact_uuid, lead_source")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .or(`primary_salesperson.eq.${salespersonName},secondary_salesperson.eq.${salespersonName},tertiary_salesperson.eq.${salespersonName},quaternary_salesperson.eq.${salespersonName}`)
@@ -404,6 +406,8 @@ export function PortalEstimateCreator({
       const proj = projects.find(p => p.id === selectedId);
       if (proj) {
         customerName = [proj.customer_first_name, proj.customer_last_name].filter(Boolean).join(" ") || proj.project_name || "Customer";
+        customerEmail = proj.customer_email || "";
+        customerPhone = proj.cell_phone || "";
         opportunityUuid = proj.opportunity_uuid;
         contactUuid = proj.contact_uuid || null;
         leadSource = proj.lead_source || null;
