@@ -46,9 +46,30 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
     return Number.isFinite(num) ? num : null;
   };
 
+  // Find the matching agreement attachment_url for the accepted estimate
+  const getEstimateAttachmentUrl = () => {
+    if (!acceptedEstimate) return null;
+    const estNum = acceptedEstimate.estimate_number;
+    if (!estNum) return null;
+    // Look for a matching agreement by number (CNT-XXXX or CO-XXXX pattern)
+    const match = agreements.find((a: any) => {
+      const num = a.agreement_number?.replace(/^(CNT-|CO-)/, '');
+      return num === String(estNum);
+    });
+    return match?.attachment_url || null;
+  };
+
   const viewContractPdf = async () => {
     if (!acceptedEstimate?.id) return;
     
+    // Portal users are anonymous — try to use stored attachment_url directly
+    const attachmentUrl = getEstimateAttachmentUrl();
+    if (attachmentUrl) {
+      setPdfUrl(attachmentUrl);
+      return;
+    }
+
+    // Fallback: try edge function (will likely fail for anonymous users)
     setGeneratingContractPdf(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-contract-pdf', {
@@ -73,6 +94,14 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
   const downloadContractPdf = async () => {
     if (!acceptedEstimate?.id) return;
     
+    // Portal users are anonymous — try to use stored attachment_url directly
+    const attachmentUrl = getEstimateAttachmentUrl();
+    if (attachmentUrl) {
+      window.open(attachmentUrl, '_blank');
+      return;
+    }
+
+    // Fallback: try edge function
     setDownloadingContractPdf(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-contract-pdf', {
