@@ -2865,6 +2865,54 @@ export function OpportunityDetailSheet({
                         <span className="text-[10px]">Debug</span>
                       </Button>
                     )}
+                    <AlertDialog onOpenChange={isOpen => {
+                      if (!isOpen) {
+                        setDeletePassword("");
+                        setDeletePasswordError("");
+                      }
+                    }}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 px-1.5 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Opportunity</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this opportunity? This will also remove it from GoHighLevel. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="py-2">
+                          <Label htmlFor="delete-password" className="text-sm font-medium">
+                            Enter password to confirm
+                          </Label>
+                          <Input id="delete-password" type="password" placeholder="Enter password" value={deletePassword} onChange={e => {
+                            setDeletePassword(e.target.value);
+                            setDeletePasswordError("");
+                          }} className="mt-1.5" />
+                          {deletePasswordError && <p className="text-sm text-destructive mt-1">{deletePasswordError}</p>}
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={e => {
+                            if (deletePassword !== "121867") {
+                              e.preventDefault();
+                              setDeletePasswordError("Incorrect password");
+                              return;
+                            }
+                            handleDeleteOpportunity();
+                          }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeletingOpportunity}>
+                            {isDeletingOpportunity ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 )}
                 {/* Sales rep directly below opp name */}
@@ -2934,18 +2982,6 @@ export function OpportunityDetailSheet({
               <Plus className="h-3.5 w-3.5 mr-1" />
               Task
             </Button>
-            <AlertDialog onOpenChange={isOpen => {
-            if (!isOpen) {
-              setDeletePassword("");
-              setDeletePasswordError("");
-            }
-          }}>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50">
-                  <Trash2 className="h-3.5 w-3.5 mr-1" />
-                  Delete
-                </Button>
-              </AlertDialogTrigger>
             <Button variant="outline" size="sm" className="h-7" onClick={() => setSalesDialogOpen(true)}>
               <Receipt className="h-3.5 w-3.5 mr-1" />
               Sales
@@ -2985,7 +3021,6 @@ export function OpportunityDetailSheet({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {/* Debug removed from here — now in header next to opp value */}
             {/* Customer Portal inline buttons */}
             {portalLink ? (
               <>
@@ -3032,40 +3067,6 @@ export function OpportunityDetailSheet({
                 Portal
               </Button>
             )}
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Opportunity</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete this opportunity? This will also remove it from GoHighLevel. This
-                    action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="py-2">
-                  <Label htmlFor="delete-password" className="text-sm font-medium">
-                    Enter password to confirm
-                  </Label>
-                  <Input id="delete-password" type="password" placeholder="Enter password" value={deletePassword} onChange={e => {
-                  setDeletePassword(e.target.value);
-                  setDeletePasswordError("");
-                }} className="mt-1.5" />
-                  {deletePasswordError && <p className="text-sm text-destructive mt-1">{deletePasswordError}</p>}
-                </div>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={e => {
-                  if (deletePassword !== "121867") {
-                    e.preventDefault();
-                    setDeletePasswordError("Incorrect password");
-                    return;
-                  }
-                  handleDeleteOpportunity();
-                }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeletingOpportunity}>
-                    {isDeletingOpportunity ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </div>
             </div>
 
