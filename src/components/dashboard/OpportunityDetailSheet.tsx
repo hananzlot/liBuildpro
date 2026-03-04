@@ -3136,7 +3136,7 @@ export function OpportunityDetailSheet({
           {/* Contact Section */}
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted/30 px-3 py-2 border-b">
-              <span className="text-xs font-medium text-muted-foreground">Contact Address, Phone and Email</span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Address, Phone and Email</span>
             </div>
             <div className="p-3 space-y-2">
               <div className="grid gap-1.5 text-sm text-muted-foreground">
