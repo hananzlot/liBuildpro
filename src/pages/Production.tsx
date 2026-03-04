@@ -2010,7 +2010,7 @@ export default function Production() {
                 <table className="w-full caption-bottom text-xs table-fixed">
                     <thead className="[&_tr]:border-b sticky top-0 z-20 bg-card">
                       <TableRow className="bg-card hover:bg-card [&_th]:align-bottom [&_th]:leading-tight [&_th]:py-2 [&_th]:text-left">
-                        <TableHead className="w-8 min-w-8 max-w-8 p-0"></TableHead>
+                        <TableHead className="w-6 min-w-6 max-w-6 p-0"></TableHead>
                         <TableHead className="w-[3.5%] cursor-pointer hover:bg-muted/50 text-xs p-0 pl-0" onClick={() => handleSort('project_number')}>
                           <div className="flex items-end gap-0.5"># <SortIcon column="project_number" /></div>
                         </TableHead>
@@ -2105,7 +2105,7 @@ export default function Production() {
                             )}
                             onClick={() => handleOpenProject(project)}
                           >
-                            <TableCell className="w-8 min-w-8 max-w-8 p-0">
+                            <TableCell className="w-6 min-w-6 max-w-6 p-0 pr-0">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
