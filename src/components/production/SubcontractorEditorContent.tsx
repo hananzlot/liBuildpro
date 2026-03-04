@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,10 +16,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Check, ArrowLeft, HardHat } from "lucide-react";
+import { Loader2, Check, HardHat } from "lucide-react";
 import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
 import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
+import {
+  useSubcontractorEditorStore,
+  DEFAULT_FORM_DATA,
+  type SubcontractorFormData,
+} from "@/stores/subcontractorEditorStore";
 
 const SUBCONTRACTOR_TYPES = ['Material/Equipment', 'Other', 'Subcontractor'] as const;
 type SubcontractorType = typeof SUBCONTRACTOR_TYPES[number];
@@ -35,29 +40,26 @@ export function SubcontractorEditorContent({ subcontractorId, onClose, onSuccess
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const isNew = !subcontractorId;
+  const draftKey = subcontractorId || "new";
 
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<{ url: string; name: string } | null>(null);
-
-  const [formData, setFormData] = useState({
-    company_name: "",
-    contact_name: "",
-    phone: "",
-    email: "",
-    address: "",
-    license_number: "",
-    license_expiration_date: "",
-    license_document_url: "",
-    insurance_expiration_date: "",
-    insurance_document_url: "",
-    notes: "",
-    is_active: true,
-    do_not_require_license: false,
-    do_not_require_insurance: false,
-    subcontractor_type: 'Subcontractor' as SubcontractorType,
-    trade: [] as string[],
-  });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Use Zustand store for form data persistence across tab switches
+  const { drafts, setDraft, updateDraft, clearDraft } = useSubcontractorEditorStore();
+  const formData = drafts[draftKey] || DEFAULT_FORM_DATA;
+  const setFormData = useCallback(
+    (updater: SubcontractorFormData | ((prev: SubcontractorFormData) => SubcontractorFormData)) => {
+      if (typeof updater === "function") {
+        const current = useSubcontractorEditorStore.getState().drafts[draftKey] || DEFAULT_FORM_DATA;
+        setDraft(draftKey, updater(current));
+      } else {
+        setDraft(draftKey, updater);
+      }
+    },
+    [draftKey, setDraft]
+  );
 
   // Fetch subcontractor data for editing
   const { data: subcontractor, isLoading } = useQuery({
@@ -103,30 +105,36 @@ export function SubcontractorEditorContent({ subcontractorId, onClose, onSuccess
     onError: (error) => toast.error(`Failed to add trade: ${error.message}`),
   });
 
-  // Populate form when subcontractor loads
+  // Populate form from server data only if no draft exists yet
+  const populatedRef = useRef(false);
   useEffect(() => {
-    if (subcontractor) {
-      setFormData({
-        company_name: subcontractor.company_name || "",
-        contact_name: subcontractor.contact_name || "",
-        phone: subcontractor.phone || "",
-        email: subcontractor.email || "",
-        address: subcontractor.address || "",
-        license_number: subcontractor.license_number || "",
-        license_expiration_date: subcontractor.license_expiration_date || "",
-        license_document_url: subcontractor.license_document_url || "",
-        insurance_expiration_date: subcontractor.insurance_expiration_date || "",
-        insurance_document_url: subcontractor.insurance_document_url || "",
-        notes: subcontractor.notes || "",
-        is_active: subcontractor.is_active,
-        do_not_require_license: subcontractor.do_not_require_license,
-        do_not_require_insurance: subcontractor.do_not_require_insurance,
-        subcontractor_type: subcontractor.subcontractor_type as SubcontractorType,
-        trade: subcontractor.trade || [],
-      });
+    if (subcontractor && !populatedRef.current) {
+      // Only populate if no existing draft (user hasn't started editing)
+      const existingDraft = useSubcontractorEditorStore.getState().drafts[draftKey];
+      if (!existingDraft) {
+        setFormData({
+          company_name: subcontractor.company_name || "",
+          contact_name: subcontractor.contact_name || "",
+          phone: subcontractor.phone || "",
+          email: subcontractor.email || "",
+          address: subcontractor.address || "",
+          license_number: subcontractor.license_number || "",
+          license_expiration_date: subcontractor.license_expiration_date || "",
+          license_document_url: subcontractor.license_document_url || "",
+          insurance_expiration_date: subcontractor.insurance_expiration_date || "",
+          insurance_document_url: subcontractor.insurance_document_url || "",
+          notes: subcontractor.notes || "",
+          is_active: subcontractor.is_active,
+          do_not_require_license: subcontractor.do_not_require_license,
+          do_not_require_insurance: subcontractor.do_not_require_insurance,
+          subcontractor_type: subcontractor.subcontractor_type as SubcontractorType,
+          trade: subcontractor.trade || [],
+        });
+      }
+      populatedRef.current = true;
       setFormErrors({});
     }
-  }, [subcontractor]);
+  }, [subcontractor, draftKey, setFormData]);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -188,6 +196,7 @@ export function SubcontractorEditorContent({ subcontractorId, onClose, onSuccess
     },
     onSuccess: (savedId) => {
       toast.success(isNew ? "Subcontractor added" : "Subcontractor updated");
+      clearDraft(draftKey);
       queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
       queryClient.invalidateQueries({ queryKey: ["active-subcontractors"] });
       queryClient.invalidateQueries({ queryKey: ["subcontractors-active"] });
@@ -237,7 +246,7 @@ export function SubcontractorEditorContent({ subcontractorId, onClose, onSuccess
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={() => { clearDraft(draftKey); onClose(); }}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={saveMutation.isPending}>
             {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isNew ? "Add" : "Update"} Subcontractor
