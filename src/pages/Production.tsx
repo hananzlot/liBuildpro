@@ -2011,7 +2011,7 @@ export default function Production() {
                     <thead className="[&_tr]:border-b sticky top-0 z-20 bg-card">
                       <TableRow className="bg-card hover:bg-card [&_th]:align-bottom [&_th]:leading-tight [&_th]:py-2 [&_th]:text-left">
                         
-                        <TableHead className="w-[3.5%] cursor-pointer hover:bg-muted/50 text-xs p-0 pl-0" onClick={() => handleSort('project_number')}>
+                        <TableHead className="w-[3.5%] cursor-pointer hover:bg-muted/50 text-xs p-0 pl-3" onClick={() => handleSort('project_number')}>
                           <div className="flex items-end gap-0.5"># <SortIcon column="project_number" /></div>
                         </TableHead>
                         {isUnified && (
@@ -2108,7 +2108,7 @@ export default function Production() {
                             onClick={() => handleOpenProject(project)}
                           >
                             
-                            <TableCell className="font-medium text-xs truncate p-0 pl-0.5">
+                            <TableCell className="font-medium text-xs truncate p-0 pl-3">
                               <div className="flex flex-col min-w-0">
                                 <div className="flex items-center gap-0.5">
                                   <span className="truncate">{project.project_number}</span>
