@@ -257,6 +257,19 @@ export function ComplianceTemplatesManager() {
   // Delete template
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Clean up generated estimate_compliance_documents referencing this template
+      await supabase
+        .from("estimate_compliance_documents")
+        .delete()
+        .eq("template_id", id);
+
+      // Clean up pending signed_compliance_documents referencing this template
+      await supabase
+        .from("signed_compliance_documents")
+        .delete()
+        .eq("template_id", id)
+        .eq("status", "pending");
+
       const { error } = await supabase
         .from("compliance_document_templates")
         .delete()

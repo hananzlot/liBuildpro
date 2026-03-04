@@ -146,6 +146,9 @@ export function ComplianceSigningFlow({
         .order('display_order');
 
       if (existing && existing.length > 0 && allTemplates) {
+        // Filter out docs whose templates have been deleted or deactivated
+        const activeTemplateIds = new Set(allTemplates.map(t => t.id));
+        existing = existing.filter(doc => activeTemplateIds.has(doc.template_id));
         // Check if any active templates are missing from existing signed docs
         const existingTemplateIds = new Set(existing.map(d => d.template_id));
         const missingTemplates = allTemplates.filter(t => !existingTemplateIds.has(t.id));

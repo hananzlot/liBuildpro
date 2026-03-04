@@ -96,7 +96,8 @@ export function PortalComplianceDocuments({
         })
       );
 
-      return docsWithSignatureStatus as ComplianceDocument[];
+      // Filter out docs whose templates have been deleted (null template)
+      return docsWithSignatureStatus.filter((doc: any) => doc.template?.id) as ComplianceDocument[];
     },
     enabled: !!estimateId,
   });
