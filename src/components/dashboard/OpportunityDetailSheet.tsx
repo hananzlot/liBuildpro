@@ -2849,6 +2849,21 @@ export function OpportunityDetailSheet({
                         </SelectContent>
                       </Select>
                     )}
+                    {isSuperAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 px-1.5 text-muted-foreground"
+                        onClick={() => {
+                          const debugInfo = `UUID: ${opportunity.id}\nGHL ID: ${opportunity.ghl_id}\nContact ID: ${opportunity.contact_id}\nContact UUID: ${opportunity.contact_uuid}`;
+                          navigator.clipboard.writeText(debugInfo);
+                          toast.success("Debug info copied to clipboard");
+                        }}
+                      >
+                        <Copy className="h-3 w-3 mr-0.5" />
+                        <span className="text-[10px]">Debug</span>
+                      </Button>
+                    )}
                   </div>
                 )}
                 {/* Sales rep directly below opp name */}
@@ -2859,25 +2874,10 @@ export function OpportunityDetailSheet({
                   </p>
                 )}
               </div>
-              {/* Right: Debug + Opp Value + Est Cost */}
+              {/* Right: Opp Value + Est Cost */}
               <div className="flex flex-col items-end gap-1 shrink-0">
-                {/* Debug + Opp Value row */}
-                <div className="flex items-center gap-2">
-                  {isSuperAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-1.5 text-muted-foreground"
-                      onClick={() => {
-                        const debugInfo = `UUID: ${opportunity.id}\nGHL ID: ${opportunity.ghl_id}\nContact ID: ${opportunity.contact_id}\nContact UUID: ${opportunity.contact_uuid}`;
-                        navigator.clipboard.writeText(debugInfo);
-                        toast.success("Debug info copied to clipboard");
-                      }}
-                    >
-                      <Copy className="h-3 w-3 mr-1" />
-                      <span className="text-[11px]">Debug</span>
-                    </Button>
-                  )}
+                {/* Opp Value row */}
+                <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground whitespace-nowrap">Opp Value:</span>
                   {isEditingOppValue ? (
                     <div className="flex items-center gap-1">
@@ -2902,7 +2902,7 @@ export function OpportunityDetailSheet({
                   )}
                 </div>
                 {/* Est. Cost row */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <span className="text-xs text-muted-foreground whitespace-nowrap">Est. Cost:</span>
                   {isEditingCost ? (
                     <div className="flex items-center gap-1">
