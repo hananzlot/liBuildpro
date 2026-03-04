@@ -292,27 +292,20 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     },
   });
 
-  // Delete mutation - handles documents, bills, and agreements
+  // Delete mutation - handles documents, bills, agreements, and compliance
   const deleteMutation = useMutation({
-    mutationFn: async () => {
-      if (!deleteTarget) return;
-      
+    mutationFn: async (target: Document) => {
       // Delete file from storage based on source
       try {
-        if (deleteTarget.source === "document") {
-          const urlParts = deleteTarget.file_url.split("/project-attachments/");
+        if (target.source === "document" || target.source === "bill") {
+          const urlParts = target.file_url.split("/project-attachments/");
           if (urlParts.length > 1) {
             await supabase.storage.from("project-attachments").remove([urlParts[1]]);
           }
-        } else if (deleteTarget.source === "agreement") {
-          const urlParts = deleteTarget.file_url.split("/contracts/");
+        } else if (target.source === "agreement") {
+          const urlParts = target.file_url.split("/contracts/");
           if (urlParts.length > 1) {
             await supabase.storage.from("contracts").remove([urlParts[1]]);
-          }
-        } else if (deleteTarget.source === "bill") {
-          const urlParts = deleteTarget.file_url.split("/project-attachments/");
-          if (urlParts.length > 1) {
-            await supabase.storage.from("project-attachments").remove([urlParts[1]]);
           }
         }
       } catch (e) {
@@ -320,26 +313,28 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
       }
 
       // Delete or update record based on source
-      if (deleteTarget.source === "document") {
-        const { error } = await supabase
+      if (target.source === "document") {
+        const { error, count } = await supabase
           .from("project_documents")
           .delete()
-          .eq("id", deleteTarget.id);
+          .eq("id", target.id)
+          .select();
         if (error) throw error;
-      } else if (deleteTarget.source === "agreement") {
-        // Clear the attachment_url instead of deleting the agreement record
+      } else if (target.source === "agreement") {
         const { error } = await supabase
           .from("project_agreements")
           .update({ attachment_url: null })
-          .eq("id", deleteTarget.id);
+          .eq("id", target.id);
         if (error) throw error;
-      } else if (deleteTarget.source === "bill") {
-        // Clear the attachment_url instead of deleting the bill record
+      } else if (target.source === "bill") {
         const { error } = await supabase
           .from("project_bills")
           .update({ attachment_url: null })
-          .eq("id", deleteTarget.id);
+          .eq("id", target.id);
         if (error) throw error;
+      } else if (target.source === "compliance") {
+        // Compliance docs are managed separately — cannot delete from here
+        throw new Error("Compliance documents cannot be deleted from this view");
       }
     },
     onSuccess: () => {
@@ -612,7 +607,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => deleteMutation.mutate()}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleteTarget?.source === "document" ? "Delete" : "Remove"}
