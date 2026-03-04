@@ -400,10 +400,32 @@ export function ProjectEditorContent({
     if (!isEditing) updateDraft({ selectedContactId });
   }, [selectedContactId, isEditing]);
 
+  const [validationTriggered, setValidationTriggered] = useState(false);
+
+  const requiredFields = {
+    project_name: "Project Name",
+    estimated_project_cost: "Estimated Sale Amount",
+    customer_first_name: "First Name",
+    customer_last_name: "Last Name",
+    customer_email: "Email",
+    cell_phone: "Cell Phone",
+    project_address: "Address",
+    primary_salesperson: "Primary Salesperson",
+    lead_source: "Lead Source",
+  };
+
+  const getMissingFields = () => {
+    return Object.entries(requiredFields)
+      .filter(([key]) => !formData[key as keyof typeof formData]?.toString().trim())
+      .map(([, label]) => label);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.project_name.trim()) {
-      toast.error("Project name is required");
+    setValidationTriggered(true);
+    const missing = getMissingFields();
+    if (missing.length > 0) {
+      toast.error(`Missing required fields: ${missing.join(", ")}`);
       return;
     }
     saveMutation.mutate();
@@ -463,7 +485,7 @@ export function ProjectEditorContent({
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <Label htmlFor="project_name">Project Name *</Label>
+                <Label htmlFor="project_name">Project Name <span className="text-destructive">*</span></Label>
                 <Input
                   id="project_name"
                   value={formData.project_name}
@@ -500,7 +522,7 @@ export function ProjectEditorContent({
                 </Select>
               </div>
               <div>
-                <Label htmlFor="estimated_project_cost">Estimated Sale Amount ($)</Label>
+                <Label htmlFor="estimated_project_cost">Estimated Sale Amount ($) <span className="text-destructive">*</span></Label>
                 <Input
                   id="estimated_project_cost"
                   type="text"
@@ -511,6 +533,7 @@ export function ProjectEditorContent({
                     if (val === '' || /^\d*\.?\d*$/.test(val)) updateField("estimated_project_cost", val); 
                   }}
                   placeholder="0"
+                  className={validationTriggered && !formData.estimated_project_cost.trim() ? "border-destructive" : ""}
                 />
               </div>
               <div>
@@ -660,28 +683,30 @@ export function ProjectEditorContent({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="customer_first_name">First Name</Label>
+                  <Label htmlFor="customer_first_name">First Name <span className="text-destructive">*</span></Label>
                   <Input
                     id="customer_first_name"
                     value={formData.customer_first_name}
                     onChange={(e) => updateField("customer_first_name", e.target.value)}
                     placeholder="First name"
+                    className={validationTriggered && !formData.customer_first_name.trim() ? "border-destructive" : ""}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="customer_last_name">Last Name</Label>
+                  <Label htmlFor="customer_last_name">Last Name <span className="text-destructive">*</span></Label>
                   <Input
                     id="customer_last_name"
                     value={formData.customer_last_name}
                     onChange={(e) => updateField("customer_last_name", e.target.value)}
                     placeholder="Last name"
+                    className={validationTriggered && !formData.customer_last_name.trim() ? "border-destructive" : ""}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="customer_email">Email</Label>
+                  <Label htmlFor="customer_email">Email <span className="text-destructive">*</span></Label>
                   <Input
                     id="customer_email"
-                    type="email"
+                    type="text"
                     value={formData.customer_email}
                     onChange={(e) => updateField("customer_email", e.target.value)}
                     onFocus={() => {
@@ -697,15 +722,17 @@ export function ProjectEditorContent({
                       }
                     }}
                     placeholder="email@example.com"
+                    className={validationTriggered && !formData.customer_email.trim() ? "border-destructive" : ""}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cell_phone">Cell Phone</Label>
+                  <Label htmlFor="cell_phone">Cell Phone <span className="text-destructive">*</span></Label>
                   <Input
                     id="cell_phone"
                     value={formData.cell_phone}
                     onChange={(e) => updateField("cell_phone", e.target.value)}
                     placeholder="(555) 555-5555"
+                    className={validationTriggered && !formData.cell_phone.trim() ? "border-destructive" : ""}
                   />
                 </div>
                 <div>
@@ -718,12 +745,13 @@ export function ProjectEditorContent({
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="project_address">Address</Label>
+                  <Label htmlFor="project_address">Address <span className="text-destructive">*</span></Label>
                   <Input
                     id="project_address"
                     value={formData.project_address}
                     onChange={(e) => updateField("project_address", e.target.value)}
                     placeholder="Full address"
+                    className={validationTriggered && !formData.project_address.trim() ? "border-destructive" : ""}
                   />
                 </div>
               </div>
@@ -737,7 +765,7 @@ export function ProjectEditorContent({
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="primary_salesperson">Primary Salesperson</Label>
+                <Label htmlFor="primary_salesperson">Primary Salesperson <span className="text-destructive">*</span></Label>
                 {showAddSalesperson ? (
                   <div className="flex gap-2">
                     <Input value={newSalesperson} onChange={(e) => setNewSalesperson(e.target.value)} placeholder="New salesperson name" autoFocus />
@@ -747,7 +775,7 @@ export function ProjectEditorContent({
                 ) : (
                   <div className="flex gap-2">
                     <Select value={formData.primary_salesperson} onValueChange={(value) => updateField("primary_salesperson", value)}>
-                      <SelectTrigger className="flex-1"><SelectValue placeholder="Select salesperson" /></SelectTrigger>
+                      <SelectTrigger className={cn("flex-1", validationTriggered && !formData.primary_salesperson && "border-destructive")}><SelectValue placeholder="Select salesperson" /></SelectTrigger>
                       <SelectContent>
                         {salespeople.map((sp) => (<SelectItem key={sp.id} value={sp.name}>{sp.name}</SelectItem>))}
                       </SelectContent>
@@ -759,7 +787,7 @@ export function ProjectEditorContent({
                 )}
               </div>
               <div>
-                <Label htmlFor="lead_source">Lead Source</Label>
+                <Label htmlFor="lead_source">Lead Source <span className="text-destructive">*</span></Label>
                 {showAddLeadSource ? (
                   <div className="flex gap-2">
                     <Input value={newLeadSource} onChange={(e) => setNewLeadSource(e.target.value)} placeholder="New lead source name" autoFocus />
@@ -769,7 +797,7 @@ export function ProjectEditorContent({
                 ) : (
                   <div className="flex gap-2">
                     <Select value={formData.lead_source} onValueChange={(value) => updateField("lead_source", value)}>
-                      <SelectTrigger className="flex-1"><SelectValue placeholder="Select lead source" /></SelectTrigger>
+                      <SelectTrigger className={cn("flex-1", validationTriggered && !formData.lead_source && "border-destructive")}><SelectValue placeholder="Select lead source" /></SelectTrigger>
                       <SelectContent>
                         {leadSources.map((ls) => (<SelectItem key={ls.id} value={ls.name}>{ls.name}</SelectItem>))}
                       </SelectContent>
