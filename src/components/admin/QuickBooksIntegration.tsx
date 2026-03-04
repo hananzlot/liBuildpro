@@ -131,9 +131,45 @@ export function QuickBooksIntegration() {
     },
   });
 
+  // Fetch disable auto-sync setting
+  const { data: disableAutoSyncSetting } = useQuery({
+    queryKey: ["company-settings", companyId, "disable_new_project_qb_sync"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "disable_new_project_qb_sync")
+        .maybeSingle();
+      return data?.setting_value === "true";
+    },
+    enabled: !!companyId,
+  });
+
+  const toggleAutoSyncMutation = useMutation({
+    mutationFn: async (disabled: boolean) => {
+      const { error } = await supabase
+        .from("company_settings")
+        .upsert({
+          company_id: companyId,
+          setting_key: "disable_new_project_qb_sync",
+          setting_value: disabled ? "true" : "false",
+          setting_type: "boolean",
+          description: "Disable auto QB sync for new projects",
+        }, { onConflict: "company_id,setting_key" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-settings", companyId, "disable_new_project_qb_sync"] });
+      toast.success("Setting updated");
+    },
+    onError: () => {
+      toast.error("Failed to update setting");
+    },
+  });
+
   const handleConnect = (forceCompanySelect?: boolean) => {
     if (forceCompanySelect) {
-      // Show alert before reconnecting to set expectations
       const confirmed = window.confirm(
         "To connect a different QuickBooks company:\n\n" +
         "1. A new window will open to QuickBooks\n" +
@@ -275,43 +311,6 @@ export function QuickBooksIntegration() {
       </CardContent>
     </Card>
   );
-
-  // Fetch disable auto-sync setting
-  const { data: disableAutoSyncSetting } = useQuery({
-    queryKey: ["company-settings", companyId, "disable_new_project_qb_sync"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("company_settings")
-        .select("setting_value")
-        .eq("company_id", companyId)
-        .eq("setting_key", "disable_new_project_qb_sync")
-        .maybeSingle();
-      return data?.setting_value === "true";
-    },
-    enabled: !!companyId,
-  });
-
-  const toggleAutoSyncMutation = useMutation({
-    mutationFn: async (disabled: boolean) => {
-      const { error } = await supabase
-        .from("company_settings")
-        .upsert({
-          company_id: companyId,
-          setting_key: "disable_new_project_qb_sync",
-          setting_value: disabled ? "true" : "false",
-          setting_type: "boolean",
-          description: "Disable auto QB sync for new projects",
-        }, { onConflict: "company_id,setting_key" });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["company-settings", companyId, "disable_new_project_qb_sync"] });
-      toast.success("Setting updated");
-    },
-    onError: () => {
-      toast.error("Failed to update setting");
-    },
-  });
 
   return (
     <div className="space-y-6">
