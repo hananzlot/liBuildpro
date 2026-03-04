@@ -1104,6 +1104,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         companyId={portalData.token?.company_id || estimate.company_id || ''}
         customerName={portalData.isMultiSigner && signerData ? signerData.signer_name : (estimate.customer_name || '')}
         customerEmail={portalData.isMultiSigner && signerData ? signerData.signer_email : (estimate.customer_email || '')}
+        estimateNumber={estimate.estimate_number}
         onAllSigned={() => {
           setComplianceComplete(true);
           setComplianceFlowOpen(false);

@@ -1288,6 +1288,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
             companyId={selectedEstimate.company_id || companyId || ''}
             customerName={signerName || selectedEstimate.customer_name || ''}
             customerEmail={signerEmail || selectedEstimate.customer_email || ''}
+            estimateNumber={selectedEstimate.estimate_number}
             onAllSigned={() => {
               setComplianceComplete(true);
               setComplianceFlowOpen(false);
