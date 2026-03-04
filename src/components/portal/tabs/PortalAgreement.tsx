@@ -95,7 +95,9 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
   }, [agreements]);
 
   const additionalAgreements = useMemo(() => {
-    return agreements.filter((a: any) => !isContractAgreement(a));
+    return agreements
+      .filter((a: any) => !isContractAgreement(a))
+      .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [agreements]);
 
   const parseAgreementEstimateNumber = (agreementNumber?: string | null): number | null => {
