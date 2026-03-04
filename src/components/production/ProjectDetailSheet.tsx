@@ -157,6 +157,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [isFinancePdfPreviewOpen, setIsFinancePdfPreviewOpen] = useState(false);
+  const [showRequiredFieldsWarning, setShowRequiredFieldsWarning] = useState(false);
   const [financeSummary, setFinanceSummary] = useState<{ sold: number; invoiced: number; received: number; outstandingAR: number; bills: number; billsPaid: number; outstandingAP: number; hasAgreements: boolean }>({ sold: 0, invoiced: 0, received: 0, outstandingAR: 0, bills: 0, billsPaid: 0, outstandingAP: 0, hasAgreements: false });
 
   // Helper to sync the app tab path with inner tab state (only in page mode)
@@ -179,11 +180,18 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
     updateActiveTabPath(newPath);
   }, [mode, project?.id, updateActiveTabPath]);
 
-  // Handle main tab changes
-  const handleActiveTabChange = useCallback((newTab: string) => {
+  // Handle main tab changes — validation added after fullProject query below
+  const [pendingTabChange, setPendingTabChange] = useState<string | null>(null);
+
+  const handleActiveTabChangeRaw = useCallback((newTab: string) => {
+    if (activeTab === 'overview' && newTab !== 'overview') {
+      setPendingTabChange(newTab);
+      return;
+    }
+    setShowRequiredFieldsWarning(false);
     setActiveTab(newTab);
     syncTabPath(newTab, newTab === 'finance' ? financeSubTab : undefined, newTab === 'finance' && financeSubTab === 'bills' ? financeBillsSubTab : undefined);
-  }, [financeSubTab, financeBillsSubTab, syncTabPath]);
+  }, [activeTab, financeSubTab, financeBillsSubTab, syncTabPath]);
 
   // Handle finance section sub-tab changes
   const handleFinanceSubTabChange = useCallback((subTab: string, billsSubTab?: 'bills' | 'history') => {
@@ -243,7 +251,54 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
     enabled: !!project?.id && open,
   });
 
-  // Fetch related data
+  // Validate required overview fields (must be after fullProject declaration)
+  const getOverviewMissingFields = useCallback(() => {
+    if (!fullProject) return [];
+    const missing: string[] = [];
+    if (!fullProject.customer_first_name?.trim()) missing.push('First Name');
+    if (!fullProject.customer_last_name?.trim()) missing.push('Last Name');
+    if (!fullProject.cell_phone?.trim()) missing.push('Cell Phone');
+    if (!fullProject.customer_email?.trim()) missing.push('Email');
+    if (!fullProject.project_name?.trim()) missing.push('Project Name');
+    if (!fullProject.install_start_date) missing.push('Start Date');
+    if (!fullProject.project_address?.trim()) missing.push('Project Address');
+    if (!fullProject.project_type?.trim()) missing.push('Project Type');
+    if (!fullProject.lead_source?.trim()) missing.push('Lead Source');
+    if (!fullProject.scope_of_work?.trim()) missing.push('Scope of Work');
+    if (fullProject.project_status === 'Completed' && !fullProject.completion_date) missing.push('End Date');
+    return missing;
+  }, [fullProject]);
+
+  const overviewMissingFields = useMemo(() => getOverviewMissingFields(), [getOverviewMissingFields]);
+  const hasOverviewErrors = activeTab === 'overview' && overviewMissingFields.length > 0;
+
+  // Process pending tab change with validation
+  useEffect(() => {
+    if (pendingTabChange && fullProject) {
+      const missing = getOverviewMissingFields();
+      if (missing.length > 0) {
+        setShowRequiredFieldsWarning(true);
+        toast.error(`Please fill in all required fields: ${missing.join(', ')}`);
+        setPendingTabChange(null);
+      } else {
+        setShowRequiredFieldsWarning(false);
+        setActiveTab(pendingTabChange);
+        syncTabPath(pendingTabChange, pendingTabChange === 'finance' ? financeSubTab : undefined, pendingTabChange === 'finance' && financeSubTab === 'bills' ? financeBillsSubTab : undefined);
+        setPendingTabChange(null);
+      }
+    }
+  }, [pendingTabChange, fullProject, getOverviewMissingFields, syncTabPath, financeSubTab, financeBillsSubTab]);
+
+  // Alias for backward compatibility
+  const handleActiveTabChange = handleActiveTabChangeRaw;
+
+  // Auto-clear warning when all required fields are filled
+  useEffect(() => {
+    if (showRequiredFieldsWarning && overviewMissingFields.length === 0) {
+      setShowRequiredFieldsWarning(false);
+    }
+  }, [showRequiredFieldsWarning, overviewMissingFields]);
+
   const { data: checklists = [] } = useQuery({
     queryKey: ["project-checklists", project?.id],
     queryFn: async () => {
@@ -865,7 +920,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
 
   return (
     <>
-    <Sheet open={open} modal={!isPageMode} onOpenChange={isPageMode ? undefined : onOpenChange}>
+    <Sheet open={open} modal={!isPageMode} onOpenChange={isPageMode ? undefined : (newOpen) => {
+      if (!newOpen && activeTab === 'overview') {
+        const missing = getOverviewMissingFields();
+        if (missing.length > 0) {
+          setShowRequiredFieldsWarning(true);
+          toast.error(`Please fill in all required fields before closing: ${missing.join(', ')}`);
+          return;
+        }
+      }
+      onOpenChange(newOpen);
+    }}>
       <SheetContent 
         className={isPageMode ? "w-full h-full overflow-y-auto" : "w-full sm:max-w-6xl overflow-y-auto"}
         disablePortal={isPageMode}
@@ -1118,6 +1183,18 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
               </div>
             ) : (
               <>
+                {/* Required fields warning banner */}
+                {showRequiredFieldsWarning && overviewMissingFields.length > 0 && (
+                  <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3">
+                    <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-destructive">Required fields missing</p>
+                      <p className="text-xs text-destructive/80 mt-1">
+                        Please fill in the following fields before navigating away: {overviewMissingFields.join(', ')}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {/* Customer Info, Project Info & Commission - Three Columns */}
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr_1fr] gap-4">
                 {/* Customer Info */}
@@ -1133,7 +1210,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">First Name <span className="text-destructive">*</span></Label>
                         <DebouncedInput
-                          className="h-8 text-xs"
+                          className={cn("h-8 text-xs", showRequiredFieldsWarning && !fullProject?.customer_first_name?.trim() && "border-destructive")}
                           value={toTitleCase(fullProject?.customer_first_name || "")} 
                           onSave={(value) => updateProjectMutation.mutate({ customer_first_name: value })}
                         />
@@ -1141,7 +1218,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">Last Name <span className="text-destructive">*</span></Label>
                         <DebouncedInput
-                          className="h-8 text-xs"
+                          className={cn("h-8 text-xs", showRequiredFieldsWarning && !fullProject?.customer_last_name?.trim() && "border-destructive")}
                           value={toTitleCase(fullProject?.customer_last_name || "")} 
                           onSave={(value) => updateProjectMutation.mutate({ customer_last_name: value })}
                         />
@@ -1151,7 +1228,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">Cell Phone <span className="text-destructive">*</span></Label>
                         <DebouncedInput
-                          className="h-8 text-xs"
+                          className={cn("h-8 text-xs", showRequiredFieldsWarning && !fullProject?.cell_phone?.trim() && "border-destructive")}
                           value={formatPhoneNumber(fullProject?.cell_phone)} 
                           onSave={(value) => updateProjectMutation.mutate({ cell_phone: value.replace(/\D/g, "") })}
                           placeholder="(555) 123-4567"
@@ -1160,7 +1237,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">Email <span className="text-destructive">*</span></Label>
                         <DebouncedInput
-                          className="h-8 text-xs"
+                          className={cn("h-8 text-xs", showRequiredFieldsWarning && !fullProject?.customer_email?.trim() && "border-destructive")}
                           value={fullProject?.customer_email || ""} 
                           onSave={(value) => updateProjectMutation.mutate({ customer_email: value })}
                         />
@@ -1179,7 +1256,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       <div className="space-y-1 flex-1">
                         <Label className="text-[11px] text-muted-foreground">Project Name <span className="text-destructive">*</span></Label>
                         <DebouncedInput
-                          className="h-8 text-xs"
+                          className={cn("h-8 text-xs", showRequiredFieldsWarning && !fullProject?.project_name?.trim() && "border-destructive")}
                           value={toTitleCase(fullProject?.project_name || "")} 
                           onSave={(value) => updateProjectMutation.mutate({ project_name: value })}
                         />
@@ -1187,7 +1264,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       <div className="space-y-1 w-[110px]">
                         <Label className="text-[11px] text-muted-foreground">Start Date <span className="text-destructive">*</span></Label>
                         <Input
-                          className="h-8 text-xs"
+                          className={cn("h-8 text-xs", showRequiredFieldsWarning && !fullProject?.install_start_date && "border-destructive")}
                           type="date"
                           defaultValue={fullProject?.install_start_date ? fullProject.install_start_date.split('T')[0] : ""} 
                           key={fullProject?.install_start_date}
@@ -1222,7 +1299,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     <div className="space-y-1">
                       <Label className="text-[11px] text-muted-foreground">Project Address <span className="text-destructive">*</span></Label>
                       <DebouncedInput
-                        className="h-8 text-xs"
+                        className={cn("h-8 text-xs", showRequiredFieldsWarning && !fullProject?.project_address?.trim() && "border-destructive")}
                         value={fullProject?.project_address || ""} 
                         onSave={(value) => updateProjectMutation.mutate({ project_address: value })}
                       />
@@ -1235,7 +1312,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                             <Button
                               variant="outline"
                               role="combobox"
-                              className="w-full justify-between font-normal h-8 text-xs"
+                              className={cn("w-full justify-between font-normal h-8 text-xs", showRequiredFieldsWarning && !fullProject?.project_type?.trim() && "border-destructive")}
                             >
                               <span className="text-left flex-1 truncate">
                                 {fullProject?.project_type 
@@ -1381,7 +1458,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                               <Button
                                 variant="outline"
                                 role="combobox"
-                                className="w-full justify-between font-normal h-8 text-xs"
+                                className={cn("w-full justify-between font-normal h-8 text-xs", showRequiredFieldsWarning && !fullProject?.lead_source?.trim() && "border-destructive")}
                               >
                                 {fullProject?.lead_source || "Select or add..."}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1495,7 +1572,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     <div className="space-y-1">
                       <Label className="text-[11px] text-muted-foreground">Scope of Work <span className="text-destructive">*</span></Label>
                       <DebouncedTextarea
-                        className="text-xs min-h-[60px]"
+                        className={cn("text-xs min-h-[60px]", showRequiredFieldsWarning && !fullProject?.scope_of_work?.trim() && "border-destructive")}
                         value={fullProject?.scope_of_work || ""} 
                         onSave={(value) => updateProjectMutation.mutate({ scope_of_work: value || null })}
                         placeholder="Enter scope of work..."
