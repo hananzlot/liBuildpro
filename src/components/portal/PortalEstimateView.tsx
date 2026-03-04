@@ -432,14 +432,26 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
     signedDate: string
   ): Promise<string | null> => {
     try {
+      // Check if a contract already exists for this project
+      const { data: existingAgreements } = await supabase
+        .from('project_agreements')
+        .select('id, agreement_type')
+        .eq('project_id', projectId)
+        .eq('agreement_type', 'Contract')
+        .limit(1);
+
+      const hasExistingContract = (existingAgreements && existingAgreements.length > 0);
+      const agreementType = hasExistingContract ? 'Change Order' : 'Contract';
+      const agreementPrefix = hasExistingContract ? 'CO' : 'CNT';
+
       // Create project agreement
       const { data: agreementData, error: agreementError } = await supabase
         .from('project_agreements')
         .insert({
           project_id: projectId,
-          agreement_number: `CNT-${estimate.estimate_number}`,
+          agreement_number: `${agreementPrefix}-${estimate.estimate_number}`,
           agreement_signed_date: signedDate,
-          agreement_type: 'Contract',
+          agreement_type: agreementType,
           total_price: estimate.total || 0,
           description_of_work: estimate.work_scope_description || estimate.estimate_title,
           company_id: companyId,

@@ -380,15 +380,27 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       let createdAgreementId: string | null = null;
       if (projectId && selectedEstimate) {
         const signedDate = new Date().toISOString().split('T')[0];
-        
+
+        // Check if a contract already exists for this project
+        const { data: existingAgreements } = await supabase
+          .from('project_agreements')
+          .select('id, agreement_type')
+          .eq('project_id', projectId)
+          .eq('agreement_type', 'Contract')
+          .limit(1);
+
+        const hasExistingContract = (existingAgreements && existingAgreements.length > 0);
+        const agreementType = hasExistingContract ? 'Change Order' : 'Contract';
+        const agreementPrefix = hasExistingContract ? 'CO' : 'CNT';
+
         // Create project agreement with the contract details
         const { data: agreementData, error: agreementError } = await supabase
           .from('project_agreements')
           .insert({
             project_id: projectId,
-            agreement_number: `CNT-${selectedEstimate.estimate_number}`,
+            agreement_number: `${agreementPrefix}-${selectedEstimate.estimate_number}`,
             agreement_signed_date: signedDate,
-            agreement_type: 'Contract',
+            agreement_type: agreementType,
             total_price: selectedEstimate.total || 0,
             description_of_work: selectedEstimate.work_scope_description || selectedEstimate.estimate_title,
             company_id: companyId,
