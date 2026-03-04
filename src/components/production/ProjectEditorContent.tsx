@@ -68,6 +68,7 @@ export function ProjectEditorContent({
     project_type: "",
     project_status: "New Job",
     primary_salesperson: "",
+    estimated_project_cost: "",
     estimated_cost: "",
     lead_cost_percent: "",
     lead_source: "",
@@ -133,7 +134,7 @@ export function ProjectEditorContent({
     enabled: !!companyId,
   });
 
-  // Fetch lead sources for company
+   // Fetch lead sources for company
   const { data: leadSources = [] } = useQuery({
     queryKey: ["lead-sources-for-project-editor", companyId],
     queryFn: async () => {
@@ -148,6 +149,24 @@ export function ProjectEditorContent({
       return data || [];
     },
     enabled: !!companyId,
+  });
+
+  // Fetch default lead cost % from company settings
+  const { data: defaultLeadCostSetting } = useQuery({
+    queryKey: ["company-setting-default-lead-cost", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "default_lead_cost_percent")
+        .maybeSingle();
+      if (error) throw error;
+      return data?.setting_value ?? "18";
+    },
+    enabled: !!companyId && !isEditing,
+    staleTime: 5 * 60 * 1000,
   });
 
   const [showAddSalesperson, setShowAddSalesperson] = useState(false);
@@ -242,6 +261,7 @@ export function ProjectEditorContent({
       project_type: "",
       project_status: "New Job",
       primary_salesperson: "",
+      estimated_project_cost: "",
       estimated_cost: "",
       lead_cost_percent: "",
       lead_source: "",
@@ -264,6 +284,7 @@ export function ProjectEditorContent({
         project_type: existingProject.project_type || "",
         project_status: existingProject.project_status || "New Job",
         primary_salesperson: existingProject.primary_salesperson || "",
+        estimated_project_cost: existingProject.estimated_project_cost?.toString() || "",
         estimated_cost: existingProject.estimated_cost?.toString() || "",
         lead_cost_percent: existingProject.lead_cost_percent?.toString() || "",
         lead_source: existingProject.lead_source || "",
@@ -276,6 +297,13 @@ export function ProjectEditorContent({
       }
     }
   }, [existingProject]);
+
+  // Auto-populate lead cost % from company default when creating new projects
+  useEffect(() => {
+    if (!isEditing && defaultLeadCostSetting && !formData.lead_cost_percent) {
+      updateField("lead_cost_percent", defaultLeadCostSetting);
+    }
+  }, [defaultLeadCostSetting, isEditing]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -290,6 +318,7 @@ export function ProjectEditorContent({
         project_type: formData.project_type || null,
         project_status: formData.project_status || "New Job",
         primary_salesperson: formData.primary_salesperson || null,
+        estimated_project_cost: formData.estimated_project_cost ? parseFloat(formData.estimated_project_cost) : null,
         estimated_cost: formData.estimated_cost ? parseFloat(formData.estimated_cost) : null,
         lead_source: formData.lead_source || null,
         branch: formData.branch || null,
@@ -375,10 +404,6 @@ export function ProjectEditorContent({
     e.preventDefault();
     if (!formData.project_name.trim()) {
       toast.error("Project name is required");
-      return;
-    }
-    if (!isEditing && (!formData.lead_cost_percent || isNaN(parseFloat(formData.lead_cost_percent)))) {
-      toast.error("Lead Cost % is required");
       return;
     }
     saveMutation.mutate();
@@ -475,6 +500,20 @@ export function ProjectEditorContent({
                 </Select>
               </div>
               <div>
+                <Label htmlFor="estimated_project_cost">Estimated Sale Amount ($)</Label>
+                <Input
+                  id="estimated_project_cost"
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.estimated_project_cost}
+                  onChange={(e) => { 
+                    const val = e.target.value; 
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) updateField("estimated_project_cost", val); 
+                  }}
+                  placeholder="0"
+                />
+              </div>
+              <div>
                 <Label htmlFor="estimated_cost">Estimated Cost ($)</Label>
                 <Input
                   id="estimated_cost"
@@ -489,7 +528,7 @@ export function ProjectEditorContent({
                 />
               </div>
               <div>
-                <Label htmlFor="lead_cost_percent">Lead Cost % {!isEditing && "*"}</Label>
+                <Label htmlFor="lead_cost_percent">Lead Cost %</Label>
                 <Input
                   id="lead_cost_percent"
                   type="text"
@@ -500,7 +539,6 @@ export function ProjectEditorContent({
                     if (val === '' || /^\d*\.?\d*$/.test(val)) updateField("lead_cost_percent", val);
                   }}
                   placeholder="Enter lead cost %"
-                  className={!isEditing && !formData.lead_cost_percent ? "border-destructive" : ""}
                 />
               </div>
               <div>
