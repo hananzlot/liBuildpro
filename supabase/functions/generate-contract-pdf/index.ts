@@ -84,6 +84,30 @@ serve(async (req) => {
         : Promise.resolve({ data: [] }),
     ]);
 
+    // Determine if this is a Change Order by checking the agreement type
+    let isChangeOrder = false;
+    if (agreementId) {
+      const { data: agreementRow } = await supabase
+        .from('project_agreements')
+        .select('agreement_type')
+        .eq('id', agreementId)
+        .maybeSingle();
+      if (agreementRow?.agreement_type === 'Change Order') {
+        isChangeOrder = true;
+      }
+    } else if (estimate.project_id) {
+      // Fallback: check if a contract already exists for this project
+      const { data: existingContracts } = await supabase
+        .from('project_agreements')
+        .select('id')
+        .eq('project_id', estimate.project_id)
+        .eq('agreement_type', 'Contract')
+        .limit(1);
+      if (existingContracts && existingContracts.length > 0) {
+        isChangeOrder = true;
+      }
+    }
+
     const groups = groupsRes.data || [];
     const lineItems = itemsRes.data || [];
     const paymentSchedule = scheduleRes.data || [];
@@ -272,8 +296,10 @@ serve(async (req) => {
     }
     yPos -= 10;
 
-    // Contract number
-    page.drawText(`Contract #CNT-${estimate.estimate_number}`, {
+    // Contract / Change Order number
+    const docPrefix = isChangeOrder ? 'Change Order' : 'Contract';
+    const docNumberPrefix = isChangeOrder ? 'CO' : 'CNT';
+    page.drawText(`${docPrefix} #${docNumberPrefix}-${estimate.estimate_number}`, {
       x: margin,
       y: yPos,
       size: 14,
@@ -948,7 +974,7 @@ serve(async (req) => {
 
     // If projectId provided, update the agreement with the attachment URL
     if (projectId) {
-      const contractNumber = `CNT-${estimate.estimate_number}`;
+      const contractNumber = `${docNumberPrefix}-${estimate.estimate_number}`;
       
       if (agreementId) {
         // Use the provided agreement ID directly (preferred - avoids duplicates)
