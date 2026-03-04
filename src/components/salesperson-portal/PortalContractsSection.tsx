@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileCheck, Loader2, Eye, Globe, ChevronDown } from "lucide-react";
+import { FileCheck, Loader2, Eye, Globe, ChevronDown, ExternalLink } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
@@ -15,16 +15,18 @@ interface PortalContractsSectionProps {
   companyId: string;
 }
 
-interface Contract {
+interface ContractRecord {
   id: string;
-  estimate_number: number | null;
-  estimate_title: string | null;
-  customer_name: string | null;
-  job_address: string | null;
+  source: "agreement" | "estimate";
+  title: string;
+  customerName: string | null;
+  address: string | null;
   total: number | null;
-  signed_at: string | null;
-  created_at: string;
-  portal_token?: string | null;
+  signedDate: string | null;
+  type: string; // "Contract" | "Change Order" | "Addendum"
+  agreementNumber: string | null;
+  estimateId: string | null; // for preview
+  portalToken: string | null;
 }
 
 export function PortalContractsSection({ salespersonName, salespersonId, companyId }: PortalContractsSectionProps) {
@@ -56,46 +58,120 @@ export function PortalContractsSection({ salespersonName, salespersonId, company
       if (!companyId) return [];
       if (!salespersonId && !salespersonName) return [];
 
-      const orConditions: string[] = [];
-      if (salespersonId) orConditions.push(`salesperson_id.eq.${salespersonId}`);
-      if (salespersonName) orConditions.push(`salesperson_name.eq.${salespersonName}`);
+      const results: ContractRecord[] = [];
 
-      const { data, error } = await supabase
-        .from("estimates")
-        .select("id, estimate_number, estimate_title, customer_name, job_address, total, signed_at, created_at")
+      // 1. Find projects assigned to this salesperson
+      const { data: projects } = await supabase
+        .from("projects")
+        .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name")
         .eq("company_id", companyId)
-        .eq("status", "accepted")
-        .or(orConditions.join(","))
-        .order("signed_at", { ascending: false });
+        .is("deleted_at", null)
+        .or(`primary_salesperson.eq.${salespersonName},secondary_salesperson.eq.${salespersonName},tertiary_salesperson.eq.${salespersonName},quaternary_salesperson.eq.${salespersonName}`);
 
-      if (error) throw error;
-      if (!data?.length) return [];
+      // Also find projects via opportunities assigned to salesperson
+      let oppProjectIds: string[] = [];
+      if (salespersonId) {
+        const { data: opps } = await supabase
+          .from("opportunities")
+          .select("id")
+          .eq("company_id", companyId)
+          .or(`salesperson_id.eq.${salespersonId},assigned_to.eq.${salespersonId}`);
+        
+        if (opps?.length) {
+          const oppUuids = opps.map(o => o.id);
+          const uuidFilter = oppUuids.map(id => `opportunity_uuid.eq.${id}`).join(",");
+          const { data: oppProjects } = await supabase
+            .from("projects")
+            .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name")
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .or(uuidFilter);
+          if (oppProjects) {
+            oppProjectIds = oppProjects.map(p => p.id);
+            // Merge into projects list (dedup)
+            const existingIds = new Set((projects || []).map(p => p.id));
+            oppProjects.forEach(p => {
+              if (!existingIds.has(p.id)) {
+                projects?.push(p);
+              }
+            });
+          }
+        }
+      }
 
-      // Fetch portal tokens
-      const ids = data.map(e => e.id);
+      if (!projects?.length) return [];
+      const projectIds = projects.map(p => p.id);
+      const projectMap = new Map(projects.map(p => [p.id, p]));
+
+      // 2. Fetch project_agreements for these projects
+      const { data: agreements } = await supabase
+        .from("project_agreements")
+        .select("id, project_id, agreement_type, agreement_number, total_price, agreement_signed_date, description_of_work")
+        .in("project_id", projectIds)
+        .eq("company_id", companyId)
+        .order("agreement_signed_date", { ascending: false });
+
+      // 3. Fetch portal tokens for these projects
       const { data: tokensData } = await supabase
         .from("client_portal_tokens")
-        .select("estimate_id, token")
-        .in("estimate_id", ids)
+        .select("project_id, token")
+        .in("project_id", projectIds)
         .eq("is_active", true);
 
-      const tokenMap = new Map<string, string>();
-      tokensData?.forEach(t => { if (t.estimate_id) tokenMap.set(t.estimate_id, t.token); });
+      const portalTokenMap = new Map<string, string>();
+      tokensData?.forEach(t => {
+        if (t.project_id) portalTokenMap.set(t.project_id, t.token);
+      });
 
-      return data.map(e => ({ ...e, portal_token: tokenMap.get(e.id) || null })) as Contract[];
+      // Build contract records from agreements
+      (agreements || []).forEach(a => {
+        const proj = projectMap.get(a.project_id);
+        const customerName = proj 
+          ? [proj.customer_first_name, proj.customer_last_name].filter(Boolean).join(" ") || proj.project_name
+          : null;
+        
+        results.push({
+          id: a.id,
+          source: "agreement",
+          title: a.description_of_work || `${a.agreement_type} #${a.agreement_number}`,
+          customerName,
+          address: proj?.project_address || null,
+          total: a.total_price,
+          signedDate: a.agreement_signed_date,
+          type: a.agreement_type || "Contract",
+          agreementNumber: a.agreement_number?.toString() || null,
+          estimateId: null,
+          portalToken: portalTokenMap.get(a.project_id) || null,
+        });
+      });
+
+      return results;
     },
     enabled: !!companyId && !!(salespersonId || salespersonName),
   });
 
-  const handleOpenPortal = (contract: Contract) => {
-    if (contract.portal_token) {
-      window.open(`${appBaseUrl || window.location.origin}/portal/${contract.portal_token}`, "_blank");
+  const handleOpenPortal = (contract: ContractRecord) => {
+    if (contract.portalToken) {
+      window.open(`${appBaseUrl || window.location.origin}/portal/${contract.portalToken}`, "_blank");
     }
   };
 
   const formatCurrency = (amount: number | null) => {
     if (!amount) return "-";
     return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(amount);
+  };
+
+  const getTypeBadge = (type: string) => {
+    switch (type) {
+      case "Contract":
+        return <Badge className="bg-primary/10 text-primary border-0 text-[10px]">Contract</Badge>;
+      case "Change Order":
+        return <Badge className="bg-accent text-accent-foreground border-0 text-[10px]">Change Order</Badge>;
+      case "Addendum":
+        return <Badge className="bg-secondary text-secondary-foreground border-0 text-[10px]">Addendum</Badge>;
+      default:
+        return <Badge variant="outline" className="text-[10px]">{type}</Badge>;
+    }
   };
 
   return (
@@ -115,7 +191,7 @@ export function PortalContractsSection({ salespersonName, salespersonId, company
               <div>
                 <CardTitle className="text-base font-semibold">My Contracts</CardTitle>
                 <p className="text-xs text-muted-foreground">
-                  {contracts.length > 0 ? `${contracts.length} signed` : "Accepted & signed proposals"}
+                  {contracts.length > 0 ? `${contracts.length} signed` : "Signed contracts & change orders"}
                 </p>
               </div>
             </div>
@@ -141,44 +217,40 @@ export function PortalContractsSection({ salespersonName, salespersonId, company
                   <div key={contract.id} className="p-3 rounded-lg border bg-card">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm truncate">
-                          {contract.estimate_title || `Estimate #${contract.estimate_number}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">{contract.customer_name}</p>
-                        {contract.job_address && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">📍 {contract.job_address}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-sm truncate">
+                            {contract.agreementNumber ? `#${contract.agreementNumber}` : ""} {contract.title}
+                          </p>
+                          {getTypeBadge(contract.type)}
+                        </div>
+                        {contract.customerName && (
+                          <p className="text-xs text-muted-foreground truncate">{contract.customerName}</p>
+                        )}
+                        {contract.address && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">📍 {contract.address}</p>
                         )}
                         <div className="flex items-center gap-2 mt-1.5">
                           <Badge className="bg-primary/10 text-primary border-0">Signed</Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {contract.signed_at ? format(new Date(contract.signed_at), "MMM d, yyyy") : format(new Date(contract.created_at), "MMM d, yyyy")}
-                          </span>
+                          {contract.signedDate && (
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(contract.signedDate), "MMM d, yyyy")}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1.5 shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
                         <span className="font-semibold text-sm text-primary whitespace-nowrap">
                           {formatCurrency(contract.total)}
                         </span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="p-1.5 hover:bg-muted rounded flex items-center gap-1" title="Options">
-                              <Eye className="h-4 w-4 text-primary" />
-                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedEstimateId(contract.id)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Contract
-                            </DropdownMenuItem>
-                            {contract.portal_token && (
-                              <DropdownMenuItem onClick={() => handleOpenPortal(contract)}>
-                                <Globe className="h-4 w-4 mr-2" />
-                                Open Customer Portal
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {contract.portalToken && (
+                          <button
+                            onClick={() => handleOpenPortal(contract)}
+                            className="p-1.5 hover:bg-muted rounded flex items-center gap-1"
+                            title="Open Customer Portal"
+                          >
+                            <ExternalLink className="h-4 w-4 text-primary" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -273,27 +273,31 @@ export default function SalespersonCalendarPortal() {
       const now = new Date();
       const activeProposals = (proposalData || []).filter(p => !p.expiration_date || new Date(p.expiration_date) >= now);
 
-      // Signed contracts (accepted)
-      const { count: contractCount } = await supabase
-        .from("estimates")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", salesperson.company_id)
-        .eq("status", "accepted")
-        .or(orStr);
-
-      // Projects count
-      const { count: projCount } = await supabase
+      // Projects count + contracts count (from project_agreements)
+      const { data: salespersonProjects } = await supabase
         .from("projects")
-        .select("id", { count: "exact", head: true })
+        .select("id")
         .eq("company_id", salesperson.company_id)
         .is("deleted_at", null)
         .or(`primary_salesperson.eq.${salesperson.name},secondary_salesperson.eq.${salesperson.name},tertiary_salesperson.eq.${salesperson.name},quaternary_salesperson.eq.${salesperson.name}`);
 
+      const projCount = salespersonProjects?.length || 0;
+      let contractCount = 0;
+      if (salespersonProjects?.length) {
+        const projIds = salespersonProjects.map(p => p.id);
+        const { count } = await supabase
+          .from("project_agreements")
+          .select("id", { count: "exact", head: true })
+          .in("project_id", projIds)
+          .eq("company_id", salesperson.company_id);
+        contractCount = count || 0;
+      }
+
       return {
         estimates: estCount || 0,
         proposals: activeProposals.length,
-        contracts: contractCount || 0,
-        projects: projCount || 0,
+        contracts: contractCount,
+        projects: projCount,
       };
     },
     enabled: !!salesperson?.company_id && !!(salesperson?.id || salesperson?.name),
