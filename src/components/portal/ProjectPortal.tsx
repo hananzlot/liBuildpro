@@ -265,8 +265,8 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
   // Helper: check if an estimate is expired
   const isExpired = (e: any) => e.expiration_date && new Date(e.expiration_date) < new Date();
 
-  // Active (non-expired) estimates for counts and header
-  const activeEstimates = estimates.filter((e: any) => !isExpired(e) || e.status === 'accepted');
+  // Active (non-expired) estimates for counts and header — exclude accepted proposals
+  const activeEstimates = estimates.filter((e: any) => e.status !== 'accepted' && !isExpired(e));
 
   // Find the accepted estimate for scope of work
   const acceptedEstimate = estimates.find(e => e.status === 'accepted');
@@ -541,7 +541,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
 
           <TabsContent value="proposals" className="mt-0 animate-fade-in">
             <PortalProposals 
-              estimates={estimates}
+              estimates={estimates.filter((e: any) => e.status !== 'accepted')}
               projectId={project.id}
               token={token}
               portalTokenId={portalData.token.id}
