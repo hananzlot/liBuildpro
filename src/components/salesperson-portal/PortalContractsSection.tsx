@@ -4,10 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileCheck, Loader2, Eye, Globe, ChevronDown, ExternalLink } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { FileCheck, Loader2, Eye, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
+import { PdfViewerDialog } from "@/components/production/PdfViewerDialog";
 
 interface PortalContractsSectionProps {
   salespersonName: string;
@@ -27,10 +27,13 @@ interface ContractRecord {
   agreementNumber: string | null;
   estimateId: string | null; // for preview
   portalToken: string | null;
+  attachmentUrl: string | null;
 }
 
 export function PortalContractsSection({ salespersonName, salespersonId, companyId }: PortalContractsSectionProps) {
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfFileName, setPdfFileName] = useState("");
 
   const { data: appBaseUrl } = useQuery({
     queryKey: ["app-base-url-setting", companyId],
@@ -106,7 +109,7 @@ export function PortalContractsSection({ salespersonName, salespersonId, company
       // 2. Fetch project_agreements for these projects
       const { data: agreements } = await supabase
         .from("project_agreements")
-        .select("id, project_id, agreement_type, agreement_number, total_price, agreement_signed_date, description_of_work")
+        .select("id, project_id, agreement_type, agreement_number, total_price, agreement_signed_date, description_of_work, attachment_url")
         .in("project_id", projectIds)
         .eq("company_id", companyId)
         .order("agreement_signed_date", { ascending: false });
@@ -142,6 +145,7 @@ export function PortalContractsSection({ salespersonName, salespersonId, company
           agreementNumber: a.agreement_number?.toString() || null,
           estimateId: null,
           portalToken: portalTokenMap.get(a.project_id) || null,
+          attachmentUrl: a.attachment_url || null,
         });
       });
 
@@ -180,6 +184,12 @@ export function PortalContractsSection({ salespersonName, salespersonId, company
         estimateId={selectedEstimateId}
         open={!!selectedEstimateId}
         onOpenChange={(open) => !open && setSelectedEstimateId(null)}
+      />
+      <PdfViewerDialog
+        open={!!pdfUrl}
+        onOpenChange={(open) => { if (!open) { setPdfUrl(null); setPdfFileName(""); } }}
+        fileUrl={pdfUrl || ""}
+        fileName={pdfFileName}
       />
       <Card className="border border-border/50 shadow-md rounded-xl overflow-hidden">
         <CardHeader className="pb-3 pt-4 px-4 bg-gradient-to-r from-primary/5 to-transparent">
@@ -242,15 +252,29 @@ export function PortalContractsSection({ salespersonName, salespersonId, company
                         <span className="font-semibold text-sm text-primary whitespace-nowrap">
                           {formatCurrency(contract.total)}
                         </span>
-                        {contract.portalToken && (
-                          <button
-                            onClick={() => handleOpenPortal(contract)}
-                            className="p-1.5 hover:bg-muted rounded flex items-center gap-1"
-                            title="Open Customer Portal"
-                          >
-                            <ExternalLink className="h-4 w-4 text-primary" />
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {contract.attachmentUrl && (
+                            <button
+                              onClick={() => {
+                                setPdfUrl(contract.attachmentUrl);
+                                setPdfFileName(`${contract.type} #${contract.agreementNumber || ""} - ${contract.customerName || "Contract"}.pdf`);
+                              }}
+                              className="p-1.5 hover:bg-muted rounded flex items-center gap-1"
+                              title="View Signed PDF"
+                            >
+                              <Eye className="h-4 w-4 text-primary" />
+                            </button>
+                          )}
+                          {contract.portalToken && (
+                            <button
+                              onClick={() => handleOpenPortal(contract)}
+                              className="p-1.5 hover:bg-muted rounded flex items-center gap-1"
+                              title="Open Customer Portal"
+                            >
+                              <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
