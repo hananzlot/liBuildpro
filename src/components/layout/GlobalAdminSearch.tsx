@@ -226,7 +226,7 @@ export function GlobalAdminSearch() {
     queryFn: async () => {
       let query = supabase
         .from("projects")
-        .select("id, project_number, project_name, project_status, customer_first_name, customer_last_name, project_address, primary_salesperson, cell_phone, contract_number, opportunity_id");
+        .select("id, project_number, project_name, project_status, customer_first_name, customer_last_name, project_address, primary_salesperson, cell_phone, contract_number, opportunity_id, opportunity_uuid");
       query = applyCompanyFilter(query);
       const { data, error } = await query
         .is("deleted_at", null)
@@ -509,7 +509,7 @@ export function GlobalAdminSearch() {
   };
 
   // Enhanced address lookup: opportunity address → contact custom_fields → appointment address → project address
-  const getAddressWithFallback = (contactId: string | null, oppGhlId?: string | null, oppAddress?: string | null): string => {
+  const getAddressWithFallback = (contactId: string | null, oppGhlId?: string | null, oppAddress?: string | null, oppUuid?: string | null): string => {
     // 1. Try opportunity's own address field first (most direct source)
     if (oppAddress) return oppAddress;
     
@@ -520,9 +520,15 @@ export function GlobalAdminSearch() {
       if (contactAddress) return contactAddress;
     }
     
-    // 3. Try linked project address (by opportunity_id matching ghl_id)
+    // 3. Try linked project address (by opportunity_id matching ghl_id, or opportunity_uuid matching opp uuid)
     if (oppGhlId) {
       const linkedProject = projects.find(p => p.opportunity_id === oppGhlId);
+      if (linkedProject?.project_address) return linkedProject.project_address;
+    }
+    
+    // 4. Try linked project by opportunity_uuid
+    if (oppUuid) {
+      const linkedProject = projects.find((p: any) => p.opportunity_uuid === oppUuid);
       if (linkedProject?.project_address) return linkedProject.project_address;
     }
     
@@ -554,7 +560,7 @@ export function GlobalAdminSearch() {
         const contactName =
           contact?.contact_name?.toLowerCase() ||
           `${contact?.first_name || ""} ${contact?.last_name || ""}`.toLowerCase();
-        const address = (getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address) || "").toLowerCase();
+        const address = (getAddressWithFallback(opp.contact_id, opp.ghl_id, opp.address, opp.id) || "").toLowerCase();
         const phone = normalizePhone(contact?.phone);
 
         let phoneMatch = false;
