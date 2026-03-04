@@ -3185,7 +3185,16 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {agreements.map((agreement) => {
+                    {[...agreements].sort((a, b) => {
+                      // Contract type first, then by signed date ascending
+                      const aIsContract = a.agreement_type === 'Contract';
+                      const bIsContract = b.agreement_type === 'Contract';
+                      if (aIsContract && !bIsContract) return -1;
+                      if (!aIsContract && bIsContract) return 1;
+                      const dateA = new Date(a.agreement_signed_date || a.created_at).getTime();
+                      const dateB = new Date(b.agreement_signed_date || b.created_at).getTime();
+                      return dateA - dateB;
+                    }).map((agreement) => {
                       const phasesTotal = paymentPhases
                         .filter(p => p.agreement_id === agreement.id)
                         .reduce((sum, p) => sum + (p.amount || 0), 0);
