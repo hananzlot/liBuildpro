@@ -551,6 +551,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               token={token}
               portalTokenId={portalData.token.id}
               onRefresh={() => queryClient.invalidateQueries({ queryKey: ['project-portal', token] })}
+              onNavigateTab={setActiveTab}
             />
           </TabsContent>
 

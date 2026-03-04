@@ -47,6 +47,7 @@ interface PortalProposalsProps {
   token: string;
   portalTokenId: string;
   onRefresh?: () => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
 interface LineItem {
@@ -76,7 +77,7 @@ interface PaymentPhase {
   description: string | null;
 }
 
-export function PortalProposals({ estimates, projectId, token, portalTokenId, onRefresh }: PortalProposalsProps) {
+export function PortalProposals({ estimates, projectId, token, portalTokenId, onRefresh, onNavigateTab }: PortalProposalsProps) {
   const queryClient = useQueryClient();
   const { companyId } = useCompanyContext();
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
@@ -491,7 +492,11 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       queryClient.invalidateQueries({ queryKey: ['estimate-details'] });
       queryClient.invalidateQueries({ queryKey: ['project-portal'] });
       onRefresh?.();
-      toast.success('Proposal signed successfully! 🎉');
+      toast.success('Proposal accepted successfully! 🎉 Redirecting to your agreement...');
+      // Navigate to agreements tab after a brief delay
+      setTimeout(() => {
+        onNavigateTab?.('agreement');
+      }, 1500);
     },
     onError: (error: Error) => {
       toast.error(error.message);
