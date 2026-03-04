@@ -301,10 +301,11 @@ export function ComplianceSigningFlow({
 
   // Check if all documents are complete
   useEffect(() => {
+    if (!open) return;
     if (allComplete && complianceDocs && complianceDocs.length > 0) {
       onAllSigned();
     }
-  }, [allComplete, complianceDocs, onAllSigned]);
+  }, [open, allComplete, complianceDocs, onAllSigned]);
 
   const handleSelectDocument = (doc: ComplianceDocument) => {
     // Can't sign main contract until all required docs are signed

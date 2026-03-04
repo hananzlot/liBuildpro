@@ -1017,7 +1017,11 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                 </Button>
                 <Button
                   className="flex-1"
-                  onClick={() => signMutation.mutate()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    signMutation.mutate();
+                  }}
                   disabled={!signatureData || !agreedToTerms || !signerName || signMutation.isPending}
                 >
                   {signMutation.isPending ? (
