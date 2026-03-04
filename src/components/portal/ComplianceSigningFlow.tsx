@@ -85,12 +85,12 @@ export function ComplianceSigningFlow({
     }
   }, [open]);
 
-  // Fetch or generate compliance documents
+  // Fetch or generate compliance documents (signer-aware for multi-signer estimates)
   const { data: complianceDocs, isLoading, refetch } = useQuery({
-    queryKey: ['compliance-signing-docs', estimateId],
+    queryKey: ['compliance-signing-docs', estimateId, customerEmail],
     queryFn: async () => {
-      // First check if documents already exist in signed_compliance_documents
-      const { data: existing, error: existingError } = await supabase
+      // First check if documents already exist for THIS signer in signed_compliance_documents
+      let existingQuery = supabase
         .from('signed_compliance_documents')
         .select(`
           id,
@@ -99,10 +99,39 @@ export function ComplianceSigningFlow({
           document_type,
           file_url,
           status,
-          signed_at
+          signed_at,
+          signer_email
         `)
-        .eq('estimate_id', estimateId)
-        .order('created_at');
+        .eq('estimate_id', estimateId);
+
+      // For multi-signer scenarios, filter by signer email so each signer has their own set
+      if (customerEmail) {
+        existingQuery = existingQuery.eq('signer_email', customerEmail);
+      }
+
+      let { data: existing, error: existingError } = await existingQuery.order('created_at');
+
+      if (existingError) throw existingError;
+
+      // Backward compat: if no records found for this email, check for legacy records with null signer_email
+      if ((!existing || existing.length === 0) && customerEmail) {
+        const { data: legacyDocs } = await supabase
+          .from('signed_compliance_documents')
+          .select(`id, template_id, document_name, document_type, file_url, status, signed_at, signer_email`)
+          .eq('estimate_id', estimateId)
+          .is('signer_email', null)
+          .order('created_at');
+        
+        if (legacyDocs && legacyDocs.length > 0) {
+          // Claim these legacy records for this signer (first signer to access them)
+          const ids = legacyDocs.map(d => d.id);
+          await supabase
+            .from('signed_compliance_documents')
+            .update({ signer_email: customerEmail, signer_name: customerName })
+            .in('id', ids);
+          existing = legacyDocs.map(d => ({ ...d, signer_email: customerEmail }));
+        }
+      }
 
       if (existingError) throw existingError;
 
@@ -145,6 +174,8 @@ export function ComplianceSigningFlow({
             document_type: template.is_main_contract ? 'main_contract' : 'compliance',
             file_url: generatedUrlMap.get(template.id) || template.template_file_url,
             status: 'pending',
+            signer_email: customerEmail || null,
+            signer_name: customerName || null,
           }));
 
           const { data: createdDocs } = await supabase
@@ -232,6 +263,8 @@ export function ComplianceSigningFlow({
         document_type: template.is_main_contract ? 'main_contract' : 'compliance',
         file_url: generatedUrlMap.get(template.id) || template.template_file_url,
         status: 'pending',
+        signer_email: customerEmail || null,
+        signer_name: customerName || null,
       }));
 
       const { data: createdDocs, error: createError } = await supabase
