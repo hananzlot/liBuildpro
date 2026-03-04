@@ -1946,14 +1946,51 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
       return newAgreement as Agreement;
     },
-    onSuccess: (savedAgreement, variables) => {
+    onSuccess: async (savedAgreement, variables) => {
       const shouldClose = variables?.closeOnSuccess !== false;
+      const isNewContract = !editingAgreement?.id && savedAgreement.agreement_type === "Contract";
 
       setExtractedPhases([]);
       setExtractedPhasesAgreementId(null);
       toast.success(editingAgreement?.id ? "Agreement updated" : "Agreement created");
       queryClient.invalidateQueries({ queryKey: ["project-agreements", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-agreements"] });
+
+      // When admin manually creates a Contract agreement, mark the linked estimate as accepted
+      if (isNewContract) {
+        try {
+          // Extract estimate number from agreement number (e.g., "CNT-2106" → 2106)
+          const agreementNum = savedAgreement.agreement_number || "";
+          const match = agreementNum.match(/(\d+)/);
+          const estimateNumber = match ? Number(match[1]) : null;
+
+          let estimateQuery = supabase
+            .from("estimates")
+            .select("id, status")
+            .eq("project_id", projectId);
+
+          if (estimateNumber) {
+            estimateQuery = estimateQuery.eq("estimate_number", estimateNumber);
+          } else {
+            // Fallback: find the first sent estimate for this project
+            estimateQuery = estimateQuery.eq("status", "sent");
+          }
+
+          const { data: estimateRow } = await estimateQuery.maybeSingle();
+
+          if (estimateRow && estimateRow.status !== "accepted") {
+            await supabase
+              .from("estimates")
+              .update({
+                status: "accepted",
+                signed_at: savedAgreement.agreement_signed_date || new Date().toISOString().split("T")[0],
+              })
+              .eq("id", estimateRow.id);
+          }
+        } catch (err) {
+          console.error("Failed to auto-mark estimate as accepted:", err);
+        }
+      }
 
       if (shouldClose) {
         setAgreementDialogOpen(false);
