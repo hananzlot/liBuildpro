@@ -219,7 +219,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
           location_id: 'location1',
           created_by: user?.id,
           company_id: companyId,
-        }).select('id').single();
+        }).select('id, contact_uuid').single();
 
         if (error) {
           result.errors.push(`Failed to import project "${projectName}": ${error.message}`);
@@ -227,6 +227,32 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
         } else if (data) {
           newMappings[projectRef] = data.id;
           result.imported++;
+
+          // Create a linked opportunity for the project
+          try {
+            const oppName = projectName || `${row['customer_first_name'] || ''} ${row['customer_last_name'] || ''}`.trim() || 'Imported Project';
+            const { data: oppData } = await supabase.from('opportunities').insert({
+              ghl_id: `local_opp_import_${crypto.randomUUID()}`,
+              location_id: 'location1',
+              contact_uuid: data.contact_uuid || null,
+              name: oppName,
+              status: 'won',
+              stage_name: 'Won',
+              pipeline_name: 'Main',
+              provider: 'local',
+              company_id: companyId,
+              ghl_date_added: new Date().toISOString(),
+              monetary_value: row['estimated_cost'] ? parseFloat(row['estimated_cost']) : null,
+              scope_of_work: row['project_scope_dispatch'] || null,
+              address: row['project_address'] || null,
+            }).select('id').single();
+
+            if (oppData?.id) {
+              await supabase.from('projects').update({ opportunity_uuid: oppData.id }).eq('id', data.id);
+            }
+          } catch (oppErr) {
+            console.error('Failed to create opportunity for imported project:', oppErr);
+          }
         }
       } catch (err) {
         result.errors.push(`Error processing row: ${err}`);
