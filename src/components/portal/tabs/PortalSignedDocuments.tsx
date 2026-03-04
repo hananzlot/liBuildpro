@@ -49,20 +49,29 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
   const { data: documents, isLoading } = useQuery({
     queryKey: ['portal-signed-docs', estimateId, projectId],
     queryFn: async () => {
-      let query = supabase
-        .from('signed_compliance_documents')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (estimateId) {
-        query = query.eq('estimate_id', estimateId);
-      } else if (projectId) {
-        query = query.eq('project_id', projectId);
+      // Query by project_id to get compliance docs across ALL estimates for this project
+      if (projectId) {
+        const { data, error } = await supabase
+          .from('signed_compliance_documents')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        if (data && data.length > 0) return data as SignedDocument[];
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as SignedDocument[];
+      // Fallback: query by estimate_id
+      if (estimateId) {
+        const { data, error } = await supabase
+          .from('signed_compliance_documents')
+          .select('*')
+          .eq('estimate_id', estimateId)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        return data as SignedDocument[];
+      }
+
+      return [];
     },
     enabled: !!(estimateId || projectId),
   });

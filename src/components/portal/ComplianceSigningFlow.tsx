@@ -31,6 +31,7 @@ interface ComplianceSigningFlowProps {
   companyId: string;
   customerName: string;
   customerEmail: string;
+  estimateNumber?: number | null;
   onAllSigned: () => void;
 }
 
@@ -56,6 +57,7 @@ export function ComplianceSigningFlow({
   companyId,
   customerName,
   customerEmail,
+  estimateNumber,
   onAllSigned,
 }: ComplianceSigningFlowProps) {
   const queryClient = useQueryClient();
@@ -161,16 +163,17 @@ export function ComplianceSigningFlow({
 
           const { data: estimateData } = await supabase
             .from('estimates')
-            .select('project_id')
+            .select('project_id, estimate_number')
             .eq('id', estimateId)
             .maybeSingle();
+          const contractLabel = estimateNumber || estimateData?.estimate_number ? `CNT-${estimateNumber || estimateData?.estimate_number} - ` : '';
 
           const newDocs = missingTemplates.map(template => ({
             company_id: companyId,
             estimate_id: estimateId,
             project_id: estimateData?.project_id || null,
             template_id: template.id,
-            document_name: template.name,
+            document_name: `${contractLabel}${template.name}`,
             document_type: template.is_main_contract ? 'main_contract' : 'compliance',
             file_url: generatedUrlMap.get(template.id) || template.template_file_url,
             status: 'pending',
@@ -249,9 +252,10 @@ export function ComplianceSigningFlow({
       // Get the project_id from the estimate so compliance docs are linked to the project
       const { data: estimateData } = await supabase
         .from('estimates')
-        .select('project_id')
+        .select('project_id, estimate_number')
         .eq('id', estimateId)
         .maybeSingle();
+      const contractLabel = estimateNumber || estimateData?.estimate_number ? `CNT-${estimateNumber || estimateData?.estimate_number} - ` : '';
 
       // Create signed_compliance_documents records for each template
       const docsToCreate = templates.map(template => ({
@@ -259,7 +263,7 @@ export function ComplianceSigningFlow({
         estimate_id: estimateId,
         project_id: estimateData?.project_id || null,
         template_id: template.id,
-        document_name: template.name,
+        document_name: `${contractLabel}${template.name}`,
         document_type: template.is_main_contract ? 'main_contract' : 'compliance',
         file_url: generatedUrlMap.get(template.id) || template.template_file_url,
         status: 'pending',
