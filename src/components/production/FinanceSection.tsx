@@ -5780,6 +5780,7 @@ function AgreementDialog({
   // Create proposal estimate and show preview
   const handleCreateProposal = async () => {
     if (proposalTotal <= 0) { toast.error("Total must be greater than zero"); return; }
+    if (proposalPayments.some(p => !p.phaseName.trim())) { toast.error("All progress payments must have a phase name"); return; }
     if (!proposalPaymentsBalanced) { toast.error("Payments must equal the total"); return; }
     if (!formData.description_of_work?.trim()) { toast.error("Description of work is required"); return; }
 
@@ -6116,7 +6117,7 @@ function AgreementDialog({
                 type="button"
                 className="w-full"
                 onClick={handleCreateProposal}
-                disabled={isCreatingProposal || proposalTotal <= 0 || !proposalPaymentsBalanced}
+                disabled={isCreatingProposal || proposalTotal <= 0 || !proposalPaymentsBalanced || proposalPayments.some(p => !p.phaseName.trim())}
               >
                 {isCreatingProposal ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
                 Review & Preview Proposal
