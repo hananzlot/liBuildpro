@@ -443,13 +443,15 @@ export function OpportunityDetailSheet({
       setAssociatedProjects(projectsData || []);
       setAssociatedProjectId(projectsData?.[0]?.id ?? null);
 
-      // Fetch linked estimates (by opportunity_uuid or opportunity_id)
+      // Fetch linked estimates (by opportunity_uuid, opportunity_id, OR contact)
       const oppUuid = opportunity.id || 'none';
       const oppGhlId = opportunity.ghl_id || 'none';
+      const contactUuid = opportunity.contact_uuid || 'none';
+      const contactGhlId = opportunity.contact_id || 'none';
       const { data: estimatesData } = await supabase
         .from("estimates")
         .select("id, estimate_number, estimate_title, status, total, created_at")
-        .or(`opportunity_uuid.eq.${oppUuid},opportunity_id.eq.${oppGhlId}`)
+        .or(`opportunity_uuid.eq.${oppUuid},opportunity_id.eq.${oppGhlId},contact_uuid.eq.${contactUuid},contact_id.eq.${contactGhlId}`)
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       
