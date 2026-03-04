@@ -210,7 +210,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
         id: d.id,
         file_name: d.document_name + (d.status === 'signed' ? ' (Signed)' : ''),
         file_url: d.signed_file_url || d.file_url,
-        file_type: null,
+        file_type: "application/pdf",
         category: "Compliance",
         notes: d.signer_name && d.signed_at 
           ? `Signed by ${d.signer_name} on ${new Date(d.signed_at).toLocaleDateString()}`
