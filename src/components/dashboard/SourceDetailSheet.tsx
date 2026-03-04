@@ -406,14 +406,18 @@ export function SourceDetailSheet({
       });
       return matchingContactKeys;
     }
-    // For opportunities mode, use contacts filtered by date range
+    // For opportunities mode, use ALL contacts matching this source (not just date-filtered)
+    // because opportunities are already date-filtered, and a contact may have been created
+    // before the date range but still have opportunities created within it
     const keys = new Set<string>();
-    sourceContactsInDateRange.forEach(c => {
-      if (c.ghl_id) keys.add(c.ghl_id);
-      keys.add(c.id);
+    contacts.forEach(c => {
+      if (normalizeSourceName(c.source || "Direct") === source) {
+        if (c.ghl_id) keys.add(c.ghl_id);
+        keys.add(c.id);
+      }
     });
     return keys;
-  }, [mode, filteredOpportunities, contacts, source, sourceContactsInDateRange]);
+  }, [mode, filteredOpportunities, contacts, source]);
 
   // Keep all contacts for "No Appointments" check (need to know if contact EVER had appointments)
   const allSourceContacts = useMemo(() => {
