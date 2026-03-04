@@ -2239,6 +2239,25 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         missing_info: aiSummary.missing_info,
       } : null;
 
+      // Auto-inherit salesperson from project if not set and linked to a project
+      let resolvedSalespersonName = formData.salesperson_name || null;
+      let resolvedSalespersonId = getSalespersonId(formData.salesperson_name);
+      if (!resolvedSalespersonName && linkedProjectId) {
+        try {
+          const { data: proj } = await supabase
+            .from('projects')
+            .select('primary_salesperson')
+            .eq('id', linkedProjectId)
+            .maybeSingle();
+          if (proj?.primary_salesperson) {
+            resolvedSalespersonName = proj.primary_salesperson;
+            resolvedSalespersonId = getSalespersonId(proj.primary_salesperson);
+          }
+        } catch (e) {
+          console.warn('Failed to inherit salesperson from project:', e);
+        }
+      }
+
       const estimateData = {
         customer_name: formData.customer_name,
         customer_email: formData.customer_email || null,
@@ -2270,8 +2289,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         show_details_to_customer: formData.show_details_to_customer,
         show_scope_to_customer: formData.show_scope_to_customer,
         show_line_items_to_customer: formData.show_line_items_to_customer,
-        salesperson_name: formData.salesperson_name || null,
-        salesperson_id: getSalespersonId(formData.salesperson_name),
+        salesperson_name: resolvedSalespersonName,
+        salesperson_id: resolvedSalespersonId,
         company_id: companyId,
         opportunity_uuid: linkedOpportunityUuid || null,
         opportunity_id: linkedOpportunityGhlId || null,
