@@ -872,7 +872,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                   e.preventDefault();
                   e.stopPropagation();
 
-                  if (!complianceComplete && !portalData.isMultiSigner && compliancePackageEnabled) {
+                  if (!complianceComplete && compliancePackageEnabled) {
                     toast.message('Opening required documents…');
                     setComplianceFlowOpen(true);
                   } else {
@@ -958,7 +958,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
 
       {/* Signature Dialog */}
       <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Sign & Accept Proposal</DialogTitle>
             <DialogDescription>
@@ -966,8 +966,9 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Left column: signer info + agreement */}
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Full Name *</Label>
                 <Input
@@ -987,61 +988,56 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                   disabled={portalData.isMultiSigner}
                 />
               </div>
-            </div>
 
-            <Separator />
+              {signatureData && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-700">Signature captured</span>
+                </div>
+              )}
 
-            <SignatureCanvas
-              signerName={signerName}
-              onSignatureComplete={(data) => setSignatureData(data)}
-            />
-
-            {signatureData && (
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">Your signature:</p>
-                {signatureData.type === 'typed' ? (
-                  <p style={{ fontFamily: signatureData.font, fontSize: '24px' }}>
-                    {signatureData.data}
-                  </p>
-                ) : (
-                  <img src={signatureData.data} alt="Your signature" className="max-h-16" />
-                )}
+              <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                <Checkbox
+                  id="terms"
+                  checked={agreedToTerms}
+                  onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                />
+                <label htmlFor="terms" className="text-sm cursor-pointer">
+                  I have read and agree to the terms and conditions, scope of work, and payment schedule outlined in this proposal.
+                </label>
               </div>
-            )}
 
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="terms"
-                checked={agreedToTerms}
-                onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
-              />
-              <label htmlFor="terms" className="text-sm leading-relaxed cursor-pointer">
-                I have read and agree to the terms and conditions, scope of work, and payment schedule outlined in this proposal.
-              </label>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setSignatureDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => signMutation.mutate()}
+                  disabled={!signatureData || !agreedToTerms || !signerName || signMutation.isPending}
+                >
+                  {signMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Signing...
+                    </>
+                  ) : (
+                    'Sign & Accept'
+                  )}
+                </Button>
+              </div>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setSignatureDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => signMutation.mutate()}
-                disabled={!signatureData || !agreedToTerms || !signerName || signMutation.isPending}
-              >
-                {signMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Signing...
-                  </>
-                ) : (
-                  'Sign & Accept'
-                )}
-              </Button>
+            {/* Right column: signature canvas */}
+            <div>
+              <SignatureCanvas
+                signerName={signerName}
+                onSignatureComplete={(data) => setSignatureData(data)}
+              />
             </div>
           </div>
         </DialogContent>
@@ -1097,21 +1093,19 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
       </Dialog>
 
       {/* Compliance Signing Flow */}
-      {!portalData.isMultiSigner && (
-        <ComplianceSigningFlow
-          open={complianceFlowOpen}
-          onOpenChange={setComplianceFlowOpen}
-          estimateId={estimate.id}
-          companyId={portalData.token?.company_id || estimate.company_id || ''}
-          customerName={estimate.customer_name || ''}
-          customerEmail={estimate.customer_email || ''}
-          onAllSigned={() => {
-            setComplianceComplete(true);
-            setComplianceFlowOpen(false);
-            setSignatureDialogOpen(true);
-          }}
-        />
-      )}
+      <ComplianceSigningFlow
+        open={complianceFlowOpen}
+        onOpenChange={setComplianceFlowOpen}
+        estimateId={estimate.id}
+        companyId={portalData.token?.company_id || estimate.company_id || ''}
+        customerName={portalData.isMultiSigner && signerData ? signerData.signer_name : (estimate.customer_name || '')}
+        customerEmail={portalData.isMultiSigner && signerData ? signerData.signer_email : (estimate.customer_email || '')}
+        onAllSigned={() => {
+          setComplianceComplete(true);
+          setComplianceFlowOpen(false);
+          setSignatureDialogOpen(true);
+        }}
+      />
     </div>
   );
 }
