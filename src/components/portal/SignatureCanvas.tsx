@@ -137,7 +137,18 @@ export function SignatureCanvas({ onSignatureComplete, signerName, isInitials = 
   };
 
   const stopDrawing = () => {
-    setIsDrawing(false);
+    if (isDrawing) {
+      setIsDrawing(false);
+      // Auto-apply drawn signature when user lifts pen/finger
+      const canvas = canvasRef.current;
+      if (canvas && hasDrawn) {
+        const dataUrl = canvas.toDataURL('image/png');
+        onSignatureComplete({
+          type: 'drawn',
+          data: dataUrl,
+        });
+      }
+    }
   };
 
   const clearCanvas = () => {
@@ -160,6 +171,7 @@ export function SignatureCanvas({ onSignatureComplete, signerName, isInitials = 
     ctx.strokeStyle = '#1a1a2e';
     ctx.lineWidth = 2;
     setHasDrawn(false);
+    onSignatureComplete(null as any);
   };
 
   const handleComplete = () => {
@@ -280,17 +292,6 @@ export function SignatureCanvas({ onSignatureComplete, signerName, isInitials = 
         </TabsContent>
       </Tabs>
 
-      {activeTab === 'draw' && (
-        <Button
-          onClick={handleComplete}
-          disabled={!isValid}
-          className="w-full"
-          size="lg"
-        >
-          <Check className="h-4 w-4 mr-2" />
-          Apply {isInitials ? 'Initials' : 'Signature'}
-        </Button>
-      )}
     </div>
   );
 }
