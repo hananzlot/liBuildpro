@@ -84,7 +84,7 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
         .from("estimates")
         .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, sent_at, signed_at, created_at, expiration_date, opportunity_uuid")
         .eq("company_id", companyId)
-        .in("status", ["sent", "viewed", "accepted", "declined"])
+        .in("status", ["sent", "viewed", "declined"])
         .or(orConditions.join(","))
         .order("created_at", { ascending: false });
 
