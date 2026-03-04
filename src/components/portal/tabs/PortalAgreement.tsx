@@ -237,10 +237,15 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
     );
   }
 
+  // Determine the primary agreement to show as hero card
+  // Priority: acceptedEstimate first, then mainContract from project_agreements
+  const showAcceptedEstimateHero = !!acceptedEstimate;
+  const showMainContractHero = !showAcceptedEstimateHero && !!mainContract;
+
   return (
     <div className="space-y-6">
       {/* Accepted Estimate as Main Agreement */}
-      {acceptedEstimate && (
+      {showAcceptedEstimateHero && (
         <Card className="border-0 shadow-xl overflow-hidden">
           {/* Success Banner */}
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white">
@@ -366,6 +371,108 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Main Contract from project_agreements (when no accepted estimate) */}
+      {showMainContractHero && mainContract && (
+        <Card className="border-0 shadow-xl overflow-hidden">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Award className="h-7 w-7" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-bold">Signed Contract</h3>
+                  <Badge className="bg-white/20 text-white border-0">Active</Badge>
+                </div>
+                <p className="text-green-100 text-sm mt-1">
+                  {mainContract.agreement_type || 'Contract'}
+                  {mainContract.agreement_number ? ` #${mainContract.agreement_number}` : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <CardContent className="p-6 sm:p-8 space-y-6">
+            <div className="grid sm:grid-cols-3 gap-6">
+              <div className="bg-slate-50 rounded-xl p-5">
+                <div className="flex items-center gap-2 text-slate-500 mb-2">
+                  <FileCheck className="h-4 w-4" />
+                  <span className="text-xs uppercase tracking-wider font-medium">Contract</span>
+                </div>
+                <p className="font-semibold text-slate-900 mb-3">
+                  {mainContract.description_of_work || mainContract.agreement_type || 'Contract'}
+                </p>
+                {(mainContract.attachment_url || isContractAgreement(mainContract)) && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openAgreementPdf(mainContract)}
+                      disabled={generatingAgreementId === mainContract.id}
+                      className="flex-1"
+                    >
+                      {generatingAgreementId === mainContract.id ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Eye className="h-4 w-4 mr-2" />
+                      )}
+                      View
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => downloadAgreementPdf(mainContract)}
+                      disabled={generatingAgreementId === mainContract.id}
+                      aria-label="Download PDF"
+                    >
+                      {generatingAgreementId === mainContract.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-5 border border-primary/10">
+                <div className="flex items-center gap-2 text-primary/70 mb-2">
+                  <span className="text-xs uppercase tracking-wider font-medium">Contract Value</span>
+                </div>
+                <p className="text-2xl font-bold text-primary">
+                  {formatCurrency(mainContract.total_price)}
+                </p>
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-5">
+                <div className="flex items-center gap-2 text-slate-500 mb-2">
+                  <Calendar className="h-4 w-4" />
+                  <span className="text-xs uppercase tracking-wider font-medium">Signed Date</span>
+                </div>
+                <p className="font-semibold text-slate-900">
+                  {mainContract.agreement_signed_date
+                    ? format(new Date(mainContract.agreement_signed_date + 'T00:00:00'), 'MMMM d, yyyy')
+                    : 'N/A'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 bg-green-50 border border-green-100 rounded-xl p-4">
+              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                <Shield className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-green-800">Signed & Verified</p>
+                <p className="text-sm text-green-600">
+                  This contract has been signed and is legally binding.
+                </p>
+              </div>
+              <CheckCircle2 className="h-6 w-6 text-green-500" />
+            </div>
           </CardContent>
         </Card>
       )}
