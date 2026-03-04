@@ -1029,8 +1029,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                   </Button>
                 )}
               </SheetTitle>
-              <SheetDescription>
-                {toTitleCase(`${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim())}
+              <SheetDescription className="space-y-0.5">
+                <span>{toTitleCase(`${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim())}</span>
+                {project.project_address && (
+                  <span className="block text-xs text-muted-foreground">{project.project_address}</span>
+                )}
               </SheetDescription>
             </div>
           </div>
