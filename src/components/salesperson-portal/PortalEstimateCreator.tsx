@@ -216,6 +216,7 @@ export function PortalEstimateCreator({
         .from("estimates")
         .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, created_at, estimate_date, opportunity_uuid")
         .eq("company_id", companyId)
+        .eq("status", "draft")
         .or(orConditions.join(","))
         .order("created_at", { ascending: false })
         .limit(20);

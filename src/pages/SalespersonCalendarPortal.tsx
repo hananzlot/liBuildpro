@@ -17,7 +17,9 @@ import { PortalProposalsSection } from "@/components/salesperson-portal/PortalPr
 import { PortalFileUploadSection } from "@/components/salesperson-portal/PortalFileUploadSection";
 import { PortalProjectLinksSection } from "@/components/salesperson-portal/PortalProjectLinksSection";
 import { PortalEstimateCreator } from "@/components/salesperson-portal/PortalEstimateCreator";
+import { PortalContractsSection } from "@/components/salesperson-portal/PortalContractsSection";
 import { toast } from "sonner";
+import { FileCheck } from "lucide-react";
 interface Appointment {
   id: string;
   ghl_id: string | null;
@@ -102,7 +104,7 @@ function formatTimeShort(dateStr: string | null): string {
 
 export default function SalespersonCalendarPortal() {
   const { token } = useParams<{ token: string }>();
-  const [activeTab, setActiveTab] = useState<"home" | "calendar" | "create" | "projects" | "estimates" | "proposals">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "calendar" | "create" | "projects" | "estimates" | "proposals" | "contracts">("home");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -241,6 +243,61 @@ export default function SalespersonCalendarPortal() {
     enabled: !!salesperson?.company_id,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
+  });
+
+  // Fetch record counts for home menu cards
+  const { data: portalCounts } = useQuery({
+    queryKey: ["salesperson-portal-counts", salesperson?.id, salesperson?.name, salesperson?.company_id],
+    queryFn: async () => {
+      if (!salesperson?.company_id) return { estimates: 0, proposals: 0, contracts: 0, projects: 0 };
+      const orConds: string[] = [];
+      if (salesperson.id) orConds.push(`salesperson_id.eq.${salesperson.id}`);
+      if (salesperson.name) orConds.push(`salesperson_name.eq.${salesperson.name}`);
+      const orStr = orConds.join(",");
+
+      // Draft estimates (not yet sent)
+      const { count: estCount } = await supabase
+        .from("estimates")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", salesperson.company_id)
+        .eq("status", "draft")
+        .or(orStr);
+
+      // Active proposals (sent/viewed, not expired)
+      const { data: proposalData } = await supabase
+        .from("estimates")
+        .select("id, expiration_date")
+        .eq("company_id", salesperson.company_id)
+        .in("status", ["sent", "viewed"])
+        .or(orStr);
+      const now = new Date();
+      const activeProposals = (proposalData || []).filter(p => !p.expiration_date || new Date(p.expiration_date) >= now);
+
+      // Signed contracts (accepted)
+      const { count: contractCount } = await supabase
+        .from("estimates")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", salesperson.company_id)
+        .eq("status", "accepted")
+        .or(orStr);
+
+      // Projects count
+      const { count: projCount } = await supabase
+        .from("projects")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", salesperson.company_id)
+        .is("deleted_at", null)
+        .or(`primary_salesperson.eq.${salesperson.name},secondary_salesperson.eq.${salesperson.name},tertiary_salesperson.eq.${salesperson.name},quaternary_salesperson.eq.${salesperson.name}`);
+
+      return {
+        estimates: estCount || 0,
+        proposals: activeProposals.length,
+        contracts: contractCount || 0,
+        projects: projCount || 0,
+      };
+    },
+    enabled: !!salesperson?.company_id && !!(salesperson?.id || salesperson?.name),
+    staleTime: 60 * 1000,
   });
 
   const contactMap = useMemo(() => {
@@ -421,30 +478,51 @@ export default function SalespersonCalendarPortal() {
               </button>
               <button
                 onClick={() => setActiveTab("projects")}
-                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center"
+                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center relative"
               >
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <FolderOpen className="h-6 w-6 text-primary" />
                 </div>
                 <span className="text-sm font-medium text-foreground">Projects</span>
+                {(portalCounts?.projects ?? 0) > 0 && (
+                  <Badge variant="secondary" className="absolute top-2 right-2 text-[10px] px-1.5 min-w-[20px] h-5">{portalCounts!.projects}</Badge>
+                )}
               </button>
               <button
                 onClick={() => setActiveTab("estimates")}
-                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center"
+                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center relative"
               >
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <ClipboardList className="h-6 w-6 text-primary" />
                 </div>
                 <span className="text-sm font-medium text-foreground">Estimates</span>
+                {(portalCounts?.estimates ?? 0) > 0 && (
+                  <Badge variant="secondary" className="absolute top-2 right-2 text-[10px] px-1.5 min-w-[20px] h-5">{portalCounts!.estimates}</Badge>
+                )}
               </button>
               <button
                 onClick={() => setActiveTab("proposals")}
-                className="col-span-2 flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center"
+                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center relative"
               >
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <Send className="h-6 w-6 text-primary" />
                 </div>
                 <span className="text-sm font-medium text-foreground">Proposals</span>
+                {(portalCounts?.proposals ?? 0) > 0 && (
+                  <Badge variant="secondary" className="absolute top-2 right-2 text-[10px] px-1.5 min-w-[20px] h-5">{portalCounts!.proposals}</Badge>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab("contracts")}
+                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center relative"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <FileCheck className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">Contracts</span>
+                {(portalCounts?.contracts ?? 0) > 0 && (
+                  <Badge variant="secondary" className="absolute top-2 right-2 text-[10px] px-1.5 min-w-[20px] h-5">{portalCounts!.contracts}</Badge>
+                )}
               </button>
             </div>
           </div>
@@ -726,6 +804,19 @@ export default function SalespersonCalendarPortal() {
         </div>
       )}
 
+      {/* CONTRACTS TAB */}
+      {activeTab === "contracts" && salesperson && (
+        <div className="p-4 pb-8">
+          <div className="max-w-2xl mx-auto">
+            <PortalContractsSection 
+              salespersonName={salesperson.name}
+              salespersonId={salesperson.id}
+              companyId={salesperson.company_id} 
+            />
+          </div>
+        </div>
+      )}
+
       {/* Appointment Detail Sheet */}
       <Sheet open={!!selectedAppointment} onOpenChange={(open) => !open && setSelectedAppointment(null)}>
         <SheetContent side="bottom" className="h-[85vh] rounded-t-xl px-0">
@@ -753,7 +844,7 @@ export default function SalespersonCalendarPortal() {
               { key: "calendar" as const, icon: Calendar, label: "Calendar" },
               { key: "create" as const, icon: PenSquare, label: "Create" },
               { key: "projects" as const, icon: FolderOpen, label: "Projects" },
-              { key: "proposals" as const, icon: Send, label: "Proposals" },
+              { key: "contracts" as const, icon: FileCheck, label: "Contracts" },
             ].map(({ key, icon: Icon, label }) => (
               <button
                 key={key}
