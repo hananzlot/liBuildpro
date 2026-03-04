@@ -5575,7 +5575,7 @@ function AgreementDialog({
 
   // Proposal workflow state
   const [showProposalForm, setShowProposalForm] = useState(false);
-  const [proposalTotal, setProposalTotal] = useState<number>(0);
+  const proposalTotal = parseFloat(formData.total_price) || 0;
   const [proposalEstimatedCost, setProposalEstimatedCost] = useState<number>(0);
   const [proposalPayments, setProposalPayments] = useState<Array<{ phaseName: string; amount: number }>>([
     { phaseName: "Deposit", amount: 0 },
@@ -5844,7 +5844,7 @@ function AgreementDialog({
   // Reset proposal state
   const resetProposalState = () => {
     setShowProposalForm(false);
-    setProposalTotal(0);
+    // proposalTotal is derived from formData.total_price, no need to reset
     setProposalEstimatedCost(0);
     setProposalPayments([{ phaseName: "Deposit", amount: 0 }]);
     setProposalEstimateId(null);
@@ -6023,19 +6023,7 @@ function AgreementDialog({
                 </Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Estimate Total ($)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={proposalTotal || ""}
-                    onChange={(e) => setProposalTotal(parseFloat(e.target.value) || 0)}
-                    placeholder="Total amount"
-                  />
-                </div>
-                <div className="space-y-1">
+              <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Estimated Costs ($)</Label>
                   <Input
                     type="number"
@@ -6045,7 +6033,6 @@ function AgreementDialog({
                     onChange={(e) => setProposalEstimatedCost(parseFloat(e.target.value) || 0)}
                     placeholder="Your estimated cost"
                   />
-                </div>
               </div>
 
               {/* Progress Payments */}
