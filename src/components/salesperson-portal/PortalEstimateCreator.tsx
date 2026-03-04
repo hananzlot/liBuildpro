@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
-  Calculator, ChevronDown, ChevronRight, Loader2, Save, Wand2,
+  Calculator, ChevronDown, ChevronRight, Loader2, Wand2,
   FileText, CheckCircle, Clock, DollarSign, Eye, Pencil, AlertTriangle,
   ChevronUp, Plus, Trash2, FileEdit, Info
 } from "lucide-react";
@@ -83,8 +83,6 @@ export function PortalEstimateCreator({
   const [selectedType, setSelectedType] = useState<"opportunity" | "project">("opportunity");
   const [selectedId, setSelectedId] = useState<string>("");
   const [workScope, setWorkScope] = useState("");
-  const [isSavingScope, setIsSavingScope] = useState(false);
-  const [scopeSaved, setScopeSaved] = useState(false);
   const [isRequestingAI, setIsRequestingAI] = useState(false);
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
@@ -327,7 +325,6 @@ export function PortalEstimateCreator({
 
   const handleSelectionChange = async (id: string) => {
     setSelectedId(id);
-    setScopeSaved(false);
     setMissingZipCode(false);
     setManualZipCode("");
     setCurrentJobAddress("");
@@ -350,39 +347,6 @@ export function PortalEstimateCreator({
     }
   };
 
-  // Save work scope
-  const handleSaveScope = async () => {
-    if (!selectedId || !workScope.trim()) {
-      toast.error("Please select an item and enter a work scope");
-      return;
-    }
-    setIsSavingScope(true);
-    try {
-      if (selectedType === "opportunity") {
-        const { error } = await supabase
-          .from("opportunities")
-          .update({ scope_of_work: workScope.trim(), updated_at: new Date().toISOString() })
-          .eq("id", selectedId);
-        if (error) throw error;
-      } else {
-        // Save scope to project
-        const { error } = await supabase
-          .from("projects")
-          .update({ scope_of_work: workScope.trim(), updated_at: new Date().toISOString() })
-          .eq("id", selectedId);
-        if (error) throw error;
-      }
-      setScopeSaved(true);
-      toast.success("Work scope saved!");
-      queryClient.invalidateQueries({ queryKey: ["portal-opportunities"] });
-      queryClient.invalidateQueries({ queryKey: ["portal-projects"] });
-    } catch (error) {
-      console.error("Error saving scope:", error);
-      toast.error("Failed to save work scope");
-    } finally {
-      setIsSavingScope(false);
-    }
-  };
 
   // Resolve customer details from selection
   const resolveCustomerDetails = async () => {
@@ -590,7 +554,6 @@ export function PortalEstimateCreator({
   const resetForm = () => {
     setSelectedId("");
     setWorkScope("");
-    setScopeSaved(false);
     setShowManualForm(false);
     setEstimateTotal(0);
     setEstimatedCost(0);
@@ -749,32 +712,16 @@ export function PortalEstimateCreator({
               {/* Step 2: Work Scope */}
               {selectedId && (
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium flex items-center gap-2">
+                  <Label className="text-sm font-medium">
                     2. Work Scope Description
-                    {scopeSaved && (
-                      <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">
-                        <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
-                        Saved
-                      </Badge>
-                    )}
                   </Label>
                   <Textarea
                     value={workScope}
-                    onChange={(e) => { setWorkScope(e.target.value); setScopeSaved(false); }}
+                    onChange={(e) => setWorkScope(e.target.value)}
                     placeholder="Describe the work in detail: scope, materials, measurements, special requirements..."
                     rows={5}
                     className="resize-none"
                   />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSaveScope}
-                    disabled={isSavingScope || !workScope.trim()}
-                    className="w-full"
-                  >
-                    {isSavingScope ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
-                    Save Scope
-                  </Button>
                 </div>
               )}
 
