@@ -11,6 +11,7 @@ interface FileUploadProps {
   onUpload: (url: string | null) => void;
   folder?: string;
   accept?: string;
+  label?: string;
 }
 
 export function FileUpload({ 
@@ -18,7 +19,8 @@ export function FileUpload({
   currentUrl, 
   onUpload, 
   folder = "general",
-  accept = ".pdf,.jpg,.jpeg,.png,.doc,.docx"
+  accept = ".pdf,.jpg,.jpeg,.png,.doc,.docx",
+  label = "Upload File"
 }: FileUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -149,7 +151,7 @@ export function FileUpload({
         ) : (
           <>
             <Upload className="h-4 w-4 mr-2" />
-            Upload File
+            {label}
           </>
         )}
       </Button>
