@@ -392,7 +392,25 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     const isPdf = nameExt === 'pdf' || urlExt === 'pdf' || doc.file_type?.includes('pdf');
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(nameExt) || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(urlExt) || doc.file_type?.startsWith('image');
     
-    if (isPdf || isImage) {
+    if (isPdf) {
+      // Use canvas-based viewer for all PDFs (bypasses ad-blocker iframe issues)
+      setSelectedComplianceDoc({
+        id: doc.id,
+        document_name: doc.file_name,
+        file_url: doc.file_url,
+        signed_file_url: null,
+        signature_data: null,
+        signature_type: null,
+        signature_font: null,
+        signed_at: null,
+        signer_name: null,
+        signer_email: null,
+        ip_address: null,
+        user_agent: null,
+        status: 'pending',
+      });
+      setComplianceViewerOpen(true);
+    } else if (isImage) {
       setSelectedDocument(doc);
       setPdfViewerOpen(true);
     } else {
