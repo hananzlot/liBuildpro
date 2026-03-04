@@ -572,25 +572,9 @@ export function ContactDetailSheet({
 
   const totalValue = relatedOpportunities.reduce((sum, opp) => sum + (opp.monetary_value || 0), 0);
 
-  const handleInteractOutside = (event: Event) => {
-    if (document.visibilityState === 'hidden' || !document.hasFocus()) {
-      event.preventDefault();
-    }
-  };
-
-  const handleFocusOutside = (event: Event) => {
-    if (document.visibilityState === 'hidden' || !document.hasFocus()) {
-      event.preventDefault();
-    }
-  };
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent 
-        className="sm:max-w-xl overflow-y-auto p-0"
-        onInteractOutside={handleInteractOutside}
-        onFocusOutside={handleFocusOutside}
-      >
+      <SheetContent className="sm:max-w-xl overflow-y-auto p-0">
         {!localContact ? (
           <div className="p-6 flex flex-col items-center justify-center h-full gap-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -640,6 +624,15 @@ export function ContactDetailSheet({
                     <RefreshCw className="h-4 w-4" />
                   </Button>
                 )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => onOpenChange(false)}
+                  aria-label="Close contact details"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
                 {isAdmin && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
