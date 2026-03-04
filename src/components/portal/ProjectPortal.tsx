@@ -368,12 +368,18 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   {(() => {
+                    const hasSignedContract = (agreements?.length ?? 0) > 0 || !!project.agreement_signed_date;
                     const pendingEstimates = activeEstimates.filter((e: any) => e.status !== 'accepted');
-                    const statusLabel = pendingEstimates.length > 1 
-                      ? `${pendingEstimates.length} Proposals` 
-                      : pendingEstimates.length === 1 
-                        ? 'Proposal' 
-                        : (project.project_status || 'New Job');
+                    
+                    // Once a contract is signed and project isn't completed, show project status
+                    // Only show "Proposal" badge if no contract signed yet
+                    const statusLabel = hasSignedContract
+                      ? (project.project_status || 'New Job')
+                      : pendingEstimates.length > 1 
+                        ? `${pendingEstimates.length} Proposals` 
+                        : pendingEstimates.length === 1 
+                          ? 'Proposal' 
+                          : (project.project_status || 'New Job');
                     return (
                       <Badge className={`${getStatusColor(statusLabel)} text-white border-0 px-2 py-0.5 text-xs`}>
                         {statusLabel}

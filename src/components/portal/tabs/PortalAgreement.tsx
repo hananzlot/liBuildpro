@@ -104,16 +104,28 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
 
   const hasAgreement = useMemo(() => agreements.length > 0 || !!acceptedEstimate, [agreements.length, acceptedEstimate]);
 
-  // Separate main contract from additional agreements (change orders, addendums)
+  // Separate main contract (earliest by signed date) from additional agreements
   const mainContract = useMemo(() => {
-    return agreements.find((a: any) => isContractAgreement(a)) || null;
+    const contracts = agreements.filter((a: any) => isContractAgreement(a));
+    if (contracts.length === 0) return null;
+    // Return the one with the earliest signed_date (or created_at as fallback)
+    return contracts.sort((a: any, b: any) => {
+      const dateA = new Date(a.signed_date || a.created_at).getTime();
+      const dateB = new Date(b.signed_date || b.created_at).getTime();
+      return dateA - dateB;
+    })[0];
   }, [agreements]);
 
   const additionalAgreements = useMemo(() => {
+    const mainId = mainContract?.id;
     return agreements
-      .filter((a: any) => !isContractAgreement(a))
-      .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  }, [agreements]);
+      .filter((a: any) => a.id !== mainId)
+      .sort((a: any, b: any) => {
+        const dateA = new Date(a.signed_date || a.created_at).getTime();
+        const dateB = new Date(b.signed_date || b.created_at).getTime();
+        return dateA - dateB;
+      });
+  }, [agreements, mainContract]);
 
   const openAgreementPdf = async (agreement: any) => {
     if (!agreement?.attachment_url) return;
