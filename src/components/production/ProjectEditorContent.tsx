@@ -79,7 +79,7 @@ export function ProjectEditorContent({
       if (!companyId) return [];
       const { data, error } = await supabase
         .from("contacts")
-        .select("id, contact_name, email, phone")
+        .select("id, contact_name, email, phone, custom_fields")
         .eq("company_id", companyId)
         .order("contact_name", { ascending: true })
         .limit(500);
@@ -527,6 +527,11 @@ export function ProjectEditorContent({
                                   }
                                   if (contact.email) updateField("customer_email", contact.email);
                                   if (contact.phone) updateField("cell_phone", contact.phone);
+                                  // Extract address from custom_fields
+                                  if (Array.isArray(contact.custom_fields)) {
+                                    const addrField = (contact.custom_fields as any[]).find((f: any) => f.id === "b7oTVsUQrLgZt84bHpCn" && f.value);
+                                    if (addrField) updateField("project_address", addrField.value);
+                                  }
                                 }}
                               >
                                 <Check
