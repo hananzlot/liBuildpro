@@ -5821,6 +5821,7 @@ function AgreementDialog({
           estimate_id: estimate.id,
           phase_name: p.phaseName.slice(0, 255),
           amount: p.amount,
+          percent: proposalTotal > 0 ? Math.round((p.amount / proposalTotal) * 10000) / 100 : 0,
           sort_order: idx,
           company_id: companyId,
         }));
