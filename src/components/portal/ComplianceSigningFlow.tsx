@@ -601,23 +601,23 @@ export function ComplianceSigningFlow({
                     <span className="text-sm text-green-700">Signature captured</span>
                   </div>
                 )}
-
-                {/* Agreement Checkbox */}
-                <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                  <Checkbox
-                    id="agree"
-                    checked={agreedToTerms}
-                    onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
-                  />
-                  <label htmlFor="agree" className="text-sm cursor-pointer">
-                    I have reviewed the document "{selectedDocument?.document_name}" and agree to its terms. 
-                    I understand this constitutes a legally binding signature.
-                  </label>
-                </div>
               </div>
             </ScrollArea>
 
-            <div className="flex gap-3 pt-4">
+            {/* Agreement Checkbox - outside ScrollArea so always visible */}
+            <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+              <Checkbox
+                id="agree"
+                checked={agreedToTerms}
+                onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+              />
+              <label htmlFor="agree" className="text-sm cursor-pointer">
+                I have reviewed the document "{selectedDocument?.document_name}" and agree to its terms. 
+                I understand this constitutes a legally binding signature.
+              </label>
+            </div>
+
+            <div className="flex gap-3 pt-2">
               <Button 
                 variant="outline" 
                 onClick={() => {

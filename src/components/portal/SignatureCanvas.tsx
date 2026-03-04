@@ -30,10 +30,14 @@ export function SignatureCanvas({ onSignatureComplete, signerName, isInitials = 
   const [hasDrawn, setHasDrawn] = useState(false);
   const [activeTab, setActiveTab] = useState<'type' | 'draw'>('type');
 
-  // Auto-complete typed signature whenever name or font changes
+  // Store a ref to the callback to avoid stale closures
+  const onCompleteRef = useRef(onSignatureComplete);
+  onCompleteRef.current = onSignatureComplete;
+
+  // Auto-complete typed signature whenever name or font changes (including on mount)
   useEffect(() => {
     if (activeTab === 'type' && typedName.trim()) {
-      onSignatureComplete({
+      onCompleteRef.current({
         type: 'typed',
         data: typedName,
         font: selectedFont,
