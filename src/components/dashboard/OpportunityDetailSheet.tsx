@@ -63,6 +63,7 @@ interface Opportunity {
   scope_of_work?: string | null;
   address?: string | null;
   proposal_link?: string | null;
+  updated_at?: string | null;
 }
 interface Appointment {
   id?: string;
@@ -4126,7 +4127,12 @@ export function OpportunityDetailSheet({
 
           {/* Timeline */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-            <span>Updated: {formatDate(opportunity.ghl_date_updated)}</span>
+            <span>Updated: {(() => {
+              const dates = [opportunity.updated_at, opportunity.ghl_date_updated].filter(Boolean).map(d => new Date(d!));
+              if (dates.length === 0) return "—";
+              const latest = new Date(Math.max(...dates.map(d => d.getTime())));
+              return formatDate(latest.toISOString());
+            })()}</span>
           </div>
         </div>
       </SheetContent>
