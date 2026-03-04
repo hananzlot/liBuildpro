@@ -234,7 +234,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     ),
     ...billAttachments,
     ...agreementAttachments,
-    ...complianceData.formatted,
+    ...(complianceData?.formatted || []),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   // Upload mutation
@@ -379,7 +379,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   const handleDocumentClick = (doc: Document) => {
     // For compliance docs, use the specialized viewer with signature certificate
     if (doc.source === "compliance") {
-      const rawDoc = complianceData.raw.find(r => r.id === doc.id);
+      const rawDoc = complianceData?.raw?.find(r => r.id === doc.id);
       if (rawDoc) {
         setSelectedComplianceDoc(rawDoc);
         setComplianceViewerOpen(true);
