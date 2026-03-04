@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SubcontractorEditDialog } from "./SubcontractorEditDialog";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -62,8 +62,8 @@ export function WarningsDialog({
   onOpenPendingDeposits,
 }: WarningsDialogProps) {
   const { companyId } = useCompanyContext();
+  const { openTab } = useAppTabs();
   const [open, setOpen] = useState(false);
-  const [editVendorId, setEditVendorId] = useState<string | null>(null);
 
   // Fetch subcontractor warnings
   const { data: subcontractors = [] } = useQuery({
@@ -347,7 +347,7 @@ export function WarningsDialog({
                       className="flex items-center justify-between w-full py-2 px-3 rounded-md bg-background/80 border border-border/50 hover:bg-accent/50 transition-colors cursor-pointer text-left"
                       onClick={() => {
                         setOpen(false);
-                        setEditVendorId(warning.subcontractor.id);
+                        openTab(`/vendor/${warning.subcontractor.id}`, `Edit: ${warning.subcontractor.company_name}`);
                       }}
                     >
                       <div className="flex items-center gap-3">
@@ -395,7 +395,7 @@ export function WarningsDialog({
                       className="flex items-center justify-between w-full py-2 px-3 rounded-md bg-background/80 border border-border/50 hover:bg-accent/50 transition-colors cursor-pointer text-left"
                       onClick={() => {
                         setOpen(false);
-                        setEditVendorId(vendor.id);
+                        openTab(`/vendor/${vendor.id}`, `Edit: ${vendor.company_name}`);
                       }}
                     >
                       <div>
@@ -422,11 +422,6 @@ export function WarningsDialog({
       </DialogContent>
     </Dialog>
 
-      <SubcontractorEditDialog
-        subcontractorId={editVendorId}
-        open={!!editVendorId}
-        onOpenChange={(isOpen) => { if (!isOpen) setEditVendorId(null); }}
-      />
     </>
   );
 }
