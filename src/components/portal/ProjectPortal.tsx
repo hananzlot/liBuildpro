@@ -468,11 +468,16 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                     return (
                       <div className={`grid gap-1`} style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
                         {steps.map((item: any, index: number) => (
-                          <div key={index} className="relative flex flex-col items-center text-center">
+                          <div 
+                            key={index} 
+                            className={`relative flex flex-col items-center text-center ${item.pending ? 'cursor-pointer' : ''}`}
+                            onClick={item.pending ? () => setActiveTab('proposals') : undefined}
+                            title={item.pending ? 'Click to view and sign' : undefined}
+                          >
                             <div className={`
                               relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300
                               ${item.pending
-                                ? 'bg-amber-100 text-amber-600 border border-amber-300 animate-pulse'
+                                ? 'bg-amber-100 text-amber-600 border border-amber-300 animate-pulse hover:bg-amber-200'
                                 : item.completed 
                                   ? 'bg-gradient-to-br from-primary to-primary/80 text-white shadow-sm' 
                                   : 'bg-slate-100 text-slate-400 border border-slate-200'}
@@ -484,7 +489,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                               )}
                             </div>
                             <p className={`mt-1 text-[9px] font-medium leading-tight ${
-                              item.pending ? 'text-amber-600' : item.completed ? 'text-slate-700' : 'text-slate-400'
+                              item.pending ? 'text-amber-600 underline decoration-dotted' : item.completed ? 'text-slate-700' : 'text-slate-400'
                             }`}>
                               {item.label}
                             </p>
