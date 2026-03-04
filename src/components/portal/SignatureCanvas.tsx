@@ -28,7 +28,7 @@ export function SignatureCanvas({ onSignatureComplete, signerName, isInitials = 
   const [typedName, setTypedName] = useState(signerName);
   const [selectedFont, setSelectedFont] = useState(SIGNATURE_FONTS[0].value);
   const [hasDrawn, setHasDrawn] = useState(false);
-  const [activeTab, setActiveTab] = useState<'type' | 'draw'>('type');
+  const [activeTab, setActiveTab] = useState<'type' | 'draw'>('draw');
 
   // Store a ref to the callback to avoid stale closures
   const onCompleteRef = useRef(onSignatureComplete);
@@ -187,10 +187,17 @@ export function SignatureCanvas({ onSignatureComplete, signerName, isInitials = 
 
   return (
     <div className="space-y-4">
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'type' | 'draw')}>
+      <Tabs value={activeTab} onValueChange={(v) => {
+        const newTab = v as 'type' | 'draw';
+        setActiveTab(newTab);
+        // Clear parent signature when switching to draw tab so user must explicitly apply
+        if (newTab === 'draw') {
+          onSignatureComplete(null as any);
+        }
+      }}>
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="type">Type Signature</TabsTrigger>
           <TabsTrigger value="draw">Draw Signature</TabsTrigger>
+          <TabsTrigger value="type">Type Signature</TabsTrigger>
         </TabsList>
 
         <TabsContent value="type" className="space-y-4">
