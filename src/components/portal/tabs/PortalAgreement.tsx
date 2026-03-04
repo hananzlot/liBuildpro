@@ -31,6 +31,21 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
 
   const [downloadingContractPdf, setDownloadingContractPdf] = useState(false);
 
+  // IMPORTANT: Define helper functions BEFORE useMemo hooks that reference them
+  const isContractAgreement = (agreement: any) => {
+    const type = (agreement?.agreement_type || '').toLowerCase();
+    const num = agreement?.agreement_number || '';
+    return type === 'contract' || num.startsWith('CNT-');
+  };
+
+  const parseAgreementEstimateNumber = (agreementNumber?: string | null): number | null => {
+    if (!agreementNumber) return null;
+    const match = agreementNumber.match(/(\d+)/);
+    if (!match) return null;
+    const num = Number(match[1]);
+    return Number.isFinite(num) ? num : null;
+  };
+
   const viewContractPdf = async () => {
     if (!acceptedEstimate?.id) return;
     
@@ -100,21 +115,6 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
       .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [agreements]);
 
-  const parseAgreementEstimateNumber = (agreementNumber?: string | null): number | null => {
-    if (!agreementNumber) return null;
-    const match = agreementNumber.match(/(\d+)/);
-    if (!match) return null;
-    const num = Number(match[1]);
-    return Number.isFinite(num) ? num : null;
-  };
-
-  const isContractAgreement = (agreement: any) => {
-    const type = (agreement?.agreement_type || '').toLowerCase();
-    const num = agreement?.agreement_number || '';
-    return type === 'contract' || num.startsWith('CNT-');
-  };
-
-  const openAgreementPdf = async (agreement: any) => {
     if (!agreement?.attachment_url) return;
 
     // For non-contract docs, open the stored PDF as-is
