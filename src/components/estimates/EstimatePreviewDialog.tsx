@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Building, Loader2, FileDown, X } from 'lucide-react';
+import { Building, Loader2, FileDown, X, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
 import {
@@ -28,12 +28,17 @@ interface EstimatePreviewDialogProps {
   estimateId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** If provided, shows a "Confirm & Send" button in the header */
+  onConfirmSend?: () => void;
+  confirmSendLabel?: string;
 }
 
 export function EstimatePreviewDialog({
   estimateId,
   open,
   onOpenChange,
+  onConfirmSend,
+  confirmSendLabel = "Confirm & Send to Customer",
 }: EstimatePreviewDialogProps) {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -167,6 +172,16 @@ export function EstimatePreviewDialog({
                 <FileDown className="h-4 w-4 mr-2" />
                 Save as PDF
               </Button>
+              {onConfirmSend && (
+                <Button
+                  size="sm"
+                  onClick={onConfirmSend}
+                  disabled={!data?.estimate}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {confirmSendLabel}
+                </Button>
+              )}
               {data?.estimate && getStatusBadge(data.estimate.status)}
               <Button
                 variant="ghost"
