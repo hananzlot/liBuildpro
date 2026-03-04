@@ -539,8 +539,8 @@ export function ContactDetailSheet({
     }
   };
 
-  const contactName = localContact.contact_name || 
-    `${localContact.first_name || ''} ${localContact.last_name || ''}`.trim() || 
+  const contactName = localContact?.contact_name || 
+    `${localContact?.first_name || ''} ${localContact?.last_name || ''}`.trim() || 
     "Unknown Contact";
 
   const assignedUser = findUserByIdOrGhlId(users, undefined, localContact.assigned_to);
@@ -591,6 +591,13 @@ export function ContactDetailSheet({
         onInteractOutside={handleInteractOutside}
         onFocusOutside={handleFocusOutside}
       >
+        {!localContact ? (
+          <div className="p-6 flex flex-col items-center justify-center h-full gap-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <p className="text-sm text-muted-foreground">Loading contact...</p>
+          </div>
+        ) : (
+        <>
         {/* Header */}
         <div className="sticky top-0 bg-background border-b p-4 z-10">
           <SheetHeader className="space-y-1">
@@ -989,6 +996,8 @@ export function ContactDetailSheet({
             );
           })()}
         </div>
+        </>
+        )}
       </SheetContent>
     </Sheet>
   );

@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Database, HardDrive, Merge, Search, Contact as ContactIcon } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
@@ -33,13 +35,30 @@ const Contacts = () => {
 
   const syncMutation = useSyncContacts();
 
-  // Derive selected contact from URL param
-  const selectedContact = useMemo(() => {
+  // Derive selected contact from URL param (from list)
+  const listContact = useMemo(() => {
     if (!contactId || !metrics?.allContacts?.length) return null;
     return metrics.allContacts.find(
       (c: any) => c.id === contactId || c.ghl_id === contactId
     ) || null;
   }, [contactId, metrics?.allContacts]);
+
+  // Fallback: fetch individual contact if not found in list (e.g. navigated from global search before list loads)
+  const { data: fetchedContact } = useQuery({
+    queryKey: ["contact-detail-fallback", contactId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contacts")
+        .select("*")
+        .eq("id", contactId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!contactId && !listContact,
+  });
+
+  const selectedContact = listContact || fetchedContact || null;
 
   // Modal open state derived from URL
   const contactDetailSheetOpen = !!contactId;
