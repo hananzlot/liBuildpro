@@ -453,32 +453,46 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                 {/* Compact Timeline Stepper */}
                 <div className="relative">
                   <div className="hidden sm:block absolute top-3 left-4 right-4 h-0.5 bg-slate-200" />
-                  <div className="grid grid-cols-4 gap-1">
-                    {[
+                  {(() => {
+                    const hasPendingChangeOrder = (agreements?.length ?? 0) > 0 && 
+                      estimates?.some((e: any) => e.status === 'sent');
+                    
+                    const steps = [
                       { label: 'Proposal', step: 1, completed: true, date: project.created_at },
-                      { label: 'Agreement Signed', step: 2, completed: !!project.agreement_signed_date, date: project.agreement_signed_date },
+                      { label: 'Agreement Signed', step: 2, completed: (agreements?.length ?? 0) > 0 || !!project.agreement_signed_date, date: project.agreement_signed_date },
+                      ...(hasPendingChangeOrder ? [{ label: 'Change Order Pending', step: 0, completed: false, date: null as string | null, pending: true }] : []),
                       { label: 'In Progress', step: 3, completed: project.project_status === 'In Progress' || project.project_status === 'Completed' },
                       { label: 'Completed', step: 4, completed: project.project_status === 'Completed' },
-                    ].map((item, index) => (
-                      <div key={index} className="relative flex flex-col items-center text-center">
-                        <div className={`
-                          relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300
-                          ${item.completed 
-                            ? 'bg-gradient-to-br from-primary to-primary/80 text-white shadow-sm' 
-                            : 'bg-slate-100 text-slate-400 border border-slate-200'}
-                        `}>
-                          {item.completed ? (
-                            <CheckCircle2 className="h-3 w-3" />
-                          ) : (
-                            <span>{item.step}</span>
-                          )}
-                        </div>
-                        <p className={`mt-1 text-[9px] font-medium leading-tight ${item.completed ? 'text-slate-700' : 'text-slate-400'}`}>
-                          {item.label}
-                        </p>
+                    ].map((item, i) => ({ ...item, step: i + 1 }));
+
+                    return (
+                      <div className={`grid gap-1`} style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+                        {steps.map((item: any, index: number) => (
+                          <div key={index} className="relative flex flex-col items-center text-center">
+                            <div className={`
+                              relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300
+                              ${item.pending
+                                ? 'bg-amber-100 text-amber-600 border border-amber-300 animate-pulse'
+                                : item.completed 
+                                  ? 'bg-gradient-to-br from-primary to-primary/80 text-white shadow-sm' 
+                                  : 'bg-slate-100 text-slate-400 border border-slate-200'}
+                            `}>
+                              {item.completed ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                              ) : (
+                                <span>{item.step}</span>
+                              )}
+                            </div>
+                            <p className={`mt-1 text-[9px] font-medium leading-tight ${
+                              item.pending ? 'text-amber-600' : item.completed ? 'text-slate-700' : 'text-slate-400'
+                            }`}>
+                              {item.label}
+                            </p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
