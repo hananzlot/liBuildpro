@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -154,6 +154,16 @@ export default function SalespersonCalendarPortal() {
 
   const salesperson = tokenData?.salespeople;
   const company = tokenData?.companies;
+
+  // Set browser tab title to "{FirstName} | {PlatformName}"
+  useEffect(() => {
+    const originalTitle = document.title;
+    const firstName = salesperson?.name?.split(' ')[0];
+    if (firstName) {
+      document.title = `${firstName} | iBuildPro`;
+    }
+    return () => { document.title = originalTitle; };
+  }, [salesperson?.name]);
 
   // Fetch appointments for this salesperson - with caching for fast reloads
   const { data: appointments = [], isLoading: appointmentsLoading } = useQuery({
