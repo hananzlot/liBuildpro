@@ -593,51 +593,25 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           );
         })}
 
-        {/* Admin Tools */}
-        {(isAdmin || isSimulating) && (
-          <Collapsible open={collapsed || isSectionOpen('Admin')} onOpenChange={() => toggleSection('Admin')}>
-            <SidebarGroup className="px-2 py-0.5">
-              <CollapsibleTrigger asChild>
-                <SidebarGroupLabel className={cn("h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted-foreground select-none", !collapsed && "cursor-pointer hover:text-sidebar-foreground transition-colors")}>
-                  Admin
-                  {!collapsed && <ChevronDown className={cn("ml-auto h-3 w-3 shrink-0 transition-transform duration-200", !isSectionOpen('Admin') && "-rotate-90")} />}
-                </SidebarGroupLabel>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu className="gap-0.5">
-                    {/* Super Admin Portal */}
-                    {isSuperAdmin && (
-                      <SidebarMenuItem>
-                        <SidebarMenuButton tooltip="Super Admin Portal" isActive={location.pathname.startsWith('/super-admin')}
-                          className={cn(ITEM_CLS, "relative", location.pathname.startsWith('/super-admin') ? ACTIVE_CLS : DEFAULT_CLS)}
-                          onClick={() => { closeSidebar(); openTab('/super-admin', 'Super Admin'); }}>
-                          {location.pathname.startsWith('/super-admin') && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary" />}
-                          <Building2 className={ICON_CLS} />{!collapsed && <span>Super Admin</span>}
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )}
-
-
-                    {/* AI Queue */}
-                    <SidebarMenuItem>
-                      <SidebarMenuButton tooltip={`AI Queue${aiQueueCount > 0 ? ` (${aiQueueCount})` : ''}`}
-                        onClick={() => setAiQueueOpen(true)} className={cn(ITEM_CLS, DEFAULT_CLS)}>
-                        <BrainCircuit className={ICON_CLS} />
-                        {!collapsed && (
-                          <>
-                            <span className="flex-1 truncate">AI Queue</span>
-                            {aiQueueCount > 0 && <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-[10px] font-bold leading-none">{aiQueueCount}</span>}
-                          </>
-                        )}
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </SidebarGroup>
-          </Collapsible>
+        {/* Super Admin */}
+        {isSuperAdmin && (
+          <SidebarGroup className="px-2 py-0.5">
+            <SidebarGroupLabel className="h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted-foreground select-none">
+              Super Admin
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-0.5">
+                <SidebarMenuItem>
+                  <SidebarMenuButton tooltip="Super Admin Portal" isActive={location.pathname.startsWith('/super-admin')}
+                    className={cn(ITEM_CLS, "relative", location.pathname.startsWith('/super-admin') ? ACTIVE_CLS : DEFAULT_CLS)}
+                    onClick={() => { closeSidebar(); openTab('/super-admin', 'Super Admin'); }}>
+                    {location.pathname.startsWith('/super-admin') && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary" />}
+                    <Building2 className={ICON_CLS} />{!collapsed && <span>Super Admin</span>}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         )}
       </SidebarContent>
 

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { GlobalAdminSearch } from "./GlobalAdminSearch";
@@ -5,7 +6,7 @@ import ibuildproLogo from "@/assets/ibuildpro-logo.png";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { HelpCircle, ExternalLink, Settings, Mail, FileSignature, Shield, Award, MessageSquare, Link as LinkIcon, DollarSign, Sparkles, Pencil, Link2, Users, Eye, EyeOff, Wrench, FileText, Activity } from "lucide-react";
+import { HelpCircle, ExternalLink, Settings, Mail, FileSignature, Shield, Award, MessageSquare, Link as LinkIcon, DollarSign, Sparkles, Pencil, Link2, Users, Eye, EyeOff, Wrench, FileText, Activity, BrainCircuit } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +23,8 @@ import { useAppTabs } from "@/contexts/AppTabsContext";
 import { UserSimulationPicker } from "./UserSimulationPicker";
 import { toast } from "sonner";
 import type { AppRole } from "@/contexts/AuthContext";
+import { useAIGenerationQueue } from "@/hooks/useAIGenerationQueue";
+import { AIQueueSheet } from "@/components/admin/AIQueueSheet";
 
 const ADMIN_QUICK_MENU = [
   { label: "Core Settings", items: [
@@ -56,6 +59,8 @@ interface TopBarProps {
 export function TopBar({ showNotifications = true, headerContent }: TopBarProps) {
   const { isAdmin, isSuperAdmin, isSimulating, simulatedRole, simulatedUserId, simulatedUserName, setSimulatedRole, simulateAsUser, clearSimulation, availableRoles } = useAuth();
   const { openTab } = useAppTabs();
+  const { activeCount: aiQueueCount } = useAIGenerationQueue();
+  const [aiQueueOpen, setAiQueueOpen] = useState(false);
 
   const showAdminSettings = isAdmin || isSuperAdmin;
 
@@ -146,6 +151,28 @@ export function TopBar({ showNotifications = true, headerContent }: TopBarProps)
           </DropdownMenu>
         )}
 
+        {/* AI Queue - Admin only */}
+        {showAdminSettings && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 relative"
+                onClick={() => setAiQueueOpen(true)}
+              >
+                <BrainCircuit className="h-4 w-4" />
+                {aiQueueCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold leading-none">
+                    {aiQueueCount}
+                  </span>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>AI Queue{aiQueueCount > 0 ? ` (${aiQueueCount})` : ''}</TooltipContent>
+          </Tooltip>
+        )}
+
         {/* Admin Settings Quick Access */}
         {showAdminSettings && (
           <DropdownMenu>
@@ -201,6 +228,7 @@ export function TopBar({ showNotifications = true, headerContent }: TopBarProps)
         </DropdownMenu>
         {showNotifications && <NotificationBell />}
       </div>
+      <AIQueueSheet open={aiQueueOpen} onOpenChange={setAiQueueOpen} />
     </header>
   );
 }
