@@ -5955,6 +5955,7 @@ function AgreementDialog({
                 currentUrl={formData.attachment_url}
                 onUpload={(url) => updateFormData({ attachment_url: url })}
                 folder="agreements"
+                label="Upload Executed PDF File"
               />
             )}
           </div>
