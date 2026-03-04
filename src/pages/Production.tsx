@@ -2010,7 +2010,7 @@ export default function Production() {
                 <table className="w-full caption-bottom text-xs table-fixed">
                     <thead className="[&_tr]:border-b sticky top-0 z-20 bg-card">
                       <TableRow className="bg-card hover:bg-card [&_th]:align-bottom [&_th]:leading-tight [&_th]:py-2 [&_th]:text-left">
-                        <TableHead className="w-6 min-w-6 max-w-6 p-0"></TableHead>
+                        
                         <TableHead className="w-[3.5%] cursor-pointer hover:bg-muted/50 text-xs p-0 pl-0" onClick={() => handleSort('project_number')}>
                           <div className="flex items-end gap-0.5"># <SortIcon column="project_number" /></div>
                         </TableHead>
@@ -2090,7 +2090,9 @@ export default function Production() {
                           <div className="flex items-end justify-end gap-0.5 font-semibold">Cash <SortIcon column="total_cash" /></div>
                         </TableHead>
                         )}
-                        
+                        {isAdmin && (
+                          <TableHead className="w-8 min-w-8 max-w-8 p-0"></TableHead>
+                        )}
                       </TableRow>
                     </thead>
                     <TableBody>
@@ -2105,21 +2107,7 @@ export default function Production() {
                             )}
                             onClick={() => handleOpenProject(project)}
                           >
-                            <TableCell className="w-6 min-w-6 max-w-6 p-0 pr-0">
-                              {isAdmin && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-5 w-5 text-muted-foreground hover:text-destructive"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteTestProject(project);
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </TableCell>
+                            
                             <TableCell className="font-medium text-xs truncate p-0 pl-0.5">
                               <div className="flex flex-col min-w-0">
                                 <div className="flex items-center gap-0.5">
@@ -2344,7 +2332,21 @@ export default function Production() {
                               {formatCurrency(financials?.totalCash)}
                             </TableCell>
                             )}
-                            
+                            {isAdmin && (
+                              <TableCell className="w-8 min-w-8 max-w-8 p-0 text-center">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTestProject(project);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
