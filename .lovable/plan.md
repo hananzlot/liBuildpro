@@ -1,49 +1,35 @@
 
 
-# Cleanup Plan: Delete Ghost Duplicates from Demo Co #1
+## Investigation Findings
 
-## Summary
+### Issue 1: Contract PDF doesn't show signature records/image
 
-Demo Co #1 (`d95f6df1-ef3c-4e12-8743-69c6bfb280bc`) contains ghost copies of CA Pro Builders data. All ghost records have `ghl_id IS NULL`. No formal foreign key constraints exist between tables, so deletion order is flexible but we will still go child-first for safety.
+The contract PDF for Veronica Foreman (estimate `d7b007d5`, CNT-2106) has **zero signature records** in the `estimate_signatures` table. The `generate-contract-pdf` edge function queries `estimate_signatures` for the estimate (line 48) and embeds them into the PDF (lines 816-895). Since there are no signatures, the PDF correctly shows none.
 
-**What will be deleted (Demo Co #1 only):**
+**Root cause**: This agreement was created manually by an admin (via the Finance/Agreement section), not through the customer portal signing flow. The admin uploaded a PDF contract directly. The portal signing flow is what creates `estimate_signatures` records and embeds them into the generated PDF. Since the customer never signed through the portal, no signature data exists.
 
-| Table | Ghost Count | Notes |
-|-------|------------|-------|
-| portal_chat_messages | 3 | Linked to ghost projects |
-| client_portal_tokens | 36 | Linked to ghost projects |
-| project_payments | 43 | Linked to ghost projects |
-| project_invoices | 45 | Linked to ghost projects |
-| project_bills | TBD | Linked to ghost projects |
-| estimate_line_items | TBD | Linked to ghost estimates |
-| estimates | 4 | Linked to ghost opportunities |
-| projects | 36 | Linked to ghost opportunities |
-| appointments | 17 | Linked to ghost contacts |
-| opportunities | 1,175 | `ghl_id IS NULL` |
-| contacts | 1,430 | `ghl_id IS NULL` |
+### Issue 2: Proposal not marked as "accepted"
 
-**What will NOT be touched:**
-- All CA Pro Builders records (different `company_id`)
-- 4 real opportunities in Demo Co (have `ghl_id`)
-- 16 real contacts in Demo Co (have `ghl_id`)
-- 6 real projects in Demo Co (not linked to ghost opps)
+The estimate status is `sent` and `signed_at` is null. The estimate is only marked `accepted` when a customer signs through the portal (in `PortalEstimateView.tsx`, lines 536-541 or 594-600). Since this contract was created manually by the admin, the signing flow was bypassed entirely.
 
-## Implementation
+---
 
-A single SQL data operation that deletes in this order:
+## Proposed Fix
 
-1. Delete `portal_chat_messages` linked to ghost projects
-2. Delete `client_portal_tokens` linked to ghost projects
-3. Delete `project_payments` linked to ghost projects
-4. Delete `project_invoices` linked to ghost projects
-5. Delete `project_bills` linked to ghost projects
-6. Delete `bill_payments` linked to ghost bills (0 found, but included for safety)
-7. Delete `estimate_line_items` linked to ghost estimates
-8. Delete `estimates` linked to ghost opportunities
-9. Delete `projects` linked to ghost opportunities
-10. Delete `appointments` linked to ghost contacts
-11. Delete `opportunities` where `company_id = Demo Co AND ghl_id IS NULL`
-12. Delete `contacts` where `company_id = Demo Co AND ghl_id IS NULL`
+**When an admin manually creates an Agreement of type "Contract" linked to an estimate, the system should automatically mark the corresponding estimate as `accepted`.**
 
-All scoped exclusively to Demo Co #1's `company_id`. Zero risk to CA Pro Builders.
+### Changes
+
+1. **`src/components/production/FinanceSection.tsx`** — In the agreement save handler, after successfully inserting a new agreement of type `Contract`:
+   - Query for the estimate linked to this project (matching by estimate_number from the agreement_number pattern, or the first `sent` estimate)
+   - Update the estimate's `status` to `accepted` and set `signed_at` to the `agreement_signed_date`
+
+2. **One-time data fix (migration)** — For the Veronica Foreman estimate specifically:
+   - Update estimate `d7b007d5-1cc4-4940-aaa2-6b9522e08e4a` to `status: 'accepted'` and `signed_at: '2026-02-27'`
+
+### Regarding the PDF not showing signatures
+
+Since this was a manually uploaded PDF contract (not generated through the portal signing flow), there are no digital signatures to display. The existing PDF attachment on the agreement is the actual signed document. This is working as designed — the `generate-contract-pdf` function is meant for portal-signed contracts. If you need the agreement PDF to show signature data, the customer would need to sign through the portal, or you would need to manually add signature records. 
+
+**The practical fix is**: mark the estimate as accepted (both retroactively for this record and proactively for future manual agreements).
 
