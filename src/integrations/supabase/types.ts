@@ -2748,6 +2748,7 @@ export type Database = {
           estimate_mode: string | null
           estimate_number: number
           estimate_title: string
+          estimated_cost: number | null
           expiration_date: string | null
           finishing_grade: string | null
           garage_sq_ft: string | null
@@ -2806,6 +2807,7 @@ export type Database = {
           estimate_mode?: string | null
           estimate_number?: number
           estimate_title: string
+          estimated_cost?: number | null
           expiration_date?: string | null
           finishing_grade?: string | null
           garage_sq_ft?: string | null
@@ -2864,6 +2866,7 @@ export type Database = {
           estimate_mode?: string | null
           estimate_number?: number
           estimate_title?: string
+          estimated_cost?: number | null
           expiration_date?: string | null
           finishing_grade?: string | null
           garage_sq_ft?: string | null
