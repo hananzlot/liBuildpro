@@ -914,8 +914,8 @@ function processMetrics(
     endDate.setHours(23, 59, 59, 999);
 
     wonOpportunities = allWonOpportunities.filter((o) => {
-      // Use won_at (accurate), fallback to ghl_date_updated, then ghl_date_added
-      const dateStr = o.won_at || o.ghl_date_updated || o.ghl_date_added;
+      // Use won_at (accurate), fallback to ghl_date_updated, then ghl_date_added, then created_at
+      const dateStr = o.won_at || o.ghl_date_updated || o.ghl_date_added || o.created_at;
       if (!dateStr) return false;
       const d = new Date(dateStr);
       return d >= startDate && d <= endDate;
@@ -928,8 +928,8 @@ function processMetrics(
   // Always sort by won date (won_at when available) newest first
   wonOpportunities = wonOpportunities.sort(
     (a, b) =>
-      new Date(b.won_at || b.ghl_date_updated || b.ghl_date_added || 0).getTime() -
-      new Date(a.won_at || a.ghl_date_updated || a.ghl_date_added || 0).getTime(),
+      new Date(b.won_at || b.ghl_date_updated || b.ghl_date_added || b.created_at || 0).getTime() -
+      new Date(a.won_at || a.ghl_date_updated || a.ghl_date_added || a.created_at || 0).getTime(),
   );
 
   const wonOpportunitiesCount = wonOpportunities.length;
