@@ -2010,8 +2010,8 @@ export default function Production() {
                 <table className="w-full caption-bottom text-xs table-fixed">
                     <thead className="[&_tr]:border-b sticky top-0 z-20 bg-card">
                       <TableRow className="bg-card hover:bg-card [&_th]:align-bottom [&_th]:leading-tight [&_th]:py-2 [&_th]:text-left">
-                        <TableHead className="w-7 min-w-7 max-w-7 p-0"></TableHead>
-                        <TableHead className="w-[5%] cursor-pointer hover:bg-muted/50 text-xs p-0 pl-1" onClick={() => handleSort('project_number')}>
+                        <TableHead className="w-6 min-w-6 max-w-6 p-0"></TableHead>
+                        <TableHead className="w-[3.5%] cursor-pointer hover:bg-muted/50 text-xs p-0 pl-0.5" onClick={() => handleSort('project_number')}>
                           <div className="flex items-end gap-0.5"># <SortIcon column="project_number" /></div>
                         </TableHead>
                         {isUnified && (
@@ -2105,7 +2105,7 @@ export default function Production() {
                             )}
                             onClick={() => handleOpenProject(project)}
                           >
-                            <TableCell className="w-7 min-w-7 max-w-7 p-0">
+                            <TableCell className="w-6 min-w-6 max-w-6 p-0">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
@@ -2139,7 +2139,7 @@ export default function Production() {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>
-                            <TableCell className="font-medium text-xs truncate p-0 pl-1">
+                            <TableCell className="font-medium text-xs truncate p-0 pl-0.5">
                               <div className="flex flex-col min-w-0">
                                 <div className="flex items-center gap-0.5">
                                   <span className="truncate">{project.project_number}</span>
