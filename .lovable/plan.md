@@ -1,35 +1,33 @@
 
 
-## Investigation Findings
+## Plan: Safe-delete Demo Co projects #77 and #88 with linked opportunities
 
-### Issue 1: Contract PDF doesn't show signature records/image
+### What will be deleted (database records only)
 
-The contract PDF for Veronica Foreman (estimate `d7b007d5`, CNT-2106) has **zero signature records** in the `estimate_signatures` table. The `generate-contract-pdf` edge function queries `estimate_signatures` for the estimate (line 48) and embeds them into the PDF (lines 816-895). Since there are no signatures, the PDF correctly shows none.
+**Project #77** (`68369843-12a1-427b-b8d4-1443f3d8e80c`):
+- 1 `project_documents` record (`dce29d13`) -- DB row only, storage file shared with CA Pro Builders
+- 1 `project_agreements` record (`76300249`) -- DB row only, storage file shared with CA Pro Builders
+- 1 `client_portal_tokens` record (if any)
+- The project record itself
+- Opportunity `bf99f7c6-2aa0-45f8-8d17-df0c4745447c`
 
-**Root cause**: This agreement was created manually by an admin (via the Finance/Agreement section), not through the customer portal signing flow. The admin uploaded a PDF contract directly. The portal signing flow is what creates `estimate_signatures` records and embeds them into the generated PDF. Since the customer never signed through the portal, no signature data exists.
+**Project #88** (`0f397d38-6aed-4db2-aa41-468757423570`):
+- 1 `client_portal_tokens` record
+- The project record itself
+- Opportunity `5501390f-736e-4ad1-9ea0-93288fce0778`
 
-### Issue 2: Proposal not marked as "accepted"
+No storage files will be deleted (the PDFs are shared with CA Pro Builders project #54).
 
-The estimate status is `sent` and `signed_at` is null. The estimate is only marked `accepted` when a customer signs through the portal (in `PortalEstimateView.tsx`, lines 536-541 or 594-600). Since this contract was created manually by the admin, the signing flow was bypassed entirely.
+### Implementation
 
----
+Single data operation using the insert/update/delete tool, executed in dependency order:
 
-## Proposed Fix
+1. Delete `project_documents` where `project_id = '68369843...'`
+2. Delete `project_agreements` where `project_id = '68369843...'`
+3. Delete `client_portal_tokens` where `project_id` in both projects
+4. Delete `project_activity_notes` (if any) for both projects
+5. Nullify `opportunity_uuid` on both projects (to avoid FK constraint), then delete the projects
+6. Delete both opportunities (`bf99f7c6`, `5501390f`)
 
-**When an admin manually creates an Agreement of type "Contract" linked to an estimate, the system should automatically mark the corresponding estimate as `accepted`.**
-
-### Changes
-
-1. **`src/components/production/FinanceSection.tsx`** — In the agreement save handler, after successfully inserting a new agreement of type `Contract`:
-   - Query for the estimate linked to this project (matching by estimate_number from the agreement_number pattern, or the first `sent` estimate)
-   - Update the estimate's `status` to `accepted` and set `signed_at` to the `agreement_signed_date`
-
-2. **One-time data fix (migration)** — For the Veronica Foreman estimate specifically:
-   - Update estimate `d7b007d5-1cc4-4940-aaa2-6b9522e08e4a` to `status: 'accepted'` and `signed_at: '2026-02-27'`
-
-### Regarding the PDF not showing signatures
-
-Since this was a manually uploaded PDF contract (not generated through the portal signing flow), there are no digital signatures to display. The existing PDF attachment on the agreement is the actual signed document. This is working as designed — the `generate-contract-pdf` function is meant for portal-signed contracts. If you need the agreement PDF to show signature data, the customer would need to sign through the portal, or you would need to manually add signature records. 
-
-**The practical fix is**: mark the estimate as accepted (both retroactively for this record and proactively for future manual agreements).
+All in a single SQL transaction to ensure consistency.
 
