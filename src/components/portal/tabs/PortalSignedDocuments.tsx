@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,8 +14,10 @@ import {
   Clock,
   Calendar,
   User,
+  Globe,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { ComplianceDocViewerDialog } from '@/components/production/ComplianceDocViewerDialog';
 
 interface PortalSignedDocumentsProps {
   estimateId: string;
@@ -36,9 +38,14 @@ interface SignedDocument {
   signature_data: string | null;
   signature_type: string | null;
   signature_font: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
 }
 
 export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDocumentsProps) {
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<SignedDocument | null>(null);
+
   const { data: documents, isLoading } = useQuery({
     queryKey: ['portal-signed-docs', estimateId, projectId],
     queryFn: async () => {
@@ -65,7 +72,6 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
       <div className="space-y-4">
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
       </div>
     );
   }
@@ -86,6 +92,11 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
 
   const signedDocs = documents.filter(d => d.status === 'signed');
   const pendingDocs = documents.filter(d => d.status === 'pending');
+
+  const handleView = (doc: SignedDocument) => {
+    setSelectedDoc(doc);
+    setViewerOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -146,6 +157,12 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
                             {format(new Date(doc.signed_at), 'MMM d, yyyy \'at\' h:mm a')}
                           </p>
                         )}
+                        {doc.ip_address && (
+                          <p className="flex items-center gap-1">
+                            <Globe className="h-3 w-3" />
+                            IP: {doc.ip_address}
+                          </p>
+                        )}
                       </div>
                       {/* Render e-signature */}
                       {doc.signature_data && (
@@ -172,7 +189,7 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(doc.signed_file_url || doc.file_url, '_blank')}
+                      onClick={() => handleView(doc)}
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View
@@ -228,6 +245,15 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Compliance Doc Viewer with Signature Certificate */}
+      {selectedDoc && (
+        <ComplianceDocViewerDialog
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+          doc={selectedDoc}
+        />
       )}
     </div>
   );
