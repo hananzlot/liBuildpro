@@ -117,8 +117,8 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
   }, [agreements]);
 
   const additionalAgreements = useMemo(() => {
-    // Only exclude mainContract from additional list if we're actually rendering it as the hero
-    const mainId = (!acceptedEstimate && mainContract) ? mainContract.id : null;
+    // Always exclude mainContract from additional list since it renders as the hero when present
+    const mainId = mainContract?.id || null;
     return agreements
       .filter((a: any) => a.id !== mainId)
       .sort((a: any, b: any) => {
@@ -126,7 +126,7 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
         const dateB = new Date((b.agreement_signed_date ? b.agreement_signed_date + 'T00:00:00' : null) || b.created_at).getTime();
         return dateA - dateB;
       });
-  }, [agreements, mainContract, acceptedEstimate]);
+  }, [agreements, mainContract]);
 
   const openAgreementPdf = async (agreement: any) => {
     if (!agreement?.attachment_url) return;
@@ -239,9 +239,10 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
   }
 
   // Determine the primary agreement to show as hero card
-  // Priority: acceptedEstimate first, then mainContract from project_agreements
-  const showAcceptedEstimateHero = !!acceptedEstimate;
-  const showMainContractHero = !showAcceptedEstimateHero && !!mainContract;
+  // Priority: mainContract (actual "Contract" type from project_agreements) first, 
+  // then acceptedEstimate (digitally signed proposal) as fallback
+  const showMainContractHero = !!mainContract;
+  const showAcceptedEstimateHero = !showMainContractHero && !!acceptedEstimate;
 
   return (
     <div className="space-y-6">
@@ -478,8 +479,8 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
         </Card>
       )}
 
-      {/* Additional Project Agreements */}
-      {additionalAgreements.length > 0 && (
+      {/* Additional Project Agreements (includes acceptedEstimate when mainContract is hero) */}
+      {(additionalAgreements.length > 0 || (showMainContractHero && acceptedEstimate)) && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
@@ -487,7 +488,7 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
             </div>
             <div>
               <h3 className="font-bold text-slate-900">Additional Agreements</h3>
-              <p className="text-sm text-slate-500">{additionalAgreements.length} document(s)</p>
+              <p className="text-sm text-slate-500">{additionalAgreements.length + (showMainContractHero && acceptedEstimate ? 1 : 0)} document(s)</p>
             </div>
           </div>
           
@@ -574,6 +575,88 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
               </CardContent>
             </Card>
           );})}
+
+          {/* Show acceptedEstimate as additional agreement when mainContract is hero */}
+          {showMainContractHero && acceptedEstimate && (
+            <Card className="border-0 shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+                      <FileText className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="space-y-2 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-semibold text-slate-900">
+                          Change Order
+                        </h4>
+                        {acceptedEstimate.estimate_number && (
+                          <Badge variant="outline" className="font-mono">
+                            #{acceptedEstimate.estimate_number}
+                          </Badge>
+                        )}
+                        <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                          Digitally Signed
+                        </Badge>
+                      </div>
+                      {acceptedEstimate.estimate_title && (
+                        <button
+                          onClick={() => viewContractPdf()}
+                          className="text-sm text-left text-primary hover:underline cursor-pointer"
+                        >
+                          {acceptedEstimate.estimate_title}
+                          <span className="text-xs ml-1">(click to view)</span>
+                        </button>
+                      )}
+                      <div className="flex flex-wrap items-center gap-4 text-sm">
+                        {acceptedEstimate.signed_at && (
+                          <span className="flex items-center gap-1.5 text-slate-500">
+                            <Calendar className="h-4 w-4" />
+                            Signed {format(new Date(acceptedEstimate.signed_at), 'MMM d, yyyy')}
+                          </span>
+                        )}
+                        {acceptedEstimate.total && (
+                          <span className="font-semibold text-primary">
+                            {formatCurrency(acceptedEstimate.total)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shadow-sm"
+                      onClick={() => viewContractPdf()}
+                      disabled={generatingContractPdf}
+                    >
+                      {generatingContractPdf ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Eye className="h-4 w-4 mr-2" />
+                      )}
+                      View PDF
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => downloadContractPdf()}
+                      disabled={downloadingContractPdf}
+                      aria-label="Download PDF"
+                    >
+                      {downloadingContractPdf ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
