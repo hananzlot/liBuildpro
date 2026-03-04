@@ -154,6 +154,19 @@ export function SendProposalDialog({
         .single();
       if (error) throw error;
       
+      // If no customer_email on estimate, try to get from linked project
+      let resolvedEmail = data?.customer_email;
+      if (!resolvedEmail && data?.project_id) {
+        const { data: projectData } = await supabase
+          .from('projects')
+          .select('customer_email')
+          .eq('id', data.project_id)
+          .maybeSingle();
+        if (projectData?.customer_email) {
+          resolvedEmail = projectData.customer_email;
+        }
+      }
+      
       // If no salesperson on estimate, try to get from opportunity
       let salespersonName = data?.salesperson_name;
       if (!salespersonName && data?.opportunity_uuid) {
@@ -168,7 +181,7 @@ export function SendProposalDialog({
         }
       }
       
-      return { ...data, salesperson_name: salespersonName };
+      return { ...data, customer_email: resolvedEmail || data?.customer_email, salesperson_name: salespersonName };
     },
     enabled: open,
     staleTime: 0, // Always refetch when dialog opens
