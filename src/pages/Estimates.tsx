@@ -379,7 +379,9 @@ export default function Estimates() {
   const formatEstimateNumber = (estimate: Estimate, tableType?: string) => {
     const num = estimate.estimate_number;
     if (estimate.status === "accepted") {
-      return `CNT-${num}`;
+      // Change orders get CO- prefix, contracts get CNT-
+      const isChangeOrder = (estimate.estimate_title || '').toLowerCase().startsWith('change order');
+      return isChangeOrder ? `CO-${num}` : `CNT-${num}`;
     }
     if (tableType === "proposals" || ["sent", "viewed", "needs_changes"].includes(estimate.status)) {
       return `PROP-${num}`;

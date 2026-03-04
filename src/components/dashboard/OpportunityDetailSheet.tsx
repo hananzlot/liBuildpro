@@ -4067,7 +4067,9 @@ export function OpportunityDetailSheet({
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="font-mono text-xs text-muted-foreground">
-                              {est.status === 'accepted' ? `CNT-${est.estimate_number}` : `EST-${est.estimate_number}`}
+                              {est.status === 'accepted' 
+                                ? ((est.estimate_title || '').toLowerCase().startsWith('change order') ? `CO-${est.estimate_number}` : `CNT-${est.estimate_number}`)
+                                : `EST-${est.estimate_number}`}
                             </span>
                             <span className="font-medium text-sm truncate">
                               {est.estimate_title || "Untitled"}
