@@ -558,11 +558,16 @@ serve(async (req) => {
     checkNewPage(100);
     yPos -= 10;
     
+    // Calculate the height of the totals box dynamically
+    const hasDiscount = (estimate.discount_amount || 0) > 0;
+    // Subtotal line (16) + optional discount line (16) + separator (10) + total line (20) + padding (10)
+    const totalsBoxHeight = 16 + (hasDiscount ? 16 : 0) + 10 + 20 + 10;
+
     page.drawRectangle({
       x: margin + 300,
-      y: yPos - 80,
+      y: yPos - totalsBoxHeight + 5,
       width: contentWidth - 300,
-      height: 90,
+      height: totalsBoxHeight + 5,
       color: lightGray,
     });
 
@@ -578,7 +583,7 @@ serve(async (req) => {
     yPos -= 16;
 
 
-    if ((estimate.discount_amount || 0) > 0) {
+    if (hasDiscount) {
       const discountText = `-${formatCurrency(estimate.discount_amount)}`;
       const discountWidth = helvetica.widthOfTextAtSize(discountText, 10);
       page.drawText('Discount:', { x: totalsX, y: yPos, size: 10, font: helvetica, color: black });
