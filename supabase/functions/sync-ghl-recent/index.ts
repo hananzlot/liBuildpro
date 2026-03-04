@@ -851,6 +851,24 @@ serve(async (req) => {
         console.log(`Upserted ${contactsToUpsert.length} contacts`);
       }
 
+      // Build a GHL ID -> UUID map for contact_uuid linking on opportunities
+      const contactGhlToUuid = new Map<string, string>();
+      const allGhlContactIds = Array.from(contactIds);
+      if (allGhlContactIds.length > 0) {
+        for (let i = 0; i < allGhlContactIds.length; i += 100) {
+          const batch = allGhlContactIds.slice(i, i + 100);
+          const { data: contactRows } = await supabase
+            .from('contacts')
+            .select('id, ghl_id')
+            .in('ghl_id', batch)
+            .eq('company_id', integration.company_id);
+          (contactRows || []).forEach((c: any) => {
+            if (c.ghl_id) contactGhlToUuid.set(c.ghl_id, c.id);
+          });
+        }
+        console.log(`Built contact GHL->UUID map with ${contactGhlToUuid.size} entries`);
+      }
+
       // Fetch attributions and addresses for existing contacts that we didn't just fetch
       const existingContactsToQuery = Array.from(contactIds).filter(id => 
         existingContactIds.has(id) && !contactsNeedingAttributions.has(id)
@@ -985,6 +1003,7 @@ serve(async (req) => {
           external_id: o.id,
           location_id: o.locationId || integration.location_id,
           contact_id: o.contactId || null,
+          contact_uuid: o.contactId ? (contactGhlToUuid.get(o.contactId) || null) : null,
           pipeline_id: o.pipelineId || null,
           pipeline_stage_id: o.pipelineStageId || null,
           pipeline_name: pipelineNames.get(o.pipelineId) || null,

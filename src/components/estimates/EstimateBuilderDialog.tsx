@@ -2590,6 +2590,37 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               const firstName = nameParts[0] || "";
               const lastName = nameParts.slice(1).join(" ") || "";
 
+              // If no opportunity is linked, create one automatically
+              let finalOpportunityUuid = linkedOpportunityUuid || null;
+              let finalOpportunityGhlId = linkedOpportunityGhlId || null;
+              if (!finalOpportunityUuid) {
+                try {
+                  const oppName = formData.estimate_title || formData.customer_name || 'New Opportunity';
+                  const { data: autoOpp } = await supabase.from("opportunities").insert({
+                    ghl_id: `local_opp_est_${crypto.randomUUID()}`,
+                    location_id: locationId,
+                    contact_uuid: linkedContactUuid || null,
+                    contact_id: linkedContactId || null,
+                    name: oppName,
+                    status: 'open',
+                    stage_name: 'Estimate Prepared',
+                    pipeline_name: 'Main',
+                    provider: 'local',
+                    company_id: companyId,
+                    ghl_date_added: new Date().toISOString(),
+                    address: formData.job_address || null,
+                    scope_of_work: formData.work_scope_description || null,
+                  }).select('id, ghl_id').single();
+                  if (autoOpp) {
+                    finalOpportunityUuid = autoOpp.id;
+                    finalOpportunityGhlId = autoOpp.ghl_id;
+                    console.log("Auto-created opportunity for project:", autoOpp.id);
+                  }
+                } catch (oppErr) {
+                  console.error("Failed to auto-create opportunity:", oppErr);
+                }
+              }
+
               const { data: newProject, error: projectError } = await supabase
                 .from("projects")
                 .insert({
@@ -2602,8 +2633,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   cell_phone: formData.customer_phone || null,
                   primary_salesperson: formData.salesperson_name || null,
                   project_manager: formData.salesperson_name || null,
-                  opportunity_id: linkedOpportunityGhlId || null,
-                  opportunity_uuid: linkedOpportunityUuid || null,
+                  opportunity_id: finalOpportunityGhlId,
+                  opportunity_uuid: finalOpportunityUuid,
                   contact_id: linkedContactId || null,
                   contact_uuid: linkedContactUuid || null,
                   lead_source: linkedLeadSource || null,
@@ -2695,6 +2726,37 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             const firstName = nameParts[0] || "";
             const lastName = nameParts.slice(1).join(" ") || "";
 
+            // If no opportunity is linked, create one automatically
+            let finalOpportunityUuid = linkedOpportunityUuid || null;
+            let finalOpportunityGhlId = linkedOpportunityGhlId || null;
+            if (!finalOpportunityUuid) {
+              try {
+                const oppName = formData.estimate_title || formData.customer_name || 'New Opportunity';
+                const { data: autoOpp } = await supabase.from("opportunities").insert({
+                  ghl_id: `local_opp_est_${crypto.randomUUID()}`,
+                  location_id: locationId,
+                  contact_uuid: linkedContactUuid || null,
+                  contact_id: linkedContactId || null,
+                  name: oppName,
+                  status: 'open',
+                  stage_name: 'Estimate Prepared',
+                  pipeline_name: 'Main',
+                  provider: 'local',
+                  company_id: companyId,
+                  ghl_date_added: new Date().toISOString(),
+                  address: formData.job_address || null,
+                  scope_of_work: formData.work_scope_description || null,
+                }).select('id, ghl_id').single();
+                if (autoOpp) {
+                  finalOpportunityUuid = autoOpp.id;
+                  finalOpportunityGhlId = autoOpp.ghl_id;
+                  console.log("Auto-created opportunity for existing estimate project:", autoOpp.id);
+                }
+              } catch (oppErr) {
+                console.error("Failed to auto-create opportunity:", oppErr);
+              }
+            }
+
             const { data: newProject, error: projectError } = await supabase
               .from("projects")
               .insert({
@@ -2707,8 +2769,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 cell_phone: formData.customer_phone || null,
                 primary_salesperson: formData.salesperson_name || null,
                 project_manager: formData.salesperson_name || null,
-                opportunity_id: linkedOpportunityGhlId || null,
-                opportunity_uuid: linkedOpportunityUuid || null,
+                opportunity_id: finalOpportunityGhlId,
+                opportunity_uuid: finalOpportunityUuid,
                 contact_id: linkedContactId || null,
                 contact_uuid: linkedContactUuid || null,
                 lead_source: linkedLeadSource || null,
