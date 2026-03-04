@@ -353,6 +353,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         setPreselectedAgreementType("Change Order");
         setAgreementDialogOpen(true);
       }
+      // Clear the autoOpen param from the URL to prevent re-triggering on tab switches
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('autoOpen')) {
+        url.searchParams.delete('autoOpen');
+        window.history.replaceState({}, '', url.pathname + url.search);
+      }
     }
   }, [autoOpenFinanceDialog, hasAutoOpenedFinanceDialog]);
 
