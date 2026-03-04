@@ -6160,6 +6160,8 @@ function AgreementDialog({
         onSuccess={() => {
           toast.success("Proposal sent to customer!");
           resetProposalState();
+          clearDraft();
+          setFormData(initialFormData);
           onOpenChange(false);
           queryClientAgreement.invalidateQueries({ queryKey: ["estimates"] });
           queryClientAgreement.invalidateQueries({ queryKey: ["company-estimates"] });
