@@ -50,6 +50,7 @@ import {
   Eye
 } from "lucide-react";
 import { PdfViewerDialog } from "./PdfViewerDialog";
+import { ComplianceDocViewerDialog } from "./ComplianceDocViewerDialog";
 
 interface DocumentsSectionProps {
   projectId: string;
@@ -111,6 +112,8 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [complianceViewerOpen, setComplianceViewerOpen] = useState(false);
+  const [selectedComplianceDoc, setSelectedComplianceDoc] = useState<any>(null);
 
   // Fetch all documents from project_documents table
   const { data: projectDocuments = [], isLoading: loadingDocs } = useQuery({
@@ -173,13 +176,13 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   });
 
   // Fetch signed compliance documents (may be linked by project_id or via estimate)
-  const { data: complianceDocuments = [] } = useQuery({
+  const { data: complianceData = { formatted: [], raw: [] } } = useQuery({
     queryKey: ["project-compliance-docs", projectId],
     queryFn: async () => {
       // First try direct project_id match
       const { data: directDocs, error: err1 } = await supabase
         .from("signed_compliance_documents")
-        .select("id, document_name, file_url, signed_file_url, signed_at, status, signer_name, created_at")
+        .select("id, document_name, file_url, signed_file_url, signed_at, status, signer_name, signer_email, signature_data, signature_type, signature_font, ip_address, user_agent, created_at")
         .eq("project_id", projectId)
         .order("created_at", { ascending: true });
       if (err1) throw err1;
@@ -195,7 +198,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
         const ids = estimateIds.map(e => e.id);
         const { data, error: err2 } = await supabase
           .from("signed_compliance_documents")
-          .select("id, document_name, file_url, signed_file_url, signed_at, status, signer_name, created_at")
+          .select("id, document_name, file_url, signed_file_url, signed_at, status, signer_name, signer_email, signature_data, signature_type, signature_font, ip_address, user_agent, created_at")
           .in("estimate_id", ids)
           .order("created_at", { ascending: true });
         if (err2) throw err2;
@@ -206,7 +209,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
       const allDocs = [...(directDocs || []), ...(viaDocs || [])];
       const uniqueDocs = Array.from(new Map(allDocs.map(d => [d.id, d])).values());
 
-      return uniqueDocs.map(d => ({
+      const formattedCompliance = uniqueDocs.map(d => ({
         id: d.id,
         file_name: d.document_name + (d.status === 'signed' ? ' (Signed)' : ''),
         file_url: d.signed_file_url || d.file_url,
@@ -218,6 +221,8 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
         created_at: d.signed_at || d.created_at,
         source: "compliance" as const,
       }));
+
+      return { formatted: formattedCompliance, raw: uniqueDocs };
     },
   });
 
@@ -229,7 +234,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     ),
     ...billAttachments,
     ...agreementAttachments,
-    ...complianceDocuments,
+    ...complianceData.formatted,
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   // Upload mutation
@@ -372,6 +377,16 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   };
 
   const handleDocumentClick = (doc: Document) => {
+    // For compliance docs, use the specialized viewer with signature certificate
+    if (doc.source === "compliance") {
+      const rawDoc = complianceData.raw.find(r => r.id === doc.id);
+      if (rawDoc) {
+        setSelectedComplianceDoc(rawDoc);
+        setComplianceViewerOpen(true);
+        return;
+      }
+    }
+
     const nameExt = doc.file_name.split('.').pop()?.toLowerCase() || '';
     const urlExt = doc.file_url.split('.').pop()?.split('?')[0]?.split('#')[0]?.toLowerCase() || '';
     const isPdf = nameExt === 'pdf' || urlExt === 'pdf' || doc.file_type?.includes('pdf');
@@ -595,6 +610,15 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
           onOpenChange={setPdfViewerOpen}
           fileUrl={selectedDocument.file_url}
           fileName={selectedDocument.file_name}
+        />
+      )}
+
+      {/* Compliance Doc Viewer with Signature Certificate */}
+      {selectedComplianceDoc && (
+        <ComplianceDocViewerDialog
+          open={complianceViewerOpen}
+          onOpenChange={setComplianceViewerOpen}
+          doc={selectedComplianceDoc}
         />
       )}
     </div>
