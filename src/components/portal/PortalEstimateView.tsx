@@ -406,7 +406,20 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         setSignerEmail(portalData.currentSigner.signer_email || '');
       } else if (portalData.estimate) {
         setSignerName(portalData.estimate.customer_name || '');
-        setSignerEmail(portalData.estimate.customer_email || '');
+        const email = portalData.estimate.customer_email || '';
+        setSignerEmail(email);
+        
+        // If email missing, resolve from project
+        if (!email && portalData.estimate.project_id) {
+          supabase
+            .from('projects')
+            .select('customer_email')
+            .eq('id', portalData.estimate.project_id)
+            .maybeSingle()
+            .then(({ data }) => {
+              if (data?.customer_email) setSignerEmail(data.customer_email);
+            });
+        }
       }
     }
   }, [portalData]);

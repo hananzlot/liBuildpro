@@ -72,10 +72,32 @@ export function ComplianceSigningFlow({
     font?: string;
   } | null>(null);
 
+  // Resolve email from project if not provided
   useEffect(() => {
     setSignerName(customerName);
     setSignerEmail(customerEmail);
-  }, [customerName, customerEmail]);
+    
+    // If email is missing, try to resolve from the estimate's project
+    if (!customerEmail && estimateId) {
+      (async () => {
+        const { data: est } = await supabase
+          .from('estimates')
+          .select('project_id')
+          .eq('id', estimateId)
+          .maybeSingle();
+        if (est?.project_id) {
+          const { data: proj } = await supabase
+            .from('projects')
+            .select('customer_email')
+            .eq('id', est.project_id)
+            .maybeSingle();
+          if (proj?.customer_email) {
+            setSignerEmail(proj.customer_email);
+          }
+        }
+      })();
+    }
+  }, [customerName, customerEmail, estimateId]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -624,6 +646,8 @@ export function ComplianceSigningFlow({
                       value={signerEmail}
                       onChange={(e) => setSignerEmail(e.target.value)}
                       placeholder="your@email.com"
+                      readOnly={!!customerEmail}
+                      className={customerEmail ? 'bg-muted' : ''}
                     />
                   </div>
                 </div>

@@ -584,6 +584,17 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     if (!signerEmail && selectedEstimate.customer_email) {
       setSignerEmail(selectedEstimate.customer_email);
     }
+    // Resolve email from project if missing on estimate
+    if (!signerEmail && !selectedEstimate.customer_email && selectedEstimate.project_id) {
+      supabase
+        .from('projects')
+        .select('customer_email')
+        .eq('id', selectedEstimate.project_id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.customer_email) setSignerEmail(data.customer_email);
+        });
+    }
 
     const groups = estimateDetails?.groups || [];
     const lineItems = estimateDetails?.lineItems || [];
