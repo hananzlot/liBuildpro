@@ -1131,7 +1131,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                   <CardContent className="space-y-3 px-4 pb-4">
                     <div className="grid grid-cols-1 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">First Name</Label>
+                        <Label className="text-[11px] text-muted-foreground">First Name <span className="text-destructive">*</span></Label>
                         <DebouncedInput
                           className="h-8 text-xs"
                           value={toTitleCase(fullProject?.customer_first_name || "")} 
@@ -1139,7 +1139,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Last Name</Label>
+                        <Label className="text-[11px] text-muted-foreground">Last Name <span className="text-destructive">*</span></Label>
                         <DebouncedInput
                           className="h-8 text-xs"
                           value={toTitleCase(fullProject?.customer_last_name || "")} 
@@ -1149,7 +1149,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     </div>
                     <div className="grid grid-cols-1 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Cell Phone</Label>
+                        <Label className="text-[11px] text-muted-foreground">Cell Phone <span className="text-destructive">*</span></Label>
                         <DebouncedInput
                           className="h-8 text-xs"
                           value={formatPhoneNumber(fullProject?.cell_phone)} 
@@ -1158,7 +1158,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Email</Label>
+                        <Label className="text-[11px] text-muted-foreground">Email <span className="text-destructive">*</span></Label>
                         <DebouncedInput
                           className="h-8 text-xs"
                           value={fullProject?.customer_email || ""} 
@@ -1177,7 +1177,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                   <CardContent className="space-y-3 px-4 pb-4">
                     <div className="flex gap-3">
                       <div className="space-y-1 flex-1">
-                        <Label className="text-[11px] text-muted-foreground">Project Name</Label>
+                        <Label className="text-[11px] text-muted-foreground">Project Name <span className="text-destructive">*</span></Label>
                         <DebouncedInput
                           className="h-8 text-xs"
                           value={toTitleCase(fullProject?.project_name || "")} 
@@ -1185,7 +1185,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                         />
                       </div>
                       <div className="space-y-1 w-[110px]">
-                        <Label className="text-[11px] text-muted-foreground">Start Date</Label>
+                        <Label className="text-[11px] text-muted-foreground">Start Date <span className="text-destructive">*</span></Label>
                         <Input
                           className="h-8 text-xs"
                           type="date"
@@ -1202,7 +1202,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       </div>
                       {fullProject?.project_status === "Completed" && (
                         <div className="space-y-1 w-[110px]">
-                          <Label className="text-[11px] text-muted-foreground">End Date</Label>
+                          <Label className="text-[11px] text-muted-foreground">End Date <span className="text-destructive">*</span></Label>
                           <Input
                             className={cn("h-8 text-xs", !fullProject?.completion_date && "border-destructive")}
                             type="date"
@@ -1220,7 +1220,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       )}
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Project Address</Label>
+                      <Label className="text-[11px] text-muted-foreground">Project Address <span className="text-destructive">*</span></Label>
                       <DebouncedInput
                         className="h-8 text-xs"
                         value={fullProject?.project_address || ""} 
@@ -1229,7 +1229,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Project Type</Label>
+                        <Label className="text-[11px] text-muted-foreground">Project Type <span className="text-destructive">*</span></Label>
                         <Popover open={typePopoverOpen} onOpenChange={setTypePopoverOpen}>
                           <PopoverTrigger asChild>
                             <Button
@@ -1374,7 +1374,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                         </Popover>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Lead Source</Label>
+                        <Label className="text-[11px] text-muted-foreground">Lead Source <span className="text-destructive">*</span></Label>
                         {(isAdmin || isSuperAdmin) ? (
                           <Popover open={leadSourcePopoverOpen} onOpenChange={setLeadSourcePopoverOpen}>
                             <PopoverTrigger asChild>
@@ -1493,7 +1493,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Scope of Work</Label>
+                      <Label className="text-[11px] text-muted-foreground">Scope of Work <span className="text-destructive">*</span></Label>
                       <DebouncedTextarea
                         className="text-xs min-h-[60px]"
                         value={fullProject?.scope_of_work || ""} 
