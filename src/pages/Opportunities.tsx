@@ -1,5 +1,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Database, HardDrive, Merge, Download, Plus } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
@@ -58,13 +60,30 @@ const Opportunities = () => {
 
   const syncMutation = useSyncContacts();
 
-  // Derive selected opportunity from URL param
-  const selectedOpportunity = useMemo(() => {
+  // Derive selected opportunity from URL param (from list)
+  const listOpportunity = useMemo(() => {
     if (!opportunityId || !metrics?.allOpportunities?.length) return null;
     return metrics.allOpportunities.find(
       (o: any) => o.id === opportunityId || o.ghl_id === opportunityId
     ) || null;
   }, [opportunityId, metrics?.allOpportunities]);
+
+  // Fallback: fetch individual opportunity if not found in list yet
+  const { data: fetchedOpportunity } = useQuery({
+    queryKey: ["opportunity-detail-fallback", opportunityId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("opportunities")
+        .select("*")
+        .eq("id", opportunityId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!opportunityId && !listOpportunity,
+  });
+
+  const selectedOpportunity = listOpportunity || fetchedOpportunity || null;
 
   // Modal open state derived from URL
   const oppDetailSheetOpen = !!opportunityId;

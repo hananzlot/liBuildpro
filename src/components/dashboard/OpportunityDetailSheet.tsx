@@ -2858,9 +2858,19 @@ export function OpportunityDetailSheet({
                 )}
               </div>
               {/* Right: Debug (super admin) + Opp Value + Est Cost */}
-              <div className="flex flex-col items-end gap-1 shrink-0">
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <div className="flex w-full items-center justify-end">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => onOpenChange(false)}
+                    aria-label="Close opportunity details"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
                 <div className="flex items-center gap-2">
-                  {/* Debug button — super admin only, placed left of opp value */}
                   {isSuperAdmin && (
                     <Button
                       variant="ghost"
