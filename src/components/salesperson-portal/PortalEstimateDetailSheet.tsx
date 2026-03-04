@@ -85,6 +85,7 @@ export function PortalEstimateDetailSheet({
   const [isSaving, setIsSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [previewBeforeSend, setPreviewBeforeSend] = useState(false);
 
   // Discount state
   const [discountType, setDiscountType] = useState<string | null>(null);
@@ -705,7 +706,7 @@ export function PortalEstimateDetailSheet({
                   variant="default"
                   className="w-full"
                   disabled={!canSendProposal}
-                  onClick={() => setSendDialogOpen(true)}
+                  onClick={() => setPreviewBeforeSend(true)}
                 >
                   <Send className="h-4 w-4 mr-2" />
                   Send as Proposal
@@ -737,6 +738,31 @@ export function PortalEstimateDetailSheet({
         onOpenChange={setPreviewOpen}
       />
 
+      {/* Preview-before-send Dialog */}
+      <EstimatePreviewDialog
+        estimateId={estimateId}
+        open={previewBeforeSend}
+        onOpenChange={(open) => {
+          setPreviewBeforeSend(open);
+        }}
+      />
+
+      {/* Confirm send after preview - show when preview-before-send is open */}
+      {previewBeforeSend && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex gap-3 bg-background border rounded-lg shadow-xl p-3">
+          <Button variant="outline" onClick={() => setPreviewBeforeSend(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => {
+            setPreviewBeforeSend(false);
+            setSendDialogOpen(true);
+          }}>
+            <Send className="h-4 w-4 mr-2" />
+            Confirm & Send
+          </Button>
+        </div>
+      )}
+
       {/* Send Proposal Dialog */}
       {estimate && (
         <SendProposalDialog
@@ -749,15 +775,11 @@ export function PortalEstimateDetailSheet({
           customerPhone={estimate.customer_phone}
           jobAddress={editedCustomerInfo.job_address ?? estimate.job_address}
           onSuccess={() => {
-            // Invalidate portal-specific queries
             queryClient.invalidateQueries({ queryKey: ["portal-estimate-detail", estimateId] });
             queryClient.invalidateQueries({ queryKey: ["portal-my-estimates"] });
-            // Invalidate proposals section so it shows the newly sent proposal
             queryClient.invalidateQueries({ queryKey: ["salesperson-portal-proposals"] });
-            // Also invalidate main app estimate queries
             queryClient.invalidateQueries({ queryKey: ["estimates"] });
             queryClient.invalidateQueries({ queryKey: ["company-estimates"] });
-            // Close the sheet after successful send
             onOpenChange(false);
           }}
         />

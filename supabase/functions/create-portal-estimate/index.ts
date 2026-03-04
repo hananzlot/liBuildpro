@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 function isUuid(value: string): boolean {
-  // Accept canonical UUIDs, including all-zero UUIDs used in seed/test data.
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
@@ -40,17 +39,22 @@ serve(async (req) => {
       companyId,
       salespersonId,
       salespersonName,
-      // pre-resolved details from the portal UI
       customerName,
       customerEmail,
       customerPhone,
       jobAddress,
       workScope,
       opportunityUuid,
-      opportunityGhlId,
-      contactId,
       contactUuid,
+      projectId,
       leadSource,
+      // Manual estimate fields
+      isManual,
+      estimateTotal,
+      estimatedCost,
+      progressPayments,
+      // Change order
+      isChangeOrder,
     } = body as Record<string, unknown>;
 
     if (typeof portalToken !== "string" || portalToken.trim().length < 10) {
@@ -78,13 +82,15 @@ serve(async (req) => {
       return json(400, { error: "jobAddress too long" });
     }
 
-    // Ensure a ZIP code exists before allowing AI estimate generation
-    const zipRegex = /\b\d{5}(-\d{4})?\b/;
-    if (!zipRegex.test(jobAddress)) {
-      return json(400, { error: "Missing ZIP code in job address" });
+    // For AI estimates, require ZIP code. Manual estimates don't need it.
+    if (!isManual) {
+      const zipRegex = /\b\d{5}(-\d{4})?\b/;
+      if (!zipRegex.test(jobAddress)) {
+        return json(400, { error: "Missing ZIP code in job address" });
+      }
     }
 
-    // Validate salesperson portal token (must match company + salesperson)
+    // Validate salesperson portal token
     const { data: tokenRow, error: tokenError } = await supabase
       .from("salesperson_portal_tokens")
       .select("id, company_id, salesperson_id, is_active, expires_at")
@@ -120,38 +126,55 @@ serve(async (req) => {
         : "";
 
     const estimateDate = new Date().toISOString().split("T")[0];
-    const estimateTitle = `Estimate for ${safeCustomerName}`.slice(0, 255);
+    const titlePrefix = isChangeOrder ? "Change Order for" : "Estimate for";
+    const estimateTitle = `${titlePrefix} ${safeCustomerName}`.slice(0, 255);
+
+    // Build the estimate insert object (UUID-only linking)
+    const estimateInsert: Record<string, unknown> = {
+      company_id: companyId,
+      customer_name: safeCustomerName,
+      customer_email: safeCustomerEmail || null,
+      customer_phone: safeCustomerPhone || null,
+      job_address: jobAddress.trim(),
+      estimate_title: estimateTitle,
+      estimate_date: estimateDate,
+      status: "draft",
+      work_scope_description: workScope.trim(),
+      salesperson_name: salespersonName.trim(),
+      salesperson_id: salespersonId,
+      created_by_source: "salesperson_portal",
+      opportunity_uuid:
+        typeof opportunityUuid === "string" && isUuid(opportunityUuid)
+          ? opportunityUuid
+          : null,
+      contact_uuid:
+        typeof contactUuid === "string" && isUuid(contactUuid)
+          ? contactUuid
+          : null,
+      project_id:
+        typeof projectId === "string" && isUuid(projectId)
+          ? projectId
+          : null,
+      lead_source: typeof leadSource === "string" ? leadSource : null,
+      show_details_to_customer: false,
+      show_scope_to_customer: true,
+      show_line_items_to_customer: true,
+    };
+
+    // Manual estimate fields
+    if (isManual) {
+      const total = typeof estimateTotal === "number" ? estimateTotal : 0;
+      estimateInsert.total = total;
+      estimateInsert.manual_total = total;
+      estimateInsert.subtotal = total;
+      if (typeof estimatedCost === "number") {
+        estimateInsert.estimated_cost = estimatedCost;
+      }
+    }
 
     const { data: estimate, error: estimateError } = await supabase
       .from("estimates")
-      .insert({
-        company_id: companyId,
-        customer_name: safeCustomerName,
-        customer_email: safeCustomerEmail || null,
-        customer_phone: safeCustomerPhone || null,
-        job_address: jobAddress.trim(),
-        estimate_title: estimateTitle,
-        estimate_date: estimateDate,
-        status: "draft",
-        work_scope_description: workScope.trim(),
-        salesperson_name: salespersonName.trim(),
-        salesperson_id: salespersonId,
-        created_by_source: "salesperson_portal",
-        opportunity_uuid:
-          typeof opportunityUuid === "string" && isUuid(opportunityUuid)
-            ? opportunityUuid
-            : null,
-        opportunity_id: typeof opportunityGhlId === "string" ? opportunityGhlId : null,
-        contact_id: typeof contactId === "string" ? contactId : null,
-        contact_uuid:
-          typeof contactUuid === "string" && isUuid(contactUuid)
-            ? contactUuid
-            : null,
-        lead_source: typeof leadSource === "string" ? leadSource : null,
-        show_details_to_customer: false,
-        show_scope_to_customer: true,
-        show_line_items_to_customer: true,
-      })
+      .insert(estimateInsert)
       .select("id")
       .single();
 
@@ -160,6 +183,35 @@ serve(async (req) => {
       return json(500, { error: "Failed to create estimate" });
     }
 
+    // For manual estimates: insert progress payments, skip AI
+    if (isManual) {
+      if (Array.isArray(progressPayments) && progressPayments.length > 0) {
+        const paymentRows = progressPayments
+          .filter((p: unknown) => p && typeof p === "object")
+          .map((p: Record<string, unknown>, idx: number) => ({
+            estimate_id: estimate.id,
+            phase_name: typeof p.phaseName === "string" ? p.phaseName.slice(0, 255) : `Phase ${idx + 1}`,
+            amount: typeof p.amount === "number" ? p.amount : 0,
+            sort_order: idx,
+            company_id: companyId,
+          }));
+
+        if (paymentRows.length > 0) {
+          const { error: paymentError } = await supabase
+            .from("estimate_payment_schedule")
+            .insert(paymentRows);
+
+          if (paymentError) {
+            console.error("Payment schedule insert error:", paymentError);
+            // Non-fatal: estimate was created
+          }
+        }
+      }
+
+      return json(200, { success: true, estimateId: estimate.id, manual: true });
+    }
+
+    // AI path: create generation job and trigger
     const { data: jobData, error: jobError } = await supabase.from("estimate_generation_jobs").insert({
       company_id: companyId,
       estimate_id: estimate.id,
@@ -180,14 +232,11 @@ serve(async (req) => {
       return json(500, { error: "Estimate created but failed to queue AI job", estimateId: estimate.id });
     }
 
-    // Trigger AI generation (non-blocking)
-    // IMPORTANT: generate-estimate-scope expects camelCase params (jobId, companyId, jobAddress, workScopeDescription, ...)
     const triggerPayload = {
       companyId,
       jobId: jobData.id,
       jobAddress: jobAddress.trim(),
       workScopeDescription: workScope.trim(),
-      // Portal estimates don't have plans/groups yet; keep a sane default.
       projectType: "General",
       defaultMarkupPercent: 50,
       stagedMode: true,
@@ -213,7 +262,6 @@ serve(async (req) => {
       // @ts-ignore
       EdgeRuntime.waitUntil(triggerTask);
     } else {
-      // Fallback: fire-and-forget
       triggerTask.catch((err) => console.error("AI trigger task failed:", err));
     }
 
