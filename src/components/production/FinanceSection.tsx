@@ -73,6 +73,7 @@ import {
   ExternalLink,
   X,
   MoreVertical,
+  Send,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -93,6 +94,8 @@ import { CommissionInvoiceDialog } from "./CommissionInvoiceDialog";
 import { InvoiceConfirmDialog } from "./InvoiceConfirmDialog";
 import { usePersistedDialog } from "@/hooks/usePersistedDialog";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
+import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
+import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
 
 interface SalespersonData {
   name: string | null;
@@ -3755,6 +3758,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         existingAgreements={agreements}
         preselectedType={preselectedAgreementType}
         onPreselectedTypeConsumed={() => setPreselectedAgreementType(null)}
+        customerName={customerName}
+        projectAddress={projectAddress}
+        projectName={projectName}
       />
 
       {/* Extracted Phases Review Dialog */}
@@ -5530,6 +5536,9 @@ function AgreementDialog({
   existingAgreements = [],
   preselectedType,
   onPreselectedTypeConsumed,
+  customerName,
+  projectAddress,
+  projectName,
 }: {
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -5543,6 +5552,9 @@ function AgreementDialog({
   existingAgreements?: Agreement[];
   preselectedType?: string | null;
   onPreselectedTypeConsumed?: () => void;
+  customerName?: string | null;
+  projectAddress?: string | null;
+  projectName?: string | null;
 }) {
   const initialFormData = {
     agreement_number: "",
@@ -5560,6 +5572,37 @@ function AgreementDialog({
   );
 
   const [isExtracting, setIsExtracting] = useState(false);
+
+  // Proposal workflow state
+  const [showProposalForm, setShowProposalForm] = useState(false);
+  const [proposalTotal, setProposalTotal] = useState<number>(0);
+  const [proposalEstimatedCost, setProposalEstimatedCost] = useState<number>(0);
+  const [proposalPayments, setProposalPayments] = useState<Array<{ phaseName: string; amount: number }>>([
+    { phaseName: "Deposit", amount: 0 },
+  ]);
+  const [isCreatingProposal, setIsCreatingProposal] = useState(false);
+  const [proposalEstimateId, setProposalEstimateId] = useState<string | null>(null);
+  const [showProposalPreview, setShowProposalPreview] = useState(false);
+  const [showSendDialog, setShowSendDialog] = useState(false);
+  const queryClientAgreement = useQueryClient();
+
+  // Fetch customer email for proposal sending
+  const { data: projectCustomerEmail } = useQuery({
+    queryKey: ["project-customer-email", projectId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("projects")
+        .select("customer_email")
+        .eq("id", projectId)
+        .single();
+      return data?.customer_email || "";
+    },
+    enabled: open && showProposalForm,
+  });
+
+  const proposalPaymentsTotal = proposalPayments.reduce((s, p) => s + p.amount, 0);
+  const proposalPaymentsBalanced = proposalTotal > 0 && Math.abs(proposalPaymentsTotal - proposalTotal) < 0.01;
+  const proposalPaymentsDifference = proposalTotal - proposalPaymentsTotal;
 
   // Query to get the next agreement number (starting from 1201)
   const { data: nextAgreementNumber } = useQuery({
@@ -5725,17 +5768,92 @@ function AgreementDialog({
     }
   };
 
+  // Create proposal estimate and show preview
+  const handleCreateProposal = async () => {
+    if (proposalTotal <= 0) { toast.error("Total must be greater than zero"); return; }
+    if (!proposalPaymentsBalanced) { toast.error("Payments must equal the total"); return; }
+    if (!formData.description_of_work?.trim()) { toast.error("Description of work is required"); return; }
+
+    setIsCreatingProposal(true);
+    try {
+      const estimateTitle = `Change Order for ${customerName || projectName || "Customer"}`;
+
+      // Create estimate record
+      const { data: estimate, error: estError } = await supabase
+        .from("estimates")
+        .insert({
+          company_id: companyId,
+          customer_name: customerName || projectName || "Customer",
+          customer_email: projectCustomerEmail || null,
+          job_address: projectAddress || "",
+          estimate_title: estimateTitle,
+          estimate_date: new Date().toISOString().split("T")[0],
+          status: "draft",
+          work_scope_description: formData.description_of_work?.trim() || "",
+          project_id: projectId,
+          total: proposalTotal,
+          manual_total: proposalTotal,
+          subtotal: proposalTotal,
+          estimated_cost: proposalEstimatedCost || null,
+          show_details_to_customer: false,
+          show_scope_to_customer: true,
+          show_line_items_to_customer: true,
+        } as any)
+        .select("id")
+        .single();
+
+      if (estError || !estimate) throw estError || new Error("Failed to create estimate");
+
+      // Insert progress payments
+      const paymentRows = proposalPayments
+        .filter(p => p.phaseName.trim())
+        .map((p, idx) => ({
+          estimate_id: estimate.id,
+          phase_name: p.phaseName.slice(0, 255),
+          amount: p.amount,
+          sort_order: idx,
+          company_id: companyId,
+        }));
+
+      if (paymentRows.length > 0) {
+        await supabase.from("estimate_payment_schedule").insert(paymentRows);
+      }
+
+      setProposalEstimateId(estimate.id);
+      setShowProposalPreview(true);
+      toast.success("Proposal created! Review before sending.");
+    } catch (err: any) {
+      console.error("Create proposal error:", err);
+      toast.error(err.message || "Failed to create proposal");
+    } finally {
+      setIsCreatingProposal(false);
+    }
+  };
+
+  // Reset proposal state
+  const resetProposalState = () => {
+    setShowProposalForm(false);
+    setProposalTotal(0);
+    setProposalEstimatedCost(0);
+    setProposalPayments([{ phaseName: "Deposit", amount: 0 }]);
+    setProposalEstimateId(null);
+    setShowProposalPreview(false);
+    setShowSendDialog(false);
+  };
+
   // Wrap onOpenChange to clear draft when closing
   const handleOpenChange = (value: boolean) => {
     if (!value) {
       clearDraft();
       setValidationErrors({});
       setDateError("");
+      resetProposalState();
     }
     onOpenChange(value);
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
@@ -5823,23 +5941,25 @@ function AgreementDialog({
           </div>
           <div>
             <Label>Contract Document</Label>
-            {!agreement && !formData.attachment_url && (
+            {!agreement && !formData.attachment_url && !showProposalForm && (
               <div className="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm text-muted-foreground mb-2">
                 <Sparkles className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
                 <span>
-                  Upload a PDF contract and <strong className="text-foreground">AI will automatically generate progress payment phases</strong> from the document — no manual entry needed.
+                  Upload an executed PDF contract and <strong className="text-foreground">AI will automatically generate progress payment phases</strong> from the document — no manual entry needed.
                 </span>
               </div>
             )}
-            <FileUpload
-              projectId={projectId}
-              currentUrl={formData.attachment_url}
-              onUpload={(url) => updateFormData({ attachment_url: url })}
-              folder="agreements"
-            />
+            {!showProposalForm && (
+              <FileUpload
+                projectId={projectId}
+                currentUrl={formData.attachment_url}
+                onUpload={(url) => updateFormData({ attachment_url: url })}
+                folder="agreements"
+              />
+            )}
           </div>
           {/* Extract Phases from PDF button */}
-          {formData.attachment_url && formData.attachment_url.toLowerCase().includes('.pdf') && (
+          {!showProposalForm && formData.attachment_url && formData.attachment_url.toLowerCase().includes('.pdf') && (
             <Button
               type="button"
               variant="outline"
@@ -5861,16 +5981,192 @@ function AgreementDialog({
               )}
             </Button>
           )}
+
+          {/* Send Proposal for Signature - only for Change Order / Addendum */}
+          {!agreement && hasContract && formData.agreement_type !== "Contract" && !showProposalForm && (
+            <div className="border-t pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => setShowProposalForm(true)}
+              >
+                <Send className="h-4 w-4" />
+                Send Proposal for Customer Signature
+              </Button>
+              <p className="text-xs text-muted-foreground mt-1 text-center">
+                Create and send a proposal for the customer to review and sign digitally
+              </p>
+            </div>
+          )}
+
+          {/* Proposal Form */}
+          {showProposalForm && (
+            <div className="border rounded-lg p-4 bg-muted/30 space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">Proposal Details</Label>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setShowProposalForm(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Estimate Total ($)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={proposalTotal || ""}
+                    onChange={(e) => setProposalTotal(parseFloat(e.target.value) || 0)}
+                    placeholder="Total amount"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Estimated Costs ($)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={proposalEstimatedCost || ""}
+                    onChange={(e) => setProposalEstimatedCost(parseFloat(e.target.value) || 0)}
+                    placeholder="Your estimated cost"
+                  />
+                </div>
+              </div>
+
+              {/* Progress Payments */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">Progress Payments</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (proposalPayments.length < 10) {
+                        setProposalPayments([...proposalPayments, { phaseName: "", amount: 0 }]);
+                      }
+                    }}
+                    disabled={proposalPayments.length >= 10}
+                    className="h-7 text-xs"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add
+                  </Button>
+                </div>
+                {proposalPayments.map((payment, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <Input
+                      value={payment.phaseName}
+                      onChange={(e) => setProposalPayments(prev => prev.map((p, i) => i === idx ? { ...p, phaseName: e.target.value } : p))}
+                      placeholder="Phase name"
+                      className="h-8 text-sm flex-1"
+                    />
+                    <div className="relative w-28">
+                      <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={payment.amount || ""}
+                        onChange={(e) => setProposalPayments(prev => prev.map((p, i) => i === idx ? { ...p, amount: parseFloat(e.target.value) || 0 } : p))}
+                        className="h-8 text-sm pl-6"
+                      />
+                    </div>
+                    {proposalPayments.length > 1 && (
+                      <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0"
+                        onClick={() => setProposalPayments(prev => prev.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Payments Total:</span>
+                  <span className={proposalPaymentsBalanced ? "text-emerald-600 font-medium" : "text-amber-600 font-medium"}>
+                    ${proposalPaymentsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                {!proposalPaymentsBalanced && proposalTotal > 0 && (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      {proposalPaymentsDifference > 0
+                        ? `$${proposalPaymentsDifference.toFixed(2)} remaining to allocate`
+                        : `$${Math.abs(proposalPaymentsDifference).toFixed(2)} over the estimate total`}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                type="button"
+                className="w-full"
+                onClick={handleCreateProposal}
+                disabled={isCreatingProposal || proposalTotal <= 0 || !proposalPaymentsBalanced}
+              >
+                {isCreatingProposal ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
+                Review & Preview Proposal
+              </Button>
+            </div>
+          )}
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            {/* Hide Save button for new contracts when a PDF is uploaded (AI button handles save) */}
-            {(agreement || !formData.attachment_url || !formData.attachment_url.toLowerCase().includes('.pdf')) && (
+            {/* Hide Save button for new contracts when a PDF is uploaded (AI button handles save) or when proposal form is showing */}
+            {!showProposalForm && (agreement || !formData.attachment_url || !formData.attachment_url.toLowerCase().includes('.pdf')) && (
               <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
             )}
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Proposal Preview Dialog */}
+    <EstimatePreviewDialog
+      estimateId={proposalEstimateId}
+      open={showProposalPreview}
+      onOpenChange={setShowProposalPreview}
+    />
+
+    {/* Floating confirm bar when previewing */}
+    {showProposalPreview && proposalEstimateId && (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex gap-3 bg-background border rounded-lg shadow-xl p-3">
+        <Button variant="outline" onClick={() => setShowProposalPreview(false)}>
+          Back
+        </Button>
+        <Button onClick={() => {
+          setShowProposalPreview(false);
+          setShowSendDialog(true);
+        }}>
+          <Send className="h-4 w-4 mr-2" />
+          Confirm & Send to Customer
+        </Button>
+      </div>
+    )}
+
+    {/* Send Proposal Dialog */}
+    {proposalEstimateId && (
+      <SendProposalDialog
+        open={showSendDialog}
+        onOpenChange={setShowSendDialog}
+        estimateId={proposalEstimateId}
+        companyId={companyId}
+        customerName={customerName || ""}
+        customerEmail={projectCustomerEmail || null}
+        jobAddress={projectAddress}
+        onSuccess={() => {
+          toast.success("Proposal sent to customer!");
+          resetProposalState();
+          onOpenChange(false);
+          queryClientAgreement.invalidateQueries({ queryKey: ["estimates"] });
+          queryClientAgreement.invalidateQueries({ queryKey: ["company-estimates"] });
+        }}
+      />
+    )}
+  </>
   );
 }
 
