@@ -5604,6 +5604,15 @@ function AgreementDialog({
   const proposalPaymentsBalanced = proposalTotal > 0 && Math.abs(proposalPaymentsTotal - proposalTotal) < 0.01;
   const proposalPaymentsDifference = proposalTotal - proposalPaymentsTotal;
 
+  // Required fields validation — disable action buttons until all filled
+  const requiredFieldsFilled = !!(
+    formData.agreement_type &&
+    formData.agreement_signed_date &&
+    formData.total_price &&
+    parseFloat(formData.total_price) > 0 &&
+    formData.description_of_work?.trim()
+  );
+
   // Query to get the next agreement number (starting from 1201)
   const { data: nextAgreementNumber } = useQuery({
     queryKey: ["next-agreement-number"],
@@ -5855,12 +5864,12 @@ function AgreementDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{agreement ? "Edit Agreement" : "Add Agreement"}</DialogTitle>
           <DialogDescription>Enter agreement/contract details below.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto flex-1 pr-1">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Agreement Number</Label>
@@ -5967,7 +5976,7 @@ function AgreementDialog({
               size="sm"
               className="w-full gap-2"
               onClick={handleExtractPhases}
-              disabled={isExtracting || isPending}
+              disabled={isExtracting || isPending || !requiredFieldsFilled}
             >
               {isExtracting ? (
                 <>
@@ -5991,6 +6000,7 @@ function AgreementDialog({
                 variant="outline"
                 className="w-full gap-2"
                 onClick={() => setShowProposalForm(true)}
+                disabled={!requiredFieldsFilled}
               >
                 <Send className="h-4 w-4" />
                 Send Proposal for Customer Signature
@@ -6118,7 +6128,7 @@ function AgreementDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             {/* Hide Save button for new contracts when a PDF is uploaded (AI button handles save) or when proposal form is showing */}
             {!showProposalForm && (agreement || !formData.attachment_url || !formData.attachment_url.toLowerCase().includes('.pdf')) && (
-              <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
+              <Button type="submit" disabled={isPending || !requiredFieldsFilled}>{isPending ? "Saving..." : "Save"}</Button>
             )}
           </DialogFooter>
         </form>
