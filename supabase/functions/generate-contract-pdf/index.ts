@@ -920,6 +920,10 @@ serve(async (req) => {
           page.drawText(sanitizeLine(`Email: ${sig.signer_email}`), { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
           yPos -= 12;
         }
+        if (sig.ip_address) {
+          page.drawText(sanitizeLine(`IP Address: ${sig.ip_address}`), { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
+          yPos -= 12;
+        }
         page.drawText(`Date: ${formatDate(sig.signed_at)}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
         yPos -= 25;
       }
