@@ -574,7 +574,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             const createdAgreementId = await createAgreementAndPaymentPhases(
               portalData!.estimate.project_id,
               portalData!.estimate,
-              portalData!.token.company_id,
+              portalData!.token.company_id || portalData!.estimate.company_id || '',
               signedDate
             );
 
@@ -632,7 +632,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           const createdAgreementId2 = await createAgreementAndPaymentPhases(
             portalData!.estimate.project_id,
             portalData!.estimate,
-            portalData!.token.company_id,
+            portalData!.token.company_id || portalData!.estimate.company_id || '',
             signedDate
           );
 
