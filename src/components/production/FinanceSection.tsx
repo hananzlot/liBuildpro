@@ -217,6 +217,7 @@ interface Agreement {
   agreement_number: string | null;
   agreement_type: string | null;
   agreement_signed_date: string | null;
+  created_at: string | null;
   total_price: number | null;
   description_of_work: string | null;
   attachment_url: string | null;
@@ -5566,6 +5567,7 @@ function AgreementDialog({
     agreement_number: "",
     agreement_type: "",
     agreement_signed_date: "",
+    created_at: "",
     total_price: "",
     description_of_work: "",
     attachment_url: null as string | null,
@@ -5667,6 +5669,7 @@ function AgreementDialog({
         agreement_number: agreement.agreement_number || "",
         agreement_type: agreement.agreement_type || "",
         agreement_signed_date: agreement.agreement_signed_date || "",
+        created_at: agreement.created_at ? agreement.created_at.split('T')[0] : "",
         total_price: agreement.total_price?.toString() || "",
         description_of_work: agreement.description_of_work || "",
         attachment_url: agreement.attachment_url || null,
@@ -5721,6 +5724,7 @@ function AgreementDialog({
         agreement_number: formData.agreement_number || null,
         agreement_type: formData.agreement_type || null,
         agreement_signed_date: formData.agreement_signed_date || null,
+        created_at: formData.created_at ? formData.created_at + 'T00:00:00' : null,
         total_price: parseFloat(formData.total_price) || 0,
         description_of_work: formData.description_of_work || null,
         attachment_url: formData.attachment_url,
@@ -5905,7 +5909,7 @@ function AgreementDialog({
               )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label>Date Signed <span className="text-destructive">*</span></Label>
               <Input 
@@ -5916,6 +5920,17 @@ function AgreementDialog({
               />
               {(dateError || validationErrors.agreement_signed_date) && <p className="text-xs text-destructive mt-1">{dateError || validationErrors.agreement_signed_date}</p>}
             </div>
+            {agreement && (
+              <div>
+                <Label>Created Date</Label>
+                <Input 
+                  type="date" 
+                  value={formData.created_at} 
+                  onChange={(e) => updateFormData({ created_at: e.target.value })} 
+                />
+                <p className="text-xs text-muted-foreground mt-1">Record creation date</p>
+              </div>
+            )}
             <div>
               <Label>Total Value ($) <span className="text-destructive">*</span></Label>
               <Input 
