@@ -117,7 +117,8 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
   }, [agreements]);
 
   const additionalAgreements = useMemo(() => {
-    const mainId = mainContract?.id;
+    // Only exclude mainContract from additional list if we're actually rendering it as the hero
+    const mainId = (!acceptedEstimate && mainContract) ? mainContract.id : null;
     return agreements
       .filter((a: any) => a.id !== mainId)
       .sort((a: any, b: any) => {
@@ -125,7 +126,7 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
         const dateB = new Date((b.agreement_signed_date ? b.agreement_signed_date + 'T00:00:00' : null) || b.created_at).getTime();
         return dateA - dateB;
       });
-  }, [agreements, mainContract]);
+  }, [agreements, mainContract, acceptedEstimate]);
 
   const openAgreementPdf = async (agreement: any) => {
     if (!agreement?.attachment_url) return;
