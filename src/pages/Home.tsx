@@ -44,7 +44,7 @@ const Home = () => {
 
   const quickAccessItems = [
     {
-      title: "Dispatch Dashboard",
+      title: "Sales (Dispatch)",
       description: "View opportunities, appointments, and lead metrics",
       icon: LayoutDashboard,
       path: "/dashboard",
