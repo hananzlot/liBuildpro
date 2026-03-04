@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { logAudit } from "@/hooks/useAuditLog";
+import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,6 +57,31 @@ export function ProjectEditorContent({
   const queryClient = useQueryClient();
   const isEditing = !!projectId;
 
+  const DRAFT_INITIAL = {
+    project_name: "",
+    customer_first_name: "",
+    customer_last_name: "",
+    customer_email: "",
+    cell_phone: "",
+    home_phone: "",
+    project_address: "",
+    project_type: "",
+    project_status: "New Job",
+    primary_salesperson: "",
+    estimated_cost: "",
+    lead_cost_percent: "",
+    lead_source: "",
+    branch: "",
+    install_notes: "",
+    selectedContactId: null as string | null,
+  };
+
+  const { draft, updateDraft, clearDraft, isDirty } = usePersistentDraft(
+    "project-editor",
+    DRAFT_INITIAL,
+    projectId ?? undefined,
+    !isEditing, // only persist drafts for new projects
+  );
 
   // Fetch existing project if editing
   const { data: existingProject, isLoading: isLoadingProject } = useQuery({
@@ -173,7 +199,9 @@ export function ProjectEditorContent({
   
   const [contactSearchOpen, setContactSearchOpen] = useState(false);
   const [contactSearchQuery, setContactSearchQuery] = useState("");
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(() => 
+    !isEditing ? draft.selectedContactId : null
+  );
   
   const filteredContacts = useMemo(() => {
     if (!contactSearchQuery.trim()) return contacts.slice(0, 50);
@@ -197,22 +225,29 @@ export function ProjectEditorContent({
   const [pendingEmail, setPendingEmail] = useState<string>("");
   const [originalEmail, setOriginalEmail] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
-    project_name: "",
-    customer_first_name: "",
-    customer_last_name: "",
-    customer_email: "",
-    cell_phone: "",
-    home_phone: "",
-    project_address: "",
-    project_type: "",
-    project_status: "New Job",
-    primary_salesperson: "",
-    estimated_cost: "",
-    lead_cost_percent: "",
-    lead_source: "",
-    branch: "",
-    install_notes: "",
+  const [formData, setFormData] = useState(() => {
+    if (!isEditing) {
+      // Restore from draft for new projects
+      const { selectedContactId: _sc, ...draftForm } = draft;
+      return draftForm;
+    }
+    return {
+      project_name: "",
+      customer_first_name: "",
+      customer_last_name: "",
+      customer_email: "",
+      cell_phone: "",
+      home_phone: "",
+      project_address: "",
+      project_type: "",
+      project_status: "New Job",
+      primary_salesperson: "",
+      estimated_cost: "",
+      lead_cost_percent: "",
+      lead_source: "",
+      branch: "",
+      install_notes: "",
+    };
   });
 
   // Populate form when editing
@@ -313,6 +348,7 @@ export function ProjectEditorContent({
     onSuccess: (data) => {
       toast.success(isEditing ? "Project updated successfully" : "Project created successfully");
       queryClient.invalidateQueries({ queryKey: ["projects"] });
+      clearDraft();
       onSuccess?.(data.id);
       onClose();
     },
@@ -323,8 +359,17 @@ export function ProjectEditorContent({
   });
 
   const updateField = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      if (!isEditing) updateDraft({ [field]: value });
+      return next;
+    });
   };
+
+  // Persist selectedContactId to draft
+  useEffect(() => {
+    if (!isEditing) updateDraft({ selectedContactId });
+  }, [selectedContactId, isEditing]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,7 +396,7 @@ export function ProjectEditorContent({
     <>
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-background sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={onClose}>
             <ArrowLeft className="h-5 w-5" />
