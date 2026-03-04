@@ -269,7 +269,8 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
   const activeEstimates = estimates.filter((e: any) => e.status !== 'accepted' && !isExpired(e));
 
   // Find the accepted estimate for scope of work
-  const acceptedEstimate = estimates.find(e => e.status === 'accepted');
+  // Find the FIRST (oldest) accepted estimate — this is the original contract
+  const acceptedEstimate = [...estimates].reverse().find(e => e.status === 'accepted');
 
   const customerName = `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim();
   const customerInitials = `${project.customer_first_name?.charAt(0) || ''}${project.customer_last_name?.charAt(0) || ''}`.toUpperCase() || 'C';
