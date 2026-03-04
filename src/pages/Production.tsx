@@ -2106,38 +2106,19 @@ export default function Production() {
                             onClick={() => handleOpenProject(project)}
                           >
                             <TableCell className="w-6 min-w-6 max-w-6 p-0 pr-0">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <MoreVertical className="h-3.5 w-3.5" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
-                                  {project.customer_email && (
-                                    <DropdownMenuItem
-                                      onClick={() => setEmailConfirmProjectId(project.id)}
-                                      disabled={sendPortalEmailMutation.isPending}
-                                    >
-                                      <Mail className="h-3.5 w-3.5 mr-2" />
-                                      Send portal email
-                                    </DropdownMenuItem>
-                                  )}
-                                  {isAdmin && (
-                                    <DropdownMenuItem
-                                      className="text-destructive focus:text-destructive"
-                                      onClick={() => handleDeleteTestProject(project)}
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              {isAdmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTestProject(project);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
                             </TableCell>
                             <TableCell className="font-medium text-xs truncate p-0 pl-0.5">
                               <div className="flex flex-col min-w-0">
