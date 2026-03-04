@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -98,6 +98,7 @@ interface SubcontractorsManagementProps {
 }
 
 export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: SubcontractorsManagementProps = {}) {
+  const { openTab } = useAppTabs();
   const queryClient = useQueryClient();
   const { user, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
@@ -115,8 +116,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
   // Auto-open the add dialog if requested (from bill flow)
   useEffect(() => {
     if (autoOpenAdd && !hasAutoOpened) {
-      setDialogOpen(true);
-      setEditingSubcontractor(null);
+      openTab('/vendor/new', 'New Subcontractor');
       setHasAutoOpened(true);
     }
   }, [autoOpenAdd, hasAutoOpened]);
@@ -449,7 +449,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
               <SelectItem value="inactive">Inactive ({inactiveSubcontractors.length})</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => { setEditingSubcontractor(null); setDialogOpen(true); }}>
+          <Button onClick={() => openTab('/vendor/new', 'New Subcontractor')}>
             <Plus className="h-4 w-4 mr-2" />
             Add Subcontractor
           </Button>
@@ -648,8 +648,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                           size="sm"
                           className="h-7 w-7 p-0"
                           onClick={() => {
-                            setEditingSubcontractor(sub);
-                            setDialogOpen(true);
+                            openTab(`/vendor/${sub.id}`, `Edit: ${sub.company_name}`);
                           }}
                         >
                           <Pencil className="h-3 w-3" />

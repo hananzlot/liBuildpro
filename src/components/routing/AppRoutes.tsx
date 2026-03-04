@@ -11,6 +11,7 @@ import MagazineSales from "@/pages/MagazineSales";
 import Estimates from "@/pages/Estimates";
 import EstimateBuilder from "@/pages/EstimateBuilder";
 import ProjectEditor from "@/pages/ProjectEditor";
+import SubcontractorEditor from "@/pages/SubcontractorEditor";
 import ProjectDetail from "@/pages/ProjectDetail";
 import OpportunityDetail from "@/pages/OpportunityDetail";
 import AppointmentDetail from "@/pages/AppointmentDetail";
@@ -369,6 +370,23 @@ export function AppRoutes() {
           }
         />
         
+        {/* Subcontractor editor - full page routes that open in tabs */}
+        <Route
+          path="/vendor/new"
+          element={
+            <ProtectedRoute requiredRole="production" requiredFeature="production">
+              <SubcontractorEditor />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/vendor/:id"
+          element={
+            <ProtectedRoute requiredRole="production" requiredFeature="production">
+              <SubcontractorEditor />
+            </ProtectedRoute>
+          }
+        />
         {/* Admin settings - admin only */}
         <Route
           path="/admin/settings"
