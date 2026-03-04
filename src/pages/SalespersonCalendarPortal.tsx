@@ -6,7 +6,7 @@ import { fetchAllPages } from "@/lib/supabasePagination";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, addDays, subDays, isToday, isSameDay, parseISO } from "date-fns";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, FolderOpen, Mail, ExternalLink, Plus } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, FolderOpen, Mail, ExternalLink, Plus, Home, PenSquare, ClipboardList, Send, Upload, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -102,7 +102,7 @@ function formatTimeShort(dateStr: string | null): string {
 
 export default function SalespersonCalendarPortal() {
   const { token } = useParams<{ token: string }>();
-  const [activeTab, setActiveTab] = useState<"calendar" | "tools">("tools");
+  const [activeTab, setActiveTab] = useState<"home" | "calendar" | "create" | "projects" | "estimates" | "proposals">("home");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -349,6 +349,11 @@ export default function SalespersonCalendarPortal() {
       <header className="sticky top-0 z-50 bg-card border-b border-border px-4 py-3">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
+            {activeTab !== "home" && (
+              <Button variant="ghost" size="icon" className="shrink-0" onClick={() => setActiveTab("home")}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
             {company?.logo_url ? (
               <img
                 src={company.logo_url}
@@ -369,266 +374,344 @@ export default function SalespersonCalendarPortal() {
               )}
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleGoToToday} className="shrink-0">
-            Today
-          </Button>
+          {activeTab === "calendar" && (
+            <Button variant="outline" size="sm" onClick={handleGoToToday} className="shrink-0">
+              Today
+            </Button>
+          )}
         </div>
       </header>
 
-      {/* Calendar Section - Navigation Bar */}
-      <div className="bg-card border-b border-border px-4 py-2">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
-          <Button variant="ghost" size="icon" onClick={() => handleNavigate("prev")}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-sm font-medium text-foreground">
-              {viewMode === "week" 
-                ? `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`
-                : format(currentDate, "EEEE, MMMM d, yyyy")
-              }
-            </span>
-            <ToggleGroup 
-              type="single" 
-              value={viewMode} 
-              onValueChange={(value) => value && setViewMode(value as "day" | "week")}
-              size="sm"
-              className="bg-muted rounded-md p-0.5"
+      {/* HOME - Menu Tiles */}
+      {activeTab === "home" && salesperson && (
+        <div className="p-4 pb-8">
+          <div className="max-w-md mx-auto space-y-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">
+              Welcome, {salesperson.name}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setActiveTab("calendar")}
+                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">Calendar</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("create")}
+                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <PenSquare className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">Quick Create</span>
+                <span className="text-[10px] text-muted-foreground leading-tight">Change Order & Upload</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("projects")}
+                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <FolderOpen className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">Projects</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("estimates")}
+                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <ClipboardList className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">Estimates</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("proposals")}
+                className="col-span-2 flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Send className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">Proposals</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CALENDAR TAB */}
+      {activeTab === "calendar" && (
+        <>
+          {/* Calendar Navigation Bar */}
+          <div className="bg-card border-b border-border px-4 py-2">
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
+              <Button variant="ghost" size="icon" onClick={() => handleNavigate("prev")}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-sm font-medium text-foreground">
+                  {viewMode === "week" 
+                    ? `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`
+                    : format(currentDate, "EEEE, MMMM d, yyyy")
+                  }
+                </span>
+                <ToggleGroup 
+                  type="single" 
+                  value={viewMode} 
+                  onValueChange={(value) => value && setViewMode(value as "day" | "week")}
+                  size="sm"
+                  className="bg-muted rounded-md p-0.5"
+                >
+                  <ToggleGroupItem value="day" className="text-xs px-3 py-1 data-[state=on]:bg-background">
+                    Day
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="week" className="text-xs px-3 py-1 data-[state=on]:bg-background">
+                    Week
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => handleNavigate("next")}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {appointmentsLoading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {/* Day View */}
+          {!appointmentsLoading && viewMode === "day" && (
+            <div 
+              className="max-w-2xl mx-auto p-4 touch-pan-y"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             >
-              <ToggleGroupItem value="day" className="text-xs px-3 py-1 data-[state=on]:bg-background">
-                Day
-              </ToggleGroupItem>
-              <ToggleGroupItem value="week" className="text-xs px-3 py-1 data-[state=on]:bg-background">
-                Week
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-          <Button variant="ghost" size="icon" onClick={() => handleNavigate("next")}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Loading State */}
-      {appointmentsLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
-
-      {/* Day View */}
-      {!appointmentsLoading && viewMode === "day" && (
-        <div 
-          className="max-w-2xl mx-auto p-4 touch-pan-y"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <Card className={`${isToday(currentDate) ? "border-primary" : ""}`}>
-            <CardContent className={appointments.length === 0 ? "pt-3 pb-3" : "pt-4"}>
-              {currentDayAppointments.length === 0 ? (
-                <div className={`text-center ${appointments.length === 0 ? "py-2" : "py-12"}`}>
-                  {appointments.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No appointments scheduled</p>
+              <Card className={`${isToday(currentDate) ? "border-primary" : ""}`}>
+                <CardContent className={appointments.length === 0 ? "pt-3 pb-3" : "pt-4"}>
+                  {currentDayAppointments.length === 0 ? (
+                    <div className={`text-center ${appointments.length === 0 ? "py-2" : "py-12"}`}>
+                      {appointments.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No appointments scheduled</p>
+                      ) : (
+                        <>
+                          <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                          <p className="text-muted-foreground">No appointments today</p>
+                        </>
+                      )}
+                    </div>
                   ) : (
-                    <>
-                      <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-muted-foreground">No appointments today</p>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {currentDayAppointments.map((appt) => {
-                    const { displayName, contact } = getAppointmentDetails(appt);
-                    return (
-                      <button
-                        key={appt.id}
-                        onClick={() => setSelectedAppointment(appt)}
-                        className={`w-full text-left rounded-lg p-4 border transition-all hover:shadow-lg ${
-                          getStatusColor(appt.appointment_status)
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className={`w-2 h-2 rounded-full shrink-0 ${getStatusDotColor(appt.appointment_status)}`} />
-                              <span className="font-semibold text-sm">
-                                {formatTime(appt.start_time)}
-                                {appt.end_time && ` - ${formatTime(appt.end_time)}`}
-                              </span>
-                            </div>
-                            <p className="font-semibold text-base truncate">
-                              {displayName}
-                            </p>
-                            {contact?.phone && (
-                              <p className="text-sm opacity-75 mt-1 flex items-center gap-1.5">
-                                <Phone className="h-3.5 w-3.5" />
-                                {contact.phone}
-                              </p>
-                            )}
-                            {appt.address && (
-                              <p className="text-sm opacity-75 mt-1 flex items-center gap-1.5">
-                                <MapPin className="h-3.5 w-3.5" />
-                                {appt.address}
-                              </p>
-                            )}
-                          </div>
-                          <Badge variant="outline" className="shrink-0 text-xs">
-                            {appt.appointment_status || "New"}
-                          </Badge>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Week Calendar Grid */}
-      {!appointmentsLoading && viewMode === "week" && (
-        <div className="max-w-6xl mx-auto p-4">
-          {/* Day Headers Row */}
-          <div className="grid grid-cols-7 gap-1 mb-1">
-            {weekDays.map((day) => {
-              const dayKey = format(day, "yyyy-MM-dd");
-              const dayAppts = appointmentsByDay.get(dayKey) || [];
-              const dayIsPast = day < new Date() && !isToday(day);
-
-              return (
-                <div
-                  key={`header-${dayKey}`}
-                  className={`text-center py-2 rounded-t-lg cursor-pointer transition-colors ${
-                    isToday(day)
-                      ? "bg-primary text-primary-foreground"
-                      : dayIsPast
-                      ? "bg-muted/50 text-muted-foreground hover:bg-muted"
-                      : "bg-card text-foreground hover:bg-muted/50"
-                  }`}
-                  onClick={() => {
-                    setCurrentDate(day);
-                    setViewMode("day");
-                  }}
-                >
-                  <span className="text-xs uppercase font-medium block">
-                    {format(day, "EEE")}
-                  </span>
-                  <span className="text-lg font-semibold">
-                    {format(day, "d")}
-                  </span>
-                  {dayAppts.length > 0 && (
-                    <Badge variant={isToday(day) ? "secondary" : "outline"} className="text-[10px] mt-1 px-1.5 py-0">
-                      {dayAppts.length}
-                    </Badge>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Appointments Grid Row */}
-          <div className="grid grid-cols-7 gap-1">
-            {weekDays.map((day) => {
-              const dayKey = format(day, "yyyy-MM-dd");
-              const dayAppts = appointmentsByDay.get(dayKey) || [];
-              const dayIsPast = day < new Date() && !isToday(day);
-
-              return (
-                <div
-                  key={dayKey}
-                  className={`min-h-[200px] rounded-b-lg border p-1.5 ${
-                    isToday(day)
-                      ? "border-primary bg-primary/5"
-                      : dayIsPast
-                      ? "border-border/50 bg-muted/20"
-                      : "border-border bg-card"
-                  }`}
-                >
-                  {dayAppts.length === 0 ? (
-                    <p className="text-[10px] text-muted-foreground text-center py-4">
-                      —
-                    </p>
-                  ) : (
-                    <div className="space-y-1">
-                      {dayAppts.map((appt) => {
-                        const { displayName } = getAppointmentDetails(appt);
+                    <div className="space-y-3">
+                      {currentDayAppointments.map((appt) => {
+                        const { displayName, contact } = getAppointmentDetails(appt);
                         return (
                           <button
                             key={appt.id}
                             onClick={() => setSelectedAppointment(appt)}
-                            className={`w-full text-left rounded p-1.5 border transition-all hover:shadow-md text-xs ${
+                            className={`w-full text-left rounded-lg p-4 border transition-all hover:shadow-lg ${
                               getStatusColor(appt.appointment_status)
                             }`}
                           >
-                            <div className="flex items-center gap-1">
-                              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${getStatusDotColor(appt.appointment_status)}`} />
-                              <span className="font-medium truncate text-[11px]">
-                                {formatTimeShort(appt.start_time)}
-                              </span>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className={`w-2 h-2 rounded-full shrink-0 ${getStatusDotColor(appt.appointment_status)}`} />
+                                  <span className="font-semibold text-sm">
+                                    {formatTime(appt.start_time)}
+                                    {appt.end_time && ` - ${formatTime(appt.end_time)}`}
+                                  </span>
+                                </div>
+                                <p className="font-semibold text-base truncate">
+                                  {displayName}
+                                </p>
+                                {contact?.phone && (
+                                  <p className="text-sm opacity-75 mt-1 flex items-center gap-1.5">
+                                    <Phone className="h-3.5 w-3.5" />
+                                    {contact.phone}
+                                  </p>
+                                )}
+                                {appt.address && (
+                                  <p className="text-sm opacity-75 mt-1 flex items-center gap-1.5">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    {appt.address}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge variant="outline" className="shrink-0 text-xs">
+                                {appt.appointment_status || "New"}
+                              </Badge>
                             </div>
-                            <p className="font-medium truncate mt-0.5">
-                              {displayName.split(" ")[0]}
-                            </p>
-                            {appt.address && (
-                              <p className="opacity-75 truncate text-[10px] mt-0.5">
-                                📍 {appt.address.split(",")[0]}
-                              </p>
-                            )}
                           </button>
                         );
                       })}
                     </div>
                   )}
-                </div>
-              );
-            })}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Week Calendar Grid */}
+          {!appointmentsLoading && viewMode === "week" && (
+            <div className="max-w-6xl mx-auto p-4">
+              <div className="grid grid-cols-7 gap-1 mb-1">
+                {weekDays.map((day) => {
+                  const dayKey = format(day, "yyyy-MM-dd");
+                  const dayAppts = appointmentsByDay.get(dayKey) || [];
+                  const dayIsPast = day < new Date() && !isToday(day);
+                  return (
+                    <div
+                      key={`header-${dayKey}`}
+                      className={`text-center py-2 rounded-t-lg cursor-pointer transition-colors ${
+                        isToday(day)
+                          ? "bg-primary text-primary-foreground"
+                          : dayIsPast
+                          ? "bg-muted/50 text-muted-foreground hover:bg-muted"
+                          : "bg-card text-foreground hover:bg-muted/50"
+                      }`}
+                      onClick={() => {
+                        setCurrentDate(day);
+                        setViewMode("day");
+                      }}
+                    >
+                      <span className="text-xs uppercase font-medium block">
+                        {format(day, "EEE")}
+                      </span>
+                      <span className="text-lg font-semibold">
+                        {format(day, "d")}
+                      </span>
+                      {dayAppts.length > 0 && (
+                        <Badge variant={isToday(day) ? "secondary" : "outline"} className="text-[10px] mt-1 px-1.5 py-0">
+                          {dayAppts.length}
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {weekDays.map((day) => {
+                  const dayKey = format(day, "yyyy-MM-dd");
+                  const dayAppts = appointmentsByDay.get(dayKey) || [];
+                  const dayIsPast = day < new Date() && !isToday(day);
+                  return (
+                    <div
+                      key={dayKey}
+                      className={`min-h-[200px] rounded-b-lg border p-1.5 ${
+                        isToday(day)
+                          ? "border-primary bg-primary/5"
+                          : dayIsPast
+                          ? "border-border/50 bg-muted/20"
+                          : "border-border bg-card"
+                      }`}
+                    >
+                      {dayAppts.length === 0 ? (
+                        <p className="text-[10px] text-muted-foreground text-center py-4">—</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {dayAppts.map((appt) => {
+                            const { displayName } = getAppointmentDetails(appt);
+                            return (
+                              <button
+                                key={appt.id}
+                                onClick={() => setSelectedAppointment(appt)}
+                                className={`w-full text-left rounded p-1.5 border transition-all hover:shadow-md text-xs ${
+                                  getStatusColor(appt.appointment_status)
+                                }`}
+                              >
+                                <div className="flex items-center gap-1">
+                                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${getStatusDotColor(appt.appointment_status)}`} />
+                                  <span className="font-medium truncate text-[11px]">
+                                    {formatTimeShort(appt.start_time)}
+                                  </span>
+                                </div>
+                                <p className="font-medium truncate mt-0.5">
+                                  {displayName.split(" ")[0]}
+                                </p>
+                                {appt.address && (
+                                  <p className="opacity-75 truncate text-[10px] mt-0.5">
+                                    📍 {appt.address.split(",")[0]}
+                                  </p>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* QUICK CREATE TAB */}
+      {activeTab === "create" && salesperson && (
+        <div className="p-4 pb-8">
+          <div className="max-w-2xl mx-auto space-y-3">
+            <PortalEstimateCreator
+              portalToken={token || ""}
+              salespersonId={salesperson.id}
+              salespersonName={salesperson.name}
+              salespersonGhlUserId={salesperson.ghl_user_id}
+              companyId={salesperson.company_id}
+            />
+            <PortalFileUploadSection 
+              salespersonName={salesperson.name}
+              salespersonId={salesperson.id}
+              salespersonGhlUserId={salesperson.ghl_user_id}
+              companyId={salesperson.company_id} 
+            />
           </div>
         </div>
       )}
 
-      {/* Tools Content */}
-      {salesperson && (
+      {/* PROJECTS TAB */}
+      {activeTab === "projects" && salesperson && (
         <div className="p-4 pb-8">
           <div className="max-w-2xl mx-auto">
-            {/* Quick access title */}
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3 px-1">
-              Quick Access
-            </p>
-            
-            {/* Mobile-optimized grid of tool cards */}
-            <div className="grid grid-cols-1 gap-3">
-              {/* 1. Projects & Customer Portal */}
-              <PortalProjectLinksSection 
-                salespersonName={salesperson.name}
-                salespersonId={salesperson.id}
-                salespersonGhlUserId={salesperson.ghl_user_id}
-                companyId={salesperson.company_id}
-              />
-              {/* 2. File Upload */}
-              <PortalFileUploadSection 
-                salespersonName={salesperson.name}
-                salespersonId={salesperson.id}
-                salespersonGhlUserId={salesperson.ghl_user_id}
-                companyId={salesperson.company_id} 
-              />
-              {/* 3. Create Estimate */}
-              <PortalEstimateCreator
-                portalToken={token || ""}
-                salespersonId={salesperson.id}
-                salespersonName={salesperson.name}
-                salespersonGhlUserId={salesperson.ghl_user_id}
-                companyId={salesperson.company_id}
-              />
-              {/* 4. Proposals */}
-              <PortalProposalsSection 
-                salespersonName={salesperson.name}
-                salespersonId={salesperson.id}
-                companyId={salesperson.company_id} 
-              />
-            </div>
+            <PortalProjectLinksSection 
+              salespersonName={salesperson.name}
+              salespersonId={salesperson.id}
+              salespersonGhlUserId={salesperson.ghl_user_id}
+              companyId={salesperson.company_id}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ESTIMATES TAB */}
+      {activeTab === "estimates" && salesperson && (
+        <div className="p-4 pb-8">
+          <div className="max-w-2xl mx-auto">
+            <PortalEstimateCreator
+              portalToken={token || ""}
+              salespersonId={salesperson.id}
+              salespersonName={salesperson.name}
+              salespersonGhlUserId={salesperson.ghl_user_id}
+              companyId={salesperson.company_id}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* PROPOSALS TAB */}
+      {activeTab === "proposals" && salesperson && (
+        <div className="p-4 pb-8">
+          <div className="max-w-2xl mx-auto">
+            <PortalProposalsSection 
+              salespersonName={salesperson.name}
+              salespersonId={salesperson.id}
+              companyId={salesperson.company_id} 
+            />
           </div>
         </div>
       )}
@@ -650,6 +733,34 @@ export default function SalespersonCalendarPortal() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Bottom Navigation Bar - Mobile */}
+      {salesperson && (
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-bottom">
+          <div className="max-w-md mx-auto flex items-center justify-around py-1.5">
+            {[
+              { key: "home" as const, icon: Home, label: "Home" },
+              { key: "calendar" as const, icon: Calendar, label: "Calendar" },
+              { key: "create" as const, icon: PenSquare, label: "Create" },
+              { key: "projects" as const, icon: FolderOpen, label: "Projects" },
+              { key: "proposals" as const, icon: Send, label: "Proposals" },
+            ].map(({ key, icon: Icon, label }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-md transition-colors ${
+                  activeTab === key
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="text-[10px] font-medium">{label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
