@@ -333,8 +333,25 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
           .eq("id", target.id);
         if (error) throw error;
       } else if (target.source === "compliance") {
-        // Compliance docs are managed separately — cannot delete from here
-        throw new Error("Compliance documents cannot be deleted from this view");
+        // Delete signed compliance document record and its storage files
+        try {
+          // Try deleting signed file from storage
+          const signedUrlParts = target.file_url.split("/contracts/");
+          if (signedUrlParts.length > 1) {
+            await supabase.storage.from("contracts").remove([signedUrlParts[1]]);
+          }
+          const attachmentParts = target.file_url.split("/project-attachments/");
+          if (attachmentParts.length > 1) {
+            await supabase.storage.from("project-attachments").remove([attachmentParts[1]]);
+          }
+        } catch (e) {
+          console.error("Failed to delete compliance file from storage:", e);
+        }
+        const { error } = await supabase
+          .from("signed_compliance_documents")
+          .delete()
+          .eq("id", target.id);
+        if (error) throw error;
       }
     },
     onSuccess: () => {
@@ -342,6 +359,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
       queryClient.invalidateQueries({ queryKey: ["project-documents", projectId] });
       queryClient.invalidateQueries({ queryKey: ["project-agreement-attachments", projectId] });
       queryClient.invalidateQueries({ queryKey: ["project-bill-attachments", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["project-compliance-docs", projectId] });
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
     },
