@@ -231,7 +231,7 @@ export function GlobalAdminSearch() {
       const { data, error } = await query
         .is("deleted_at", null)
         .order("project_number", { ascending: false })
-        .limit(500);
+        .limit(5000);
       if (error) throw error;
       return data as (Project & { opportunity_id?: string | null })[];
     },
