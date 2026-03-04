@@ -2859,88 +2859,81 @@ export function OpportunityDetailSheet({
                   </p>
                 )}
               </div>
-              {/* Right: Debug (super admin) + Opp Value + Est Cost */}
-              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                <div className="flex w-full items-center justify-end">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => onOpenChange(false)}
-                    aria-label="Close opportunity details"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+              {/* Right: Close + Debug + Opp Value + Est Cost */}
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                {/* Close button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 -mt-1 -mr-1"
+                  onClick={() => onOpenChange(false)}
+                  aria-label="Close opportunity details"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                {/* Debug + Opp Value row */}
                 <div className="flex items-center gap-2">
                   {isSuperAdmin && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 px-2 text-muted-foreground"
+                      className="h-6 px-1.5 text-muted-foreground"
                       onClick={() => {
                         const debugInfo = `UUID: ${opportunity.id}\nGHL ID: ${opportunity.ghl_id}\nContact ID: ${opportunity.contact_id}\nContact UUID: ${opportunity.contact_uuid}`;
                         navigator.clipboard.writeText(debugInfo);
                         toast.success("Debug info copied to clipboard");
                       }}
                     >
-                      <Copy className="h-3.5 w-3.5 mr-1" />
-                      Debug
+                      <Copy className="h-3 w-3 mr-1" />
+                      <span className="text-[11px]">Debug</span>
                     </Button>
                   )}
-                  {/* Opp Value */}
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">Opp Value:</span>
                   {isEditingOppValue ? (
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">Opp Value:</span>
-                      <span className="text-lg font-bold text-emerald-400">$</span>
-                      <Input type="text" inputMode="decimal" value={editedOppValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedOppValue(val); }} className="text-lg font-bold h-8 w-28" autoFocus />
-                      <Button size="sm" className="h-7 px-2 text-xs" onClick={handleSaveOppValue} disabled={isSavingOppValue}>
+                      <span className="text-sm font-bold text-emerald-500">$</span>
+                      <Input type="text" inputMode="decimal" value={editedOppValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedOppValue(val); }} className="text-sm font-bold h-7 w-24" autoFocus />
+                      <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveOppValue} disabled={isSavingOppValue}>
                         {isSavingOppValue ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 px-1.5 text-xs" onClick={() => setIsEditingOppValue(false)}>
+                      <Button size="sm" variant="ghost" className="h-6 px-1 text-xs" onClick={() => setIsEditingOppValue(false)}>
                         <X className="h-3 w-3" />
                       </Button>
                     </div>
                   ) : isEditing ? (
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">Opp Value:</span>
-                      <span className="text-lg font-bold text-emerald-400">$</span>
-                      <Input type="text" inputMode="decimal" value={editedMonetaryValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedMonetaryValue(val); }} className="text-lg font-bold h-8 w-28" />
+                      <span className="text-sm font-bold text-emerald-500">$</span>
+                      <Input type="text" inputMode="decimal" value={editedMonetaryValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedMonetaryValue(val); }} className="text-sm font-bold h-7 w-24" />
                     </div>
                   ) : (
+                    <button onClick={() => { setEditedOppValue(((savedValues.monetary_value ?? opportunity.monetary_value) || 0).toString()); setIsEditingOppValue(true); }} className="text-sm font-bold text-emerald-500 hover:underline cursor-pointer whitespace-nowrap">
+                      {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
+                    </button>
+                  )}
+                </div>
+                {/* Est. Cost row */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">Est. Cost:</span>
+                  {isEditingCost ? (
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground">Opp Value:</span>
-                      <button onClick={() => { setEditedOppValue(((savedValues.monetary_value ?? opportunity.monetary_value) || 0).toString()); setIsEditingOppValue(true); }} className="text-lg font-bold text-emerald-400 hover:underline cursor-pointer">
-                        {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
-                      </button>
+                      <span className="text-xs text-destructive">$</span>
+                      <Input type="text" inputMode="decimal" value={estimatedCost} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setEstimatedCost(val); setCostError(null); } }} className={`h-6 w-20 text-xs ${costError ? 'border-destructive' : ''}`} />
+                      <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
+                        {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-6 px-1 text-xs" onClick={() => { setIsEditingCost(false); setCostError(null); }}>
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
+                  ) : (
+                    <button onClick={() => setIsEditingCost(true)} className="text-xs text-destructive font-medium hover:underline whitespace-nowrap">
+                      {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
+                    </button>
                   )}
                 </div>
-                {/* Est. Cost */}
-                <div className="flex flex-col items-end gap-0.5">
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <span className="text-muted-foreground">Est. Cost:</span>
-                    {isEditingCost ? (
-                      <div className="flex items-center gap-1">
-                        <span className="text-destructive">$</span>
-                        <Input type="text" inputMode="decimal" value={estimatedCost} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) { setEstimatedCost(val); setCostError(null); } }} className={`h-6 w-20 text-xs ${costError ? 'border-destructive' : ''}`} />
-                        <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
-                          {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setIsEditingCost(false); setCostError(null); }}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setIsEditingCost(true)} className="text-destructive font-medium hover:underline">
-                        {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
-                      </button>
-                    )}
-                  </div>
-                  {costError && (
-                    <span className="text-[10px] text-destructive max-w-[220px] text-right">{costError}</span>
-                  )}
-                </div>
+                {costError && (
+                  <span className="text-[10px] text-destructive max-w-[220px] text-right">{costError}</span>
+                )}
               </div>
             </div>
           </SheetHeader>
