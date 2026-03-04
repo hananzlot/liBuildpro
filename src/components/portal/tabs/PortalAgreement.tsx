@@ -89,6 +89,15 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
 
   const hasAgreement = useMemo(() => agreements.length > 0 || !!acceptedEstimate, [agreements.length, acceptedEstimate]);
 
+  // Separate main contract from additional agreements (change orders, addendums)
+  const mainContract = useMemo(() => {
+    return agreements.find((a: any) => isContractAgreement(a)) || null;
+  }, [agreements]);
+
+  const additionalAgreements = useMemo(() => {
+    return agreements.filter((a: any) => !isContractAgreement(a));
+  }, [agreements]);
+
   const parseAgreementEstimateNumber = (agreementNumber?: string | null): number | null => {
     if (!agreementNumber) return null;
     const match = agreementNumber.match(/(\d+)/);
@@ -347,7 +356,7 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
       )}
 
       {/* Additional Project Agreements */}
-      {agreements.length > 0 && (
+      {additionalAgreements.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
@@ -355,11 +364,11 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
             </div>
             <div>
               <h3 className="font-bold text-slate-900">Additional Agreements</h3>
-              <p className="text-sm text-slate-500">{agreements.length} document(s)</p>
+              <p className="text-sm text-slate-500">{additionalAgreements.length} document(s)</p>
             </div>
           </div>
           
-          {agreements.map((agreement) => {
+          {additionalAgreements.map((agreement) => {
             const canViewPdf = agreement.attachment_url || isContractAgreement(agreement);
             
             return (
