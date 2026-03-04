@@ -115,6 +115,7 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
       .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [agreements]);
 
+  const openAgreementPdf = async (agreement: any) => {
     if (!agreement?.attachment_url) return;
 
     // For non-contract docs, open the stored PDF as-is
