@@ -6038,7 +6038,7 @@ function AgreementDialog({
               {/* Progress Payments */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">Progress Payments</Label>
+                  <Label className="text-xs font-medium">Progress Payments <span className="text-destructive">*</span></Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -6061,7 +6061,7 @@ function AgreementDialog({
                       value={payment.phaseName}
                       onChange={(e) => setProposalPayments(prev => prev.map((p, i) => i === idx ? { ...p, phaseName: e.target.value } : p))}
                       placeholder="Phase name"
-                      className="h-8 text-sm flex-1"
+                      className={`h-8 text-sm flex-1 ${!payment.phaseName.trim() ? 'border-destructive' : ''}`}
                     />
                     <div className="relative w-28">
                       <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
@@ -6071,7 +6071,7 @@ function AgreementDialog({
                         step="0.01"
                         value={payment.amount || ""}
                         onChange={(e) => setProposalPayments(prev => prev.map((p, i) => i === idx ? { ...p, amount: parseFloat(e.target.value) || 0 } : p))}
-                        className="h-8 text-sm pl-6"
+                        className={`h-8 text-sm pl-6 ${!payment.amount ? 'border-destructive' : ''}`}
                       />
                     </div>
                     {proposalPayments.length > 1 && (
