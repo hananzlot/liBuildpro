@@ -1159,7 +1159,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
 
         {/* Signature Dialog */}
         <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Sign & Accept Proposal</DialogTitle>
               <DialogDescription>
@@ -1167,8 +1167,9 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Left column: signer info + agreement */}
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Full Name *</Label>
                   <Input
@@ -1186,46 +1187,47 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                     placeholder="your@email.com"
                   />
                 </div>
-              </div>
 
-              <Separator />
-
-              <SignatureCanvas
-                signerName={signerName}
-                onSignatureComplete={(data) => setSignatureData(data)}
-              />
-
-              {signatureData && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-700">Signature captured</span>
-                </div>
-              )}
-
-              <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                <Checkbox
-                  id="terms"
-                  checked={agreedToTerms}
-                  onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
-                />
-                <label htmlFor="terms" className="text-sm cursor-pointer">
-                  I have read and agree to the terms and conditions. I understand this constitutes a legally binding agreement.
-                </label>
-              </div>
-
-              <Button
-                onClick={() => signMutation.mutate()}
-                disabled={!signatureData || !agreedToTerms || !signerName || !signerEmail || signMutation.isPending}
-                className="w-full"
-                size="lg"
-              >
-                {signMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                {signatureData && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-green-700">Signature captured</span>
+                  </div>
                 )}
-                Submit Signature
-              </Button>
+
+                <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                  <Checkbox
+                    id="terms"
+                    checked={agreedToTerms}
+                    onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                  />
+                  <label htmlFor="terms" className="text-sm cursor-pointer">
+                    I have read and agree to the terms and conditions. I understand this constitutes a legally binding agreement.
+                  </label>
+                </div>
+
+                <Button
+                  onClick={() => signMutation.mutate()}
+                  disabled={!signatureData || !agreedToTerms || !signerName || !signerEmail || signMutation.isPending}
+                  className="w-full"
+                  size="lg"
+                >
+                  {signMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  )}
+                  Submit Signature
+                </Button>
+              </div>
+
+              {/* Right column: signature canvas */}
+              <div>
+                <SignatureCanvas
+                  signerName={signerName}
+                  onSignatureComplete={(data) => setSignatureData(data)}
+                />
+              </div>
             </div>
           </DialogContent>
         </Dialog>
