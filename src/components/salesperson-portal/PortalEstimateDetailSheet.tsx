@@ -745,23 +745,12 @@ export function PortalEstimateDetailSheet({
         onOpenChange={(open) => {
           setPreviewBeforeSend(open);
         }}
+        onConfirmSend={() => {
+          setPreviewBeforeSend(false);
+          setSendDialogOpen(true);
+        }}
+        confirmSendLabel="Confirm & Send"
       />
-
-      {/* Confirm send after preview - show when preview-before-send is open */}
-      {previewBeforeSend && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex gap-3 bg-background border rounded-lg shadow-xl p-3">
-          <Button variant="outline" onClick={() => setPreviewBeforeSend(false)}>
-            Cancel
-          </Button>
-          <Button onClick={() => {
-            setPreviewBeforeSend(false);
-            setSendDialogOpen(true);
-          }}>
-            <Send className="h-4 w-4 mr-2" />
-            Confirm & Send
-          </Button>
-        </div>
-      )}
 
       {/* Send Proposal Dialog */}
       {estimate && (

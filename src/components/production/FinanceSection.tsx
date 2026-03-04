@@ -6129,23 +6129,12 @@ function AgreementDialog({
       estimateId={proposalEstimateId}
       open={showProposalPreview}
       onOpenChange={setShowProposalPreview}
+      onConfirmSend={() => {
+        setShowProposalPreview(false);
+        setShowSendDialog(true);
+      }}
+      confirmSendLabel="Confirm & Send to Customer"
     />
-
-    {/* Floating confirm bar when previewing */}
-    {showProposalPreview && proposalEstimateId && (
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex gap-3 bg-background border rounded-lg shadow-xl p-3">
-        <Button variant="outline" onClick={() => setShowProposalPreview(false)}>
-          Back
-        </Button>
-        <Button onClick={() => {
-          setShowProposalPreview(false);
-          setShowSendDialog(true);
-        }}>
-          <Send className="h-4 w-4 mr-2" />
-          Confirm & Send to Customer
-        </Button>
-      </div>
-    )}
 
     {/* Send Proposal Dialog */}
     {proposalEstimateId && (
