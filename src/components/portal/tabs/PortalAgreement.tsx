@@ -158,16 +158,21 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
   }, [agreements, mainContract]);
 
   const openAgreementPdf = async (agreement: any) => {
-    if (!agreement?.attachment_url) return;
-    // Portal users are anonymous — always open the stored PDF directly
-    // (estimate lookup and edge function calls require authenticated access)
-    setPdfUrl(agreement.attachment_url);
+    // Try direct attachment_url first
+    if (agreement?.attachment_url) {
+      setPdfUrl(agreement.attachment_url);
+      return;
+    }
+    // No PDF available
+    toast.error('No signed PDF available for this agreement');
   };
 
   const downloadAgreementPdf = async (agreement: any) => {
-    if (!agreement?.attachment_url) return;
-    // Portal users are anonymous — directly open the stored PDF
-    window.open(agreement.attachment_url, '_blank');
+    if (agreement?.attachment_url) {
+      window.open(agreement.attachment_url, '_blank');
+      return;
+    }
+    toast.error('No signed PDF available for this agreement');
   };
 
   if (!hasAgreement) {
@@ -356,7 +361,7 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
                 <p className="font-semibold text-slate-900 mb-3">
                   {mainContract.description_of_work || mainContract.agreement_type || 'Contract'}
                 </p>
-                {(mainContract.attachment_url || isContractAgreement(mainContract)) && (
+                {mainContract.attachment_url && (
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -441,7 +446,7 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
           </div>
           
           {additionalAgreements.map((agreement) => {
-            const canViewPdf = agreement.attachment_url || isContractAgreement(agreement);
+            const canViewPdf = !!agreement.attachment_url;
             
             return (
             <Card key={agreement.id} className="border-0 shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
