@@ -4984,6 +4984,7 @@ function PaymentDialog({
                   <SelectItem value="Check">Check</SelectItem>
                   <SelectItem value="Zelle/ACH">Zelle/ACH</SelectItem>
                   <SelectItem value="Wire">Wire</SelectItem>
+                  <SelectItem value="Cash">Cash</SelectItem>
                 </SelectContent>
               </Select>
             </div>
