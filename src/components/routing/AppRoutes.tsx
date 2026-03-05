@@ -27,6 +27,7 @@ import Calendar from "@/pages/Calendar";
 import Contacts from "@/pages/Contacts";
 import NotFound from "@/pages/NotFound";
 import SalespersonCalendarPortal from "@/pages/SalespersonCalendarPortal";
+import SalesPortalGuide from "@/pages/SalesPortalGuide";
 import ShortLinkRedirect from "@/pages/ShortLinkRedirect";
 import SuperAdminDashboard from "@/pages/super-admin/SuperAdminDashboard";
 import SuperAdminTenants from "@/pages/super-admin/SuperAdminTenants";
@@ -434,6 +435,7 @@ export function AppRoutes() {
         
         {/* Public salesperson calendar portal - no auth required */}
         <Route path="/salesperson-calendar/:token" element={<SalespersonCalendarPortal />} />
+        <Route path="/sales-portal-guide" element={<SalesPortalGuide />} />
         
         {/* Short link redirect - public */}
         <Route path="/r/:code" element={<ShortLinkRedirect />} />
