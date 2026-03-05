@@ -27,13 +27,22 @@ export function AppLayout({
   showNotifications = true,
   headerContent 
 }: AppLayoutProps) {
-  const { updatePassword, isAdmin, companyId } = useAuth();
+  const { updatePassword, isAdmin, companyId, company } = useAuth();
   const { openTab, setTabCompanyId } = useAppTabs();
 
   // Sync company context into the tab system so tabs are isolated per tenant
   useEffect(() => {
     setTabCompanyId(companyId);
   }, [companyId, setTabCompanyId]);
+
+  // Set browser tab title to "Company Name | iBuildPro"
+  useEffect(() => {
+    const originalTitle = document.title;
+    if (company?.name) {
+      document.title = `${company.name} | iBuildPro`;
+    }
+    return () => { document.title = originalTitle; };
+  }, [company?.name]);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
