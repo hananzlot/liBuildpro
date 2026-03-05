@@ -107,11 +107,12 @@ export function PortalContractsSection({ salespersonName, salespersonId, company
       const projectMap = new Map(projects.map(p => [p.id, p]));
 
       // 2. Fetch project_agreements for these projects
+      // Fetch agreements - include ones with NULL company_id (data bug) since we filter by project_id
       const { data: agreements } = await supabase
         .from("project_agreements")
         .select("id, project_id, agreement_type, agreement_number, total_price, agreement_signed_date, description_of_work, attachment_url")
         .in("project_id", projectIds)
-        .eq("company_id", companyId)
+        .or(`company_id.eq.${companyId},company_id.is.null`)
         .order("agreement_signed_date", { ascending: false });
 
       // 3. Fetch portal tokens for these projects
