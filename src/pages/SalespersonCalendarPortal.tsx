@@ -6,7 +6,7 @@ import { fetchAllPages } from "@/lib/supabasePagination";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, addDays, subDays, isToday, isSameDay, parseISO } from "date-fns";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, FolderOpen, Mail, ExternalLink, Plus, Home, PenSquare, ClipboardList, Send, Upload, ArrowLeft } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, FolderOpen, Mail, ExternalLink, Plus, Home, PenSquare, ClipboardList, Send, Upload, ArrowLeft, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -527,6 +527,15 @@ export default function SalespersonCalendarPortal() {
                 {(portalCounts?.contracts ?? 0) > 0 && (
                   <Badge variant="secondary" className="absolute top-2 right-2 text-[10px] px-1.5 min-w-[20px] h-5">{portalCounts!.contracts}</Badge>
                 )}
+              </button>
+              <button
+                onClick={() => window.open(`/sales-portal-guide?token=${token}`, '_blank')}
+                className="flex flex-col items-center gap-2 p-5 rounded-xl border bg-card hover:bg-accent transition-colors text-center"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <BookOpen className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-sm font-medium text-foreground">How-To Docs</span>
               </button>
             </div>
           </div>
