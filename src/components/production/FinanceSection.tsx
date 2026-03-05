@@ -6836,6 +6836,7 @@ function QuickPayDialog({
                   <SelectItem value="ACH">ACH</SelectItem>
                   <SelectItem value="Credit Card">Credit Card</SelectItem>
                   <SelectItem value="Zelle">Zelle</SelectItem>
+                  <SelectItem value="Cash">Cash</SelectItem>
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
@@ -8636,6 +8637,7 @@ function CommissionPaymentDialog({
                   <SelectItem value="ACH">ACH</SelectItem>
                   <SelectItem value="Direct Deposit">Direct Deposit</SelectItem>
                   <SelectItem value="Zelle">Zelle</SelectItem>
+                  <SelectItem value="Cash">Cash</SelectItem>
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
