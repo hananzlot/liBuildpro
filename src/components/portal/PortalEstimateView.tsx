@@ -432,6 +432,17 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
     signedDate: string
   ): Promise<string | null> => {
     try {
+      // Ensure we have a valid company_id - fall back to project's company_id
+      let effectiveCompanyId = companyId;
+      if (!effectiveCompanyId) {
+        const { data: proj } = await supabase
+          .from('projects')
+          .select('company_id')
+          .eq('id', projectId)
+          .single();
+        effectiveCompanyId = proj?.company_id || '';
+      }
+
       // Check if a contract already exists for this project
       const { data: existingAgreements } = await supabase
         .from('project_agreements')
@@ -454,7 +465,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           agreement_type: agreementType,
           total_price: estimate.total || 0,
           description_of_work: estimate.work_scope_description || estimate.estimate_title,
-          company_id: companyId,
+           company_id: effectiveCompanyId || null,
         })
         .select('id')
         .single();
@@ -483,7 +494,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           due_date: phase.due_date || null,
           amount: phase.amount || 0,
           display_order: phase.sort_order || index,
-          company_id: companyId,
+          company_id: effectiveCompanyId || null,
         }));
 
         const { error: phasesError } = await supabase
