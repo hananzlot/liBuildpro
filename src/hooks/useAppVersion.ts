@@ -38,8 +38,6 @@ export function useAppVersion() {
     const currentDbVersion = dbVersion.version_number.toString();
 
     if (storedVersion && storedVersion !== currentDbVersion) {
-      console.log(`Version mismatch: stored=${storedVersion}, db=${currentDbVersion}. Clearing cache...`);
-      
       // Clear all caches
       clearAllCaches().then(() => {
         // Update stored version
@@ -71,12 +69,10 @@ async function clearAllCaches(): Promise<void> {
     await Promise.all(
       cacheNames.map((cacheName) => caches.delete(cacheName))
     );
-    console.log("Service worker caches cleared");
   }
 
   // Clear session storage
   sessionStorage.clear();
-  console.log("Session storage cleared");
 
   // Unregister service workers
   if ("serviceWorker" in navigator) {
@@ -84,6 +80,5 @@ async function clearAllCaches(): Promise<void> {
     await Promise.all(
       registrations.map((registration) => registration.unregister())
     );
-    console.log("Service workers unregistered");
   }
 }

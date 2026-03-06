@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { GlobalAdminSearch } from "./GlobalAdminSearch";
-import ibuildproLogo from "@/assets/ibuildpro-logo.png";
+import ibuildproLogo from "@/assets/ibuildpro-logo.webp";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

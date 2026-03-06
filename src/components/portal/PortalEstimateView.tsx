@@ -475,7 +475,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         return null;
       }
 
-      console.log('Created project agreement:', agreementData?.id);
+
 
       // Fetch payment schedule from estimate
       const { data: paymentSchedule } = await supabase
@@ -504,7 +504,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         if (phasesError) {
           console.error('Failed to create payment phases:', phasesError);
         } else {
-          console.log('Created', paymentPhases.length, 'payment phases');
+
         }
       }
 

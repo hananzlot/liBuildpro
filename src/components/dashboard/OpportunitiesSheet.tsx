@@ -17,6 +17,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
 
 interface DBOpportunity {
   id: string;
@@ -79,14 +80,6 @@ function extractCustomField(customFields: unknown, fieldId: string): string | nu
   return field?.value || null;
 }
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
 
 // Helper to format date/time in PST
 function formatDateTimePST(dateString: string): string {

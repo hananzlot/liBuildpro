@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { formatCurrency } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface PortalDocumentsProps {
@@ -183,16 +184,6 @@ export function PortalDocuments({ documents, agreements = [], projectId, uploadL
         fileInputRef.current.value = '';
       }
     }
-  };
-
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
   };
 
   return (

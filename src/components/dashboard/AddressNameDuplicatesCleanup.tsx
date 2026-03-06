@@ -507,7 +507,7 @@ export function AddressNameDuplicatesCleanup({
         if (notesError) {
           console.warn('Failed to transfer notes:', notesError);
         } else if (notesTransferred && notesTransferred > 0) {
-          console.log(`Transferred ${notesTransferred} notes to kept contact`);
+
         }
       }
 

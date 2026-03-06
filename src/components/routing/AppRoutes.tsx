@@ -1,5 +1,4 @@
 import { Routes, Route } from "react-router-dom";
-import Home from "@/pages/Home";
 import Dashboard from "@/pages/Index";
 import Auth from "@/pages/Auth";
 import Production from "@/pages/Production";

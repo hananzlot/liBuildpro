@@ -11,6 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatCurrency } from "@/lib/utils";
 
 interface Opportunity {
   id: string;
@@ -74,16 +75,6 @@ interface SalesRepLeaderboardProps {
   dateRange?: { from: Date; to?: Date };
 }
 
-function formatCurrency(value: number | undefined | null): string {
-  if (value === undefined || value === null) return '$0';
-  if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(1)}M`;
-  }
-  if (value >= 1000) {
-    return `$${(value / 1000).toFixed(0)}K`;
-  }
-  return `$${value.toFixed(0)}`;
-}
 
 function getRankBadge(index: number): string {
   switch (index) {

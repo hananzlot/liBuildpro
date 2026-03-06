@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProjectWithFinancials, BankTransaction } from "@/hooks/useProductionAnalytics";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 interface BalanceSheetProps {
   projects: ProjectWithFinancials[];
@@ -19,15 +19,6 @@ interface BSLineItem {
   isGrandTotal?: boolean;
   indent?: boolean;
   isSubItem?: boolean;
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 function BSTable({ lines, title }: { lines: BSLineItem[]; title?: string }) {

@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
 
 interface Opportunity {
   id?: string;
@@ -168,16 +169,6 @@ export function OpportunitiesBySourceView({
       case 'abandoned': return 'secondary';
       default: return 'outline';
     }
-  };
-
-  const formatCurrency = (value: number | null) => {
-    if (!value) return '$0';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
   };
 
   // Helper to format date/time in PST

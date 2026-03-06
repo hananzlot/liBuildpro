@@ -43,7 +43,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { cn, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId } from "@/lib/utils";
+import { cn, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { useOpportunitiesFilters } from "@/stores/useOpportunitiesFilters";
 
@@ -156,8 +156,6 @@ interface OpportunitiesTableProps {
 }
 
 type SortColumn = "name" | "stage" | "value" | "status" | "source" | "createdDate" | "updatedDate";
-
-//const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
 
 type SortDirection = "asc" | "desc";
 
@@ -834,15 +832,6 @@ export function OpportunitiesTable({
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedOpportunities = filteredAndSortedOpportunities.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "-";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(value);
-  };
 
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {

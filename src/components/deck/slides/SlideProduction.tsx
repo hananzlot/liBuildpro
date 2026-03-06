@@ -1,6 +1,6 @@
 import { SlideLayout } from "../SlideLayout";
 import { HardHat, Kanban, Receipt, Camera, FileText, Users, Truck } from "lucide-react";
-import screenshotProduction from "@/assets/deck/sc7.png";
+import screenshotProduction from "@/assets/deck/sc7.webp";
 
 const FEATURES = [
   { icon: Kanban, label: "Kanban & Table Views", desc: "Visual project boards with drag-and-drop stage management." },

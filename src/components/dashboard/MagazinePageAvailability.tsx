@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Settings2, Check, Edit2, User, DollarSign, FileText, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 interface MagazineSale {
   id: string;
@@ -204,15 +204,6 @@ export const MagazinePageAvailability = ({ sales, onEditSale, onNewEntry }: Maga
   const handlePageClick = (pageNumber: string) => {
     setSelectedPage(pageNumber);
     setDetailSheetOpen(true);
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
   };
 
   const getPageStyles = (pageKey: string) => {

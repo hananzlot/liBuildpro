@@ -49,13 +49,10 @@ export function useQuickBooksCallback() {
           return;
         }
 
-        console.log("Processing QuickBooks OAuth callback for company:", companyId);
-
         // CRITICAL: Restore super admin company context from OAuth state
         // This ensures the admin is switched back to the company they were working on
         // before the OAuth redirect took them away from the app
         if (isSuperAdmin && companyId) {
-          console.log("Restoring super admin company context:", companyId);
           setViewingCompanyId(companyId);
         }
 
@@ -73,7 +70,6 @@ export function useQuickBooksCallback() {
           console.error("QuickBooks token exchange failed:", error || data?.error);
           toast.error(data?.error || "Failed to connect QuickBooks");
         } else {
-          console.log("QuickBooks connected successfully!");
           toast.success("QuickBooks connected successfully!");
           queryClient.invalidateQueries({ queryKey: ["quickbooks-connection"] });
         }

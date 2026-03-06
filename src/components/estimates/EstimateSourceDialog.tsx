@@ -17,6 +17,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileText, Plus, Search, Loader2, User, DollarSign, MapPin } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 export interface LinkedOpportunity {
   id: string;
@@ -162,14 +163,6 @@ export function EstimateSourceDialog({
     setSelectedOpportunityId(null);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

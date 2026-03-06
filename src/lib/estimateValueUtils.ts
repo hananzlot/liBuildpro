@@ -55,7 +55,6 @@ export async function updateOpportunityValueFromEstimates(
   userId?: string
 ): Promise<void> {
   if (!opportunityGhlId) {
-    console.log("No opportunity GHL ID provided, skipping value update");
     return;
   }
 
@@ -64,8 +63,6 @@ export async function updateOpportunityValueFromEstimates(
     opportunityGhlId,
     companyId
   );
-
-  console.log(`Updating opportunity ${opportunityGhlId} monetary_value to aggregated total: ${aggregatedValue}`);
 
   try {
     await supabase.functions.invoke("update-ghl-opportunity", {

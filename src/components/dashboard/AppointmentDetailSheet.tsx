@@ -57,7 +57,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { stripHtml, getAddressFromContact, CUSTOM_FIELD_IDS as SHARED_CUSTOM_FIELD_IDS, extractCustomField as sharedExtractCustomField, findContactByIdOrGhlId } from "@/lib/utils";
+import { stripHtml, getAddressFromContact, CUSTOM_FIELD_IDS as SHARED_CUSTOM_FIELD_IDS, extractCustomField as sharedExtractCustomField, findContactByIdOrGhlId, formatCurrency, formatPhoneNumber } from "@/lib/utils";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -903,15 +903,6 @@ export function AppointmentDetailSheet({
     }
   };
 
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "$0";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(value);
-  };
-
   // Use local state for salesperson_id to reflect changes immediately
   // PRIORITY: Internal UUID (salesperson_id) FIRST, GHL ID (assigned_user_id) as FALLBACK only
   
@@ -1036,19 +1027,6 @@ export function AppointmentDetailSheet({
   };
 
   // Helper to format phone numbers: (XXX) XXX-XXXX
-  const formatPhoneNumber = (phone: string | null | undefined): string => {
-    if (!phone) return "";
-    // Remove all non-digit characters
-    const digits = phone.replace(/\D/g, "");
-    // Handle US numbers with country code
-    const normalized = digits.startsWith("1") && digits.length === 11 ? digits.slice(1) : digits;
-    if (normalized.length === 10) {
-      return `(${normalized.slice(0, 3)}) ${normalized.slice(3, 6)}-${normalized.slice(6)}`;
-    }
-    // Return original if not a standard 10-digit number
-    return phone;
-  };
-
   // Initialize contact edit fields when entering edit mode
   const startEditingContact = (e: React.MouseEvent) => {
     e.stopPropagation();

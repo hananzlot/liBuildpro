@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { formatUnit } from '@/lib/utils';
+import { formatUnit, formatCurrency } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanyContext } from '@/hooks/useCompanyContext';
@@ -116,10 +116,9 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       // Use the selected estimate's company_id or fall back to context companyId
       const effectiveCompanyId = selectedEstimate?.company_id || companyId;
 
-      console.log('[Compliance-Proposals] Fetching setting for company:', effectiveCompanyId);
 
       if (!effectiveCompanyId) {
-        console.log('[Compliance-Proposals] No company ID found, disabling compliance');
+
         setCompliancePackageEnabled(false);
         setComplianceSettingLoaded(true);
         return;
@@ -133,11 +132,10 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         .eq('setting_key', 'compliance_package_enabled')
         .maybeSingle();
       
-      console.log('[Compliance-Proposals] company_settings query result:', { data, error });
-      
+
       if (!error && data) {
         const enabled = String(data.setting_value ?? '').toLowerCase() === 'true';
-        console.log('[Compliance-Proposals] Setting enabled from company_settings:', enabled);
+
         setCompliancePackageEnabled(enabled);
         setComplianceSettingLoaded(true);
         return;
@@ -145,7 +143,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       
       // Fallback 1: check if company has any active compliance templates (RLS allows portal visitors)
       if (!error || error.code === 'PGRST116') {
-        console.log('[Compliance-Proposals] No setting found, checking for active templates');
+
         const { data: template, error: templateError } = await supabase
           .from('compliance_document_templates')
           .select('id')
@@ -156,7 +154,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
 
         if (!templateError) {
           const enabled = !!template?.id;
-          console.log('[Compliance-Proposals] Setting enabled from templates:', enabled);
+
           setCompliancePackageEnabled(enabled);
           setComplianceSettingLoaded(true);
           return;
@@ -164,13 +162,12 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       }
       
       // Fallback 2: use Edge Function (bypasses RLS completely)
-      console.log('[Compliance-Proposals] Using Edge Function fallback');
+
       try {
         const { data: fnData, error: fnError } = await supabase.functions.invoke('portal-compliance-enabled', {
           body: { token },
         });
 
-        console.log('[Compliance-Proposals] portal-compliance-enabled result:', { fnData, fnError });
 
         if (!fnError && typeof fnData?.enabled === 'boolean') {
           setCompliancePackageEnabled(fnData.enabled);
@@ -182,7 +179,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       }
       
       // Final fallback: disable compliance
-      console.log('[Compliance-Proposals] All methods failed, disabling compliance');
+
       setCompliancePackageEnabled(false);
       setComplianceSettingLoaded(true);
     };
@@ -200,14 +197,6 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       setComplianceSettingLoaded(false);
     }
   }, [viewingProposal]);
-
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '$0.00';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
 
   const getStatusConfig = (status: string) => {
     const config: Record<string, { 
@@ -369,7 +358,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                 .eq('company_id', companyId);
             }
 
-            console.log('Updated opportunity with proposal link and aggregated value');
+
           } catch (err) {
             console.error('Failed to update opportunity:', err);
           }
@@ -412,7 +401,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           console.error('Failed to create agreement:', agreementError);
         } else {
           createdAgreementId = agreementData?.id || null;
-          console.log('Created project agreement:', createdAgreementId);
+
 
           // Fetch payment schedule from estimate and create payment phases
           const { data: paymentSchedule } = await supabase
@@ -441,7 +430,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
             if (phasesError) {
               console.error('Failed to create payment phases:', phasesError);
             } else {
-              console.log('Created', paymentPhases.length, 'payment phases');
+
             }
           }
         }
@@ -468,7 +457,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         if (result.error) {
           console.error('Failed to generate contract PDF:', result.error);
         } else {
-          console.log('Contract PDF generated:', result.data);
+
         }
       }).catch(console.error);
 
@@ -544,7 +533,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
               opportunityGhlId,
               companyId
             );
-            console.log('Updated opportunity value after estimate decline');
+
           } catch (err) {
             console.error('Failed to update opportunity value after decline:', err);
           }

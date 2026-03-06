@@ -50,7 +50,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { cn, formatCurrency, formatCurrency2, formatCurrencyWithDecimals } from "@/lib/utils";
+import { cn, formatCurrency, formatCurrency2, formatCurrencyWithDecimals, formatDate } from "@/lib/utils";
 import { 
   Plus, 
   Pencil, 
@@ -230,11 +230,6 @@ interface ExtractedPhase {
   display_order: number;
 }
 
-
-const formatDate = (date: string | null) => {
-  if (!date) return "-";
-  return new Date(date).toLocaleDateString();
-};
 
 export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, autoOpenFinanceDialog, initialSubTab, initialBillsSubTab, highlightInvoiceId, highlightBillId, highlightPaymentId, onSubTabChange, projectStatus, projectName, projectAddress, customerName, onPdfPreviewStateChange, onFinanceSummaryChange }: FinanceSectionProps) {
   const queryClient = useQueryClient();
@@ -989,7 +984,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         console.error("QuickBooks sync error:", error);
         return { synced: false, message: error.message };
       } else if (data?.synced > 0) {
-        console.log("QuickBooks record synced:", recordType, recordId);
+
         return { synced: true, newEntities: data?.newEntities || [] };
       }
       const errorMessage = Array.isArray(data?.errors) && data.errors.length > 0 ? String(data.errors[0]) : undefined;
@@ -1215,14 +1210,14 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   };
 
   const syncDeleteToQuickBooks = async (recordType: string, recordId: string): Promise<{ synced: boolean; message?: string }> => {
-    console.log(`[QB Delete] Starting delete sync for ${recordType} ${recordId}, companyId: ${companyId}`);
+
     if (!companyId || !isQBConnectedMain) {
-      console.log("[QB Delete] No companyId or QB not connected, skipping");
+
       return { synced: false };
     }
     
     try {
-      console.log(`[QB Delete] Invoking delete-quickbooks-record edge function...`);
+
       const { data, error } = await supabase.functions.invoke("delete-quickbooks-record", {
         body: {
           companyId,
@@ -1232,21 +1227,20 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         },
       });
       
-      console.log("[QB Delete] Response:", { data, error });
-      
+
       if (error) {
         console.error("QuickBooks delete sync error:", error);
         return { synced: false };
       } else if (data?.success && !data?.skipped && !data?.manual_action_required) {
         // Only consider it synced if it actually voided in QB (not just marked locally)
-        console.log("QuickBooks record voided:", data.message);
+
         return { synced: true, message: data.message };
       } else if (data?.manual_action_required) {
         // QB rejected the void - manual action required
-        console.log("QuickBooks void failed, manual action required:", data.message);
+
         return { synced: false, message: data.message };
       }
-      console.log("[QB Delete] Sync returned without success, data:", data);
+
       return { synced: false };
     } catch (err) {
       console.error("Failed to sync delete to QuickBooks:", err);
@@ -1667,7 +1661,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                   vendorName: fullTargetBill.installer_company || null,
                 });
                 if (targetQbResult.synced) {
-                  console.log(`Target bill ${fullTargetBill.bill_ref} synced to QB with updated amount ${formatCurrency(fullTargetBill.bill_amount)}`);
+
                 }
               }
             } catch (qbErr) {
@@ -2232,7 +2226,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             if (updateError) {
               console.error("Failed to update invoice balance:", updateError);
             } else {
-              console.log(`Updated invoice ${paymentToDelete.invoice_id} balance: +${paymentToDelete.payment_amount} = ${newBalance}`);
+
             }
           }
         }
@@ -7148,7 +7142,7 @@ function BillPaymentHistoryDialog({
             qbManualRequired = true;
             qbManualMessage = qbResult.message || "Manual action required in QuickBooks";
           } else if (qbResult?.success) {
-            console.log("Bill payment deleted/voided in QuickBooks");
+
             qbSynced = true;
           }
         } catch (err) {
@@ -7971,7 +7965,7 @@ function CommissionTab({
         console.error("QuickBooks sync error:", error);
         return { synced: false, message: error.message };
       } else if (data?.synced > 0) {
-        console.log("Commission payment synced to QuickBooks:", paymentId);
+
         return { synced: true };
       }
       const errorMessage = Array.isArray(data?.errors) && data.errors.length > 0 ? String(data.errors[0]) : undefined;

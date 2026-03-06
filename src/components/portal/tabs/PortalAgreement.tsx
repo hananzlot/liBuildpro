@@ -17,6 +17,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatCurrency } from '@/lib/utils';
 import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
 
 interface PortalAgreementProps {
@@ -121,14 +122,6 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
     } finally {
       setDownloadingContractPdf(false);
     }
-  };
-
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '$0.00';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
   };
 
   const hasAgreement = useMemo(() => agreements.length > 0 || !!acceptedEstimate, [agreements.length, acceptedEstimate]);

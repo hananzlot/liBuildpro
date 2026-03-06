@@ -12,7 +12,7 @@ import { MagazineSalesDetailSheet } from "./MagazineSalesDetailSheet";
 import { MagazinePageAvailability } from "./MagazinePageAvailability";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 interface MagazineSale {
   id: string;
@@ -142,15 +142,6 @@ export const MagazineSalesTab = () => {
 
     return { salesBySize, salesByIssue, totalSales, totalRevenue };
   }, [sales]);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
 
   const handleEntrySuccess = () => {
     queryClient.invalidateQueries({ queryKey: ["magazine-sales", companyId] });

@@ -295,8 +295,6 @@ export function MergeContactsDialog({
       
       if (oppError) {
         console.error("Failed to transfer opportunities:", oppError);
-      } else {
-        console.log(`Transferred ${oppCount ?? 'some'} opportunities`);
       }
 
       // Appointments
@@ -311,8 +309,6 @@ export function MergeContactsDialog({
       
       if (aptError) {
         console.error("Failed to transfer appointments:", aptError);
-      } else {
-        console.log(`Transferred ${aptCount ?? 'some'} appointments`);
       }
 
       // Contact Notes
@@ -327,8 +323,6 @@ export function MergeContactsDialog({
       
       if (noteError) {
         console.error("Failed to transfer notes:", noteError);
-      } else {
-        console.log(`Transferred ${noteCount ?? 'some'} notes`);
       }
 
       // Tasks

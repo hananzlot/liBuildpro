@@ -28,6 +28,7 @@ import { ContractPrintDialog } from "@/components/estimates/ContractPrintDialog"
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 import { ProposalUploadDialog } from "@/components/estimates/ProposalUploadDialog";
 import { EstimateSourceDialog, LinkedOpportunity } from "@/components/estimates/EstimateSourceDialog";
+import { formatCurrency } from "@/lib/utils";
 
 type ViewType = "list" | "proposals" | "contracts" | "declined";
 
@@ -353,7 +354,6 @@ export default function Estimates() {
         }
         const result = data as Record<string, number> | null;
         if (result && (result.old_estimates_archived > 0 || result.expired_proposals_archived > 0)) {
-          console.log('Archived stale projects:', result);
           queryClient.invalidateQueries({ queryKey: ["projects"] });
           queryClient.invalidateQueries({ queryKey: ["production"] });
         }
@@ -366,14 +366,6 @@ export default function Estimates() {
   const contractTotal = contractEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
   const declinedTotal = declinedEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   // Format estimate number with appropriate prefix based on status/tab
   const formatEstimateNumber = (estimate: Estimate, tableType?: string) => {

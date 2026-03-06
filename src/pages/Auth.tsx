@@ -108,8 +108,6 @@ export default function Auth() {
           return;
         }
 
-        console.log("Processing QuickBooks OAuth callback from /auth for company:", companyId);
-
         // Restore super admin company context
         if (isSuperAdmin && companyId) {
           setViewingCompanyId(companyId);
@@ -129,7 +127,6 @@ export default function Auth() {
           console.error("QuickBooks token exchange failed:", error || data?.error);
           toast.error(data?.error || "Failed to connect QuickBooks");
         } else {
-          console.log("QuickBooks connected successfully!");
           toast.success("QuickBooks connected successfully!");
           queryClient.invalidateQueries({ queryKey: ["quickbooks-connection"] });
         }

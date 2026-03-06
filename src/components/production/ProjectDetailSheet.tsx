@@ -45,7 +45,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, formatPhoneNumber } from "@/lib/utils";
 import { 
   Building2, 
   User, 
@@ -836,17 +836,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   });
 
   if (!project) return null;
-
-  const formatPhoneNumber = (phone: string | null | undefined): string => {
-    if (!phone) return "";
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length === 10) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-    } else if (digits.length === 11 && digits.startsWith("1")) {
-      return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-    }
-    return phone;
-  };
 
   const handleSendChatReply = () => {
     if (!portalChatReply.trim()) return;

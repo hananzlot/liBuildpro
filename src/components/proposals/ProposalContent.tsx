@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { formatUnit } from '@/lib/utils';
+import { formatUnit, formatCurrency } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -133,15 +133,6 @@ export interface ProposalContentProps {
   // Custom sections to render before/after content
   headerContent?: React.ReactNode;
   footerContent?: React.ReactNode;
-}
-
-// Utility functions
-export function formatCurrency(amount: number | null | undefined): string {
-  if (amount === null || amount === undefined) return '$0.00';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount);
 }
 
 export function getStatusBadge(status: string) {

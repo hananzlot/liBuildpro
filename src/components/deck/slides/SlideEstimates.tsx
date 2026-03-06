@@ -1,6 +1,6 @@
 import { SlideLayout } from "../SlideLayout";
 import { FileText, Wand2, Send, Printer, ListChecks, DollarSign } from "lucide-react";
-import screenshotEstimates from "@/assets/deck/sc12.png";
+import screenshotEstimates from "@/assets/deck/sc12.webp";
 
 const FEATURES = [
   { icon: Wand2, label: "AI-Powered Builder", desc: "Generate line items from scope descriptions instantly." },

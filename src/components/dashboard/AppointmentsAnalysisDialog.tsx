@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { BarChart3, TrendingUp, Users, Megaphone, ChevronLeft, MapPin, Briefcase, Mail, Phone as PhoneIcon, Download, ChevronRight, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
+import { extractCustomField, CUSTOM_FIELD_IDS, formatCurrency, formatPhoneNumber } from "@/lib/utils";
 import { toast } from "sonner";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 
@@ -81,20 +81,6 @@ interface AppointmentsAnalysisDialogProps {
   }>;
 }
 
-// Helper to format phone numbers
-const formatPhoneNumber = (phone: string | null | undefined): string => {
-  if (!phone) return "";
-  // Remove all non-digit characters
-  const digits = phone.replace(/\D/g, "");
-  // Format as (XXX) XXX-XXXX for 10 digits, or +X (XXX) XXX-XXXX for 11+
-  if (digits.length === 10) {
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-  } else if (digits.length === 11 && digits.startsWith("1")) {
-    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-  }
-  return phone; // Return original if format doesn't match
-};
-
 // Helper to capitalize names properly
 const capitalizeName = (name: string | null | undefined): string => {
   if (!name) return "";
@@ -118,12 +104,6 @@ export function AppointmentsAnalysisDialog({
   const [detailView, setDetailView] = useState<DetailView>(null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
-
-  const formatCurrency = (value: number) => {
-    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
-    return `$${value.toLocaleString()}`;
-  };
 
   // Helper to normalize source names
   const normalizeSourceName = (sourceName: string): string => {

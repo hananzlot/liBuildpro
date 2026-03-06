@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { stripHtml, findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
+import { stripHtml, findContactByIdOrGhlId, findUserByIdOrGhlId, formatCurrency } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useCompanyPipelineSettings } from "@/hooks/useCompanyPipelineSettings";
@@ -594,7 +594,7 @@ export function OpportunityDetailSheet({
         data
       } = await supabase.from("ghl_pipelines").select("ghl_id, name, stages").eq("company_id", companyId);
       if (data) {
-        console.log('Fetched pipeline data:', data);
+
         setPipelineData(data as {
           ghl_id: string;
           name: string;
@@ -1322,11 +1322,7 @@ export function OpportunityDetailSheet({
       // - Creating new appointment (not editing), OR
       // - Editing AND user explicitly checked "Reschedule appointment" checkbox
       const shouldUpdateTime = editingAppointment ? updateAppointmentTime : true;
-      console.log("DateTime check:", {
-        isEditing: !!editingAppointment,
-        updateAppointmentTime,
-        shouldUpdateTime
-      });
+
       if (shouldUpdateTime) {
         const timeStr = appointmentTime || "09:00";
         const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
@@ -1344,13 +1340,13 @@ export function OpportunityDetailSheet({
       // Note: If checkbox is unchecked, we don't send startTime at all
       // This allows editing title/notes/assignee without triggering GHL slot validation
 
-      console.log("Appointment update payload:", JSON.stringify(updateBody));
+
       const response = await supabase.functions.invoke("update-ghl-appointment", {
         body: updateBody
       });
       if (response.error) {
         console.error("Appointment update error:", response.error);
-        console.log("Response data:", response.data);
+
         // The error message from edge function is in response.data
         const errorData = response.data as {
           error?: string;
@@ -2075,7 +2071,7 @@ export function OpportunityDetailSheet({
         assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo, // Keep internal ID for display matching
         source: editedSource || null
       };
-      console.log("Saving values:", newSavedValues);
+
       setSavedValues(newSavedValues);
       toast.success("Opportunity updated in GHL and database");
       setIsEditing(false);
@@ -2612,14 +2608,6 @@ export function OpportunityDetailSheet({
       default:
         return "bg-amber-500/20 text-amber-400 border-amber-500/30";
     }
-  };
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "$0";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0
-    }).format(value);
   };
   const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
   const relatedAppointments = appointments.filter(a => 
