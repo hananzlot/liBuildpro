@@ -18,7 +18,7 @@ import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { MultiSelectFilter } from "./MultiSelectFilter";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { DateRange } from "react-day-picker";
-import { getAddressFromContact, findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
+import { getAddressFromContact, findContactByIdOrGhlId, findUserByIdOrGhlId, formatCurrency } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppointmentsFilters } from "@/stores/useAppointmentsFilters";
@@ -247,14 +247,6 @@ export function AppointmentsTable({
     return opp?.stage_name || '-';
   };
 
-  const formatCurrency = (value: number | null) => {
-    if (!value) return '-';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-    }).format(value);
-  };
 
   const getOpportunityStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {

@@ -34,8 +34,6 @@ export function usePortalChatNotifications() {
     // Only subscribe for admins and production managers
     if (!user || (!isAdmin && !isSuperAdmin && !isProduction)) return;
 
-    console.log('Setting up portal chat notifications listener');
-
     const channel = supabase
       .channel('portal-chat-notifications')
       .on(
@@ -46,7 +44,6 @@ export function usePortalChatNotifications() {
           table: 'portal_chat_messages',
         },
         async (payload) => {
-          console.log('New portal chat message received:', payload);
           const message = payload.new as ChatMessage;
 
           // Only notify for customer messages
@@ -81,12 +78,9 @@ export function usePortalChatNotifications() {
           });
         }
       )
-      .subscribe((status) => {
-        console.log('Portal chat notifications subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('Cleaning up portal chat notifications listener');
       supabase.removeChannel(channel);
     };
   }, [user, isAdmin, isSuperAdmin, isProduction]);

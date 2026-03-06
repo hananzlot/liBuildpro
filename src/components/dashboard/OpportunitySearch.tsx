@@ -10,7 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { getAddressFromContact as getAddressUtil, findContactByIdOrGhlId } from "@/lib/utils";
+import { getAddressFromContact as getAddressUtil, findContactByIdOrGhlId, formatCurrency } from "@/lib/utils";
 
 interface Opportunity {
   id: string;
@@ -153,14 +153,6 @@ export function OpportunitySearch({
     return getAddressWithFallback(contactId) || null;
   };
 
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "$0";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(value);
-  };
 
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {

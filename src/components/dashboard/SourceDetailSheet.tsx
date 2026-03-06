@@ -37,7 +37,7 @@ import { format } from "date-fns";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { findContactByIdOrGhlId } from "@/lib/utils";
+import { findContactByIdOrGhlId, formatCurrency } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useStageBadgeMappings } from "@/hooks/useStageBadgeMappings";
@@ -231,7 +231,7 @@ export function SourceDetailSheet({
         filteredContacts[0]?.company_id || 
         null;
       
-      console.log("[SourceDetailSheet] Fetching pipeline stages for company:", companyId);
+
       
       if (!companyId) {
         console.warn("[SourceDetailSheet] No company ID available to fetch pipeline stages");
@@ -250,12 +250,12 @@ export function SourceDetailSheet({
         return;
       }
       
-      console.log("[SourceDetailSheet] Pipeline stages response:", data);
+
       
       if (data?.setting_value) {
         try {
           const stages = normalizePipelineStages(data.setting_value);
-          console.log("[SourceDetailSheet] Parsed pipeline stages:", stages);
+
           setConfiguredStages(stages);
         } catch (e) {
           console.error("Failed to parse pipeline_stages:", e);
@@ -278,15 +278,6 @@ export function SourceDetailSheet({
       setSearchFilter("");
     }
   }, [open]);
-
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "$0";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(value);
-  };
 
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -354,7 +345,7 @@ export function SourceDetailSheet({
         console.error('Task creation error:', ghlResponse.error);
         toast.error("Failed to create task");
       } else {
-        console.log('Task created:', ghlResponse.data);
+
         toast.success("Task created");
       }
 

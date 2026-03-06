@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUploadLimit } from "@/hooks/useUploadLimit";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { formatDate } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -385,10 +386,6 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   const handleDeleteClick = (doc: Document) => {
     setDeleteTarget(doc);
     setDeleteDialogOpen(true);
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString();
   };
 
   const handleDocumentClick = (doc: Document) => {

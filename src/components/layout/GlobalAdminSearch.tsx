@@ -16,7 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getAddressFromContact, findContactByIdOrGhlId } from "@/lib/utils";
+import { getAddressFromContact, findContactByIdOrGhlId, formatCurrency } from "@/lib/utils";
 import { formatCurrencyWithDecimals as formatCurrencyUtil } from "@/lib/utils";
 
 /** Capitalize each word in a name string */
@@ -756,15 +756,6 @@ export function GlobalAdminSearch() {
         ? `${contact.first_name} ${contact.last_name}`
         : contact?.first_name || contact?.last_name || "Unknown");
     return capitalizeName(raw);
-  };
-
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "$0";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(value);
   };
 
   const getStatusColor = (status: string | null) => {

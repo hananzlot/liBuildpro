@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
 
 interface ContractPrintDialogProps {
   estimateId: string | null;
@@ -119,14 +120,6 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
     enabled: !!estimateId && open,
   });
 
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return "$0.00";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
 
   const buildPrintContent = () => {
     if (!data?.estimate) return "";

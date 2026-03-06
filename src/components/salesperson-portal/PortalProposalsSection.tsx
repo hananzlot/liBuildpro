@@ -10,6 +10,7 @@ import { FileText, ExternalLink, Loader2, ChevronDown, ChevronUp, Eye, Globe } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
+import { formatCurrency } from "@/lib/utils";
 
 interface PortalProposalsSectionProps {
   salespersonName: string;
@@ -188,15 +189,6 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
       return <Badge variant="outline" className="text-[10px] px-1.5 py-0">Proposal</Badge>;
     }
     return <Badge variant="outline" className="text-[10px] px-1.5 py-0">Estimate</Badge>;
-  };
-
-  const formatCurrency = (amount: number | null) => {
-    if (!amount) return "-";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(amount);
   };
 
   return (

@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { stripHtml, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId } from "@/lib/utils";
+import { stripHtml, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId, formatCurrency } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -356,7 +356,7 @@ export function FollowUpManagement({
         return null;
       }
 
-      console.log(`Auto-created opportunity for orphaned appointment: ${localOppId} with creation date ${creationDate}`);
+
       return newOpp as DBOpportunity;
     } catch (err) {
       console.error('Error creating orphaned opportunity:', err);
@@ -400,7 +400,7 @@ export function FollowUpManagement({
       if (orphanedAppointments.length === 0) return;
 
       setCreatingOrphanedOpportunities(true);
-      console.log(`Auto-creating ${orphanedAppointments.length} opportunities for orphaned appointments...`);
+
 
       const createdContactIds = new Set<string>();
       for (const { appointment, contact } of orphanedAppointments) {
@@ -1561,15 +1561,6 @@ export function FollowUpManagement({
         direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc"
       }));
     }
-  };
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "$0";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
   };
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefreshAll = async () => {

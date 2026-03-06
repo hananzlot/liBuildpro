@@ -36,7 +36,7 @@ import {
   
 } from "lucide-react";
 import { format } from "date-fns";
-import { getAddressFromContact } from "@/lib/utils";
+import { getAddressFromContact, formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -296,17 +296,6 @@ export function DateRangeAppointmentsSheet({
 
     fetchNotesAndTasks();
   }, [open, defaultStatusFilter, appointments]);
-
-  // Format currency helper
-  const formatCurrency = (value: number | null | undefined) => {
-    if (!value) return "-";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
 
   // Handle column sorting
   const handleSort = (column: SortColumn) => {

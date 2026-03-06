@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckSquare, FileText, User, Calendar, MapPin, History, ArrowRight, Clock, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { findContactByIdOrGhlId, findUserByIdOrGhlId, findOpportunityByIdOrGhlId } from "@/lib/utils";
+import { findContactByIdOrGhlId, findUserByIdOrGhlId, findOpportunityByIdOrGhlId, formatCurrency } from "@/lib/utils";
 
 import type { DBOpportunityEdit, DBTaskEdit, DBNoteEdit, DBAppointmentEdit } from "@/hooks/useGHLContacts";
 
@@ -232,15 +232,6 @@ const formatDate = (dateStr: string | null): string => {
     hour: "numeric",
     minute: "2-digit",
   });
-};
-
-const formatCurrency = (value: number | null): string => {
-  if (!value) return "$0";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-  }).format(value);
 };
 
 // Strip HTML tags from content (GHL notes often contain HTML)

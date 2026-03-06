@@ -827,7 +827,6 @@ export default function OutstandingAP() {
           },
           { onConflict: "company_id,record_type,record_id" }
         );
-        console.log(`Saved QB bill mapping: ${pendingPaymentData.billId} -> ${qbBillId}`);
       } catch (err) {
         console.error("Failed to save QB bill mapping:", err);
         // Continue anyway - this is just for future convenience

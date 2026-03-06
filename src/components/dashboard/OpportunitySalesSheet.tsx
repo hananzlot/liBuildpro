@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DollarSign, Search, Calendar, User, Phone, ChevronLeft, ChevronRight } from "lucide-react";
-import { findContactByIdOrGhlId, findOpportunityByIdOrGhlId } from "@/lib/utils";
+import { findContactByIdOrGhlId, findOpportunityByIdOrGhlId, formatCurrency } from "@/lib/utils";
 
 interface OpportunitySale {
   id: string;
@@ -94,15 +94,6 @@ export function OpportunitySalesSheet({
     const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
     if (!contact) return null;
     return contact.contact_name || `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null;
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
   };
 
   const filteredSales = useMemo(() => {

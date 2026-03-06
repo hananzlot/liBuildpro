@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { toast } from "sonner";
 import { OnboardingPromptBanner } from "@/components/onboarding";
+import { formatCurrency } from "@/lib/utils";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -158,14 +159,6 @@ const Index = () => {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  };
 
   const handleAdminAction = (action: string) => {
     switch (action) {

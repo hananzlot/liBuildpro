@@ -1,6 +1,6 @@
 import { SlideLayout } from "../SlideLayout";
 import { LayoutDashboard, Users, CalendarCheck, BarChart3, Bell, Plug } from "lucide-react";
-import screenshotDashboard from "@/assets/deck/sc15.png";
+import screenshotDashboard from "@/assets/deck/sc15.webp";
 
 const FEATURES = [
   { icon: Users, label: "Lead Tracking", desc: "Every opportunity synced from GHL with status, source, and assigned rep." },

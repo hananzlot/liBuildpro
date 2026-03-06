@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { User, Megaphone, Calendar, DollarSign, Clock, GitBranch, ChevronRight, Search, MapPin } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
-import { getAddressFromContact, findContactByIdOrGhlId, findOpportunityByIdOrGhlId } from "@/lib/utils";
+import { getAddressFromContact, findContactByIdOrGhlId, findOpportunityByIdOrGhlId, formatCurrency } from "@/lib/utils";
 
 interface Opportunity {
   id: string;
@@ -124,13 +124,6 @@ export function SalesRepDetailSheet({
       .split(' ')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
-  };
-
-  const formatCurrency = (value: number | null) => {
-    if (!value) return '$0';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency', currency: 'USD', minimumFractionDigits: 0,
-    }).format(value);
   };
 
   const getStatusColor = (status: string | null) => {

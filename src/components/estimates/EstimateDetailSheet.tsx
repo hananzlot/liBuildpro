@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { formatUnit } from "@/lib/utils";
+import { formatUnit, formatCurrency } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -277,13 +277,6 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
     e.target.value = ''; // Reset input
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
 
   // Group line items by group
   const groupedItems = groups?.map((group) => ({

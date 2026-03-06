@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertTriangle, UserCheck, Loader2 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -53,14 +54,6 @@ const isUnresolvedId = (name: string | null) => {
   );
 };
 
-function formatCurrency(value: number | null): string {
-  if (!value) return "$0";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-  }).format(value);
-}
 
 export function UnknownRepReassignDialog({
   open,

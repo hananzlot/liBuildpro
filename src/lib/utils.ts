@@ -102,6 +102,38 @@ export const formatCompactCurrency = (value: number | null | undefined): string 
   return `$${value.toFixed(0)}`;
 };
 
+// Format phone number for display
+export const formatPhoneNumber = (phone: string | null | undefined): string => {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone;
+};
+
+// Format date for display (short date only)
+export const formatDate = (date: string | null | undefined): string => {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString();
+};
+
+// Format date with time for display
+export const formatDateTime = (dateString: string | null | undefined): string => {
+  if (!dateString) return "-";
+  return new Date(dateString).toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
 // Helper to find contact using UUID with fallback to GHL ID
 // Supports the Supabase-as-source-of-truth architecture where UUID is preferred
 export function findContactByIdOrGhlId<T extends { id: string; ghl_id?: string | null }>(

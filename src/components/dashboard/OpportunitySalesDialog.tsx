@@ -9,6 +9,7 @@ import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, DollarSign, Plus, Trash2 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 interface Salesperson {
   id: string;
@@ -194,14 +195,6 @@ export function OpportunitySalesDialog({
     return "Unknown";
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
 
   const totalSalesAmount = sales.reduce((sum, s) => sum + (s.sold_amount || 0), 0);
 

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatCurrency } from "@/lib/utils";
 
 interface CommissionInvoiceData {
   salespersonName: string;
@@ -32,15 +33,6 @@ interface CommissionInvoiceDialogProps {
   totalBillsPaid: number;
   leadCostPercent: number;
   commissionSplitPct: number;
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
 }
 
 export function CommissionInvoiceDialog({

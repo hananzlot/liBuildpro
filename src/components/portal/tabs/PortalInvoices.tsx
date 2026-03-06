@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatCurrency } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,14 +32,6 @@ export function PortalInvoices({ paymentSchedule, projectId, project }: PortalIn
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [selectedPayments, setSelectedPayments] = useState<any[]>([]);
   
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '$0.00';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-
   // Fetch actual invoices from project_invoices with agreement and phase info
   const { data: projectInvoices } = useQuery({
     queryKey: ['portal-invoices', projectId],

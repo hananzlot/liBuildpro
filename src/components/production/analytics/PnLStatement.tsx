@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 interface PnLStatementProps {
   projects: ProjectWithFinancials[];
@@ -17,15 +17,6 @@ interface PnLLineItem {
   isTotal?: boolean;
   isGrandTotal?: boolean;
   indent?: boolean;
-}
-
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
 }
 
 function PnLTable({ lines }: { lines: PnLLineItem[] }) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, formatPhoneNumber } from "@/lib/utils";
 import { useEstimateDraft } from "@/hooks/useEstimateDraft";
 import { useEstimateDraftDB } from "@/hooks/useEstimateDraftDB";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -432,7 +432,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           const dialogOpenTime = dialogOpenedAtRef.current || 0;
           
           if (sessionDraft.savedAt >= dialogOpenTime) {
-            console.log('Restoring draft on tab return (saved at:', new Date(sessionDraft.savedAt).toISOString(), ')');
+
             setFormData(sessionDraft.formData);
             setGroups(sessionDraft.groups || []);
             setPaymentSchedule(sessionDraft.paymentSchedule || []);
@@ -482,7 +482,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
 
     const restoreFromDraft = (draft: Partial<typeof draftData> & { savedAt?: number }) => {
-      console.log('Restoring draft:', draft.formData?.job_address);
+
       if (draft.formData) setFormData(draft.formData);
       setGroups(draft.groups || []);
       setPaymentSchedule(draft.paymentSchedule || []);
@@ -529,7 +529,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         isDraftFromCurrentSession(sessionDraft.savedAt) &&
         (hasLineItemsDraft || hasManualDraft)
       ) {
-        console.log('Restoring current-session draft for existing estimate');
+
         restoreFromDraft(sessionDraft);
       }
       setDidAttemptDraftRestore(true);
@@ -606,16 +606,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return sp?.id || null;
   }, [salespeople]);
 
-  const formatPhoneNumber = useCallback((value: string) => {
-    // Remove all non-digit characters
-    const digits = value.replace(/\D/g, '');
-    
-    // Format based on length
-    if (digits.length === 0) return '';
-    if (digits.length <= 3) return `(${digits}`;
-    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-  }, []);
   const calculateTotals = useCallback(() => {
     // Manual mode: use user-entered total directly
     if (estimateMode === 'manual') {
@@ -885,7 +875,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       if (error) {
         console.error('Failed to sync salesperson to project:', error);
       } else {
-        console.log('Synced salesperson to project:', salespersonName);
+
       }
     } catch (err) {
       console.error('Error syncing salesperson to project:', err);
@@ -973,7 +963,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       );
 
       // Set linked project - CRITICAL for Photos tab visibility
-      console.log("[EstimateBuilder] Setting linkedProjectId:", est.project_id);
+
       // IMPORTANT: if we just created a project during this session, keep that value
       // even if the edit query hasn't refetched yet (it may still have project_id = null).
       setLinkedProjectId((prev) => prev || est.project_id || null);
@@ -1199,7 +1189,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     // Validate file size based on company setting (default 50MB)
     const effectiveMaxSize = plansMaxSizeMb || 50;
     const maxSizeBytes = effectiveMaxSize * 1024 * 1024;
-    console.log('Plans upload - Max size setting:', effectiveMaxSize, 'MB, File size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
+
     if (file.size > maxSizeBytes) {
       toast.error(`File is too large. Maximum size is ${effectiveMaxSize}MB.`);
       return;
@@ -1276,7 +1266,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       if (error) {
         console.error('Failed to persist AI analysis:', error);
       } else {
-        console.log('AI analysis persisted to database');
+
       }
     } catch (err) {
       console.error('Error persisting AI analysis:', err);
@@ -1455,7 +1445,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         // Apply the recovered/completed job result
         const result = completedJob.result_json as { scope?: any; recovered?: boolean };
         if (result.scope) {
-          console.log('Found completed AI job, applying results...');
+
           const aiAnalysis = applyAIScope(result.scope);
           // Persist AI analysis immediately for existing estimates
           if (aiAnalysis) {
@@ -1586,7 +1576,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         // Invalidate queries so the estimates list updates
         queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
         
-        console.log('Saved estimate before AI generation:', targetEstimateId);
+
         toast.success("Estimate saved! Starting AI generation...");
       } else {
         // Update existing estimate with current form data before AI generation
@@ -1650,7 +1640,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         setDraftRestored(false);
         
         queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
-        console.log('Updated estimate before AI generation:', targetEstimateId);
+
       }
       
       // Create a job record
@@ -1677,7 +1667,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       }
       
       jobId = jobData.id;
-      console.log('Created AI generation job:', jobId);
+
       
       const stopPolling = () => {
         if (jobPollIntervalRef.current) {
@@ -1704,7 +1694,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         current_stage?: string | null;
         total_stages?: number | null;
       }) => {
-        console.log('Job update received:', job.status, job.current_stage);
+
 
         // Update stage progress for UI.
         // IMPORTANT: GROUP_ITEMS runs many times; we advance progress on each distinct stage value.
@@ -1857,7 +1847,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       // If we get an immediate response (fast generation), use it directly
       if (!error && data?.success && data?.scope) {
-        console.log('Got immediate response, applying directly');
+
         // Validate non-empty results
         if (!data.scope.groups || data.scope.groups.length === 0 || 
             data.scope.groups.reduce((sum: number, g: any) => sum + (g.items?.length || 0), 0) === 0) {
@@ -1883,7 +1873,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       
       // If there was an error but we have a job, the background processing continues
       if (error) {
-        console.log('Request failed but job may continue in background:', error);
+
         // Don't throw - let realtime subscription handle the result
         // But if the job was never started, we need to handle that
         if (!jobId) {
@@ -1896,7 +1886,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       const maxTimeout = plansFileUrl ? 300_000 : 180_000;
       setTimeout(() => {
         if (isGeneratingScopeRef.current) {
-          console.log('Safety timeout reached, checking job status...');
+
           // Check job status one more time
           supabase
             .from('estimate_generation_jobs')
@@ -2461,7 +2451,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               user?.id
             );
             
-            console.log("Updated opportunity stage to 'Estimate Prepared' and recalculated aggregated value");
+
           } catch (err) {
             console.error("Failed to update opportunity:", err);
             // Don't fail the save for this
@@ -2537,7 +2527,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 .update(updateData)
                 .eq("id", savedEstimateId);
               
-              console.log("Created new opportunity and linked to estimate:", createResult.opportunityId, "UUID:", createResult.opportunityUuid);
+
             }
           } catch (err) {
             console.error("Failed to create opportunity:", err);
@@ -2593,7 +2583,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 .update({ project_id: existingMatch.id })
                 .eq("id", savedEstimateId);
               setLinkedProjectId(existingMatch.id);
-              console.log("Linked estimate to existing project (duplicate prevented):", existingMatch.id);
+
             } else {
               // No match found — create new project
               const { data: locationSetting } = await supabase
@@ -2633,7 +2623,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   if (autoOpp) {
                     finalOpportunityUuid = autoOpp.id;
                     finalOpportunityGhlId = autoOpp.ghl_id;
-                    console.log("Auto-created opportunity for project:", autoOpp.id);
+
                   }
                 } catch (oppErr) {
                   console.error("Failed to auto-create opportunity:", oppErr);
@@ -2672,7 +2662,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   .update({ project_id: newProject.id })
                   .eq("id", savedEstimateId);
                 setLinkedProjectId(newProject.id);
-                console.log("Created project with status 'Estimate' and linked to estimate:", newProject.id);
+
               }
             }
           } catch (err) {
@@ -2730,7 +2720,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               .update({ project_id: existingMatch.id })
               .eq("id", savedEstimateId);
             setLinkedProjectId(existingMatch.id);
-            console.log("Linked existing estimate to existing project (duplicate prevented):", existingMatch.id);
+
           } else {
             const { data: locationSetting } = await supabase
               .from("company_integrations")
@@ -2769,7 +2759,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 if (autoOpp) {
                   finalOpportunityUuid = autoOpp.id;
                   finalOpportunityGhlId = autoOpp.ghl_id;
-                  console.log("Auto-created opportunity for existing estimate project:", autoOpp.id);
+
                 }
               } catch (oppErr) {
                 console.error("Failed to auto-create opportunity:", oppErr);
@@ -2808,7 +2798,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 .update({ project_id: newProject.id })
                 .eq("id", savedEstimateId);
               setLinkedProjectId(newProject.id);
-              console.log("Created project for existing estimate:", newProject.id);
+
             }
           }
         } catch (err) {
@@ -2834,7 +2824,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           if (projectUpdateError) {
             console.error('Failed to update project salesperson:', projectUpdateError);
           } else {
-            console.log('Updated project salesperson to:', formData.salesperson_name);
+
           }
         } catch (err) {
           console.error('Error updating project salesperson:', err);
@@ -3055,13 +3045,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     },
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
 
   const formatMoney = (amount: number) => {
     if (!Number.isFinite(amount)) return "0.00";

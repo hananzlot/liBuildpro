@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCurrency } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -71,14 +72,6 @@ export function InvoicePreviewDialog({
   companyName = 'Company'
 }: InvoicePreviewDialogProps) {
   if (!invoice) return null;
-
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return '$0.00';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
 
   const invoiceAmount = invoice.amount || 0;
   const paidAmount = payments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);

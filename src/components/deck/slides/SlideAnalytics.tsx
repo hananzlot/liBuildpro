@@ -1,6 +1,6 @@
 import { SlideLayout } from "../SlideLayout";
 import { TrendingUp, PieChart, FileSpreadsheet, Wallet, CreditCard, ArrowRightLeft } from "lucide-react";
-import screenshotAnalytics from "@/assets/deck/sc3.png";
+import screenshotAnalytics from "@/assets/deck/sc3.webp";
 
 const FEATURES = [
   { icon: TrendingUp, label: "Profitability Analysis", desc: "Real-time margins by project, rep, and time period." },

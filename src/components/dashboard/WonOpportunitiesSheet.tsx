@@ -29,7 +29,7 @@ import {
 import { format, differenceInCalendarDays } from "date-fns";
 import type { DateRange } from "@/hooks/useGHLContacts";
 import type { SalesRepPerformance } from "@/types/ghl";
-import { getAddressFromContact, CUSTOM_FIELD_IDS, extractCustomField } from "@/lib/utils";
+import { getAddressFromContact, CUSTOM_FIELD_IDS, extractCustomField, formatCurrency } from "@/lib/utils";
 
 function parseGhlDate(value: string | null | undefined): Date | null {
   if (!value) return null;
@@ -109,14 +109,6 @@ interface WonOpportunitiesSheetProps {
   onOpportunityClick?: (opportunity: DBOpportunity) => void;
 }
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
 
 export function WonOpportunitiesSheet({
   open,

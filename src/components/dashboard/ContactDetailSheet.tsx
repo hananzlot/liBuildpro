@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw, Copy, ChevronDown, Pencil, Check, X, Trash2, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { findUserByIdOrGhlId } from "@/lib/utils";
+import { findUserByIdOrGhlId, formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -517,13 +517,6 @@ export function ContactDetailSheet({
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric',
     });
-  };
-
-  const formatCurrency = (value: number | null | undefined) => {
-    if (value == null) return "$0";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency", currency: "USD", minimumFractionDigits: 0,
-    }).format(value);
   };
 
   const getStatusColor = (status: string | null | undefined) => {

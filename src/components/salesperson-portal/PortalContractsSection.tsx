@@ -8,6 +8,7 @@ import { FileCheck, Loader2, Eye, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 import { PdfViewerDialog } from "@/components/production/PdfViewerDialog";
+import { formatCurrency } from "@/lib/utils";
 
 interface PortalContractsSectionProps {
   salespersonName: string;
@@ -159,11 +160,6 @@ export function PortalContractsSection({ salespersonName, salespersonId, company
     if (contract.portalToken) {
       window.open(`${appBaseUrl || window.location.origin}/portal/${contract.portalToken}`, "_blank");
     }
-  };
-
-  const formatCurrency = (amount: number | null) => {
-    if (!amount) return "-";
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(amount);
   };
 
   const getTypeBadge = (type: string) => {

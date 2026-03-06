@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import type { DateRange } from "@/hooks/useGHLContacts";
 import { differenceInCalendarDays } from "date-fns";
-import { getAddressFromContact } from "@/lib/utils";
+import { getAddressFromContact, formatCurrency } from "@/lib/utils";
 
 interface Opportunity {
   ghl_id: string;
@@ -48,12 +48,6 @@ interface RecentWonDealsProps {
   onOpportunityClick?: (opportunity: Opportunity) => void;
 }
 
-function formatCurrency(value: number | null): string {
-  if (!value) return "$0";
-  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
-  return `$${value.toFixed(0)}`;
-}
 
 function capitalizeWords(str: string | null): string {
   if (!str) return "";

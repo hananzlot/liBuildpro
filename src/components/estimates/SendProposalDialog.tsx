@@ -568,7 +568,7 @@ export function SendProposalDialog({
           if (complianceError) {
             console.error('Error generating compliance documents:', complianceError);
           } else if (complianceResult?.documents?.length > 0) {
-            console.log(`Generated ${complianceResult.documents.length} compliance document(s)`);
+
           }
         } catch (err) {
           console.error('Failed to generate compliance documents:', err);
@@ -673,7 +673,7 @@ export function SendProposalDialog({
                 company_id: companyId,
               },
             });
-            console.log("Updated opportunity stage to 'Proposal Sent'");
+
           } catch (err) {
             console.error("Failed to update opportunity stage:", err);
             // Don't fail the send for this
@@ -686,7 +686,7 @@ export function SendProposalDialog({
             .from('projects')
             .update({ project_status: 'Proposal' })
             .eq('id', estimateData.project_id);
-          console.log("Updated project status to 'Proposal'");
+
         }
       }
     },
@@ -712,7 +712,7 @@ export function SendProposalDialog({
               .from('estimates')
               .update({ proposal_pdf_url: pdfResult.url } as any)
               .eq('id', estimateId);
-            console.log('Proposal PDF saved:', pdfResult.url);
+
             queryClient.invalidateQueries({ queryKey: ['estimates'] });
           } else {
             console.error('Failed to generate proposal PDF:', pdfError);

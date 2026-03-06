@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { logAudit } from "@/hooks/useAuditLog";
-import { findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
+import { findContactByIdOrGhlId, findUserByIdOrGhlId, formatCurrency, formatDate } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,21 +52,6 @@ interface WonOpportunity {
     custom_fields: unknown;
   } | null;
 }
-
-const formatCurrency = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
-
-const formatDate = (date: string | null | undefined) => {
-  if (!date) return "-";
-  return new Date(date).toLocaleDateString();
-};
 
 export function MissingProjectsSection() {
   const queryClient = useQueryClient();
