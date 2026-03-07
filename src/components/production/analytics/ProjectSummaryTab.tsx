@@ -516,6 +516,63 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     setPreviewHtml(html);
   }, [buildReportHtml]);
 
+  const handleSingleProjectUnpaidReport = useCallback((row: ProjectSummaryRow) => {
+    const dateStr = new Date().toLocaleDateString();
+    const unpaidPhases = row.phases.filter(p => p.status !== "Paid");
+    const phaseAmount = unpaidPhases.reduce((s, p) => s + p.amount, 0);
+    const phaseInvoiced = unpaidPhases.reduce((s, p) => s + p.invoiced, 0);
+    const phaseCollected = unpaidPhases.reduce((s, p) => s + p.collected, 0);
+
+    let html = `<h2 style="margin:0 0 4px;font-size:18px">Unpaid Progress Payments — Project #${row.project_number}</h2>`;
+    html += `<p style="margin:0 0 16px;font-size:12px;color:#666">Generated ${dateStr}</p>`;
+
+    html += `<div style="background:#f0f4f8;border:1px solid #ddd;border-radius:4px;padding:10px 12px;margin-bottom:8px">`;
+    html += `<div style="font-weight:700;font-size:13px">${row.customer}</div>`;
+    if (row.address) html += `<div style="font-size:11px;color:#555;margin-top:2px">${row.address}</div>`;
+    if (row.salesperson) html += `<div style="font-size:11px;color:#555;margin-top:1px"><b>Sales Rep:</b> ${row.salesperson}</div>`;
+    if (row.startDate) html += `<div style="font-size:11px;color:#555;margin-top:1px"><b>Start Date:</b> ${new Date(row.startDate).toLocaleDateString()}</div>`;
+    html += `<div style="display:flex;gap:24px;margin-top:6px;font-size:11px;flex-wrap:wrap">`;
+    html += `<span><b>Contract:</b> ${formatCurrency(row.contractAmount)}</span>`;
+    html += `<span><b>Invoiced:</b> ${formatCurrency(row.totalInvoiced)}</span>`;
+    html += `<span><b>Collected:</b> ${formatCurrency(row.totalCollected)}</span>`;
+    html += `<span><b>AR:</b> ${formatCurrency(row.outstandingAR)}</span>`;
+    html += `</div></div>`;
+
+    html += `<table style="width:100%;border-collapse:collapse;font-size:11px">`;
+    html += `<thead><tr style="background:#f9f9f9;border-bottom:1px solid #ddd">`;
+    html += `<th style="padding:5px;text-align:left">Progress Payment</th>`;
+    html += `<th style="padding:5px;text-align:left">Amount</th>`;
+    html += `<th style="padding:5px;text-align:left">Invoiced</th>`;
+    html += `<th style="padding:5px;text-align:left">Collected</th>`;
+    html += `<th style="padding:5px;text-align:left">Balance</th>`;
+    html += `<th style="padding:5px;text-align:left">Status</th>`;
+    html += `</tr></thead><tbody>`;
+
+    unpaidPhases.forEach(phase => {
+      const balance = phase.amount - phase.collected;
+      html += `<tr style="border-bottom:1px solid #eee">`;
+      html += `<td style="padding:4px 5px">${phase.phase_name}</td>`;
+      html += `<td style="padding:4px 5px">${formatCurrency(phase.amount)}</td>`;
+      html += `<td style="padding:4px 5px">${formatCurrency(phase.invoiced)}</td>`;
+      html += `<td style="padding:4px 5px">${formatCurrency(phase.collected)}</td>`;
+      html += `<td style="padding:4px 5px;font-weight:600">${formatCurrency(balance)}</td>`;
+      html += `<td style="padding:4px 5px">${phase.status}</td>`;
+      html += `</tr>`;
+    });
+
+    html += `<tr style="border-top:1px solid #999;font-weight:600;background:#fafafa">`;
+    html += `<td style="padding:4px 5px">Total (${unpaidPhases.length} progress payments)</td>`;
+    html += `<td style="padding:4px 5px">${formatCurrency(phaseAmount)}</td>`;
+    html += `<td style="padding:4px 5px">${formatCurrency(phaseInvoiced)}</td>`;
+    html += `<td style="padding:4px 5px">${formatCurrency(phaseCollected)}</td>`;
+    html += `<td style="padding:4px 5px">${formatCurrency(phaseAmount - phaseCollected)}</td>`;
+    html += `<td style="padding:4px 5px"></td>`;
+    html += `</tr></tbody></table>`;
+
+    setPreviewTitle(`Unpaid Progress Payments — Project #${row.project_number}`);
+    setPreviewHtml(html);
+  }, []);
+
   const handleDownloadFromPreview = useCallback(async () => {
     if (!previewRef.current) return;
     const html2canvas = (await import("html2canvas")).default;
@@ -761,7 +818,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                                 {phase.status}
                               </Badge>
                             </TableCell>
-                            <TableCell colSpan={4} />
+                            <TableCell colSpan={5} />
                           </TableRow>
                         ))}
                       </Fragment>
@@ -778,6 +835,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalInvoiced)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalCollected)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.outstandingAR)}</TableCell>
+                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.unpaidProgress)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalBills)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.billsPaid)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.outstandingAP)}</TableCell>
