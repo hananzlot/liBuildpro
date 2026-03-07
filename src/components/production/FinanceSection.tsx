@@ -265,6 +265,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [activeBillsSubTab, setActiveBillsSubTab] = useState<"bills" | "history">(initialBillsSubTab || "bills");
   const [activeInvoicesSubTab, setActiveInvoicesSubTab] = useState<"invoices" | "payments">("invoices");
   const [selectedAgreementFilter, setSelectedAgreementFilter] = useState<string | null>(null);
+  const [invoiceContractFilter, setInvoiceContractFilter] = useState<string>("all");
   const [hasAutoOpenedBill, setHasAutoOpenedBill] = useState(false);
 
   // Notify parent when sub-tabs change
