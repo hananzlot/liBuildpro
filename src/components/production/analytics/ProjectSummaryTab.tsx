@@ -43,6 +43,7 @@ type SortKey =
   | "totalInvoiced"
   | "totalCollected"
   | "outstandingAR"
+  | "unpaidProgress"
   | "totalBills"
   | "billsPaid"
   | "outstandingAP"
