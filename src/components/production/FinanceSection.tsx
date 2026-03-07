@@ -3005,7 +3005,30 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                               if (syncInfo) return (
                                 <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">{syncInfo.status}</Badge>
                               );
-                              return <Badge variant="outline" className="text-[10px] text-muted-foreground">Not synced</Badge>;
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const result = await checkQbDuplicatesAndSync("refund", ref.id, {
+                                      amount: ref.refund_amount || 0,
+                                      date: (ref.refund_date || new Date().toISOString()).slice(0, 10),
+                                      reference: ref.refund_reference || null,
+                                      vendorName: null,
+                                      paymentMethod: ref.refund_method || null,
+                                    });
+                                    if (result.synced) {
+                                      toast.success("Refund synced to QuickBooks");
+                                    }
+                                    queryClient.invalidateQueries({ queryKey: ["refund-sync-statuses", projectId, companyId] });
+                                  }}
+                                >
+                                  <RefreshCw className="h-2.5 w-2.5 mr-0.5" />
+                                  Sync
+                                </Button>
+                              );
                             })()}
                           </TableCell>
                         )}
