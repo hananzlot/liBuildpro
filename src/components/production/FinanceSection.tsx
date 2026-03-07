@@ -2744,106 +2744,175 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                   ) : invoices.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">No invoices yet</p>
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs text-center w-[12%]">Date</TableHead>
-                          <TableHead className="text-xs text-center w-[10%]">Invoice #</TableHead>
-                          <TableHead className="text-xs text-center w-[18%]">Contract #<br />/ Nickname</TableHead>
-                          <TableHead className="text-xs text-center w-[18%]">Progress<br />Payment</TableHead>
-                          <TableHead className="text-xs text-center w-[12%]">Amount</TableHead>
-                          <TableHead className="text-xs text-center w-[12%]">Balance<br />Due</TableHead>
-                          {isQBConnectedMain && <TableHead className="text-xs text-center w-[10%]">QB</TableHead>}
-                          <TableHead className="text-xs w-[12%]"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {invoices.map((inv) => (
-                          <TableRow 
-                            key={inv.id}
-                            className={cn(
-                              highlightInvoiceId === inv.id && "bg-yellow-100 dark:bg-yellow-900/30 animate-pulse"
-                            )}
-                          >
-                            <TableCell className="text-xs text-center">{formatDate(inv.invoice_date)}</TableCell>
-                            <TableCell className="text-xs text-center">{inv.invoice_number || "-"}</TableCell>
-                            <TableCell className="text-xs text-center text-muted-foreground">
-                              {(() => {
+                    <>
+                      {/* Contract filter toggle */}
+                      {(() => {
+                        const contractOptions = agreements
+                          .filter(a => invoices.some(inv => {
+                            const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+                            return a.id === (inv.agreement_id || phase?.agreement_id);
+                          }))
+                          .sort((a, b) => (a.agreement_number || '').localeCompare(b.agreement_number || ''));
+                        
+                        if (contractOptions.length <= 1) return null;
+                        
+                        return (
+                          <div className="flex gap-1.5 mb-3 flex-wrap">
+                            <button
+                              onClick={() => setInvoiceContractFilter("all")}
+                              className={cn(
+                                "px-2.5 py-1 text-xs rounded-full border transition-colors",
+                                invoiceContractFilter === "all"
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                              )}
+                            >
+                              All ({invoices.length})
+                            </button>
+                            {contractOptions.map(agr => {
+                              const count = invoices.filter(inv => {
                                 const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
-                                const agr = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
-                                return agr ? `${agr.agreement_number || ""}${agr.nickname ? ` / ${agr.nickname}` : ""}`.trim() || "-" : "-";
-                              })()}
-                            </TableCell>
-                            <TableCell className="text-xs text-center text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
-                            <TableCell className="text-xs text-center">{formatCurrency2(inv.amount)}</TableCell>
-                            <TableCell className="text-xs text-center">{formatCurrency2(inv.open_balance)}</TableCell>
-                            {isQBConnectedMain && (
-                              <TableCell className="text-xs">
+                                return agr.id === (inv.agreement_id || phase?.agreement_id);
+                              }).length;
+                              const label = agr.nickname || agr.agreement_number || 'Contract';
+                              return (
+                                <button
+                                  key={agr.id}
+                                  onClick={() => setInvoiceContractFilter(agr.id)}
+                                  className={cn(
+                                    "px-2.5 py-1 text-xs rounded-full border transition-colors",
+                                    invoiceContractFilter === agr.id
+                                      ? "bg-primary text-primary-foreground border-primary"
+                                      : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                                  )}
+                                >
+                                  {label} ({count})
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs text-center w-[12%]">Date</TableHead>
+                            <TableHead className="text-xs text-center w-[10%]">Invoice #</TableHead>
+                            <TableHead className="text-xs text-center w-[18%]">Contract #<br />/ Nickname</TableHead>
+                            <TableHead className="text-xs text-center w-[18%]">Progress<br />Payment</TableHead>
+                            <TableHead className="text-xs text-center w-[12%]">Amount</TableHead>
+                            <TableHead className="text-xs text-center w-[12%]">Balance<br />Due</TableHead>
+                            {isQBConnectedMain && <TableHead className="text-xs text-center w-[10%]">QB</TableHead>}
+                            <TableHead className="text-xs w-[12%]"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {[...invoices]
+                            .filter(inv => {
+                              if (invoiceContractFilter === "all") return true;
+                              const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+                              const agrId = inv.agreement_id || phase?.agreement_id;
+                              return agrId === invoiceContractFilter;
+                            })
+                            .sort((a, b) => {
+                              // Sort by contract # first, then invoice date asc
+                              const phaseA = paymentPhases.find(p => p.id === a.payment_phase_id);
+                              const phaseB = paymentPhases.find(p => p.id === b.payment_phase_id);
+                              const agrA = agreements.find(ag => ag.id === (a.agreement_id || phaseA?.agreement_id));
+                              const agrB = agreements.find(ag => ag.id === (b.agreement_id || phaseB?.agreement_id));
+                              const numA = agrA?.agreement_number || '';
+                              const numB = agrB?.agreement_number || '';
+                              const cmp = numA.localeCompare(numB);
+                              if (cmp !== 0) return cmp;
+                              return (a.invoice_date || '').localeCompare(b.invoice_date || '');
+                            })
+                            .map((inv) => (
+                            <TableRow 
+                              key={inv.id}
+                              className={cn(
+                                highlightInvoiceId === inv.id && "bg-yellow-100 dark:bg-yellow-900/30 animate-pulse"
+                              )}
+                            >
+                              <TableCell className="text-xs text-center">{formatDate(inv.invoice_date)}</TableCell>
+                              <TableCell className="text-xs text-center">{inv.invoice_number || "-"}</TableCell>
+                              <TableCell className="text-xs text-center text-muted-foreground">
                                 {(() => {
-                                  const syncInfo = (invoiceSyncStatuses as Record<string, { status: string; qbId: string | null }>)[inv.id];
-                                  if (syncInfo?.status === "synced") return (
-                                    <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">
-                                      <Check className="h-2.5 w-2.5 mr-0.5" />QB
-                                    </Badge>
-                                  );
-                                  if (syncInfo) return (
-                                    <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">{syncInfo.status}</Badge>
-                                  );
-                                  return <Badge variant="outline" className="text-[10px] text-muted-foreground">Not synced</Badge>;
+                                  const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+                                  const agr = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
+                                  return agr ? `${agr.agreement_number || ""}${agr.nickname ? ` / ${agr.nickname}` : ""}`.trim() || "-" : "-";
                                 })()}
                               </TableCell>
-                            )}
-                            <TableCell>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  {(inv.open_balance || 0) > 0 && (
-                                    <DropdownMenuItem onClick={() => { 
-                                      setEditingPayment(null); 
-                                      setPrePopulatedPayment({ invoice_id: inv.id, payment_amount: inv.open_balance || 0 }); 
-                                      setPaymentDialogOpen(true); 
+                              <TableCell className="text-xs text-center text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
+                              <TableCell className="text-xs text-center">{formatCurrency2(inv.amount)}</TableCell>
+                              <TableCell className="text-xs text-center">{formatCurrency2(inv.open_balance)}</TableCell>
+                              {isQBConnectedMain && (
+                                <TableCell className="text-xs">
+                                  {(() => {
+                                    const syncInfo = (invoiceSyncStatuses as Record<string, { status: string; qbId: string | null }>)[inv.id];
+                                    if (syncInfo?.status === "synced") return (
+                                      <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">
+                                        <Check className="h-2.5 w-2.5 mr-0.5" />QB
+                                      </Badge>
+                                    );
+                                    if (syncInfo) return (
+                                      <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">{syncInfo.status}</Badge>
+                                    );
+                                    return <Badge variant="outline" className="text-[10px] text-muted-foreground">Not synced</Badge>;
+                                  })()}
+                                </TableCell>
+                              )}
+                              <TableCell>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                      <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {(inv.open_balance || 0) > 0 && (
+                                      <DropdownMenuItem onClick={() => { 
+                                        setEditingPayment(null); 
+                                        setPrePopulatedPayment({ invoice_id: inv.id, payment_amount: inv.open_balance || 0 }); 
+                                        setPaymentDialogOpen(true); 
+                                      }}>
+                                        <DollarSign className="h-4 w-4 mr-2" />
+                                        Record Payment
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => {
+                                      const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+                                      const agreement = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
+                                      setInvoicePdfData({
+                                        invoice_id: inv.id,
+                                        invoice_number: inv.invoice_number,
+                                        invoice_date: inv.invoice_date,
+                                        amount: inv.amount,
+                                        payments_received: inv.payments_received,
+                                        agreement_number: agreement?.agreement_number || null,
+                                        phase_name: phase?.phase_name || null,
+                                        description_of_work: agreement?.description_of_work || null,
+                                      });
+                                      setInvoicePdfDialogOpen(true);
                                     }}>
-                                      <DollarSign className="h-4 w-4 mr-2" />
-                                      Record Payment
+                                      <FileText className="h-4 w-4 mr-2" />
+                                      Preview Invoice
                                     </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuItem onClick={() => {
-                                    const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
-                                    const agreement = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
-                                    setInvoicePdfData({
-                                      invoice_id: inv.id,
-                                      invoice_number: inv.invoice_number,
-                                      invoice_date: inv.invoice_date,
-                                      amount: inv.amount,
-                                      payments_received: inv.payments_received,
-                                      agreement_number: agreement?.agreement_number || null,
-                                      phase_name: phase?.phase_name || null,
-                                      description_of_work: agreement?.description_of_work || null,
-                                    });
-                                    setInvoicePdfDialogOpen(true);
-                                  }}>
-                                    <FileText className="h-4 w-4 mr-2" />
-                                    Preview Invoice
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
-                                    <Pencil className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("invoice", inv.id)}>
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                                    <DropdownMenuItem onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
+                                      <Pencil className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("invoice", inv.id)}>
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </>
                   )}
                 </>
               ) : (
