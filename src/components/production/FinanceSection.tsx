@@ -3585,7 +3585,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                       >
                         <TableCell className="text-xs text-center font-medium text-primary underline">{agreement.agreement_number || "-"}</TableCell>
                         <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">{(agreement as any).nickname || "-"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">{agreement.nickname || "-"}</TableCell>
                         <TableCell className="text-xs text-center">{formatDate(agreement.agreement_signed_date)}</TableCell>
                         <TableCell className="text-xs text-center">{formatCurrencyWithDecimals(agreement.total_price)}</TableCell>
                         <TableCell className={`text-xs text-center ${isBalanced ? 'text-emerald-600' : phasesTotal > contractValue ? 'text-red-600' : 'text-amber-600'}`}>
@@ -6133,7 +6133,7 @@ function AgreementDialog({
       setFormData({
         agreement_number: agreement.agreement_number || "",
         agreement_type: agreement.agreement_type || "",
-        nickname: (agreement as any).nickname || "",
+        nickname: agreement.nickname || "",
         agreement_signed_date: agreement.agreement_signed_date || "",
         created_at: agreement.created_at ? agreement.created_at.split('T')[0] : "",
         total_price: agreement.total_price?.toString() || "",
