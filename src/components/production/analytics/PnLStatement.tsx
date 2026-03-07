@@ -65,6 +65,7 @@ function PctLabel({ text, pct, isAvg }: { text: string; pct?: number | null; isA
 function buildPnLLines(data: {
   totalRevenue: number;
   totalRefunded: number;
+  cancelledWriteOff: number;
   totalBillsPaid: number;
   billsOutstanding: number;
   totalCOGS: number;
@@ -82,7 +83,12 @@ function buildPnLLines(data: {
   ];
   if (data.totalRefunded > 0) {
     lines.push({ label: "Customer Refunds", amount: -data.totalRefunded, indent: true });
-    lines.push({ label: "Net Revenue", amount: data.totalRevenue - data.totalRefunded, isTotal: true });
+  }
+  if (data.cancelledWriteOff > 0) {
+    lines.push({ label: "Project Cancelled", amount: -data.cancelledWriteOff, indent: true });
+  }
+  if (data.totalRefunded > 0 || data.cancelledWriteOff > 0) {
+    lines.push({ label: "Net Revenue", amount: data.totalRevenue - data.totalRefunded - data.cancelledWriteOff, isTotal: true });
   }
   lines.push(
     { label: "Bills Paid", amount: -data.totalBillsPaid, indent: true },
@@ -100,18 +106,27 @@ function buildPnLLines(data: {
 function computeAggregate(projects: ProjectWithFinancials[]) {
   const totalRevenue = projects.reduce((s, p) => s + p.contractsTotal, 0);
   const totalRefunded = projects.reduce((s, p) => s + p.totalRefunded, 0);
-  const netRevenue = totalRevenue - totalRefunded;
+  // Cancelled projects: write off remaining revenue and zero out commission/lead
+  const cancelledWriteOff = projects
+    .filter(p => p.project_status?.toLowerCase() === "cancelled")
+    .reduce((s, p) => s + Math.max(0, p.contractsTotal - p.totalRefunded), 0);
+  const netRevenue = totalRevenue - totalRefunded - cancelledWriteOff;
   const totalCOGS = projects.reduce((s, p) => s + p.totalBillsReceived, 0);
   const totalBillsPaid = projects.reduce((s, p) => s + p.totalBillsPaid, 0);
   const billsOutstanding = totalCOGS - totalBillsPaid;
   const grossIncome = netRevenue - totalCOGS;
-  const totalCommission = projects.reduce((s, p) => s + p.totalCommission, 0);
+  // Zero out commission and lead fees for cancelled projects
+  const totalCommission = projects
+    .filter(p => p.project_status?.toLowerCase() !== "cancelled")
+    .reduce((s, p) => s + p.totalCommission, 0);
   const grossIncomeAfterCommission = grossIncome - totalCommission;
-  const totalLeadCost = projects.reduce((s, p) => s + p.leadCostAmount, 0);
+  const totalLeadCost = projects
+    .filter(p => p.project_status?.toLowerCase() !== "cancelled")
+    .reduce((s, p) => s + p.leadCostAmount, 0);
   const netIncome = grossIncomeAfterCommission + totalLeadCost;
 
-  // Revenue-weighted average percentages
-  const revenueProjects = projects.filter(p => p.contractsTotal > 0);
+  // Revenue-weighted average percentages (exclude cancelled)
+  const revenueProjects = projects.filter(p => p.contractsTotal > 0 && p.project_status?.toLowerCase() !== "cancelled");
   const weightedRevenue = revenueProjects.reduce((s, p) => s + p.contractsTotal, 0);
   const avgCommissionPct = weightedRevenue > 0
     ? revenueProjects.reduce((s, p) => s + p.contractsTotal * (p.commission_split_pct ?? 50), 0) / weightedRevenue
@@ -120,7 +135,7 @@ function computeAggregate(projects: ProjectWithFinancials[]) {
     ? revenueProjects.reduce((s, p) => s + p.contractsTotal * (p.lead_cost_percent ?? 18), 0) / weightedRevenue
     : null;
 
-  return { totalRevenue, totalRefunded, totalBillsPaid, billsOutstanding, totalCOGS, grossIncome, totalCommission, grossIncomeAfterCommission, totalLeadCost, netIncome, avgCommissionPct, avgLeadCostPct };
+  return { totalRevenue, totalRefunded, cancelledWriteOff, totalBillsPaid, billsOutstanding, totalCOGS, grossIncome, totalCommission, grossIncomeAfterCommission, totalLeadCost, netIncome, avgCommissionPct, avgLeadCostPct };
 }
 
 export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }: PnLStatementProps) {
@@ -131,26 +146,31 @@ export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }
       .filter(p => p.contractsTotal > 0 || p.totalBillsReceived > 0)
       .sort((a, b) => b.contractsTotal - a.contractsTotal)
       .map(p => {
-        const netRevenue = p.contractsTotal - p.totalRefunded;
+        const isCancelled = p.project_status?.toLowerCase() === "cancelled";
+        const cancelledWriteOff = isCancelled ? Math.max(0, p.contractsTotal - p.totalRefunded) : 0;
+        const netRevenue = p.contractsTotal - p.totalRefunded - cancelledWriteOff;
         const billsOutstanding = p.totalBillsReceived - p.totalBillsPaid;
         const grossIncome = netRevenue - p.totalBillsReceived;
-        const grossIncomeAfterCommission = grossIncome - p.totalCommission;
-        const netIncome = grossIncomeAfterCommission + p.leadCostAmount;
+        const commission = isCancelled ? 0 : p.totalCommission;
+        const grossIncomeAfterCommission = grossIncome - commission;
+        const leadCost = isCancelled ? 0 : p.leadCostAmount;
+        const netIncome = grossIncomeAfterCommission + leadCost;
         return {
           project: p,
           lines: buildPnLLines({
             totalRevenue: p.contractsTotal,
             totalRefunded: p.totalRefunded,
+            cancelledWriteOff,
             totalBillsPaid: p.totalBillsPaid,
             billsOutstanding,
             totalCOGS: p.totalBillsReceived,
             grossIncome,
-            totalCommission: p.totalCommission,
+            totalCommission: commission,
             grossIncomeAfterCommission,
-            totalLeadCost: p.leadCostAmount,
+            totalLeadCost: leadCost,
             netIncome,
-            avgCommissionPct: p.commission_split_pct ?? 50,
-            avgLeadCostPct: p.lead_cost_percent ?? 18,
+            avgCommissionPct: isCancelled ? 0 : (p.commission_split_pct ?? 50),
+            avgLeadCostPct: isCancelled ? 0 : (p.lead_cost_percent ?? 18),
           }),
         };
       });
