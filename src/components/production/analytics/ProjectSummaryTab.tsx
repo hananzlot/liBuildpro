@@ -106,7 +106,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, project_number, customer_first_name, customer_last_name, project_status, project_address, primary_salesperson, install_start_date")
+        .select("id, project_number, project_name, customer_first_name, customer_last_name, project_status, project_address, primary_salesperson, install_start_date")
         .eq("company_id", companyId!)
         .is("deleted_at", null);
       if (error) throw error;
