@@ -2680,6 +2680,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             leadCostPercent={leadCostPercent}
             commissionSplitPct={commissionSplitPct}
             isCompleted={projectStatus === "Completed"}
+            isCancelled={projectStatus === "Cancelled"}
             projectName={projectName}
             projectAddress={projectAddress}
             customerName={customerName}
