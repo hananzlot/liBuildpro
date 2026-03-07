@@ -2680,6 +2680,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             leadCostPercent={leadCostPercent}
             commissionSplitPct={commissionSplitPct}
             isCompleted={projectStatus === "Completed"}
+            isCancelled={projectStatus === "Cancelled"}
             projectName={projectName}
             projectAddress={projectAddress}
             customerName={customerName}
@@ -9133,6 +9134,7 @@ function ProjectFinancialStatements({
   leadCostPercent,
   commissionSplitPct,
   isCompleted,
+  isCancelled,
   projectName,
   projectAddress,
   customerName,
@@ -9146,6 +9148,7 @@ function ProjectFinancialStatements({
   leadCostPercent: number;
   commissionSplitPct: number;
   isCompleted: boolean;
+  isCancelled?: boolean;
   projectName?: string | null;
   projectAddress?: string | null;
   customerName?: string | null;
@@ -9189,11 +9192,12 @@ function ProjectFinancialStatements({
   }, []);
 
   const billsOutstanding = totalCOGS - totalBillsPaid;
-  const netRevenue = totalRevenue - totalRefunded;
+  const cancelledWriteOff = isCancelled ? Math.max(0, totalRevenue - totalRefunded) : 0;
+  const netRevenue = totalRevenue - totalRefunded - cancelledWriteOff;
   const grossIncome = netRevenue - totalCOGS;
-  const leadCost = totalRevenue * (leadCostPercent / 100);
+  const leadCost = isCancelled ? 0 : totalRevenue * (leadCostPercent / 100);
   const commissionBase = netRevenue - leadCost - totalCOGS;
-  const commission = commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0;
+  const commission = isCancelled ? 0 : (commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0);
   const grossIncomeAfterCommission = grossIncome - commission;
   const netIncome = grossIncomeAfterCommission + leadCost;
 
@@ -9238,7 +9242,8 @@ function ProjectFinancialStatements({
                 <tbody>
                   {lineRow("Revenues (Contracts Invoiced)", totalRevenue)}
                   {totalRefunded > 0 && lineRow("Customer Refunds", -totalRefunded, { indent: true })}
-                  {totalRefunded > 0 && lineRow("Net Revenue", netRevenue, { bold: true })}
+                  {isCancelled && cancelledWriteOff > 0 && lineRow("Project Cancelled", -cancelledWriteOff, { indent: true })}
+                  {(totalRefunded > 0 || (isCancelled && cancelledWriteOff > 0)) && lineRow("Net Revenue", netRevenue, { bold: true })}
                   {lineRow("Bills Paid", -totalBillsPaid, { indent: true })}
                   {lineRow("Bills Outstanding", -billsOutstanding, { indent: true })}
                   {lineRow("Cost of Sales Total", -totalCOGS, { bold: true })}
