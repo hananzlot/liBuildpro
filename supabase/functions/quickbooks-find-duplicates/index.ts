@@ -9,7 +9,7 @@ const QB_BASE_URL = "https://quickbooks.api.intuit.com/v3/company";
 
 /**
  * Find potential duplicate records in QuickBooks before syncing.
- * Supports: bill_payment, bill
+ * Supports: bill_payment, bill, payment, invoice, refund
  *
  * Request body:
  *   companyId: string
@@ -115,6 +115,17 @@ Deno.serve(async (req) => {
 
     if (recordType === "invoice") {
       const duplicates = await findInvoiceDuplicates(
+        qbHeaders, realm_id, { amount, date, reference }
+      );
+
+      return new Response(
+        JSON.stringify({ success: true, duplicates }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (recordType === "refund") {
+      const duplicates = await findRefundReceiptDuplicates(
         qbHeaders, realm_id, { amount, date, reference }
       );
 
@@ -651,5 +662,130 @@ async function findInvoiceDuplicates(
   });
 
   console.log(`Found ${candidates.length} potential invoice duplicates`);
+  return candidates;
+}
+
+async function findRefundReceiptDuplicates(
+  qbHeaders: Record<string, string>,
+  realmId: string,
+  criteria: { amount?: number; date?: string; reference?: string }
+): Promise<DuplicateCandidate[]> {
+  const { amount, date, reference } = criteria;
+
+  const conditions: string[] = [];
+
+  if (date) {
+    const targetDate = new Date(date);
+    const startDate = new Date(targetDate);
+    startDate.setDate(startDate.getDate() - 7);
+    const endDate = new Date(targetDate);
+    endDate.setDate(endDate.getDate() + 7);
+
+    conditions.push(`TxnDate >= '${startDate.toISOString().split("T")[0]}'`);
+    conditions.push(`TxnDate <= '${endDate.toISOString().split("T")[0]}'`);
+  }
+
+  let query = "SELECT * FROM RefundReceipt";
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(" AND ")}`;
+  }
+  query += " MAXRESULTS 100";
+
+  console.log("QB refund receipt duplicate search query:", query);
+
+  const url = `https://quickbooks.api.intuit.com/v3/company/${realmId}/query?query=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: qbHeaders });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("QB refund receipt query error:", errText);
+    return [];
+  }
+
+  const data = await res.json();
+  const refundReceipts = data.QueryResponse?.RefundReceipt || [];
+  console.log(`Found ${refundReceipts.length} refund receipts in QB within date range`);
+
+  const candidates: DuplicateCandidate[] = [];
+
+  for (const rr of refundReceipts) {
+    const matchReasons: string[] = [];
+    let score = 0;
+
+    // Amount match (exact)
+    if (amount && Math.abs(rr.TotalAmt - amount) < 0.01) {
+      score += 40;
+      matchReasons.push(`Amount matches: $${rr.TotalAmt.toFixed(2)}`);
+    }
+
+    // Date proximity
+    if (date && rr.TxnDate) {
+      const daysDiff = Math.abs(
+        (new Date(rr.TxnDate).getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysDiff === 0) {
+        score += 30;
+        matchReasons.push("Exact date match");
+      } else if (daysDiff <= 1) {
+        score += 20;
+        matchReasons.push(`Date within 1 day (${rr.TxnDate})`);
+      } else if (daysDiff <= 3) {
+        score += 10;
+        matchReasons.push(`Date within 3 days (${rr.TxnDate})`);
+      } else {
+        matchReasons.push(`Date: ${rr.TxnDate}`);
+      }
+    }
+
+    // Reference/DocNumber match
+    const rrRef = rr.DocNumber || null;
+    if (reference && rrRef) {
+      if (rrRef === reference) {
+        score += 30;
+        matchReasons.push(`Reference matches: ${rrRef}`);
+      } else if (rrRef.includes(reference) || reference.includes(rrRef)) {
+        score += 15;
+        matchReasons.push(`Reference partial match: ${rrRef}`);
+      }
+    }
+
+    // Customer info
+    const customerName = rr.CustomerRef?.name || null;
+    if (customerName) {
+      matchReasons.push(`Customer: ${customerName}`);
+    }
+
+    // Payment method info
+    const payMethod = rr.PaymentMethodRef?.name || null;
+    if (payMethod) {
+      matchReasons.push(`Payment method: ${payMethod}`);
+    }
+
+    if (score >= 30) {
+      let confidence: "high" | "medium" | "low" = "low";
+      if (score >= 70) confidence = "high";
+      else if (score >= 50) confidence = "medium";
+
+      candidates.push({
+        qbId: rr.Id,
+        qbSyncToken: rr.SyncToken,
+        amount: rr.TotalAmt,
+        date: rr.TxnDate,
+        reference: rrRef,
+        vendorName: customerName,
+        vendorId: rr.CustomerRef?.value || null,
+        payType: payMethod,
+        confidence,
+        matchReasons,
+      });
+    }
+  }
+
+  candidates.sort((a, b) => {
+    const confOrder = { high: 0, medium: 1, low: 2 };
+    return confOrder[a.confidence] - confOrder[b.confidence];
+  });
+
+  console.log(`Found ${candidates.length} potential refund receipt duplicates`);
   return candidates;
 }
