@@ -70,6 +70,7 @@ import {
   Link as LinkIcon
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
+import { CancelledWatermark } from "./CancelledWatermark";
 import { DocumentsSection } from "./DocumentsSection";
 import { NotesSection } from "./NotesSection";
 import { PhotosSection } from "./PhotosSection";
@@ -1130,7 +1131,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
           </div>
         </SheetHeader>
 
-        <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="mt-3">
+        <Tabs value={activeTab} onValueChange={handleActiveTabChange} className="mt-3 relative">
+          {(fullProject?.project_status || project.project_status) === "Cancelled" && <CancelledWatermark />}
           <div className="w-full overflow-x-auto">
             <div className="inline-flex items-center rounded-xl bg-muted/80 border border-border/50 p-1" role="tablist">
               {[
