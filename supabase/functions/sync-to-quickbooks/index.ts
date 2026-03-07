@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
     const selectedInvoiceIds = syncSelected ? (selectedRecords?.invoices || []) : null;
     const selectedPaymentIds = syncSelected ? (selectedRecords?.payments || []) : null;
     const selectedBillIds = syncSelected ? (selectedRecords?.bills || []) : null;
+    const selectedRefundIds = syncSelected ? (selectedRecords?.refunds || []) : null;
 
     // Get QuickBooks tokens
     const { data: tokenData, error: tokenError } = await supabase.rpc("get_quickbooks_tokens", {
@@ -812,6 +813,178 @@ Deno.serve(async (req) => {
           const errMsg = err instanceof Error ? err.message : "Unknown error";
           results.errors.push(`Payment ${payment.id}: ${errMsg}`);
         }
+        }
+      }
+    }
+
+    // Sync refunds as RefundReceipt in QuickBooks
+    if (!syncType || syncType === "refund") {
+      if (syncSelected && (!selectedRefundIds || selectedRefundIds.length === 0)) {
+        // Skip refunds
+      } else {
+        let refundQuery = supabase
+          .from("project_refunds")
+          .select("*, projects!inner(id, project_name, project_address, project_number, company_id, contact_uuid, contact_id, auto_sync_to_quickbooks)")
+          .eq("projects.company_id", companyId)
+          .eq("exclude_from_qb", false)
+          .eq("is_voided", false);
+
+        if (!recordId && !(syncSelected && selectedRefundIds?.length)) {
+          refundQuery = refundQuery.eq("projects.auto_sync_to_quickbooks", true);
+        }
+
+        if (syncSelected && selectedRefundIds) {
+          refundQuery = refundQuery.in("id", selectedRefundIds);
+        } else if (recordId && syncType === "refund") {
+          refundQuery = refundQuery.eq("id", recordId);
+        }
+
+        const { data: refundsToSync } = await refundQuery;
+
+        for (const refund of refundsToSync || []) {
+          try {
+            const customerResult = await findOrCreateCustomer(refund.projects);
+            if (!customerResult.id) {
+              results.failed++;
+              results.errors.push(`Refund ${refund.id}: Failed to find/create customer`);
+              continue;
+            }
+
+            if (customerResult.isNew) {
+              results.newEntities?.push({ type: "customer", name: customerResult.name });
+            }
+
+            // Check if this refund was already synced to QB
+            const { data: existingSync } = await supabase
+              .from("quickbooks_sync_log")
+              .select("quickbooks_id")
+              .eq("company_id", companyId)
+              .eq("record_type", "refund")
+              .eq("record_id", refund.id)
+              .eq("sync_status", "synced")
+              .single();
+
+            const rawRefundQbId = existingSync?.quickbooks_id || null;
+            const existingQbId = rawRefundQbId?.startsWith("backfill-") ? null : rawRefundQbId;
+
+            // Get default income item mapping for line item
+            const incomeItemMapping = getMapping("item");
+
+            // Build RefundReceipt body
+            const qbRefund: any = {
+              CustomerRef: { value: customerResult.id },
+              TxnDate: refund.refund_date?.split("T")[0],
+              Line: [
+                {
+                  Amount: refund.refund_amount || 0,
+                  DetailType: "SalesItemLineDetail",
+                  SalesItemLineDetail: {
+                    ItemRef: incomeItemMapping
+                      ? { value: incomeItemMapping.qbo_id, name: incomeItemMapping.qbo_name }
+                      : { value: "1", name: "Services" },
+                    Qty: 1,
+                    UnitPrice: refund.refund_amount || 0,
+                  },
+                },
+              ],
+              PrivateNote: refund.reason || refund.notes || null,
+            };
+
+            // Add payment method if configured
+            const paymentMethodMapping = getMapping("payment_method", refund.refund_method);
+            if (paymentMethodMapping) {
+              qbRefund.PaymentMethodRef = {
+                value: paymentMethodMapping.qbo_id,
+                name: paymentMethodMapping.qbo_name,
+              };
+            }
+
+            // Add bank account (DepositToAccountRef) if bank is set
+            if (refund.bank_name) {
+              const { data: bankRecord } = await supabase
+                .from("banks")
+                .select("id")
+                .eq("company_id", companyId)
+                .eq("name", refund.bank_name)
+                .single();
+
+              if (bankRecord?.id) {
+                const bankMapping = getMapping("bank", bankRecord.id);
+                if (bankMapping) {
+                  qbRefund.DepositToAccountRef = {
+                    value: bankMapping.qbo_id,
+                    name: bankMapping.qbo_name,
+                  };
+                }
+              }
+            }
+
+            stripNullishDeep(qbRefund);
+
+            let syncRes: Response;
+            let syncData: any;
+
+            if (existingQbId) {
+              // UPDATE existing refund receipt
+              const fetchRes = await fetch(`${QB_BASE_URL}/${realm_id}/refundreceipt/${existingQbId}`, {
+                headers: qbHeaders,
+              });
+
+              if (!fetchRes.ok) {
+                results.failed++;
+                results.errors.push(`Refund ${refund.id}: Failed to fetch existing QB record`);
+                continue;
+              }
+
+              const existingData = await fetchRes.json();
+              const syncToken = existingData.RefundReceipt.SyncToken;
+
+              qbRefund.Id = existingQbId;
+              qbRefund.SyncToken = syncToken;
+              qbRefund.sparse = true;
+
+              syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/refundreceipt`, {
+                method: "POST",
+                headers: qbHeaders,
+                body: JSON.stringify(qbRefund),
+              });
+
+              if (syncRes.ok) {
+                syncData = await syncRes.json();
+              }
+            } else {
+              // CREATE new refund receipt
+              syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/refundreceipt`, {
+                method: "POST",
+                headers: qbHeaders,
+                body: JSON.stringify(qbRefund),
+              });
+
+              if (syncRes.ok) {
+                syncData = await syncRes.json();
+              }
+            }
+
+            if (syncRes.ok && syncData) {
+              await supabase.from("quickbooks_sync_log").upsert({
+                company_id: companyId,
+                record_type: "refund",
+                record_id: refund.id,
+                quickbooks_id: syncData.RefundReceipt.Id,
+                sync_status: "synced",
+                synced_at: new Date().toISOString(),
+              }, { onConflict: "company_id,record_type,record_id" });
+              results.synced++;
+            } else {
+              const errText = await syncRes.text();
+              results.failed++;
+              results.errors.push(`Refund ${refund.id}: ${errText}`);
+            }
+          } catch (err: unknown) {
+            results.failed++;
+            const errMsg = err instanceof Error ? err.message : "Unknown error";
+            results.errors.push(`Refund ${refund.id}: ${errMsg}`);
+          }
         }
       }
     }

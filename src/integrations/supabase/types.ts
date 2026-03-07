@@ -5270,6 +5270,94 @@ export type Database = {
           },
         ]
       }
+      project_refunds: {
+        Row: {
+          bank_id: string | null
+          bank_name: string | null
+          company_id: string | null
+          created_at: string | null
+          exclude_from_qb: boolean | null
+          id: string
+          is_voided: boolean
+          notes: string | null
+          reason: string | null
+          refund_amount: number
+          refund_date: string | null
+          refund_method: string | null
+          refund_reference: string | null
+          refund_status: string | null
+          updated_at: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+          project_id: string | null
+        }
+        Insert: {
+          bank_id?: string | null
+          bank_name?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          exclude_from_qb?: boolean | null
+          id?: string
+          is_voided?: boolean
+          notes?: string | null
+          reason?: string | null
+          refund_amount: number
+          refund_date?: string | null
+          refund_method?: string | null
+          refund_reference?: string | null
+          refund_status?: string | null
+          updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+          project_id?: string | null
+        }
+        Update: {
+          bank_id?: string | null
+          bank_name?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          exclude_from_qb?: boolean | null
+          id?: string
+          is_voided?: boolean
+          notes?: string | null
+          reason?: string | null
+          refund_amount?: number
+          refund_date?: string | null
+          refund_method?: string | null
+          refund_reference?: string | null
+          refund_status?: string | null
+          updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_refunds_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_refunds_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_refunds_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_payments: {
         Row: {
           bank_id: string | null
