@@ -9192,11 +9192,12 @@ function ProjectFinancialStatements({
   }, []);
 
   const billsOutstanding = totalCOGS - totalBillsPaid;
-  const netRevenue = totalRevenue - totalRefunded;
+  const cancelledWriteOff = isCancelled ? Math.max(0, totalRevenue - totalRefunded) : 0;
+  const netRevenue = totalRevenue - totalRefunded - cancelledWriteOff;
   const grossIncome = netRevenue - totalCOGS;
-  const leadCost = totalRevenue * (leadCostPercent / 100);
+  const leadCost = isCancelled ? 0 : totalRevenue * (leadCostPercent / 100);
   const commissionBase = netRevenue - leadCost - totalCOGS;
-  const commission = commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0;
+  const commission = isCancelled ? 0 : (commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0);
   const grossIncomeAfterCommission = grossIncome - commission;
   const netIncome = grossIncomeAfterCommission + leadCost;
 
