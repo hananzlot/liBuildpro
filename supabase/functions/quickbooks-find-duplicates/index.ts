@@ -9,7 +9,7 @@ const QB_BASE_URL = "https://quickbooks.api.intuit.com/v3/company";
 
 /**
  * Find potential duplicate records in QuickBooks before syncing.
- * Supports: bill_payment, bill
+ * Supports: bill_payment, bill, payment, invoice, refund
  *
  * Request body:
  *   companyId: string
