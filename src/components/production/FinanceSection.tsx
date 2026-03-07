@@ -5999,8 +5999,53 @@ function BillDialog({
   );
 }
 
+// Inline Nickname Editor
+function InlineNicknameEdit({ value, agreementId, companyId }: { value: string; agreementId: string; companyId: string }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+
+  useEffect(() => { setText(value); }, [value]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const save = async () => {
+    setEditing(false);
+    if (text === value) return;
+    await supabase
+      .from("project_agreements")
+      .update({ nickname: text || null })
+      .eq("id", agreementId);
+    queryClient.invalidateQueries({ queryKey: ["project-agreements"] });
+  };
+
+  if (!editing) {
+    return (
+      <span
+        className="text-muted-foreground cursor-pointer hover:text-foreground hover:underline truncate max-w-[120px] inline-block"
+        onClick={() => setEditing(true)}
+        title="Click to edit nickname"
+      >
+        {value || "—"}
+      </span>
+    );
+  }
+
+  return (
+    <Input
+      ref={inputRef}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={save}
+      onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setText(value); setEditing(false); } }}
+      className="h-6 text-xs px-1 py-0 w-[120px]"
+      placeholder="Add nickname"
+    />
+  );
+}
+
 // Agreement Dialog Component
-function AgreementDialog({ 
+function AgreementDialog({
   open, 
   onOpenChange, 
   agreement, 
