@@ -333,6 +333,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         totalInvoiced: acc.totalInvoiced + r.totalInvoiced,
         totalCollected: acc.totalCollected + r.totalCollected,
         outstandingAR: acc.outstandingAR + r.outstandingAR,
+        unpaidProgress: acc.unpaidProgress + r.unpaidProgress,
         totalBills: acc.totalBills + r.totalBills,
         billsPaid: acc.billsPaid + r.billsPaid,
         outstandingAP: acc.outstandingAP + r.outstandingAP,
@@ -343,6 +344,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         totalInvoiced: 0,
         totalCollected: 0,
         outstandingAR: 0,
+        unpaidProgress: 0,
         totalBills: 0,
         billsPaid: 0,
         outstandingAP: 0,
@@ -640,6 +642,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                   <SortableHeader label="Invoiced" sortKeyName="totalInvoiced" />
                   <SortableHeader label="Collected" sortKeyName="totalCollected" />
                   <SortableHeader label="AR" sortKeyName="outstandingAR" />
+                  <SortableHeader label="Unpaid PP" sortKeyName="unpaidProgress" />
                   <SortableHeader label="Bills" sortKeyName="totalBills" />
                   <SortableHeader label="Paid" sortKeyName="billsPaid" />
                   <SortableHeader label="AP" sortKeyName="outstandingAP" />
@@ -649,7 +652,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               <TableBody>
                 {sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-12">
                       No in-progress projects found
                     </TableCell>
                   </TableRow>
