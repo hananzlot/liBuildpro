@@ -4097,6 +4097,35 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete Refund Dialog (Admin only) */}
+      <AlertDialog open={deleteRefundDialogOpen} onOpenChange={(open) => { setDeleteRefundDialogOpen(open); if (!open) setDeletingRefund(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Delete Refund
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the refund of {formatCurrency(deletingRefund?.refund_amount)}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deletingRefund) {
+                  deleteRefundMutation.mutate(deletingRefund.id);
+                }
+              }}
+              disabled={deleteRefundMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteRefundMutation.isPending ? "Deleting..." : "Delete Refund"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Bill Dialog */}
       <BillDialog
         open={billDialogOpen}
