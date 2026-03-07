@@ -919,6 +919,53 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Change Order Drilldown Dialog */}
+      <Dialog open={!!coDrillRow} onOpenChange={(open) => { if (!open) setCODrillRow(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              Change Orders — #{coDrillRow?.project_number} {coDrillRow?.customer}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">CO #</TableHead>
+                  <TableHead className="text-xs">Date</TableHead>
+                  <TableHead className="text-xs">Description</TableHead>
+                  <TableHead className="text-xs text-right">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(coDrillRow?.changeOrders || [])
+                  .sort((a, b) => (a.agreement_signed_date || "").localeCompare(b.agreement_signed_date || ""))
+                  .map((co) => (
+                  <TableRow key={co.id}>
+                    <TableCell className="text-xs font-medium">{co.agreement_number || "—"}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      {co.agreement_signed_date
+                        ? new Date(co.agreement_signed_date + "T00:00:00").toLocaleDateString()
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs max-w-[200px] truncate">{co.description_of_work || "—"}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums font-medium">{formatCurrency(co.total_price)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <TableFooter>
+                <TableRow className="font-semibold">
+                  <TableCell colSpan={3} className="text-xs">Total</TableCell>
+                  <TableCell className="text-xs text-right tabular-nums">
+                    {formatCurrency(coDrillRow?.changeOrderTotal || 0)}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
