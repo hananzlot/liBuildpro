@@ -91,8 +91,8 @@ const navSections: NavSection[] = [
     roles: ['super_admin', 'admin', 'production'],
     requiredFeature: 'production',
     items: [
+      { title: "Projects - Production", url: "/analytics/project_summary", icon: BarChart3, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production' },
       { title: "Projects", url: "/production?view=projects", icon: FolderKanban, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production' },
-      { title: "Projects Summary", url: "/analytics/project_summary", icon: BarChart3, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production' },
       { title: "Pending Deposits", url: "/pending-deposits", icon: Landmark, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production', dynamicSuffix: 'pendingDeposits' },
       { title: "Vendors & Subs", url: "/production?view=subcontractors", icon: HardHat, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production' },
       { title: "Outstanding AR", url: "/outstanding-ar", icon: FileText, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production', dynamicSuffix: 'ar' },
