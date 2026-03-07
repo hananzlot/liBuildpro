@@ -411,7 +411,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [editingRefund, setEditingRefund] = useState<Refund | null>(null);
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [voidRefundDialogOpen, setVoidRefundDialogOpen] = useState(false);
-  const [voidingRefund, setVoidingRefund] = useState<Refund | null>(null);
+  const [deleteRefundDialogOpen, setDeleteRefundDialogOpen] = useState(false);
+  const [deletingRefund, setDeletingRefund] = useState<Refund | null>(null);
   const [voidRefundReason, setVoidRefundReason] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [historyBill, setHistoryBill] = useState<Bill | null>(null);
@@ -2080,6 +2081,25 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       setVoidRefundReason("");
     },
     onError: (error) => toast.error(`Failed to void refund: ${error.message}`),
+  });
+
+  const deleteRefundMutation = useMutation({
+    mutationFn: async (refundId: string) => {
+      const qbResult = await syncDeleteToQuickBooks("refund", refundId);
+      const { error } = await supabase
+        .from("project_refunds")
+        .delete()
+        .eq("id", refundId);
+      if (error) throw error;
+      return { qbSynced: qbResult.synced };
+    },
+    onSuccess: (result) => {
+      toast.success(result?.qbSynced ? "Refund deleted and removed from QuickBooks" : "Refund deleted");
+      queryClient.invalidateQueries({ queryKey: ["project-refunds", projectId] });
+      setDeleteRefundDialogOpen(false);
+      setDeletingRefund(null);
+    },
+    onError: (error) => toast.error(`Failed to delete refund: ${error.message}`),
   });
 
   const saveAgreementMutation = useMutation({
