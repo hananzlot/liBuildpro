@@ -59,6 +59,7 @@ interface ProjectSummaryRow {
   contractAmount: number;
   totalInvoiced: number;
   totalCollected: number;
+  totalRefunded: number;
   outstandingAR: number;
   unpaidProgress: number;
   totalBills: number;
@@ -216,8 +217,24 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     enabled: !!companyId && projectIds.length > 0,
   });
 
+  // Fetch refunds
+  const { data: refunds, isLoading: refundsLoading } = useQuery({
+    queryKey: ["project-summary-refunds", companyId, projectIds],
+    queryFn: async () => {
+      if (projectIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("project_refunds")
+        .select("project_id, refund_amount, refund_status, is_voided")
+        .eq("company_id", companyId!)
+        .in("project_id", projectIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId && projectIds.length > 0,
+  });
+
   const isLoading =
-    projectsLoading || agreementsLoading || invoicesLoading || paymentsLoading || billsLoading || phasesLoading;
+    projectsLoading || agreementsLoading || invoicesLoading || paymentsLoading || billsLoading || phasesLoading || refundsLoading;
 
   // Build summary rows
   const rows = useMemo<ProjectSummaryRow[]>(() => {
@@ -247,6 +264,12 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         0
       );
 
+      // Refunds
+      const projectRefunds = (refunds || []).filter(
+        (r) => r.project_id === p.id && r.refund_status === "Issued" && !r.is_voided
+      );
+      const totalRefunded = projectRefunds.reduce((s, r) => s + (r.refund_amount || 0), 0);
+
       const outstandingAR = totalInvoiced - totalCollected;
 
       const activeBills = (bills || []).filter(
@@ -255,7 +278,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       const totalBills = activeBills.reduce((s, b) => s + (b.bill_amount || 0), 0);
       const billsPaid = activeBills.reduce((s, b) => s + (b.amount_paid || 0), 0);
       const outstandingAP = totalBills - billsPaid;
-      const netCash = totalCollected - billsPaid;
+      const netCash = totalCollected - totalRefunded - billsPaid;
 
       // Build phase rows
       const projectPhases = (phases || []).filter((ph) => ph.project_id === p.id);
@@ -300,6 +323,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         contractAmount,
         totalInvoiced,
         totalCollected,
+        totalRefunded,
         outstandingAR,
         unpaidProgress,
         totalBills,
