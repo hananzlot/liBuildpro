@@ -2843,8 +2843,17 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                           size="sm"
                                           className="h-6 text-[10px] px-2"
                                           onClick={() => {
-                                            setEditingInvoice(null);
-                                            setInvoiceDialogOpen(true);
+                                            const totalInvoiced = invoices
+                                              .filter(inv => inv.payment_phase_id === phase.id)
+                                              .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+                                            const remainingAmount = (phase.amount || 0) - totalInvoiced;
+                                            setInvoiceConfirmPhase({
+                                              id: phase.id,
+                                              name: phase.phase_name,
+                                              agreementId: phase.agreement_id,
+                                              maxAmount: remainingAmount,
+                                            });
+                                            setInvoiceConfirmOpen(true);
                                           }}
                                         >
                                           <Plus className="h-3 w-3 mr-1" />
