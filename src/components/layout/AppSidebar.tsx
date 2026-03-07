@@ -410,7 +410,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     return navSections.map(section => {
       if (section.label !== "Insights") return section;
       if (!hasAnyAnalyticsAccess) return section;
-      const tabs = ANALYTICS_REPORTS.filter(r => !r.key.startsWith('outstanding_'));
+      const tabs = ANALYTICS_REPORTS.filter(r => !r.key.startsWith('outstanding_') && r.key !== 'project_summary');
       const visible = tabs.filter(r => visibleReports.includes(r.key));
       const items: NavItem[] = visible.map(report => ({
         title: report.label, url: report.route, icon: BarChart3,
