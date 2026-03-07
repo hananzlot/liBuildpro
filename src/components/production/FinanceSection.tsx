@@ -2746,11 +2746,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs text-center w-[14%]">Invoice #</TableHead>
-                          <TableHead className="text-xs text-center w-[14%]">Date</TableHead>
-                          <TableHead className="text-xs text-center w-[22%]">Progress<br />Payment</TableHead>
-                          <TableHead className="text-xs text-center w-[14%]">Amount</TableHead>
-                          <TableHead className="text-xs text-center w-[14%]">Balance<br />Due</TableHead>
+                          <TableHead className="text-xs text-center w-[12%]">Date</TableHead>
+                          <TableHead className="text-xs text-center w-[10%]">Invoice #</TableHead>
+                          <TableHead className="text-xs text-center w-[18%]">Contract #<br />/ Nickname</TableHead>
+                          <TableHead className="text-xs text-center w-[18%]">Progress<br />Payment</TableHead>
+                          <TableHead className="text-xs text-center w-[12%]">Amount</TableHead>
+                          <TableHead className="text-xs text-center w-[12%]">Balance<br />Due</TableHead>
                           {isQBConnectedMain && <TableHead className="text-xs text-center w-[10%]">QB</TableHead>}
                           <TableHead className="text-xs w-[12%]"></TableHead>
                         </TableRow>
@@ -2763,8 +2764,15 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                               highlightInvoiceId === inv.id && "bg-yellow-100 dark:bg-yellow-900/30 animate-pulse"
                             )}
                           >
-                            <TableCell className="text-xs text-center">{inv.invoice_number || "-"}</TableCell>
                             <TableCell className="text-xs text-center">{formatDate(inv.invoice_date)}</TableCell>
+                            <TableCell className="text-xs text-center">{inv.invoice_number || "-"}</TableCell>
+                            <TableCell className="text-xs text-center text-muted-foreground">
+                              {(() => {
+                                const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+                                const agr = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
+                                return agr ? `${agr.agreement_number || ""}${agr.nickname ? ` / ${agr.nickname}` : ""}`.trim() || "-" : "-";
+                              })()}
+                            </TableCell>
                             <TableCell className="text-xs text-center text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
                             <TableCell className="text-xs text-center">{formatCurrency2(inv.amount)}</TableCell>
                             <TableCell className="text-xs text-center">{formatCurrency2(inv.open_balance)}</TableCell>
