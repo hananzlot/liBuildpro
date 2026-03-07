@@ -223,6 +223,25 @@ interface Agreement {
   attachment_url: string | null;
 }
 
+interface Refund {
+  id: string;
+  refund_amount: number;
+  refund_date: string | null;
+  refund_method: string | null;
+  refund_reference: string | null;
+  bank_id: string | null;
+  bank_name: string | null;
+  reason: string | null;
+  notes: string | null;
+  refund_status: string | null;
+  exclude_from_qb: boolean | null;
+  is_voided: boolean;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
+  bank?: { name: string } | null;
+}
+
 interface ExtractedPhase {
   phase_name: string;
   description: string | null;
@@ -384,6 +403,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [editingAgreement, setEditingAgreement] = useState<Agreement | null>(null);
   const [preselectedAgreementType, setPreselectedAgreementType] = useState<string | null>(null);
   const [editingPhase, setEditingPhase] = useState<PaymentPhase | null>(null);
+  const [editingRefund, setEditingRefund] = useState<Refund | null>(null);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+  const [voidRefundDialogOpen, setVoidRefundDialogOpen] = useState(false);
+  const [voidingRefund, setVoidingRefund] = useState<Refund | null>(null);
+  const [voidRefundReason, setVoidRefundReason] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [historyBill, setHistoryBill] = useState<Bill | null>(null);
   const [offsetDetailsBill, setOffsetDetailsBill] = useState<{ bill: Bill; offsets: { offsetBills: Bill[]; totalOffset: number } } | null>(null);
@@ -534,6 +558,24 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     };
   }, [projectId, queryClient]);
 
+  // Subscribe to Realtime changes on project_refunds for this project
+  useEffect(() => {
+    const channel = supabase
+      .channel(`project-refunds-realtime-${projectId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "project_refunds", filter: `project_id=eq.${projectId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["project-refunds", projectId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId, queryClient]);
+
   // Subscribe to Realtime changes on project_bills for this project
   // We listen to all events and filter in the callback because:
   // 1. New bills from QB may initially have project_id=null, then get updated
@@ -643,6 +685,19 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Payment[];
+    },
+  });
+
+  const { data: refunds = [], isLoading: loadingRefunds } = useQuery({
+    queryKey: ["project-refunds", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_refunds")
+        .select("*, bank:banks!project_refunds_bank_id_fkey(name)")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Refund[];
     },
   });
 
@@ -831,6 +886,29 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     staleTime: 30000,
   });
 
+  // Fetch QB sync status for refunds
+  const { data: refundSyncStatuses = {} } = useQuery({
+    queryKey: ["refund-sync-statuses", projectId, companyId],
+    queryFn: async () => {
+      if (!companyId || refunds.length === 0) return {};
+      const ids = refunds.map((r: any) => r.id);
+      const { data, error } = await supabase
+        .from("quickbooks_sync_log")
+        .select("record_id, sync_status, quickbooks_id")
+        .eq("company_id", companyId)
+        .eq("record_type", "refund")
+        .in("record_id", ids);
+      if (error) throw error;
+      const map: Record<string, { status: string; qbId: string | null }> = {};
+      for (const row of data || []) {
+        map[row.record_id] = { status: row.sync_status, qbId: row.quickbooks_id };
+      }
+      return map;
+    },
+    enabled: isQBConnectedMain && refunds.length > 0,
+    staleTime: 30000,
+  });
+
   const { data: agreements = [], isLoading: loadingAgreements } = useQuery({
     queryKey: ["project-agreements", projectId],
     queryFn: async () => {
@@ -858,28 +936,31 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     },
   });
 
-  // Calculate totals - exclude voided bills and payments
+  // Calculate totals - exclude voided bills, payments, and refunds
   const activeBills = bills.filter(b => !b.is_voided);
   const activePayments = payments.filter(p => !p.is_voided);
+  const activeRefunds = refunds.filter(r => !r.is_voided);
   const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
   const totalPaymentsReceived = activePayments.filter(p => p.payment_status === "Received").reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+  const totalRefunds = activeRefunds.filter(r => r.refund_status === "Issued").reduce((sum, r) => sum + (r.refund_amount || 0), 0);
   const totalBills = activeBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
   const totalBillsPaid = activeBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
   const totalAgreementsValue = agreements.reduce((sum, a) => sum + (a.total_price || 0), 0);
+  const netPaymentsReceived = totalPaymentsReceived - totalRefunds;
 
   // Report financial summary to parent
   useEffect(() => {
     onFinanceSummaryChange?.({
       sold: totalAgreementsValue,
       invoiced: totalInvoiced,
-      received: totalPaymentsReceived,
-      outstandingAR: Math.max(0, totalInvoiced - totalPaymentsReceived),
+      received: netPaymentsReceived,
+      outstandingAR: Math.max(0, totalInvoiced - netPaymentsReceived),
       bills: totalBills,
       billsPaid: totalBillsPaid,
       outstandingAP: Math.max(0, totalBills - totalBillsPaid),
       hasAgreements: agreements.length > 0,
     });
-  }, [totalInvoiced, totalPaymentsReceived, totalBills, totalBillsPaid, totalAgreementsValue, agreements.length, onFinanceSummaryChange]);
+  }, [totalInvoiced, netPaymentsReceived, totalPaymentsReceived, totalRefunds, totalBills, totalBillsPaid, totalAgreementsValue, agreements.length, onFinanceSummaryChange]);
 
   // Helper functions to check phase status
   const getPhaseInvoiceStatus = (phaseId: string) => {
@@ -1091,7 +1172,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   // Helper to check for QB duplicates before syncing a bill or bill payment
   const checkQbDuplicatesAndSync = async (
-    recordType: "bill" | "bill_payment" | "payment" | "invoice",
+    recordType: "bill" | "bill_payment" | "payment" | "invoice" | "refund",
     recordId: string,
     checkData: { amount: number; date: string; reference: string | null; vendorName?: string | null; paymentMethod?: string | null }
   ): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
@@ -1907,6 +1988,95 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     onError: (error) => toast.error(`Failed to void payment: ${error.message}`),
   });
 
+  // Save (create/update) a refund
+  const saveRefundMutation = useMutation({
+    mutationFn: async (refund: Partial<Refund>) => {
+      let savedRecordId: string | null = null;
+      if (editingRefund?.id) {
+        const { error } = await supabase
+          .from("project_refunds")
+          .update(refund)
+          .eq("id", editingRefund.id);
+        if (error) throw error;
+        savedRecordId = editingRefund.id;
+      } else {
+        const { data: newRefund, error } = await supabase
+          .from("project_refunds")
+          .insert({ ...refund, project_id: projectId, company_id: companyId })
+          .select()
+          .single();
+        if (error) throw error;
+        savedRecordId = newRefund.id;
+      }
+
+      // Sync to QuickBooks if connected
+      let qbSynced = false;
+      let qbNewEntities: { type: string; name: string }[] = [];
+      if (savedRecordId) {
+        const qbResult = await checkQbDuplicatesAndSync("refund", savedRecordId, {
+          amount: refund.refund_amount || 0,
+          date: (refund.refund_date || new Date().toISOString()).slice(0, 10),
+          reference: refund.refund_reference || null,
+          vendorName: null,
+          paymentMethod: refund.refund_method || null,
+        });
+        qbSynced = qbResult.synced;
+        qbNewEntities = qbResult.newEntities || [];
+      }
+
+      return { qbSynced, isEdit: !!editingRefund?.id, qbNewEntities };
+    },
+    onSuccess: (result) => {
+      const baseMsg = result?.isEdit ? "Refund updated" : "Refund created";
+      if (result?.qbSynced) {
+        const newCustomer = result.qbNewEntities?.find(e => e.type === "customer");
+        if (newCustomer) {
+          toast.success(`${baseMsg} and synced to QuickBooks (new customer "${newCustomer.name}" created)`);
+        } else {
+          toast.success(`${baseMsg} and synced to QuickBooks`);
+        }
+      } else {
+        toast.success(baseMsg);
+      }
+      queryClient.invalidateQueries({ queryKey: ["project-refunds", projectId] });
+      setRefundDialogOpen(false);
+      setEditingRefund(null);
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
+  // Void a refund
+  const voidRefundMutation = useMutation({
+    mutationFn: async ({ refundId, reason, userId }: { refundId: string; reason: string; userId: string }) => {
+      const qbResult = await syncDeleteToQuickBooks("refund", refundId);
+
+      const { error } = await supabase
+        .from("project_refunds")
+        .update({
+          is_voided: true,
+          voided_at: new Date().toISOString(),
+          voided_by: userId,
+          void_reason: reason,
+        })
+        .eq("id", refundId);
+      if (error) throw error;
+
+      return { qbSynced: qbResult.synced };
+    },
+    onSuccess: (result) => {
+      if (result?.qbSynced) {
+        toast.success("Refund voided and synced to QuickBooks");
+      } else {
+        toast.success("Refund voided");
+      }
+      queryClient.invalidateQueries({ queryKey: ["project-refunds", projectId] });
+      setVoidRefundDialogOpen(false);
+      setVoidingRefund(null);
+      setVoidRefundReason("");
+    },
+    onError: (error) => toast.error(`Failed to void refund: ${error.message}`),
+  });
+
   const saveAgreementMutation = useMutation({
     mutationFn: async ({
       agreement,
@@ -2408,6 +2578,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               { value: "agreements", label: "Contracts" },
               { value: "phases", label: "Progress Payments" },
               { value: "invoices", label: "Invoices" },
+              { value: "refunds", label: "Refunds" },
               { value: "bills", label: "Bills" },
               { value: "statements", label: "Financial Statements" },
               { value: "commission", label: "Commission" },
@@ -2738,6 +2909,112 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           </Card>
         </TabsContent>
 
+
+        {/* Refunds Tab */}
+        <TabsContent value="refunds" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Refunds</CardTitle>
+                <Button size="sm" onClick={() => { setEditingRefund(null); setRefundDialogOpen(true); }}>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Issue Refund
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingRefunds ? (
+                <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+              ) : refunds.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No refunds yet</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs text-left w-[14%]">Date</TableHead>
+                      <TableHead className="text-xs text-left w-[12%]">Method</TableHead>
+                      <TableHead className="text-xs text-left w-[12%]">Ref #</TableHead>
+                      <TableHead className="text-xs text-left w-[20%]">Reason</TableHead>
+                      <TableHead className="text-xs text-center w-[12%]">Status</TableHead>
+                      <TableHead className="text-xs text-right w-[12%]">Amount</TableHead>
+                      {isQBConnectedMain && <TableHead className="text-xs text-center w-[8%]">QB</TableHead>}
+                      <TableHead className="text-xs w-[10%]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {refunds.map((ref) => (
+                      <TableRow key={ref.id} className={ref.is_voided ? "opacity-50 bg-muted/30" : ""}>
+                        <TableCell className="text-xs text-left">{formatDate(ref.refund_date)}</TableCell>
+                        <TableCell className="text-xs text-left">{ref.refund_method || "-"}</TableCell>
+                        <TableCell className="text-xs text-left">{ref.refund_reference || "-"}</TableCell>
+                        <TableCell className="text-xs text-left truncate max-w-[180px]" title={ref.reason || ""}>{ref.reason || "-"}</TableCell>
+                        <TableCell className="text-xs text-center">
+                          {ref.is_voided ? (
+                            <div>
+                              <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
+                              <p className="text-[10px] text-muted-foreground mt-1">{formatDate(ref.voided_at)}</p>
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className={cn(
+                              "px-1.5 py-0 text-[10px]",
+                              ref.refund_status === "Issued" ? "bg-emerald-500/10 text-emerald-500" :
+                              ref.refund_status === "Pending" ? "bg-amber-500/10 text-amber-500" :
+                              "bg-muted"
+                            )}>
+                              {ref.refund_status || "Pending"}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className={cn("text-xs text-right", ref.is_voided && "line-through")}>{formatCurrency2(ref.refund_amount)}</TableCell>
+                        {isQBConnectedMain && (
+                          <TableCell className="text-xs">
+                            {(() => {
+                              const syncInfo = (refundSyncStatuses as Record<string, { status: string; qbId: string | null }>)[ref.id];
+                              if (syncInfo?.status === "synced") return (
+                                <Badge variant="secondary" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300">
+                                  <Check className="h-2.5 w-2.5 mr-0.5" />QB
+                                </Badge>
+                              );
+                              if (syncInfo) return (
+                                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">{syncInfo.status}</Badge>
+                              );
+                              return <Badge variant="outline" className="text-[10px] text-muted-foreground">Not synced</Badge>;
+                            })()}
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          {ref.is_voided ? (
+                            <p className="text-[10px] text-muted-foreground italic max-w-[120px] truncate" title={ref.void_reason || ""}>
+                              {ref.void_reason || "No reason"}
+                            </p>
+                          ) : (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => { setEditingRefund(ref); setRefundDialogOpen(true); }}>
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setVoidingRefund(ref); setVoidRefundDialogOpen(true); }}>
+                                  <X className="h-4 w-4 mr-2" />
+                                  Void
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Bills Tab */}
         <TabsContent value="bills" className="mt-4">
@@ -3731,6 +4008,61 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         isPending={savePaymentMutation.isPending}
         invoices={invoices}
       />
+
+      {/* Refund Dialog */}
+      <RefundDialog
+        open={refundDialogOpen}
+        onOpenChange={(open) => {
+          setRefundDialogOpen(open);
+          if (!open) setEditingRefund(null);
+        }}
+        refund={editingRefund}
+        onSave={(data) => saveRefundMutation.mutate(data)}
+        isPending={saveRefundMutation.isPending}
+      />
+
+      {/* Void Refund Dialog */}
+      <AlertDialog open={voidRefundDialogOpen} onOpenChange={(open) => { setVoidRefundDialogOpen(open); if (!open) { setVoidingRefund(null); setVoidRefundReason(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              Void Refund
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The refund of {formatCurrency(voidingRefund?.refund_amount)} will be marked as voided and excluded from all financial calculations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4">
+            <Label htmlFor="voidRefundReason">Reason for voiding <span className="text-destructive">*</span></Label>
+            <Input
+              id="voidRefundReason"
+              value={voidRefundReason}
+              onChange={(e) => setVoidRefundReason(e.target.value)}
+              placeholder="Enter reason for voiding this refund..."
+              className="mt-1"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (voidingRefund && user?.id && voidRefundReason.trim()) {
+                  voidRefundMutation.mutate({
+                    refundId: voidingRefund.id,
+                    reason: voidRefundReason.trim(),
+                    userId: user.id
+                  });
+                }
+              }}
+              disabled={!voidRefundReason.trim() || voidRefundMutation.isPending}
+              className="bg-amber-600 text-white hover:bg-amber-700"
+            >
+              {voidRefundMutation.isPending ? "Voiding..." : "Void Refund"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Bill Dialog */}
       <BillDialog
@@ -9026,6 +9358,296 @@ function ExtractedPhasesReviewDialog({
             )}
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RefundDialog({
+  open,
+  onOpenChange,
+  refund,
+  onSave,
+  isPending,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  refund: Refund | null;
+  onSave: (data: Partial<Refund>) => void;
+  isPending: boolean;
+}) {
+  const { companyId } = useCompanyContext();
+  const { isAdmin: isAdminUser, isSuperAdmin: isSuperAdminUser } = useAuth();
+  const canAddBank = isAdminUser || isSuperAdminUser;
+  const initialFormData = {
+    refund_amount: "",
+    refund_date: new Date().toISOString().split('T')[0],
+    refund_method: "",
+    refund_reference: "",
+    bank_id: "",
+    reason: "",
+    notes: "",
+    refund_status: "Pending",
+    exclude_from_qb: false,
+  };
+  const { draft: formData, updateDraft: updateFormData, setFullDraft: setFormData, clearDraft } = usePersistentDraft(
+    "refund-dialog",
+    initialFormData,
+    refund?.id || "new",
+    open
+  );
+  const [bankSearch, setBankSearch] = useState("");
+  const [bankOpen, setBankOpen] = useState(false);
+
+  const { data: existingBanks = [] } = useQuery({
+    queryKey: ["banks-with-id", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("banks")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .order("name");
+      if (error) throw error;
+      return data.filter((b): b is { id: string; name: string } => typeof b.name === 'string');
+    },
+    enabled: open && !!companyId,
+  });
+
+  const queryClient = useQueryClient();
+
+  const addBankMutation = useMutation({
+    mutationFn: async (bankName: string) => {
+      if (!companyId) throw new Error("No company selected");
+      const { data, error } = await supabase
+        .from("banks")
+        .insert({ name: bankName, company_id: companyId })
+        .select("id")
+        .single();
+      if (error && !error.message.includes('duplicate')) throw error;
+      return data?.id;
+    },
+    onSuccess: (newBankId) => {
+      queryClient.invalidateQueries({ queryKey: ["banks-with-id", companyId] });
+      if (newBankId) updateFormData({ bank_id: newBankId });
+    },
+  });
+
+  const handleAddBank = (bankName: string) => {
+    addBankMutation.mutate(bankName);
+    setBankOpen(false);
+    setBankSearch("");
+  };
+
+  const filteredBanks = existingBanks.filter(bank =>
+    bank.name.toLowerCase().includes(bankSearch.toLowerCase())
+  );
+
+  const selectedBank = existingBanks.find(b => b.id === formData.bank_id);
+
+  const lastRefundIdRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!open) {
+      lastRefundIdRef.current = undefined;
+      return;
+    }
+    const currentId = refund?.id ?? null;
+    if (lastRefundIdRef.current === currentId) return;
+    lastRefundIdRef.current = currentId;
+
+    if (refund) {
+      clearDraft();
+      setFormData({
+        refund_amount: refund.refund_amount?.toString() || "",
+        refund_date: refund.refund_date || "",
+        refund_method: refund.refund_method || "",
+        refund_reference: refund.refund_reference || "",
+        bank_id: refund.bank_id || "",
+        reason: refund.reason || "",
+        notes: refund.notes || "",
+        refund_status: refund.refund_status || "Pending",
+        exclude_from_qb: refund.exclude_from_qb ?? false,
+      });
+    }
+    setBankSearch("");
+  }, [open, refund]);
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) clearDraft();
+    onOpenChange(newOpen);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const rawAmount = formData.refund_amount.replace(/[^0-9.]/g, '');
+    const amount = parseFloat(rawAmount) || 0;
+    if (amount <= 0 || !formData.refund_date) return;
+
+    const bankName = existingBanks.find(b => b.id === formData.bank_id)?.name || null;
+
+    onSave({
+      refund_amount: amount,
+      refund_date: formData.refund_date || null,
+      refund_method: formData.refund_method || null,
+      refund_reference: formData.refund_reference || null,
+      bank_id: formData.bank_id || null,
+      bank_name: bankName,
+      reason: formData.reason || null,
+      notes: formData.notes || null,
+      refund_status: formData.refund_status,
+      exclude_from_qb: formData.exclude_from_qb,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{refund ? "Edit Refund" : "Issue Refund"}</DialogTitle>
+          <DialogDescription>Enter refund details below.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Refund Amount <span className="text-destructive">*</span></Label>
+              <Input
+                type="text"
+                value={formData.refund_amount}
+                onChange={(e) => updateFormData({ refund_amount: e.target.value })}
+                placeholder="$0.00"
+              />
+            </div>
+            <div>
+              <Label>Date <span className="text-destructive">*</span></Label>
+              <Input
+                type="date"
+                value={formData.refund_date}
+                onChange={(e) => updateFormData({ refund_date: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Bank Account</Label>
+              <Popover open={bankOpen} onOpenChange={setBankOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between text-left font-normal">
+                    {selectedBank?.name || "Select bank..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput
+                      placeholder="Search banks..."
+                      value={bankSearch}
+                      onValueChange={setBankSearch}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {canAddBank && bankSearch.trim() ? (
+                          <Button variant="ghost" className="w-full justify-start text-sm" onClick={() => handleAddBank(bankSearch.trim())}>
+                            <Plus className="h-3 w-3 mr-2" />
+                            Add "{bankSearch.trim()}"
+                          </Button>
+                        ) : "No banks found."}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredBanks.map((bank) => (
+                          <CommandItem key={bank.id} value={bank.name} onSelect={() => { updateFormData({ bank_id: bank.id }); setBankOpen(false); }}>
+                            {bank.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div>
+              <Label>Refund Method</Label>
+              <Select value={formData.refund_method} onValueChange={(v) => updateFormData({ refund_method: v })}>
+                <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Check">Check</SelectItem>
+                  <SelectItem value="Zelle/ACH">Zelle/ACH</SelectItem>
+                  <SelectItem value="Wire">Wire</SelectItem>
+                  <SelectItem value="Credit Card">Credit Card</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {formData.refund_method === "Check" && (
+            <div>
+              <Label>Check Number</Label>
+              <Input
+                value={formData.refund_reference}
+                onChange={(e) => updateFormData({ refund_reference: e.target.value })}
+                placeholder="Check #"
+              />
+            </div>
+          )}
+
+          {formData.refund_method && formData.refund_method !== "Check" && (
+            <div>
+              <Label>Reference #</Label>
+              <Input
+                value={formData.refund_reference}
+                onChange={(e) => updateFormData({ refund_reference: e.target.value })}
+                placeholder="Transaction reference"
+              />
+            </div>
+          )}
+
+          <div>
+            <Label>Reason</Label>
+            <Input
+              value={formData.reason}
+              onChange={(e) => updateFormData({ reason: e.target.value })}
+              placeholder="Reason for refund"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Status</Label>
+              <Select value={formData.refund_status} onValueChange={(v) => updateFormData({ refund_status: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Issued">Issued</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end pb-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={formData.exclude_from_qb}
+                  onCheckedChange={(checked) => updateFormData({ exclude_from_qb: !!checked })}
+                />
+                Exclude from QuickBooks
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <Label>Notes</Label>
+            <Input
+              value={formData.notes}
+              onChange={(e) => updateFormData({ notes: e.target.value })}
+              placeholder="Additional notes..."
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" type="button" onClick={() => handleOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : refund ? "Update Refund" : "Issue Refund"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

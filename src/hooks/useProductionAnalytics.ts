@@ -271,6 +271,23 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     ...financialCacheOptions,
   });
 
+  const { data: refunds = [] } = useQuery({
+    queryKey: ["analytics-refunds", companyId],
+    queryFn: async () => {
+      return fetchAllPages(async (from, to) => {
+        const { data, error } = await supabase
+          .from("project_refunds")
+          .select("id, project_id, refund_amount, refund_status, refund_date, refund_method, bank_id, bank_name, is_voided")
+          .eq("company_id", companyId)
+          .range(from, to);
+        if (error) throw error;
+        return data;
+      });
+    },
+    enabled: !!companyId,
+    ...financialCacheOptions,
+  });
+
   // Subscribe to realtime changes on bills and bill_payments to keep data fresh
   useEffect(() => {
     if (!companyId) return;
@@ -291,6 +308,14 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         () => {
           queryClient.invalidateQueries({ queryKey: ["analytics-bills", companyId] });
           queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments", companyId] });
+          queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "project_refunds" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["analytics-refunds", companyId] });
           queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
         }
       )
@@ -356,14 +381,19 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       const projectInvoices = invoices.filter(i => i.project_id === project.id);
       const projectPayments = payments.filter(p => p.project_id === project.id);
       const projectBills = bills.filter(b => b.project_id === project.id);
+      const projectRefunds = refunds.filter(r => r.project_id === project.id && !r.is_voided);
 
       const contractsTotal = projectAgreements.reduce((sum, a) => sum + (a.total_price || 0), 0);
       const totalBillsReceived = projectBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
       const totalBillsPaid = projectBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
       const invoicesTotal = projectInvoices.reduce((sum, i) => sum + (i.amount || 0), 0);
-      const invoicesCollected = projectPayments
+      const grossCollected = projectPayments
         .filter(p => p.payment_status === "Received")
         .reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+      const totalRefunded = projectRefunds
+        .filter(r => r.refund_status === "Issued")
+        .reduce((sum, r) => sum + (r.refund_amount || 0), 0);
+      const invoicesCollected = grossCollected - totalRefunded;
       const invoiceBalanceDue = projectInvoices.reduce((sum, i) => sum + (i.open_balance || 0), 0);
 
       // Calculate bill payments from bill_payments table
@@ -450,7 +480,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         cashStatus,
       };
     });
-  }, [filteredProjects, agreements, invoices, payments, bills, billPayments]);
+  }, [filteredProjects, agreements, invoices, payments, bills, billPayments, refunds]);
 
   // Invoices with aging - filtered
   const invoicesWithAging: InvoiceWithAging[] = useMemo(() => {
@@ -554,6 +584,27 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       });
     });
 
+    // Outgoing refunds
+    refunds
+      .filter(r => r.project_id && allowedIds.has(r.project_id) && !r.is_voided && r.refund_status === "Issued")
+      .forEach(r => {
+        const project = projects.find(p => p.id === r.project_id);
+        transactions.push({
+          id: `refund-${r.id}`,
+          date: r.refund_date,
+          type: 'out',
+          project_id: r.project_id,
+          project_number: project?.project_number || null,
+          project_name: project?.project_name || 'Unknown',
+          project_address: project?.project_address || null,
+          customer_name: [project?.customer_first_name, project?.customer_last_name].filter(Boolean).join(' ') || null,
+          description: 'Customer refund',
+          amount: r.refund_amount || 0,
+          bank_or_method: r.bank_name || r.refund_method || null,
+          bank_id: r.bank_id || null,
+        });
+      });
+
     // Apply date range filter to transactions by transaction date
     const dateFrom = filters.dateRange?.from;
     const dateTo = filters.dateRange?.to;
@@ -570,7 +621,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       if (!b.date) return -1;
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [payments, billPayments, bills, filteredProjects, projects, filters]);
+  }, [payments, billPayments, bills, refunds, filteredProjects, projects, filters]);
 
   // Commission summary by salesperson
   const commissionSummary: SalespersonCommission[] = useMemo(() => {
