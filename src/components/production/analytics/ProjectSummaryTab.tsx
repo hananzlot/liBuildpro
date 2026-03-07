@@ -5,6 +5,7 @@ import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { BadgePill } from "@/components/ui/badge-pill";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,6 +54,7 @@ interface ProjectSummaryRow {
   id: string;
   project_number: number;
   customer: string;
+  projectStatus: string;
   address: string;
   salesperson: string;
   startDate: string;
@@ -317,6 +319,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         id: p.id,
         project_number: p.project_number ?? 0,
         customer,
+        projectStatus: p.project_status || "",
         address: p.project_address || "",
         salesperson: p.primary_salesperson || "",
         startDate: p.install_start_date || "",
@@ -772,7 +775,14 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                             {row.project_number}
                           </TableCell>
                           <TableCell>
-                            <div>{row.customer}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span>{row.customer}</span>
+                              {row.projectStatus && (
+                                <BadgePill intent={projectStatusIntent(row.projectStatus)}>
+                                  {row.projectStatus}
+                                </BadgePill>
+                              )}
+                            </div>
                             {row.address && (
                               <div className="text-xs text-muted-foreground truncate max-w-[200px]">{row.address}</div>
                             )}
