@@ -1079,7 +1079,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
    // Helper to sync with confirmation for new entities
   const syncWithConfirmation = async (
-    recordType: "invoice" | "payment" | "bill" | "bill_payment", 
+    recordType: "invoice" | "payment" | "bill" | "bill_payment" | "refund", 
     recordId: string
   ): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
     // First check if sync would create new entities
