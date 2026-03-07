@@ -1083,7 +1083,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                       <span className="text-[11px] font-semibold text-emerald-600">{formatCurrency(financeSummary.received)}</span>
                     </div>
                   )}
-                  {financeSummary.outstandingAR > 0 && (
+                  {financeSummary.outstandingAR !== 0 && (
                     <div className="flex items-center gap-1 bg-destructive/10 rounded-md px-1.5 py-0.5 border border-destructive/30">
                       <span className="text-[10px] text-destructive">AR:</span>
                       <span className="text-[11px] font-semibold text-destructive">{formatCurrency(financeSummary.outstandingAR)}</span>
