@@ -2613,6 +2613,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             totalCOGS={totalBills}
             totalBillsPaid={totalBillsPaid}
             totalCollected={totalPaymentsReceived}
+            totalRefunded={totalRefunds}
             totalInvoiced={totalInvoiced}
             leadCostPercent={leadCostPercent}
             commissionSplitPct={commissionSplitPct}
@@ -9007,6 +9008,7 @@ function ProjectFinancialStatements({
   totalCOGS,
   totalBillsPaid,
   totalCollected,
+  totalRefunded,
   totalInvoiced,
   leadCostPercent,
   commissionSplitPct,
@@ -9019,6 +9021,7 @@ function ProjectFinancialStatements({
   totalCOGS: number;
   totalBillsPaid: number;
   totalCollected: number;
+  totalRefunded: number;
   totalInvoiced: number;
   leadCostPercent: number;
   commissionSplitPct: number;
