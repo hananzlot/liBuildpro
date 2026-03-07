@@ -8269,6 +8269,7 @@ function CommissionTab({
   salespeople,
   projectName,
   projectAddress,
+  isCancelled,
 }: {
   projectId: string;
   totalContracts: number;
@@ -8279,6 +8280,7 @@ function CommissionTab({
   salespeople: SalespersonData[];
   projectName?: string | null;
   projectAddress?: string | null;
+  isCancelled?: boolean;
 }) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
