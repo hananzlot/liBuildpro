@@ -6220,6 +6220,7 @@ function AgreementDialog({
         {
           agreement_number: formData.agreement_number || null,
           agreement_type: formData.agreement_type || null,
+          nickname: formData.nickname || null,
           agreement_signed_date: formData.agreement_signed_date || null,
           total_price: parseFloat(formData.total_price) || 0,
           description_of_work: formData.description_of_work || null,
