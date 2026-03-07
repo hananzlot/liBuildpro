@@ -26,7 +26,7 @@ import {
   Wallet,
   AlertCircle,
   Receipt,
-  ChevronRight,
+  
   ArrowUpDown,
   Filter,
   Download,
@@ -97,7 +97,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const { companyId } = useCompanyContext();
   const [sortKey, setSortKey] = useState<SortKey>("project_number");
   const [sortAsc, setSortAsc] = useState(true);
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["In-Progress", "Awaiting Finance"]);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
@@ -408,26 +408,6 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     [sortKey]
   );
 
-  const toggleExpand = useCallback((id: string) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  // Auto-expand all projects with unpaid phases when toggle is checked
-  useEffect(() => {
-    if (showUnpaidOnly) {
-      const idsWithUnpaid = rows
-        .filter(r => r.phases.some(p => p.status !== "Paid"))
-        .map(r => r.id);
-      setExpandedRows(new Set(idsWithUnpaid));
-    } else {
-      setExpandedRows(new Set());
-    }
-  }, [showUnpaidOnly, rows]);
 
   const reportRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
