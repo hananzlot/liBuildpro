@@ -3989,6 +3989,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               salespeople={salespeople}
               projectName={projectName}
               projectAddress={projectAddress}
+              isCancelled={projectStatus === "Cancelled"}
             />
           </ErrorBoundary>
         </TabsContent>
@@ -8268,6 +8269,7 @@ function CommissionTab({
   salespeople,
   projectName,
   projectAddress,
+  isCancelled,
 }: {
   projectId: string;
   totalContracts: number;
@@ -8278,6 +8280,7 @@ function CommissionTab({
   salespeople: SalespersonData[];
   projectName?: string | null;
   projectAddress?: string | null;
+  isCancelled?: boolean;
 }) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -8357,14 +8360,14 @@ function CommissionTab({
   });
 
   // Calculations: (Total Contracts - Lead Cost - Bills) × Split%
-  const leadCostAmount = totalContracts * (leadCostPercent / 100);
-  const profit = totalContracts - leadCostAmount - totalBillsPaid;
-  const commissionPool = profit > 0 ? profit * (commissionSplitPct / 100) : 0;
+  const leadCostAmount = isCancelled ? 0 : totalContracts * (leadCostPercent / 100);
+  const profit = isCancelled ? 0 : totalContracts - leadCostAmount - totalBillsPaid;
+  const commissionPool = isCancelled ? 0 : (profit > 0 ? profit * (commissionSplitPct / 100) : 0);
   
   // Earned to date: (Amount Received - Bills Paid - Lead Cost on Received) × Split%
-  const leadCostOnReceived = totalPaymentsReceived * (leadCostPercent / 100);
-  const earnedProfit = totalPaymentsReceived - totalBillsPaid - leadCostOnReceived;
-  const earnedPool = earnedProfit * (commissionSplitPct / 100);
+  const leadCostOnReceived = isCancelled ? 0 : totalPaymentsReceived * (leadCostPercent / 100);
+  const earnedProfit = isCancelled ? 0 : totalPaymentsReceived - totalBillsPaid - leadCostOnReceived;
+  const earnedPool = isCancelled ? 0 : earnedProfit * (commissionSplitPct / 100);
   
   // Calculate total commission % to normalize if needed
   const totalCommissionPct = salespeople.reduce((sum, sp) => sum + sp.commissionPct, 0);
