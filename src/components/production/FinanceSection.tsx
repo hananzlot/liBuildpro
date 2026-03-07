@@ -3555,6 +3555,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                       <TableHead className="text-xs text-center">Contract<br />Value</TableHead>
                       <TableHead className="text-xs text-center">Progress Payments<br />Total</TableHead>
                       <TableHead className="text-xs text-center">Total Collected<br />To Date</TableHead>
+                      <TableHead className="text-xs text-center">Unpaid<br />Balance</TableHead>
                       <TableHead className="text-xs w-10"></TableHead>
                       <TableHead className="text-xs w-20"></TableHead>
                     </TableRow>
@@ -3607,6 +3608,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         </TableCell>
                         <TableCell className="text-xs text-center font-medium">
                           {formatCurrencyWithDecimals(totalCollected)}
+                        </TableCell>
+                        <TableCell className={`text-xs text-center font-medium ${(contractValue - totalCollected) > 0 ? 'text-amber-600' : ''}`}>
+                          {formatCurrencyWithDecimals(contractValue - totalCollected)}
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           {agreement.attachment_url && (
