@@ -764,7 +764,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               <TableBody>
                 {sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={13} className="text-center text-muted-foreground py-12">
                       No in-progress projects found
                     </TableCell>
                   </TableRow>
