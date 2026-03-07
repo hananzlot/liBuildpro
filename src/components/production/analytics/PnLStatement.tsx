@@ -106,18 +106,27 @@ function buildPnLLines(data: {
 function computeAggregate(projects: ProjectWithFinancials[]) {
   const totalRevenue = projects.reduce((s, p) => s + p.contractsTotal, 0);
   const totalRefunded = projects.reduce((s, p) => s + p.totalRefunded, 0);
-  const netRevenue = totalRevenue - totalRefunded;
+  // Cancelled projects: write off remaining revenue and zero out commission/lead
+  const cancelledWriteOff = projects
+    .filter(p => p.project_status?.toLowerCase() === "cancelled")
+    .reduce((s, p) => s + Math.max(0, p.contractsTotal - p.totalRefunded), 0);
+  const netRevenue = totalRevenue - totalRefunded - cancelledWriteOff;
   const totalCOGS = projects.reduce((s, p) => s + p.totalBillsReceived, 0);
   const totalBillsPaid = projects.reduce((s, p) => s + p.totalBillsPaid, 0);
   const billsOutstanding = totalCOGS - totalBillsPaid;
   const grossIncome = netRevenue - totalCOGS;
-  const totalCommission = projects.reduce((s, p) => s + p.totalCommission, 0);
+  // Zero out commission and lead fees for cancelled projects
+  const totalCommission = projects
+    .filter(p => p.project_status?.toLowerCase() !== "cancelled")
+    .reduce((s, p) => s + p.totalCommission, 0);
   const grossIncomeAfterCommission = grossIncome - totalCommission;
-  const totalLeadCost = projects.reduce((s, p) => s + p.leadCostAmount, 0);
+  const totalLeadCost = projects
+    .filter(p => p.project_status?.toLowerCase() !== "cancelled")
+    .reduce((s, p) => s + p.leadCostAmount, 0);
   const netIncome = grossIncomeAfterCommission + totalLeadCost;
 
-  // Revenue-weighted average percentages
-  const revenueProjects = projects.filter(p => p.contractsTotal > 0);
+  // Revenue-weighted average percentages (exclude cancelled)
+  const revenueProjects = projects.filter(p => p.contractsTotal > 0 && p.project_status?.toLowerCase() !== "cancelled");
   const weightedRevenue = revenueProjects.reduce((s, p) => s + p.contractsTotal, 0);
   const avgCommissionPct = weightedRevenue > 0
     ? revenueProjects.reduce((s, p) => s + p.contractsTotal * (p.commission_split_pct ?? 50), 0) / weightedRevenue
@@ -126,7 +135,7 @@ function computeAggregate(projects: ProjectWithFinancials[]) {
     ? revenueProjects.reduce((s, p) => s + p.contractsTotal * (p.lead_cost_percent ?? 18), 0) / weightedRevenue
     : null;
 
-  return { totalRevenue, totalRefunded, totalBillsPaid, billsOutstanding, totalCOGS, grossIncome, totalCommission, grossIncomeAfterCommission, totalLeadCost, netIncome, avgCommissionPct, avgLeadCostPct };
+  return { totalRevenue, totalRefunded, cancelledWriteOff, totalBillsPaid, billsOutstanding, totalCOGS, grossIncome, totalCommission, grossIncomeAfterCommission, totalLeadCost, netIncome, avgCommissionPct, avgLeadCostPct };
 }
 
 export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }: PnLStatementProps) {
