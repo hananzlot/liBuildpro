@@ -3609,6 +3609,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         <TableCell className="text-xs text-center font-medium">
                           {formatCurrencyWithDecimals(totalCollected)}
                         </TableCell>
+                        <TableCell className={`text-xs text-center font-medium ${(contractValue - totalCollected) > 0 ? 'text-amber-600' : ''}`}>
+                          {formatCurrencyWithDecimals(contractValue - totalCollected)}
+                        </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           {agreement.attachment_url && (
                             <Button
