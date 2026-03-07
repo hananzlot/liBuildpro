@@ -9069,17 +9069,19 @@ function ProjectFinancialStatements({
   }, []);
 
   const billsOutstanding = totalCOGS - totalBillsPaid;
-  const grossIncome = totalRevenue - totalCOGS;
+  const netRevenue = totalRevenue - totalRefunded;
+  const grossIncome = netRevenue - totalCOGS;
   const leadCost = totalRevenue * (leadCostPercent / 100);
-  const commissionBase = totalRevenue - leadCost - totalCOGS;
+  const commissionBase = netRevenue - leadCost - totalCOGS;
   const commission = commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0;
   const grossIncomeAfterCommission = grossIncome - commission;
   const netIncome = grossIncomeAfterCommission + leadCost;
 
+  const netCollected = totalCollected - totalRefunded;
   const ar = totalInvoiced - totalCollected;
   const ap = totalCOGS - totalBillsPaid;
-  const netCash = totalCollected - totalBillsPaid;
-  const totalAssets = totalCollected + Math.max(ar, 0);
+  const netCash = netCollected - totalBillsPaid;
+  const totalAssets = netCollected + Math.max(ar, 0);
   const totalLiabilities = Math.max(ap, 0);
   const equity = totalAssets - totalLiabilities;
 
