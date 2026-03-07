@@ -356,6 +356,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         contractAmount: acc.contractAmount + r.contractAmount,
         totalInvoiced: acc.totalInvoiced + r.totalInvoiced,
         totalCollected: acc.totalCollected + r.totalCollected,
+        totalRefunded: acc.totalRefunded + r.totalRefunded,
         outstandingAR: acc.outstandingAR + r.outstandingAR,
         unpaidProgress: acc.unpaidProgress + r.unpaidProgress,
         totalBills: acc.totalBills + r.totalBills,
@@ -367,6 +368,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         contractAmount: 0,
         totalInvoiced: 0,
         totalCollected: 0,
+        totalRefunded: 0,
         outstandingAR: 0,
         unpaidProgress: 0,
         totalBills: 0,
@@ -777,7 +779,14 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                           </TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.contractAmount)}</TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.totalInvoiced)}</TableCell>
-                          <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.totalCollected)}</TableCell>
+                          <TableCell className="tabular-nums whitespace-nowrap">
+                            <div>{formatCurrency(row.totalCollected)}</div>
+                            {row.totalRefunded > 0 && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 mt-0.5 font-medium">
+                                -{formatCurrency(row.totalRefunded)} refunded
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">
                             <span className={row.outstandingAR > 0 ? "text-amber-500" : ""}>
                               {formatCurrency(row.outstandingAR)}
@@ -858,7 +867,14 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                   <TableCell />
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.contractAmount)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalInvoiced)}</TableCell>
-                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalCollected)}</TableCell>
+                  <TableCell className="tabular-nums whitespace-nowrap">
+                    <div>{formatCurrency(totals.totalCollected)}</div>
+                    {totals.totalRefunded > 0 && (
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 mt-0.5 font-medium">
+                        -{formatCurrency(totals.totalRefunded)} refunded
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.outstandingAR)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.unpaidProgress)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalBills)}</TableCell>
