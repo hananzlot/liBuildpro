@@ -80,6 +80,17 @@ interface PhaseRow {
   status: "Paid" | "Partial" | "Pending";
 }
 
+function projectStatusIntent(status: string): "success" | "primary" | "warning" | "danger" | "info" | "muted" {
+  switch (status) {
+    case "Completed": return "success";
+    case "In-Progress": return "primary";
+    case "New Job": return "info";
+    case "Awaiting Finance": return "warning";
+    case "Cancelled": return "danger";
+    default: return "muted";
+  }
+}
+
 export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const { companyId } = useCompanyContext();
   const [sortKey, setSortKey] = useState<SortKey>("project_number");
