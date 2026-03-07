@@ -286,6 +286,10 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         };
       });
 
+      const unpaidProgress = phaseRows
+        .filter(ph => ph.status !== "Paid")
+        .reduce((s, ph) => s + (ph.amount - ph.collected), 0);
+
       return {
         id: p.id,
         project_number: p.project_number ?? 0,
@@ -297,6 +301,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         totalInvoiced,
         totalCollected,
         outstandingAR,
+        unpaidProgress,
         totalBills,
         billsPaid,
         outstandingAP,
