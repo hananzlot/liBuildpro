@@ -455,6 +455,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickCreateFinance('new-bill'); }}>
         <CreditCard className="h-4 w-4 mr-2" />New Bill
       </DropdownMenuItem>
+      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickCreateFinance('new-refund'); }}>
+        <Receipt className="h-4 w-4 mr-2" />Issue Refund
+      </DropdownMenuItem>
     </>
   );
 
