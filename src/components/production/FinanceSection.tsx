@@ -3989,6 +3989,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               salespeople={salespeople}
               projectName={projectName}
               projectAddress={projectAddress}
+              isCancelled={projectStatus === "Cancelled"}
             />
           </ErrorBoundary>
         </TabsContent>
