@@ -9498,6 +9498,7 @@ function RefundDialog({
 
     const bankName = existingBanks.find(b => b.id === formData.bank_id)?.name || null;
 
+    clearDraft();
     onSave({
       refund_amount: amount,
       refund_date: formData.refund_date || null,
