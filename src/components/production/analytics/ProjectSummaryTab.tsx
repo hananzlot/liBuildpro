@@ -59,6 +59,7 @@ interface ProjectSummaryRow {
   contractAmount: number;
   totalInvoiced: number;
   totalCollected: number;
+  totalRefunded: number;
   outstandingAR: number;
   unpaidProgress: number;
   totalBills: number;
@@ -216,8 +217,24 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     enabled: !!companyId && projectIds.length > 0,
   });
 
+  // Fetch refunds
+  const { data: refunds, isLoading: refundsLoading } = useQuery({
+    queryKey: ["project-summary-refunds", companyId, projectIds],
+    queryFn: async () => {
+      if (projectIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("project_refunds")
+        .select("project_id, refund_amount, refund_status, is_voided")
+        .eq("company_id", companyId!)
+        .in("project_id", projectIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId && projectIds.length > 0,
+  });
+
   const isLoading =
-    projectsLoading || agreementsLoading || invoicesLoading || paymentsLoading || billsLoading || phasesLoading;
+    projectsLoading || agreementsLoading || invoicesLoading || paymentsLoading || billsLoading || phasesLoading || refundsLoading;
 
   // Build summary rows
   const rows = useMemo<ProjectSummaryRow[]>(() => {
@@ -247,6 +264,12 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         0
       );
 
+      // Refunds
+      const projectRefunds = (refunds || []).filter(
+        (r) => r.project_id === p.id && r.refund_status === "Issued" && !r.is_voided
+      );
+      const totalRefunded = projectRefunds.reduce((s, r) => s + (r.refund_amount || 0), 0);
+
       const outstandingAR = totalInvoiced - totalCollected;
 
       const activeBills = (bills || []).filter(
@@ -255,7 +278,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       const totalBills = activeBills.reduce((s, b) => s + (b.bill_amount || 0), 0);
       const billsPaid = activeBills.reduce((s, b) => s + (b.amount_paid || 0), 0);
       const outstandingAP = totalBills - billsPaid;
-      const netCash = totalCollected - billsPaid;
+      const netCash = totalCollected - totalRefunded - billsPaid;
 
       // Build phase rows
       const projectPhases = (phases || []).filter((ph) => ph.project_id === p.id);
@@ -300,6 +323,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         contractAmount,
         totalInvoiced,
         totalCollected,
+        totalRefunded,
         outstandingAR,
         unpaidProgress,
         totalBills,
@@ -332,6 +356,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         contractAmount: acc.contractAmount + r.contractAmount,
         totalInvoiced: acc.totalInvoiced + r.totalInvoiced,
         totalCollected: acc.totalCollected + r.totalCollected,
+        totalRefunded: acc.totalRefunded + r.totalRefunded,
         outstandingAR: acc.outstandingAR + r.outstandingAR,
         unpaidProgress: acc.unpaidProgress + r.unpaidProgress,
         totalBills: acc.totalBills + r.totalBills,
@@ -343,6 +368,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         contractAmount: 0,
         totalInvoiced: 0,
         totalCollected: 0,
+        totalRefunded: 0,
         outstandingAR: 0,
         unpaidProgress: 0,
         totalBills: 0,
@@ -753,7 +779,14 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                           </TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.contractAmount)}</TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.totalInvoiced)}</TableCell>
-                          <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.totalCollected)}</TableCell>
+                          <TableCell className="tabular-nums whitespace-nowrap">
+                            <div>{formatCurrency(row.totalCollected)}</div>
+                            {row.totalRefunded > 0 && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 mt-0.5 font-medium">
+                                -{formatCurrency(row.totalRefunded)} refunded
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">
                             <span className={row.outstandingAR > 0 ? "text-amber-500" : ""}>
                               {formatCurrency(row.outstandingAR)}
@@ -834,7 +867,14 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                   <TableCell />
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.contractAmount)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalInvoiced)}</TableCell>
-                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalCollected)}</TableCell>
+                  <TableCell className="tabular-nums whitespace-nowrap">
+                    <div>{formatCurrency(totals.totalCollected)}</div>
+                    {totals.totalRefunded > 0 && (
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 mt-0.5 font-medium">
+                        -{formatCurrency(totals.totalRefunded)} refunded
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.outstandingAR)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.unpaidProgress)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalBills)}</TableCell>
