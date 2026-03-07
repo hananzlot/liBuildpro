@@ -1319,7 +1319,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                           <PopoverContent className="w-[280px] p-0 z-50 bg-popover" align="start">
                             <Command className="flex flex-col">
                               <CommandInput 
-                                placeholder={isSuperAdmin ? "Search or add..." : "Search..."} 
+                                placeholder={(isAdmin || isSuperAdmin) ? "Search or add..." : "Search..."} 
                                 value={newTypeValue}
                                 onValueChange={setNewTypeValue}
                               />
@@ -1331,7 +1331,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                                 <CommandList className="max-h-none overflow-visible">
                                   <CommandEmpty>No type found.</CommandEmpty>
                                   <CommandGroup>
-                                    {isSuperAdmin && newTypeValue && !projectTypes.some(t => t.name.toLowerCase() === newTypeValue.toLowerCase()) && (
+                                    {(isAdmin || isSuperAdmin) && newTypeValue && !projectTypes.some(t => t.name.toLowerCase() === newTypeValue.toLowerCase()) && (
                                       <CommandItem
                                         value={`add-${newTypeValue}`}
                                         onSelect={() => {
