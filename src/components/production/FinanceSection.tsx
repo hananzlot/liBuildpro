@@ -3030,6 +3030,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   <X className="h-4 w-4 mr-2" />
                                   Void
                                 </DropdownMenuItem>
+                                {(isAdmin || isSuperAdmin) && (
+                                  <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingRefund(ref); setDeleteRefundDialogOpen(true); }}>
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           )}
