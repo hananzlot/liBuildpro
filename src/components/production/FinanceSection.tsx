@@ -3986,6 +3986,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               commissionSplitPct={commissionSplitPct}
               totalBillsPaid={totalBillsPaid}
               totalPaymentsReceived={totalPaymentsReceived}
+              totalRefunds={totalRefunds}
               salespeople={salespeople}
               projectName={projectName}
               projectAddress={projectAddress}
@@ -8266,6 +8267,7 @@ function CommissionTab({
   commissionSplitPct,
   totalBillsPaid,
   totalPaymentsReceived,
+  totalRefunds,
   salespeople,
   projectName,
   projectAddress,
@@ -8277,6 +8279,7 @@ function CommissionTab({
   commissionSplitPct: number;
   totalBillsPaid: number;
   totalPaymentsReceived: number;
+  totalRefunds: number;
   salespeople: SalespersonData[];
   projectName?: string | null;
   projectAddress?: string | null;
@@ -8605,7 +8608,7 @@ function CommissionTab({
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Total Contracts</div>
           <p className="text-lg font-semibold">{formatCurrency(totalContracts)}</p>
@@ -8614,6 +8617,12 @@ function CommissionTab({
           <div className="text-xs text-muted-foreground">Collected to Date</div>
           <p className="text-lg font-semibold text-primary">{formatCurrency(totalPaymentsReceived)}</p>
         </Card>
+        {totalRefunds > 0 && (
+          <Card className="p-3 border-destructive/20">
+            <div className="text-xs text-muted-foreground">Refunded</div>
+            <p className="text-lg font-semibold text-destructive">-{formatCurrency(totalRefunds)}</p>
+          </Card>
+        )}
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Lead Cost ({leadCostPercent}%)</div>
           <p className="text-lg font-semibold text-amber-600">{formatCurrency(leadCostAmount)}</p>
