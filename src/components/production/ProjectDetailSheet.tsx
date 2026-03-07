@@ -70,6 +70,7 @@ import {
   Link as LinkIcon
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
+import { CancelledWatermark } from "./CancelledWatermark";
 import { DocumentsSection } from "./DocumentsSection";
 import { NotesSection } from "./NotesSection";
 import { PhotosSection } from "./PhotosSection";
