@@ -217,6 +217,7 @@ interface Agreement {
   id: string;
   agreement_number: string | null;
   agreement_type: string | null;
+  nickname: string | null;
   agreement_signed_date: string | null;
   created_at: string | null;
   total_price: number | null;
