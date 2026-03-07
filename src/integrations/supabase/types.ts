@@ -4362,6 +4362,7 @@ export type Database = {
           description_of_work: string | null
           id: string
           lead_cost_percent: number | null
+          nickname: string | null
           project_id: string | null
           total_price: number | null
           updated_at: string | null
@@ -4377,6 +4378,7 @@ export type Database = {
           description_of_work?: string | null
           id?: string
           lead_cost_percent?: number | null
+          nickname?: string | null
           project_id?: string | null
           total_price?: number | null
           updated_at?: string | null
@@ -4392,6 +4394,7 @@ export type Database = {
           description_of_work?: string | null
           id?: string
           lead_cost_percent?: number | null
+          nickname?: string | null
           project_id?: string | null
           total_price?: number | null
           updated_at?: string | null
