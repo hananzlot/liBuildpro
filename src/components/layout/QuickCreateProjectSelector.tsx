@@ -13,13 +13,14 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, FolderKanban } from "lucide-react";
 
-export type QuickCreateAction = "new-invoice" | "new-payment" | "new-bill" | "new-change-order";
+export type QuickCreateAction = "new-invoice" | "new-payment" | "new-bill" | "new-change-order" | "new-refund";
 
 const actionLabels: Record<QuickCreateAction, string> = {
   "new-invoice": "Create New Invoice",
   "new-payment": "New A/R Collection",
   "new-bill": "Create New Bill",
   "new-change-order": "New Change Order",
+  "new-refund": "Issue Refund",
 };
 
 interface QuickCreateProjectSelectorProps {

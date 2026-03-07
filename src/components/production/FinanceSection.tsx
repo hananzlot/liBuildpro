@@ -114,8 +114,8 @@ interface FinanceSectionProps {
   onUpdateProject: (updates: Record<string, unknown>) => void;
   onNavigateToSubcontractors?: () => void; // kept for backward compat but no longer used by BillDialog
   autoOpenBillDialog?: boolean;
-  /** Auto-open a specific dialog when the component mounts (invoice, payment, bill) */
-  autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | 'change-order' | null;
+  /** Auto-open a specific dialog when the component mounts (invoice, payment, bill, refund) */
+  autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | 'change-order' | 'refund' | null;
   /** Initial sub-tab for Finance section (agreements, phases, invoices, bills, commission) */
   initialSubTab?: string;
   initialBillsSubTab?: 'bills' | 'history';
@@ -367,6 +367,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         setEditingAgreement(null);
         setPreselectedAgreementType("Change Order");
         setAgreementDialogOpen(true);
+      } else if (autoOpenFinanceDialog === 'refund') {
+        setActiveSubTab("invoices");
+        setActiveInvoicesSubTab("payments");
+        setEditingRefund(null);
+        setRefundDialogOpen(true);
       }
       // Clear the autoOpen param from the URL to prevent re-triggering on tab switches
       const url = new URL(window.location.href);

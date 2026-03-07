@@ -108,8 +108,8 @@ interface ProjectDetailSheetProps {
   /** Initial sub-tab within the Finance tab (agreements, phases, invoices, bills, commission) */
   initialFinanceSectionTab?: string;
   initialFinanceSubTab?: 'bills' | 'history';
-  /** Auto-open a specific finance dialog (invoice, payment, bill) */
-  autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | 'change-order' | null;
+  /** Auto-open a specific finance dialog (invoice, payment, bill, refund) */
+  autoOpenFinanceDialog?: 'invoice' | 'payment' | 'bill' | 'change-order' | 'refund' | null;
   highlightInvoiceId?: string | null;
   highlightBillId?: string | null;
   highlightPaymentId?: string | null;
