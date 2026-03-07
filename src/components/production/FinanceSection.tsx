@@ -1296,7 +1296,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               };
               const table = tableMap[recordType];
               if (table) {
-                await supabase.from(table).delete().eq("id", recordId);
+                await (supabase.from(table as any).delete() as any).eq("id", recordId);
                 toast.info("Entry cancelled — nothing was saved");
                 // Invalidate relevant queries
                 queryClient.invalidateQueries({ queryKey: ["project-refunds"] });
@@ -1311,7 +1311,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             }
             setQbDuplicateDialogOpen(false);
             setQbDuplicateState(null);
-            resolve({ synced: false, message: "Entry cancelled by user", cancelled: true });
+            resolve({ synced: false, message: "Entry cancelled by user" });
           },
         });
         setQbDuplicateDialogOpen(true);
