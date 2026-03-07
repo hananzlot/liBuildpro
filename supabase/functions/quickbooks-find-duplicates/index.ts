@@ -124,6 +124,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (recordType === "refund") {
+      const duplicates = await findRefundReceiptDuplicates(
+        qbHeaders, realm_id, { amount, date, reference }
+      );
+
+      return new Response(
+        JSON.stringify({ success: true, duplicates }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ success: true, duplicates: [], message: `Record type '${recordType}' not yet supported` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
