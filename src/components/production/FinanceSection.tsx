@@ -9134,6 +9134,7 @@ function ProjectFinancialStatements({
   leadCostPercent,
   commissionSplitPct,
   isCompleted,
+  isCancelled,
   projectName,
   projectAddress,
   customerName,
@@ -9147,6 +9148,7 @@ function ProjectFinancialStatements({
   leadCostPercent: number;
   commissionSplitPct: number;
   isCompleted: boolean;
+  isCancelled?: boolean;
   projectName?: string | null;
   projectAddress?: string | null;
   customerName?: string | null;
