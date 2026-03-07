@@ -54,6 +54,7 @@ interface ProjectSummaryRow {
   id: string;
   project_number: number;
   customer: string;
+  projectName: string;
   projectStatus: string;
   address: string;
   salesperson: string;
@@ -330,6 +331,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         id: p.id,
         project_number: p.project_number ?? 0,
         customer,
+        projectName: p.project_name || "",
         projectStatus: p.project_status || "",
         address: p.project_address || "",
         salesperson: p.primary_salesperson || "",
