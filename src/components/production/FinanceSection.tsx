@@ -2741,17 +2741,88 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 <>
                   {loadingInvoices ? (
                     <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
-                  ) : invoices.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No invoices yet</p>
                   ) : (
                     <>
+                      {/* Uninvoiced phases section */}
+                      {(() => {
+                        const invoicedPhaseIds = new Set(invoices.map(inv => inv.payment_phase_id).filter(Boolean));
+                        const uninvoicedPhases = paymentPhases
+                          .filter(p => !invoicedPhaseIds.has(p.id) && (p.amount || 0) > 0)
+                          .sort((a, b) => {
+                            const agrA = agreements.find(ag => ag.id === a.agreement_id);
+                            const agrB = agreements.find(ag => ag.id === b.agreement_id);
+                            const cmp = (agrA?.agreement_number || '').localeCompare(agrB?.agreement_number || '');
+                            if (cmp !== 0) return cmp;
+                            return (a.display_order || 0) - (b.display_order || 0);
+                          })
+                          .filter(p => {
+                            if (invoiceContractFilter === "all") return true;
+                            return p.agreement_id === invoiceContractFilter;
+                          });
+
+                        if (uninvoicedPhases.length === 0) return null;
+
+                        return (
+                          <div className="mb-4">
+                            <p className="text-xs font-medium text-muted-foreground mb-2">Uninvoiced Phases</p>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs text-left w-[18%]">Contract #<br />/ Nickname</TableHead>
+                                  <TableHead className="text-xs text-left w-[25%]">Phase</TableHead>
+                                  <TableHead className="text-xs text-center w-[12%]">Due Date</TableHead>
+                                  <TableHead className="text-xs text-center w-[12%]">Amount</TableHead>
+                                  <TableHead className="text-xs w-[12%]"></TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {uninvoicedPhases.map(phase => {
+                                  const agr = agreements.find(a => a.id === phase.agreement_id);
+                                  return (
+                                    <TableRow key={phase.id} className="bg-amber-50/50 dark:bg-amber-900/10">
+                                      <TableCell className="text-xs text-left text-muted-foreground">
+                                        {agr ? `${agr.agreement_number || ""}${agr.nickname ? ` / ${agr.nickname}` : ""}`.trim() || "-" : "-"}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-left">{phase.phase_name}</TableCell>
+                                      <TableCell className="text-xs text-center">{phase.due_date ? formatDate(phase.due_date) : "-"}</TableCell>
+                                      <TableCell className="text-xs text-center">{formatCurrency2(phase.amount)}</TableCell>
+                                      <TableCell>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-6 text-[10px] px-2"
+                                          onClick={() => {
+                                            setEditingInvoice(null);
+                                            setInvoiceDialogOpen(true);
+                                          }}
+                                        >
+                                          <Plus className="h-3 w-3 mr-1" />
+                                          Invoice
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        );
+                      })()}
+
                       {/* Contract filter toggle */}
                       {(() => {
-                        const contractOptions = agreements
-                          .filter(a => invoices.some(inv => {
+                        // Include agreements from both invoices and uninvoiced phases
+                        const invoicedPhaseIds = new Set(invoices.map(inv => inv.payment_phase_id).filter(Boolean));
+                        const uninvoicedPhases = paymentPhases.filter(p => !invoicedPhaseIds.has(p.id) && (p.amount || 0) > 0);
+                        const allAgreementIds = new Set([
+                          ...invoices.map(inv => {
                             const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
-                            return a.id === (inv.agreement_id || phase?.agreement_id);
-                          }))
+                            return inv.agreement_id || phase?.agreement_id;
+                          }).filter(Boolean),
+                          ...uninvoicedPhases.map(p => p.agreement_id).filter(Boolean),
+                        ]);
+                        const contractOptions = agreements
+                          .filter(a => allAgreementIds.has(a.id))
                           .sort((a, b) => (a.agreement_number || '').localeCompare(b.agreement_number || ''));
                         
                         if (contractOptions.length <= 1) return null;
@@ -2767,13 +2838,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                               )}
                             >
-                              All ({invoices.length})
+                              All
                             </button>
                             {contractOptions.map(agr => {
-                              const count = invoices.filter(inv => {
-                                const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
-                                return agr.id === (inv.agreement_id || phase?.agreement_id);
-                              }).length;
                               const label = agr.nickname || agr.agreement_number || 'Contract';
                               return (
                                 <button
@@ -2786,13 +2853,17 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                       : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                                   )}
                                 >
-                                  {label} ({count})
+                                  {label}
                                 </button>
                               );
                             })}
                           </div>
                         );
                       })()}
+
+                      {invoices.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No invoices yet</p>
+                      ) : (
                       <Table>
                         <TableHeader>
                           <TableRow>
