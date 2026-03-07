@@ -773,17 +773,12 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                      return (
                        <Fragment key={row.id}>
                          <TableRow
-                           className="cursor-pointer"
-                         >
-                          <TableCell
-                            className="w-16 font-medium text-primary cursor-pointer hover:underline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onProjectClick?.(row.id, "finance");
-                            }}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => onProjectClick?.(row.id, "finance")}
                           >
-                            {row.project_number}
-                          </TableCell>
+                           <TableCell className="w-16 font-medium text-primary">
+                             {row.project_number}
+                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1.5">
                               <span>{row.customer}</span>
