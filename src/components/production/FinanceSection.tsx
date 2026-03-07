@@ -951,6 +951,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
   const totalPaymentsReceived = activePayments.filter(p => p.payment_status === "Received").reduce((sum, p) => sum + (p.payment_amount || 0), 0);
   const totalRefunds = activeRefunds.filter(r => r.refund_status === "Issued").reduce((sum, r) => sum + (r.refund_amount || 0), 0);
+  const totalPendingRefunds = activeRefunds.filter(r => r.refund_status === "Pending").reduce((sum, r) => sum + (r.refund_amount || 0), 0);
   const totalBills = activeBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
   const totalBillsPaid = activeBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
   const totalAgreementsValue = agreements.reduce((sum, a) => sum + (a.total_price || 0), 0);
@@ -962,7 +963,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       sold: totalAgreementsValue,
       invoiced: totalInvoiced,
       received: netPaymentsReceived,
-      outstandingAR: Math.max(0, totalInvoiced - totalPaymentsReceived),
+      outstandingAR: totalInvoiced - totalPaymentsReceived - totalPendingRefunds,
       bills: totalBills,
       billsPaid: totalBillsPaid,
       outstandingAP: Math.max(0, totalBills - totalBillsPaid),
