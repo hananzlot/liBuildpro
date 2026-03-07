@@ -41,7 +41,8 @@ type SortKey =
   | "project_number"
   | "customer"
   | "projectName"
-  | "contractAmount"
+  | "initialContract"
+  | "changeOrderTotal"
   | "totalInvoiced"
   | "totalCollected"
   | "outstandingAR"
@@ -50,6 +51,14 @@ type SortKey =
   | "billsPaid"
   | "outstandingAP"
   | "netCash";
+
+interface ChangeOrderDetail {
+  id: string;
+  agreement_number: string | null;
+  agreement_signed_date: string | null;
+  description_of_work: string | null;
+  total_price: number;
+}
 
 interface ProjectSummaryRow {
   id: string;
@@ -60,7 +69,9 @@ interface ProjectSummaryRow {
   address: string;
   salesperson: string;
   startDate: string;
-  contractAmount: number;
+  initialContract: number;
+  changeOrderTotal: number;
+  changeOrders: ChangeOrderDetail[];
   totalInvoiced: number;
   totalCollected: number;
   totalRefunded: number;
@@ -101,6 +112,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["In-Progress", "Awaiting Finance"]);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
+  const [coDrillRow, setCODrillRow] = useState<ProjectSummaryRow | null>(null);
 
   // Fetch ALL non-deleted projects (filter client-side by status)
   const { data: allProjects, isLoading: projectsLoading } = useQuery({
@@ -161,9 +173,10 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       if (projectIds.length === 0) return [];
       const { data, error } = await supabase
         .from("project_agreements")
-        .select("project_id, total_price")
+        .select("id, project_id, total_price, agreement_type, agreement_signed_date, description_of_work, agreement_number")
         .eq("company_id", companyId!)
-        .in("project_id", projectIds);
+        .in("project_id", projectIds)
+        .order("agreement_signed_date", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -261,9 +274,20 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         .join(" ")
         .trim() || "—";
 
-      const contractAmount = (agreements || [])
-        .filter((a) => a.project_id === p.id)
+      const projectAgreements = (agreements || []).filter((a) => a.project_id === p.id);
+      const initialContract = projectAgreements
+        .filter((a) => a.agreement_type === "Contract")
         .reduce((s, a) => s + (a.total_price || 0), 0);
+      const changeOrders: ChangeOrderDetail[] = projectAgreements
+        .filter((a) => a.agreement_type !== "Contract")
+        .map((a) => ({
+          id: a.id,
+          agreement_number: a.agreement_number,
+          agreement_signed_date: a.agreement_signed_date,
+          description_of_work: a.description_of_work,
+          total_price: a.total_price || 0,
+        }));
+      const changeOrderTotal = changeOrders.reduce((s, co) => s + co.total_price, 0);
 
       const projectInvoices = (invoices || []).filter((i) => i.project_id === p.id);
       const totalInvoiced = projectInvoices.reduce((s, i) => s + (i.amount || 0), 0);
@@ -337,7 +361,9 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         address: p.project_address || "",
         salesperson: p.primary_salesperson || "",
         startDate: p.install_start_date || "",
-        contractAmount,
+        initialContract,
+        changeOrderTotal,
+        changeOrders,
         totalInvoiced,
         totalCollected,
         totalRefunded,
@@ -370,7 +396,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const totals = useMemo(() => {
     return rows.reduce(
       (acc, r) => ({
-        contractAmount: acc.contractAmount + r.contractAmount,
+        initialContract: acc.initialContract + r.initialContract,
+        changeOrderTotal: acc.changeOrderTotal + r.changeOrderTotal,
         totalInvoiced: acc.totalInvoiced + r.totalInvoiced,
         totalCollected: acc.totalCollected + r.totalCollected,
         totalRefunded: acc.totalRefunded + r.totalRefunded,
@@ -382,7 +409,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         netCash: acc.netCash + r.netCash,
       }),
       {
-        contractAmount: 0,
+        initialContract: 0,
+        changeOrderTotal: 0,
         totalInvoiced: 0,
         totalCollected: 0,
         totalRefunded: 0,
@@ -443,7 +471,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         if (row.salesperson) html += `<div style="font-size:11px;color:#555;margin-top:1px"><b>Sales Rep:</b> ${row.salesperson}</div>`;
         if (row.startDate) html += `<div style="font-size:11px;color:#555;margin-top:1px"><b>Start Date:</b> ${new Date(row.startDate).toLocaleDateString()}</div>`;
         html += `<div style="display:flex;gap:24px;margin-top:6px;font-size:11px;flex-wrap:wrap">`;
-        html += `<span><b>Contract:</b> ${formatCurrency(row.contractAmount)}</span>`;
+        html += `<span><b>Contract:</b> ${formatCurrency(row.initialContract + row.changeOrderTotal)}</span>`;
         html += `<span><b>Invoiced:</b> ${formatCurrency(row.totalInvoiced)}</span>`;
         html += `<span><b>Collected:</b> ${formatCurrency(row.totalCollected)}</span>`;
         html += `<span><b>AR:</b> ${formatCurrency(row.outstandingAR)}</span>`;
@@ -497,7 +525,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     } else {
       html += `<table style="width:100%;border-collapse:collapse;font-size:11px">`;
       html += `<thead><tr style="background:#f5f5f5;border-bottom:2px solid #ddd">`;
-      const cols = ["Pro#","Customer","Contract","Invoiced","Collected","AR","Bills","Paid","AP","Net Cash"];
+      const cols = ["Pro#","Customer","Contract","CO","Invoiced","Collected","AR","Bills","Paid","AP","Net Cash"];
       cols.forEach(c => { html += `<th style="padding:6px;text-align:left">${c}</th>`; });
       html += `</tr></thead><tbody>`;
       
@@ -505,7 +533,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         html += `<tr style="border-bottom:1px solid #eee">`;
         html += `<td style="padding:5px">${row.project_number}</td>`;
         html += `<td style="padding:5px">${row.customer}</td>`;
-        html += `<td style="padding:5px">${formatCurrency(row.contractAmount)}</td>`;
+        html += `<td style="padding:5px">${formatCurrency(row.initialContract)}</td>`;
+        html += `<td style="padding:5px">${formatCurrency(row.changeOrderTotal)}</td>`;
         html += `<td style="padding:5px">${formatCurrency(row.totalInvoiced)}</td>`;
         html += `<td style="padding:5px">${formatCurrency(row.totalCollected)}</td>`;
         html += `<td style="padding:5px">${formatCurrency(row.outstandingAR)}</td>`;
@@ -519,7 +548,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       html += `<tr style="border-top:2px solid #333;font-weight:700">`;
       html += `<td style="padding:5px">${rows.length}</td>`;
       html += `<td style="padding:5px"></td>`;
-      html += `<td style="padding:5px">${formatCurrency(totals.contractAmount)}</td>`;
+      html += `<td style="padding:5px">${formatCurrency(totals.initialContract)}</td>`;
+      html += `<td style="padding:5px">${formatCurrency(totals.changeOrderTotal)}</td>`;
       html += `<td style="padding:5px">${formatCurrency(totals.totalInvoiced)}</td>`;
       html += `<td style="padding:5px">${formatCurrency(totals.totalCollected)}</td>`;
       html += `<td style="padding:5px">${formatCurrency(totals.outstandingAR)}</td>`;
@@ -555,7 +585,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     if (row.salesperson) html += `<div style="font-size:11px;color:#555;margin-top:1px"><b>Sales Rep:</b> ${row.salesperson}</div>`;
     if (row.startDate) html += `<div style="font-size:11px;color:#555;margin-top:1px"><b>Start Date:</b> ${new Date(row.startDate).toLocaleDateString()}</div>`;
     html += `<div style="display:flex;gap:24px;margin-top:6px;font-size:11px;flex-wrap:wrap">`;
-    html += `<span><b>Contract:</b> ${formatCurrency(row.contractAmount)}</span>`;
+    html += `<span><b>Contract:</b> ${formatCurrency(row.initialContract + row.changeOrderTotal)}</span>`;
     html += `<span><b>Invoiced:</b> ${formatCurrency(row.totalInvoiced)}</span>`;
     html += `<span><b>Collected:</b> ${formatCurrency(row.totalCollected)}</span>`;
     html += `<span><b>AR:</b> ${formatCurrency(row.outstandingAR)}</span>`;
@@ -683,7 +713,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <MetricCard
           title="Total Contract Value"
-          value={formatCompactCurrency(totals.contractAmount)}
+          value={formatCompactCurrency(totals.initialContract + totals.changeOrderTotal)}
           icon={DollarSign}
         />
         <MetricCard
@@ -719,7 +749,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                   <SortableHeader label="Pro#" sortKeyName="project_number" className="w-16" />
                    <SortableHeader label="Customer" sortKeyName="customer" />
                    <SortableHeader label="Project Name" sortKeyName="projectName" />
-                  <SortableHeader label="Contract" sortKeyName="contractAmount" />
+                   <SortableHeader label="Contract" sortKeyName="initialContract" />
+                   <SortableHeader label="CO" sortKeyName="changeOrderTotal" />
                   <SortableHeader label="Invoiced" sortKeyName="totalInvoiced" />
                   <SortableHeader label="Collected" sortKeyName="totalCollected" />
                   <SortableHeader label="AR" sortKeyName="outstandingAR" />
@@ -733,7 +764,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               <TableBody>
                 {sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={13} className="text-center text-muted-foreground py-12">
                       No in-progress projects found
                     </TableCell>
                   </TableRow>
@@ -769,7 +800,22 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                           <TableCell className="text-xs text-muted-foreground truncate max-w-[180px]">
                             {row.projectName || "—"}
                           </TableCell>
-                          <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.contractAmount)}</TableCell>
+                           <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.initialContract)}</TableCell>
+                           <TableCell className="tabular-nums whitespace-nowrap">
+                             {row.changeOrderTotal > 0 ? (
+                               <span
+                                 className="cursor-pointer text-primary hover:underline"
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setCODrillRow(row);
+                                 }}
+                               >
+                                 {formatCurrency(row.changeOrderTotal)}
+                               </span>
+                             ) : (
+                               <span className="text-muted-foreground">{formatCurrency(0)}</span>
+                             )}
+                           </TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.totalInvoiced)}</TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">
                             <div>{formatCurrency(row.totalCollected)}</div>
@@ -823,7 +869,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                   <TableCell className="w-16">{rows.length} Pro</TableCell>
                    <TableCell />
                    <TableCell />
-                  <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.contractAmount)}</TableCell>
+                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.initialContract)}</TableCell>
+                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.changeOrderTotal)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalInvoiced)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">
                     <div>{formatCurrency(totals.totalCollected)}</div>
@@ -870,6 +917,53 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               Download
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Order Drilldown Dialog */}
+      <Dialog open={!!coDrillRow} onOpenChange={(open) => { if (!open) setCODrillRow(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              Change Orders — #{coDrillRow?.project_number} {coDrillRow?.customer}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">CO #</TableHead>
+                  <TableHead className="text-xs">Date</TableHead>
+                  <TableHead className="text-xs">Description</TableHead>
+                  <TableHead className="text-xs text-right">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(coDrillRow?.changeOrders || [])
+                  .sort((a, b) => (a.agreement_signed_date || "").localeCompare(b.agreement_signed_date || ""))
+                  .map((co) => (
+                  <TableRow key={co.id}>
+                    <TableCell className="text-xs font-medium">{co.agreement_number || "—"}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      {co.agreement_signed_date
+                        ? new Date(co.agreement_signed_date + "T00:00:00").toLocaleDateString()
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs max-w-[200px] truncate">{co.description_of_work || "—"}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums font-medium">{formatCurrency(co.total_price)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <TableFooter>
+                <TableRow className="font-semibold">
+                  <TableCell colSpan={3} className="text-xs">Total</TableCell>
+                  <TableCell className="text-xs text-right tabular-nums">
+                    {formatCurrency(coDrillRow?.changeOrderTotal || 0)}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
