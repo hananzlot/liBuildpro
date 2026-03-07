@@ -2994,6 +2994,54 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                   ) : payments.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">No payments yet</p>
                   ) : (
+                    <>
+                      {/* Contract filter toggle for payments */}
+                      {(() => {
+                        const getPaymentAgreementId = (pmt: Payment) => {
+                          const inv = pmt.invoice_id ? invoices.find(i => i.id === pmt.invoice_id) : null;
+                          const phase = paymentPhases.find(p => p.id === (pmt.payment_phase_id || inv?.payment_phase_id));
+                          return inv?.agreement_id || phase?.agreement_id || null;
+                        };
+                        const pmtAgreementIds = new Set(payments.map(getPaymentAgreementId).filter(Boolean));
+                        const contractOptions = agreements
+                          .filter(a => pmtAgreementIds.has(a.id))
+                          .sort((a, b) => (a.agreement_number || '').localeCompare(b.agreement_number || ''));
+
+                        if (contractOptions.length <= 1) return null;
+
+                        return (
+                          <div className="flex gap-1.5 mb-3 flex-wrap">
+                            <button
+                              onClick={() => setInvoiceContractFilter("all")}
+                              className={cn(
+                                "px-2.5 py-1 text-xs rounded-full border transition-colors",
+                                invoiceContractFilter === "all"
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                              )}
+                            >
+                              All
+                            </button>
+                            {contractOptions.map(agr => {
+                              const label = agr.nickname || agr.agreement_number || 'Contract';
+                              return (
+                                <button
+                                  key={agr.id}
+                                  onClick={() => setInvoiceContractFilter(agr.id)}
+                                  className={cn(
+                                    "px-2.5 py-1 text-xs rounded-full border transition-colors",
+                                    invoiceContractFilter === agr.id
+                                      ? "bg-primary text-primary-foreground border-primary"
+                                      : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                                  )}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -3007,7 +3055,15 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {payments.map((pmt) => (
+                        {payments
+                          .filter(pmt => {
+                            if (invoiceContractFilter === "all") return true;
+                            const inv = pmt.invoice_id ? invoices.find(i => i.id === pmt.invoice_id) : null;
+                            const phase = paymentPhases.find(p => p.id === (pmt.payment_phase_id || inv?.payment_phase_id));
+                            const agrId = inv?.agreement_id || phase?.agreement_id;
+                            return agrId === invoiceContractFilter;
+                          })
+                          .map((pmt) => (
                           <TableRow key={pmt.id} className={pmt.is_voided ? "opacity-50 bg-muted/30" : ""}>
                             <TableCell className="text-xs text-left">{pmt.bank?.name || pmt.bank_name || "-"}</TableCell>
                             <TableCell className="text-xs text-left">{formatDate(pmt.projected_received_date)}</TableCell>
