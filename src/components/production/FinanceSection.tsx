@@ -367,6 +367,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         setEditingAgreement(null);
         setPreselectedAgreementType("Change Order");
         setAgreementDialogOpen(true);
+      } else if (autoOpenFinanceDialog === 'refund') {
+        setActiveSubTab("invoices");
+        setActiveInvoicesSubTab("payments");
+        setEditingRefund(null);
+        setRefundDialogOpen(true);
       }
       // Clear the autoOpen param from the URL to prevent re-triggering on tab switches
       const url = new URL(window.location.href);
