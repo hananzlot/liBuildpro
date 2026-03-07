@@ -412,6 +412,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [voidRefundDialogOpen, setVoidRefundDialogOpen] = useState(false);
   const [voidingRefund, setVoidingRefund] = useState<Refund | null>(null);
+  const [deleteRefundDialogOpen, setDeleteRefundDialogOpen] = useState(false);
+  const [deletingRefund, setDeletingRefund] = useState<Refund | null>(null);
   const [voidRefundReason, setVoidRefundReason] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [historyBill, setHistoryBill] = useState<Bill | null>(null);
@@ -2082,6 +2084,25 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     onError: (error) => toast.error(`Failed to void refund: ${error.message}`),
   });
 
+  const deleteRefundMutation = useMutation({
+    mutationFn: async (refundId: string) => {
+      const qbResult = await syncDeleteToQuickBooks("refund", refundId);
+      const { error } = await supabase
+        .from("project_refunds")
+        .delete()
+        .eq("id", refundId);
+      if (error) throw error;
+      return { qbSynced: qbResult.synced };
+    },
+    onSuccess: (result) => {
+      toast.success(result?.qbSynced ? "Refund deleted and removed from QuickBooks" : "Refund deleted");
+      queryClient.invalidateQueries({ queryKey: ["project-refunds", projectId] });
+      setDeleteRefundDialogOpen(false);
+      setDeletingRefund(null);
+    },
+    onError: (error) => toast.error(`Failed to delete refund: ${error.message}`),
+  });
+
   const saveAgreementMutation = useMutation({
     mutationFn: async ({
       agreement,
@@ -3009,6 +3030,12 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   <X className="h-4 w-4 mr-2" />
                                   Void
                                 </DropdownMenuItem>
+                                {(isAdmin || isSuperAdmin) && (
+                                  <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingRefund(ref); setDeleteRefundDialogOpen(true); }}>
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           )}
@@ -4065,6 +4092,35 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               className="bg-amber-600 text-white hover:bg-amber-700"
             >
               {voidRefundMutation.isPending ? "Voiding..." : "Void Refund"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Refund Dialog (Admin only) */}
+      <AlertDialog open={deleteRefundDialogOpen} onOpenChange={(open) => { setDeleteRefundDialogOpen(open); if (!open) setDeletingRefund(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Delete Refund
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the refund of {formatCurrency(deletingRefund?.refund_amount)}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deletingRefund) {
+                  deleteRefundMutation.mutate(deletingRefund.id);
+                }
+              }}
+              disabled={deleteRefundMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteRefundMutation.isPending ? "Deleting..." : "Delete Refund"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
