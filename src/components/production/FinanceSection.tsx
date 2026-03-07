@@ -2722,6 +2722,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                   )}
                 >
                   Invoices ({invoices.length})
+                  {(() => {
+                    const invoicedPhaseIds = new Set(invoices.map(inv => inv.payment_phase_id).filter(Boolean));
+                    const uninvoicedCount = paymentPhases.filter(p => !invoicedPhaseIds.has(p.id) && (p.amount || 0) > 0).length;
+                    return uninvoicedCount > 0 ? (
+                      <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">· {uninvoicedCount} pending</span>
+                    ) : null;
+                  })()}
                 </button>
                 <button
                   onClick={() => setActiveInvoicesSubTab("payments")}
@@ -2815,7 +2822,10 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
                         return (
                           <div className="mb-4">
-                            <p className="text-xs font-medium text-muted-foreground mb-2">Uninvoiced Phases</p>
+                            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1.5">
+                              <AlertCircle className="h-3.5 w-3.5" />
+                              Uninvoiced Phases
+                            </p>
                             <Table>
                               <TableHeader>
                                 <TableRow>
@@ -2872,6 +2882,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                       {invoices.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">No invoices yet</p>
                       ) : (
+                      <>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2 mt-1">Invoiced ({invoices.filter(inv => {
+                        if (invoiceContractFilter === "all") return true;
+                        const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+                        const agrId = inv.agreement_id || phase?.agreement_id;
+                        return agrId === invoiceContractFilter;
+                      }).length})</p>
                       <Table>
                         <TableHeader>
                           <TableRow>
