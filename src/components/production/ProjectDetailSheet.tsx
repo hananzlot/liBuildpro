@@ -1420,7 +1420,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                                               <span>{type.name}</span>
                                             )}
                                           </div>
-                                          {isSuperAdmin && editingTypeId !== type.id && (
+                                          {(isAdmin || isSuperAdmin) && editingTypeId !== type.id && (
                                             <Button
                                               size="icon"
                                               variant="ghost"
