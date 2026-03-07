@@ -74,6 +74,7 @@ import {
   X,
   MoreVertical,
   Send,
+  RefreshCw,
 } from "lucide-react";
 import {
   DropdownMenu,
