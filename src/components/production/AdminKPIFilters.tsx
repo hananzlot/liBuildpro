@@ -10,7 +10,7 @@ import { RotateCcw, Search, Filter } from "lucide-react";
 export const PROJECT_STATUSES = ["Estimate", "Pre-Estimate", "Proposal", "New Job", "Awaiting Finance", "In-Progress", "On-Hold", "Completed", "Cancelled"];
 
 // Default statuses - excludes Estimate, Pre-Estimate and Proposal
-export const DEFAULT_PROJECT_STATUSES = ["New Job", "Awaiting Finance", "In-Progress", "Completed", "Cancelled"];
+export const DEFAULT_PROJECT_STATUSES = ["New Job", "Awaiting Finance", "In-Progress", "Completed"];
 
 interface AdminKPIFiltersProps {
   dateRange: DateRange | undefined;
