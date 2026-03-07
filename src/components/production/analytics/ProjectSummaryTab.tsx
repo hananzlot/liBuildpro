@@ -112,6 +112,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["In-Progress", "Awaiting Finance"]);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
+  const [coDrillRow, setCODrillRow] = useState<ProjectSummaryRow | null>(null);
 
   // Fetch ALL non-deleted projects (filter client-side by status)
   const { data: allProjects, isLoading: projectsLoading } = useQuery({
