@@ -41,7 +41,8 @@ type SortKey =
   | "project_number"
   | "customer"
   | "projectName"
-  | "contractAmount"
+  | "initialContract"
+  | "changeOrderTotal"
   | "totalInvoiced"
   | "totalCollected"
   | "outstandingAR"
@@ -50,6 +51,14 @@ type SortKey =
   | "billsPaid"
   | "outstandingAP"
   | "netCash";
+
+interface ChangeOrderDetail {
+  id: string;
+  agreement_number: string | null;
+  agreement_signed_date: string | null;
+  description_of_work: string | null;
+  total_price: number;
+}
 
 interface ProjectSummaryRow {
   id: string;
@@ -60,7 +69,9 @@ interface ProjectSummaryRow {
   address: string;
   salesperson: string;
   startDate: string;
-  contractAmount: number;
+  initialContract: number;
+  changeOrderTotal: number;
+  changeOrders: ChangeOrderDetail[];
   totalInvoiced: number;
   totalCollected: number;
   totalRefunded: number;
@@ -161,9 +172,10 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
       if (projectIds.length === 0) return [];
       const { data, error } = await supabase
         .from("project_agreements")
-        .select("project_id, total_price")
+        .select("id, project_id, total_price, agreement_type, agreement_signed_date, description_of_work, agreement_number")
         .eq("company_id", companyId!)
-        .in("project_id", projectIds);
+        .in("project_id", projectIds)
+        .order("agreement_signed_date", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -261,9 +273,20 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         .join(" ")
         .trim() || "—";
 
-      const contractAmount = (agreements || [])
-        .filter((a) => a.project_id === p.id)
+      const projectAgreements = (agreements || []).filter((a) => a.project_id === p.id);
+      const initialContract = projectAgreements
+        .filter((a) => a.agreement_type === "Contract")
         .reduce((s, a) => s + (a.total_price || 0), 0);
+      const changeOrders: ChangeOrderDetail[] = projectAgreements
+        .filter((a) => a.agreement_type !== "Contract")
+        .map((a) => ({
+          id: a.id,
+          agreement_number: a.agreement_number,
+          agreement_signed_date: a.agreement_signed_date,
+          description_of_work: a.description_of_work,
+          total_price: a.total_price || 0,
+        }));
+      const changeOrderTotal = changeOrders.reduce((s, co) => s + co.total_price, 0);
 
       const projectInvoices = (invoices || []).filter((i) => i.project_id === p.id);
       const totalInvoiced = projectInvoices.reduce((s, i) => s + (i.amount || 0), 0);
@@ -337,7 +360,9 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         address: p.project_address || "",
         salesperson: p.primary_salesperson || "",
         startDate: p.install_start_date || "",
-        contractAmount,
+        initialContract,
+        changeOrderTotal,
+        changeOrders,
         totalInvoiced,
         totalCollected,
         totalRefunded,
