@@ -3585,7 +3585,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                       >
                         <TableCell className="text-xs text-center font-medium text-primary underline">{agreement.agreement_number || "-"}</TableCell>
                         <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">{agreement.nickname || "-"}</TableCell>
+                        <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
+                          <InlineNicknameEdit
+                            value={agreement.nickname || ""}
+                            agreementId={agreement.id}
+                            companyId={companyId}
+                          />
+                        </TableCell>
                         <TableCell className="text-xs text-center">{formatDate(agreement.agreement_signed_date)}</TableCell>
                         <TableCell className="text-xs text-center">{formatCurrencyWithDecimals(agreement.total_price)}</TableCell>
                         <TableCell className={`text-xs text-center ${isBalanced ? 'text-emerald-600' : phasesTotal > contractValue ? 'text-red-600' : 'text-amber-600'}`}>
@@ -5993,8 +5999,53 @@ function BillDialog({
   );
 }
 
+// Inline Nickname Editor
+function InlineNicknameEdit({ value, agreementId, companyId }: { value: string; agreementId: string; companyId: string }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+
+  useEffect(() => { setText(value); }, [value]);
+  useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+
+  const save = async () => {
+    setEditing(false);
+    if (text === value) return;
+    await supabase
+      .from("project_agreements")
+      .update({ nickname: text || null })
+      .eq("id", agreementId);
+    queryClient.invalidateQueries({ queryKey: ["project-agreements"] });
+  };
+
+  if (!editing) {
+    return (
+      <span
+        className="text-muted-foreground cursor-pointer hover:text-foreground hover:underline truncate max-w-[120px] inline-block"
+        onClick={() => setEditing(true)}
+        title="Click to edit nickname"
+      >
+        {value || "—"}
+      </span>
+    );
+  }
+
+  return (
+    <Input
+      ref={inputRef}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={save}
+      onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setText(value); setEditing(false); } }}
+      className="h-6 text-xs px-1 py-0 w-[120px]"
+      placeholder="Add nickname"
+    />
+  );
+}
+
 // Agreement Dialog Component
-function AgreementDialog({ 
+function AgreementDialog({
   open, 
   onOpenChange, 
   agreement, 
