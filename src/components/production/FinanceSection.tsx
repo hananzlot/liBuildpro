@@ -2743,21 +2743,72 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                     <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
                   ) : (
                     <>
+                      {/* Contract filter toggle */}
+                      {(() => {
+                        const invoicedPhaseIds = new Set(invoices.map(inv => inv.payment_phase_id).filter(Boolean));
+                        const uninvoicedPhases = paymentPhases.filter(p => !invoicedPhaseIds.has(p.id) && (p.amount || 0) > 0);
+                        const allAgreementIds = new Set([
+                          ...invoices.map(inv => {
+                            const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+                            return inv.agreement_id || phase?.agreement_id;
+                          }).filter(Boolean),
+                          ...uninvoicedPhases.map(p => p.agreement_id).filter(Boolean),
+                        ]);
+                        const contractOptions = agreements
+                          .filter(a => allAgreementIds.has(a.id))
+                          .sort((a, b) => (a.agreement_number || '').localeCompare(b.agreement_number || ''));
+                        
+                        if (contractOptions.length <= 1) return null;
+                        
+                        return (
+                          <div className="flex gap-1.5 mb-3 flex-wrap">
+                            <button
+                              onClick={() => setInvoiceContractFilter("all")}
+                              className={cn(
+                                "px-2.5 py-1 text-xs rounded-full border transition-colors",
+                                invoiceContractFilter === "all"
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                              )}
+                            >
+                              All
+                            </button>
+                            {contractOptions.map(agr => {
+                              const label = agr.nickname || agr.agreement_number || 'Contract';
+                              return (
+                                <button
+                                  key={agr.id}
+                                  onClick={() => setInvoiceContractFilter(agr.id)}
+                                  className={cn(
+                                    "px-2.5 py-1 text-xs rounded-full border transition-colors",
+                                    invoiceContractFilter === agr.id
+                                      ? "bg-primary text-primary-foreground border-primary"
+                                      : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
+                                  )}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+
                       {/* Uninvoiced phases section */}
                       {(() => {
                         const invoicedPhaseIds = new Set(invoices.map(inv => inv.payment_phase_id).filter(Boolean));
                         const uninvoicedPhases = paymentPhases
                           .filter(p => !invoicedPhaseIds.has(p.id) && (p.amount || 0) > 0)
+                          .filter(p => {
+                            if (invoiceContractFilter === "all") return true;
+                            return p.agreement_id === invoiceContractFilter;
+                          })
                           .sort((a, b) => {
                             const agrA = agreements.find(ag => ag.id === a.agreement_id);
                             const agrB = agreements.find(ag => ag.id === b.agreement_id);
                             const cmp = (agrA?.agreement_number || '').localeCompare(agrB?.agreement_number || '');
                             if (cmp !== 0) return cmp;
                             return (a.display_order || 0) - (b.display_order || 0);
-                          })
-                          .filter(p => {
-                            if (invoiceContractFilter === "all") return true;
-                            return p.agreement_id === invoiceContractFilter;
                           });
 
                         if (uninvoicedPhases.length === 0) return null;
@@ -2805,58 +2856,6 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                 })}
                               </TableBody>
                             </Table>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Contract filter toggle */}
-                      {(() => {
-                        // Include agreements from both invoices and uninvoiced phases
-                        const invoicedPhaseIds = new Set(invoices.map(inv => inv.payment_phase_id).filter(Boolean));
-                        const uninvoicedPhases = paymentPhases.filter(p => !invoicedPhaseIds.has(p.id) && (p.amount || 0) > 0);
-                        const allAgreementIds = new Set([
-                          ...invoices.map(inv => {
-                            const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
-                            return inv.agreement_id || phase?.agreement_id;
-                          }).filter(Boolean),
-                          ...uninvoicedPhases.map(p => p.agreement_id).filter(Boolean),
-                        ]);
-                        const contractOptions = agreements
-                          .filter(a => allAgreementIds.has(a.id))
-                          .sort((a, b) => (a.agreement_number || '').localeCompare(b.agreement_number || ''));
-                        
-                        if (contractOptions.length <= 1) return null;
-                        
-                        return (
-                          <div className="flex gap-1.5 mb-3 flex-wrap">
-                            <button
-                              onClick={() => setInvoiceContractFilter("all")}
-                              className={cn(
-                                "px-2.5 py-1 text-xs rounded-full border transition-colors",
-                                invoiceContractFilter === "all"
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                              )}
-                            >
-                              All
-                            </button>
-                            {contractOptions.map(agr => {
-                              const label = agr.nickname || agr.agreement_number || 'Contract';
-                              return (
-                                <button
-                                  key={agr.id}
-                                  onClick={() => setInvoiceContractFilter(agr.id)}
-                                  className={cn(
-                                    "px-2.5 py-1 text-xs rounded-full border transition-colors",
-                                    invoiceContractFilter === agr.id
-                                      ? "bg-primary text-primary-foreground border-primary"
-                                      : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                                  )}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
                           </div>
                         );
                       })()}
