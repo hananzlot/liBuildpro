@@ -702,6 +702,21 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                               {formatCurrency(row.outstandingAR)}
                             </span>
                           </TableCell>
+                          <TableCell className="tabular-nums whitespace-nowrap">
+                            {row.unpaidProgress > 0 ? (
+                              <button
+                                className="text-primary hover:underline font-medium cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSingleProjectUnpaidReport(row);
+                                }}
+                              >
+                                {formatCurrency(row.unpaidProgress)}
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground">{formatCurrency(0)}</span>
+                            )}
+                          </TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.totalBills)}</TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.billsPaid)}</TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">
