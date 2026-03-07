@@ -2798,7 +2798,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                           <TableRow>
                             <TableHead className="text-xs text-center w-[12%]">Date</TableHead>
                             <TableHead className="text-xs text-center w-[10%]">Invoice #</TableHead>
-                            <TableHead className="text-xs text-center w-[18%]">Contract #<br />/ Nickname</TableHead>
+                            <TableHead className="text-xs text-left w-[18%]">Contract #<br />/ Nickname</TableHead>
                             <TableHead className="text-xs text-center w-[18%]">Progress<br />Payment</TableHead>
                             <TableHead className="text-xs text-center w-[12%]">Amount</TableHead>
                             <TableHead className="text-xs text-center w-[12%]">Balance<br />Due</TableHead>
@@ -2835,7 +2835,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                             >
                               <TableCell className="text-xs text-center">{formatDate(inv.invoice_date)}</TableCell>
                               <TableCell className="text-xs text-center">{inv.invoice_number || "-"}</TableCell>
-                              <TableCell className="text-xs text-center text-muted-foreground">
+                              <TableCell className="text-xs text-left text-muted-foreground">
                                 {(() => {
                                   const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
                                   const agr = agreements.find(a => a.id === (inv.agreement_id || phase?.agreement_id));
