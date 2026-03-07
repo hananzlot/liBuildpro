@@ -3585,7 +3585,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                       >
                         <TableCell className="text-xs text-center font-medium text-primary underline">{agreement.agreement_number || "-"}</TableCell>
                         <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">{agreement.nickname || "-"}</TableCell>
+                        <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
+                          <InlineNicknameEdit
+                            value={agreement.nickname || ""}
+                            agreementId={agreement.id}
+                            companyId={companyId}
+                          />
+                        </TableCell>
                         <TableCell className="text-xs text-center">{formatDate(agreement.agreement_signed_date)}</TableCell>
                         <TableCell className="text-xs text-center">{formatCurrencyWithDecimals(agreement.total_price)}</TableCell>
                         <TableCell className={`text-xs text-center ${isBalanced ? 'text-emerald-600' : phasesTotal > contractValue ? 'text-red-600' : 'text-amber-600'}`}>
