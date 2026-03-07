@@ -2031,9 +2031,12 @@ export default function Production() {
                             <div className="flex items-end">Co.</div>
                           </TableHead>
                         )}
-                        <TableHead className={cn(isUnified ? "w-[12%]" : "w-[14%]", "cursor-pointer hover:bg-muted/50 text-xs")} onClick={() => handleSort('address')}>
-                          <div className="flex items-end gap-0.5">Address <SortIcon column="address" /></div>
-                        </TableHead>
+                         <TableHead className={cn(isUnified ? "w-[11%]" : "w-[12%]", "cursor-pointer hover:bg-muted/50 text-xs")} onClick={() => handleSort('address')}>
+                           <div className="flex items-end gap-0.5">Customer <SortIcon column="address" /></div>
+                         </TableHead>
+                         <TableHead className="w-[8%] text-xs">
+                           <div className="flex items-end">Project Name</div>
+                         </TableHead>
                         <TableHead className="w-[9%] cursor-pointer hover:bg-muted/50 text-xs" onClick={() => handleSort('status')}>
                           <div className="flex items-end gap-0.5">Status <SortIcon column="status" /></div>
                         </TableHead>
@@ -2215,7 +2218,10 @@ export default function Production() {
                                   </span>
                                 )}
                               </div>
-                            </TableCell>
+                             </TableCell>
+                             <TableCell className="text-xs truncate text-muted-foreground" title={project.project_name}>
+                               {project.project_name || "—"}
+                             </TableCell>
                             <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
                               <div className="flex flex-col gap-0">
                                 <Select

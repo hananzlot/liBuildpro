@@ -40,6 +40,7 @@ interface ProjectSummaryTabProps {
 type SortKey =
   | "project_number"
   | "customer"
+  | "projectName"
   | "contractAmount"
   | "totalInvoiced"
   | "totalCollected"
@@ -736,7 +737,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                 <TableRow>
                   <TableHead className="w-8" />
                   <SortableHeader label="Pro#" sortKeyName="project_number" className="w-16" />
-                  <SortableHeader label="Customer" sortKeyName="customer" />
+                   <SortableHeader label="Customer" sortKeyName="customer" />
+                   <SortableHeader label="Project Name" sortKeyName="projectName" />
                   <SortableHeader label="Contract" sortKeyName="contractAmount" />
                   <SortableHeader label="Invoiced" sortKeyName="totalInvoiced" />
                   <SortableHeader label="Collected" sortKeyName="totalCollected" />
@@ -751,7 +753,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               <TableBody>
                 {sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={13} className="text-center text-muted-foreground py-12">
                       No in-progress projects found
                     </TableCell>
                   </TableRow>
@@ -788,9 +790,6 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                             {row.project_number}
                           </TableCell>
                           <TableCell>
-                            {row.projectName && (
-                              <div className="text-xs font-medium text-muted-foreground">{row.projectName}</div>
-                            )}
                             <div className="flex items-center gap-1.5">
                               <span>{row.customer}</span>
                               {row.projectStatus && (
@@ -802,6 +801,9 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                             {row.address && (
                               <div className="text-xs text-muted-foreground truncate max-w-[200px]">{row.address}</div>
                             )}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground truncate max-w-[180px]">
+                            {row.projectName || "—"}
                           </TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.contractAmount)}</TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(row.totalInvoiced)}</TableCell>
@@ -890,7 +892,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                 <TableRow className="font-semibold">
                   <TableCell />
                   <TableCell className="w-16">{rows.length} Pro</TableCell>
-                  <TableCell />
+                   <TableCell />
+                   <TableCell />
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.contractAmount)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">{formatCurrency(totals.totalInvoiced)}</TableCell>
                   <TableCell className="tabular-nums whitespace-nowrap">
