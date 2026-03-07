@@ -9117,6 +9117,8 @@ function ProjectFinancialStatements({
               <table className="w-full text-sm">
                 <tbody>
                   {lineRow("Revenues (Contracts Invoiced)", totalRevenue)}
+                  {totalRefunded > 0 && lineRow("Customer Refunds", -totalRefunded, { indent: true })}
+                  {totalRefunded > 0 && lineRow("Net Revenue", netRevenue, { bold: true })}
                   {lineRow("Bills Paid", -totalBillsPaid, { indent: true })}
                   {lineRow("Bills Outstanding", -billsOutstanding, { indent: true })}
                   {lineRow("Cost of Sales Total", -totalCOGS, { bold: true })}
@@ -9154,8 +9156,9 @@ function ProjectFinancialStatements({
               <table className="w-full text-sm">
                 <tbody>
                   {lineRow("Cash (Payments Collected)", totalCollected, { indent: true })}
+                  {totalRefunded > 0 && lineRow("Less: Customer Refunds", -totalRefunded, { indent: true })}
                   {lineRow("Less: Bills Paid", -totalBillsPaid, { indent: true })}
-                  {lineRow("Net Cash (Collected − Paid)", netCash, { bold: true })}
+                  {lineRow("Net Cash", netCash, { bold: true })}
                   {lineRow("Accounts Receivable", Math.max(ar, 0), { indent: true })}
                   {lineRow("Total Assets", totalAssets, { bold: true })}
                 </tbody>
