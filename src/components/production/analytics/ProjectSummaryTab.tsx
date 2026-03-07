@@ -54,6 +54,7 @@ interface ProjectSummaryRow {
   id: string;
   project_number: number;
   customer: string;
+  projectName: string;
   projectStatus: string;
   address: string;
   salesperson: string;
@@ -106,7 +107,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, project_number, customer_first_name, customer_last_name, project_status, project_address, primary_salesperson, install_start_date")
+        .select("id, project_number, project_name, customer_first_name, customer_last_name, project_status, project_address, primary_salesperson, install_start_date")
         .eq("company_id", companyId!)
         .is("deleted_at", null);
       if (error) throw error;
@@ -330,6 +331,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         id: p.id,
         project_number: p.project_number ?? 0,
         customer,
+        projectName: p.project_name || "",
         projectStatus: p.project_status || "",
         address: p.project_address || "",
         salesperson: p.primary_salesperson || "",
@@ -786,6 +788,9 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                             {row.project_number}
                           </TableCell>
                           <TableCell>
+                            {row.projectName && (
+                              <div className="text-xs font-medium text-muted-foreground">{row.projectName}</div>
+                            )}
                             <div className="flex items-center gap-1.5">
                               <span>{row.customer}</span>
                               {row.projectStatus && (
