@@ -788,6 +788,9 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                             {row.project_number}
                           </TableCell>
                           <TableCell>
+                            {row.projectName && (
+                              <div className="text-xs font-medium text-muted-foreground">{row.projectName}</div>
+                            )}
                             <div className="flex items-center gap-1.5">
                               <span>{row.customer}</span>
                               {row.projectStatus && (
