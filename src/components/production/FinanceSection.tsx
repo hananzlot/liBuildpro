@@ -1284,10 +1284,34 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             const result = await syncWithConfirmation(recordType, recordId);
             resolve(result);
           },
-          onCancel: () => {
+          onCancel: async () => {
+            // User confirmed they want to cancel the entry — delete the saved record
+            try {
+              const tableMap: Record<string, string> = {
+                bill: "project_bills",
+                bill_payment: "bill_payments",
+                payment: "project_payments",
+                invoice: "project_invoices",
+                refund: "project_refunds",
+              };
+              const table = tableMap[recordType];
+              if (table) {
+                await (supabase.from(table as any).delete() as any).eq("id", recordId);
+                toast.info("Entry cancelled — nothing was saved");
+                // Invalidate relevant queries
+                queryClient.invalidateQueries({ queryKey: ["project-refunds"] });
+                queryClient.invalidateQueries({ queryKey: ["project-invoices"] });
+                queryClient.invalidateQueries({ queryKey: ["project-payments"] });
+                queryClient.invalidateQueries({ queryKey: ["project-bills"] });
+                queryClient.invalidateQueries({ queryKey: ["bill-payments"] });
+              }
+            } catch (err) {
+              console.error("Failed to delete cancelled record:", err);
+              toast.error("Failed to remove the entry");
+            }
             setQbDuplicateDialogOpen(false);
             setQbDuplicateState(null);
-            resolve({ synced: false, message: "Sync cancelled by user" });
+            resolve({ synced: false, message: "Entry cancelled by user" });
           },
         });
         setQbDuplicateDialogOpen(true);
