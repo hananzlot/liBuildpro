@@ -3173,6 +3173,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         ))}
                       </TableBody>
                     </Table>
+                    </>
                   )}
                 </>
               )}
