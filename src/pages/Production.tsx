@@ -906,7 +906,19 @@ export default function Production() {
       return matchesSearch && matchesStatus;
     });
 
+    const STATUS_SORT_ORDER: Record<string, number> = {
+      'In-Progress': 0,
+      'New Job': 1,
+      'Completed': 2,
+      'Awaiting Finance': 3,
+    };
+    const getStatusOrder = (status: string | null) => STATUS_SORT_ORDER[status || ''] ?? 99;
+
     return filtered.sort((a, b) => {
+      // Primary sort: status priority
+      const statusDiff = getStatusOrder(a.project_status) - getStatusOrder(b.project_status);
+      if (statusDiff !== 0 && sortColumn === 'project_number') return statusDiff;
+
       const financialsA = projectFinancials[a.id];
       const financialsB = projectFinancials[b.id];
       let comparison = 0;
@@ -919,7 +931,7 @@ export default function Production() {
           comparison = (a.project_address || a.project_name || '').localeCompare(b.project_address || b.project_name || '');
           break;
         case 'status':
-          comparison = (a.project_status || '').localeCompare(b.project_status || '');
+          comparison = getStatusOrder(a.project_status) - getStatusOrder(b.project_status);
           break;
         case 'salesperson':
           comparison = (a.primary_salesperson || '').localeCompare(b.primary_salesperson || '');
