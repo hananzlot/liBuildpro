@@ -962,7 +962,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       sold: totalAgreementsValue,
       invoiced: totalInvoiced,
       received: netPaymentsReceived,
-      outstandingAR: Math.max(0, totalInvoiced - netPaymentsReceived),
+      outstandingAR: Math.max(0, totalInvoiced - totalPaymentsReceived),
       bills: totalBills,
       billsPaid: totalBillsPaid,
       outstandingAP: Math.max(0, totalBills - totalBillsPaid),
