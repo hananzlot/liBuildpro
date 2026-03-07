@@ -3541,6 +3541,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                     <TableRow>
                       <TableHead className="text-xs text-center">Agreement<br />#</TableHead>
                       <TableHead className="text-xs">Type</TableHead>
+                      <TableHead className="text-xs">Nickname</TableHead>
                       <TableHead className="text-xs text-center">Date<br />Signed</TableHead>
                       <TableHead className="text-xs text-center">Contract<br />Value</TableHead>
                       <TableHead className="text-xs text-center">Progress Payments<br />Total</TableHead>
@@ -3583,6 +3584,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                       >
                         <TableCell className="text-xs text-center font-medium text-primary underline">{agreement.agreement_number || "-"}</TableCell>
                         <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground truncate max-w-[120px]">{(agreement as any).nickname || "-"}</TableCell>
                         <TableCell className="text-xs text-center">{formatDate(agreement.agreement_signed_date)}</TableCell>
                         <TableCell className="text-xs text-center">{formatCurrencyWithDecimals(agreement.total_price)}</TableCell>
                         <TableCell className={`text-xs text-center ${isBalanced ? 'text-emerald-600' : phasesTotal > contractValue ? 'text-red-600' : 'text-amber-600'}`}>
@@ -6027,6 +6029,7 @@ function AgreementDialog({
   const initialFormData = {
     agreement_number: "",
     agreement_type: "",
+    nickname: "",
     agreement_signed_date: "",
     created_at: "",
     total_price: "",
@@ -6129,6 +6132,7 @@ function AgreementDialog({
       setFormData({
         agreement_number: agreement.agreement_number || "",
         agreement_type: agreement.agreement_type || "",
+        nickname: (agreement as any).nickname || "",
         agreement_signed_date: agreement.agreement_signed_date || "",
         created_at: agreement.created_at ? agreement.created_at.split('T')[0] : "",
         total_price: agreement.total_price?.toString() || "",
@@ -6184,12 +6188,13 @@ function AgreementDialog({
       {
         agreement_number: formData.agreement_number || null,
         agreement_type: formData.agreement_type || null,
+        nickname: formData.nickname || null,
         agreement_signed_date: formData.agreement_signed_date || null,
         created_at: formData.created_at ? formData.created_at + 'T00:00:00' : null,
         total_price: parseFloat(formData.total_price) || 0,
         description_of_work: formData.description_of_work || null,
         attachment_url: formData.attachment_url,
-      },
+      } as any,
       { closeOnSuccess: true }
     );
   };
@@ -6369,6 +6374,14 @@ function AgreementDialog({
                 <p className="text-xs text-muted-foreground mt-1">First agreement must be a Contract</p>
               )}
             </div>
+          </div>
+          <div>
+            <Label>Nickname</Label>
+            <Input 
+              value={formData.nickname} 
+              onChange={(e) => updateFormData({ nickname: e.target.value })} 
+              placeholder="e.g. Kitchen Remodel, Phase 2 Addition"
+            />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
