@@ -65,6 +65,7 @@ function PctLabel({ text, pct, isAvg }: { text: string; pct?: number | null; isA
 function buildPnLLines(data: {
   totalRevenue: number;
   totalRefunded: number;
+  cancelledWriteOff: number;
   totalBillsPaid: number;
   billsOutstanding: number;
   totalCOGS: number;
@@ -82,7 +83,12 @@ function buildPnLLines(data: {
   ];
   if (data.totalRefunded > 0) {
     lines.push({ label: "Customer Refunds", amount: -data.totalRefunded, indent: true });
-    lines.push({ label: "Net Revenue", amount: data.totalRevenue - data.totalRefunded, isTotal: true });
+  }
+  if (data.cancelledWriteOff > 0) {
+    lines.push({ label: "Project Cancelled", amount: -data.cancelledWriteOff, indent: true });
+  }
+  if (data.totalRefunded > 0 || data.cancelledWriteOff > 0) {
+    lines.push({ label: "Net Revenue", amount: data.totalRevenue - data.totalRefunded - data.cancelledWriteOff, isTotal: true });
   }
   lines.push(
     { label: "Bills Paid", amount: -data.totalBillsPaid, indent: true },
