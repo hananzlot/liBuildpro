@@ -60,6 +60,7 @@ interface ProjectSummaryRow {
   totalInvoiced: number;
   totalCollected: number;
   outstandingAR: number;
+  unpaidProgress: number;
   totalBills: number;
   billsPaid: number;
   outstandingAP: number;
