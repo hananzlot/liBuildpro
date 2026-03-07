@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useQuickAddSubStore } from "@/stores/quickAddSubcontractorStore";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +24,14 @@ import {
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
-const SUBCONTRACTOR_TYPES = ["Material/Equipment", "Other", "Subcontractor"] as const;
+const SUBCONTRACTOR_TYPES = [
+  "Subcontractor",
+  "Material/Equipment",
+  "Labor",
+  "Permits",
+  "Equipment Rental",
+  "Other",
+] as const;
 
 interface QuickAddSubcontractorDialogProps {
   open: boolean;
@@ -39,30 +47,23 @@ export function QuickAddSubcontractorDialog({
   const { user } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
-
-  const [companyName, setCompanyName] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [subType, setSubType] = useState<string>("Subcontractor");
-
-  const resetForm = () => {
-    setCompanyName("");
-    setContactName("");
-    setPhone("");
-    setSubType("Subcontractor");
-  };
+  const { draft, updateDraft, clearDraft } = useQuickAddSubStore();
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!companyId) throw new Error("No company");
+      // Map expanded types back to DB-compatible subcontractor_type
+      const dbType = draft.subType === "Subcontractor" ? "Subcontractor"
+        : draft.subType === "Material/Equipment" ? "Material/Equipment"
+        : "Other";
       const { error } = await supabase.from("subcontractors").insert({
-        company_name: companyName.trim(),
-        contact_name: contactName.trim() || null,
-        phone: phone.trim() || null,
-        subcontractor_type: subType,
+        company_name: draft.companyName.trim(),
+        contact_name: draft.contactName.trim() || null,
+        phone: draft.phone.trim() || null,
+        subcontractor_type: dbType,
         is_active: true,
-        do_not_require_license: subType !== "Subcontractor",
-        do_not_require_insurance: subType !== "Subcontractor",
+        do_not_require_license: dbType !== "Subcontractor",
+        do_not_require_insurance: dbType !== "Subcontractor",
         needs_compliance_review: true,
         created_by: user?.id,
         company_id: companyId,
@@ -73,8 +74,8 @@ export function QuickAddSubcontractorDialog({
       toast.success("Subcontractor added");
       queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
       queryClient.invalidateQueries({ queryKey: ["active-subcontractors", companyId] });
-      const name = companyName.trim();
-      resetForm();
+      const name = draft.companyName.trim();
+      clearDraft();
       onOpenChange(false);
       onAdded(name);
     },
@@ -83,15 +84,20 @@ export function QuickAddSubcontractorDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName.trim()) {
+    if (!draft.companyName.trim()) {
       toast.error("Company name is required");
       return;
     }
     saveMutation.mutate();
   };
 
+  const handleCancel = () => {
+    clearDraft();
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onOpenChange(false); }}>
       <DialogContent className="sm:max-w-md z-[60]" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Quick Add Vendor / Sub</DialogTitle>
@@ -104,13 +110,13 @@ export function QuickAddSubcontractorDialog({
             <div className="col-span-2">
               <Input
                 placeholder="Company Name *"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
+                value={draft.companyName}
+                onChange={(e) => updateDraft({ companyName: e.target.value })}
                 autoFocus
-                className={!companyName.trim() ? "border-destructive" : ""}
+                className={!draft.companyName.trim() ? "border-destructive" : ""}
               />
             </div>
-            <Select value={subType} onValueChange={setSubType}>
+            <Select value={draft.subType} onValueChange={(v) => updateDraft({ subType: v })}>
               <SelectTrigger>
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
@@ -122,13 +128,13 @@ export function QuickAddSubcontractorDialog({
             </Select>
             <Input
               placeholder="Contact Name"
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
+              value={draft.contactName}
+              onChange={(e) => updateDraft({ contactName: e.target.value })}
             />
             <div className="col-span-2">
               <Input
                 placeholder="Phone"
-                value={phone}
+                value={draft.phone}
                 onChange={(e) => {
                   const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
                   let formatted = "";
@@ -136,13 +142,13 @@ export function QuickAddSubcontractorDialog({
                   if (digits.length >= 3) formatted += ") ";
                   if (digits.length > 3) formatted += digits.slice(3, 6);
                   if (digits.length > 6) formatted += "-" + digits.slice(6);
-                  setPhone(formatted);
+                  updateDraft({ phone: formatted });
                 }}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { resetForm(); onOpenChange(false); }}>
+            <Button type="button" variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
             <Button type="submit" disabled={saveMutation.isPending}>
