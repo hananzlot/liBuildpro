@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
       });
       await batchInsert("project_types", newTypes);
       log(`  Copied ${newTypes.length} project_types`);
-    } catch (e) {
+    } catch (e: unknown) {
       log(`  WARN project_types: ${(e as Error).message}`);
     }
 
