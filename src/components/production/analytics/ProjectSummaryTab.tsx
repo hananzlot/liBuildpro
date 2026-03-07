@@ -26,7 +26,7 @@ import {
   Wallet,
   AlertCircle,
   Receipt,
-  ChevronRight,
+  
   ArrowUpDown,
   Filter,
   Download,
@@ -97,7 +97,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const { companyId } = useCompanyContext();
   const [sortKey, setSortKey] = useState<SortKey>("project_number");
   const [sortAsc, setSortAsc] = useState(true);
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["In-Progress", "Awaiting Finance"]);
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
@@ -408,26 +408,6 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     [sortKey]
   );
 
-  const toggleExpand = useCallback((id: string) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  // Auto-expand all projects with unpaid phases when toggle is checked
-  useEffect(() => {
-    if (showUnpaidOnly) {
-      const idsWithUnpaid = rows
-        .filter(r => r.phases.some(p => p.status !== "Paid"))
-        .map(r => r.id);
-      setExpandedRows(new Set(idsWithUnpaid));
-    } else {
-      setExpandedRows(new Set());
-    }
-  }, [showUnpaidOnly, rows]);
 
   const reportRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -735,7 +715,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
             <Table className="min-w-[1100px] w-max">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8" />
+                  
                   <SortableHeader label="Pro#" sortKeyName="project_number" className="w-16" />
                    <SortableHeader label="Customer" sortKeyName="customer" />
                    <SortableHeader label="Project Name" sortKeyName="projectName" />
@@ -753,33 +733,17 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               <TableBody>
                 {sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={12} className="text-center text-muted-foreground py-12">
                       No in-progress projects found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  sortedRows.map((row) => {
-                    const isExpanded = expandedRows.has(row.id);
-                    const hasPhases = row.phases.length > 0;
-                    return (
-                      <Fragment key={row.id}>
-                        <TableRow
-                          className={cn(
-                            "cursor-pointer",
-                            isExpanded && "bg-muted/30"
-                          )}
-                          onClick={() => hasPhases && toggleExpand(row.id)}
-                        >
-                          <TableCell className="w-8 px-2">
-                            {hasPhases && (
-                              <ChevronRight
-                                className={cn(
-                                  "h-4 w-4 transition-transform text-muted-foreground",
-                                  isExpanded && "rotate-90"
-                                )}
-                              />
-                            )}
-                          </TableCell>
+                   sortedRows.map((row) => {
+                     return (
+                       <Fragment key={row.id}>
+                         <TableRow
+                           className="cursor-pointer"
+                         >
                           <TableCell
                             className="w-16 font-medium text-primary cursor-pointer hover:underline"
                             onClick={(e) => {
@@ -849,48 +813,13 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                             </span>
                           </TableCell>
                         </TableRow>
-                        {isExpanded && row.phases
-                          .filter(phase => !showUnpaidOnly || phase.status !== "Paid")
-                          .map((phase) => (
-                          <TableRow key={phase.id} className="bg-muted/20 hover:bg-muted/30">
-                            <TableCell />
-                            <TableCell />
-                            <TableCell className="pl-8 text-sm text-muted-foreground">
-                              {phase.phase_name}
-                            </TableCell>
-                            <TableCell className="tabular-nums text-sm">
-                              {formatCurrency(phase.amount)}
-                            </TableCell>
-                            <TableCell className="tabular-nums text-sm">
-                              {formatCurrency(phase.invoiced)}
-                            </TableCell>
-                            <TableCell className="tabular-nums text-sm">
-                              {formatCurrency(phase.collected)}
-                            </TableCell>
-                            <TableCell className="text-right text-sm">
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-xs",
-                                  phase.status === "Paid" && "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
-                                  phase.status === "Partial" && "bg-amber-500/15 text-amber-600 border-amber-500/30",
-                                  phase.status === "Pending" && "bg-muted text-muted-foreground"
-                                )}
-                              >
-                                {phase.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell colSpan={5} />
-                          </TableRow>
-                        ))}
-                      </Fragment>
+                       </Fragment>
                     );
                   })
                 )}
               </TableBody>
               <TableFooter>
                 <TableRow className="font-semibold">
-                  <TableCell />
                   <TableCell className="w-16">{rows.length} Pro</TableCell>
                    <TableCell />
                    <TableCell />
