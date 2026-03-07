@@ -299,7 +299,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   // QuickBooks new entity confirmation state
   const [qbConfirmDialogOpen, setQbConfirmDialogOpen] = useState(false);
   const [pendingQbSync, setPendingQbSync] = useState<{
-    recordType: "invoice" | "payment" | "bill" | "bill_payment";
+    recordType: "invoice" | "payment" | "bill" | "bill_payment" | "refund";
     recordId: string;
     pendingEntities: { type: string; name: string }[];
     onConfirm: () => void;
@@ -990,7 +990,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   };
 
   // Helper to check if QB sync will create new entities (customer/vendor)
-  const checkQbSyncEntities = async (recordType: "invoice" | "payment" | "bill" | "bill_payment", recordId: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[]; unmappedEntities: { type: string; name: string }[] }> => {
+  const checkQbSyncEntities = async (recordType: "invoice" | "payment" | "bill" | "bill_payment" | "refund", recordId: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[]; unmappedEntities: { type: string; name: string }[] }> => {
     if (!companyId || !isQBConnectedMain) return { requiresConfirmation: false, pendingEntities: [], unmappedEntities: [] };
     
     try {
@@ -1049,7 +1049,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   };
 
   // Helper to sync a record to QuickBooks after create/update - returns true if synced successfully
-  const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill" | "bill_payment", recordId: string): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
+  const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill" | "bill_payment" | "refund", recordId: string): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
     if (!companyId || !isQBConnectedMain) return { synced: false };
     
     try {
@@ -1079,7 +1079,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
    // Helper to sync with confirmation for new entities
   const syncWithConfirmation = async (
-    recordType: "invoice" | "payment" | "bill" | "bill_payment", 
+    recordType: "invoice" | "payment" | "bill" | "bill_payment" | "refund", 
     recordId: string
   ): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
     // First check if sync would create new entities
@@ -2002,7 +2002,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       } else {
         const { data: newRefund, error } = await supabase
           .from("project_refunds")
-          .insert({ ...refund, project_id: projectId, company_id: companyId })
+          .insert({ ...refund, project_id: projectId, company_id: companyId } as any)
           .select()
           .single();
         if (error) throw error;

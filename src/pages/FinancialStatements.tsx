@@ -113,21 +113,24 @@ export default function FinancialStatements() {
     let csv = "";
     if (mode === "aggregate") {
       const rev = all.reduce((s, p) => s + p.contractsTotal, 0);
+      const refunded = all.reduce((s, p) => s + p.totalRefunded, 0);
+      const netRev = rev - refunded;
       const cogs = all.reduce((s, p) => s + p.totalBillsReceived, 0);
       const paid = all.reduce((s, p) => s + p.totalBillsPaid, 0);
       const outstanding = cogs - paid;
-      const grossIncome = rev - cogs;
+      const grossIncome = netRev - cogs;
       const comm = all.reduce((s, p) => s + p.totalCommission, 0);
       const giac = grossIncome - comm;
       const lead = all.reduce((s, p) => s + p.leadCostAmount, 0);
       csv = "Line Item,Amount\n";
-      csv += `Revenues (Contracts Invoiced),${fmt(rev)}\nBills Paid,${fmt(paid)}\nBills Outstanding,${fmt(outstanding)}\nCost of Sales Total,${fmt(cogs)}\nGross Income,${fmt(grossIncome)}\nCommissions,${fmt(comm)}\nGross Income After Commission,${fmt(giac)}\nLead Cost Income,${fmt(lead)}\nNet Income,${fmt(giac + lead)}\n`;
+      csv += `Revenues (Contracts Invoiced),${fmt(rev)}\nCustomer Refunds,${fmt(-refunded)}\nNet Revenue,${fmt(netRev)}\nBills Paid,${fmt(paid)}\nBills Outstanding,${fmt(outstanding)}\nCost of Sales Total,${fmt(cogs)}\nGross Income,${fmt(grossIncome)}\nCommissions,${fmt(comm)}\nGross Income After Commission,${fmt(giac)}\nLead Cost Income,${fmt(lead)}\nNet Income,${fmt(giac + lead)}\n`;
     } else {
-      csv = "Project #,Project Name,Revenue,Bills Paid,Bills Outstanding,COGS,Gross Income,Commissions,Gross Income After Comm,Lead Cost,Net Income\n";
+      csv = "Project #,Project Name,Revenue,Refunds,Net Revenue,Bills Paid,Bills Outstanding,COGS,Gross Income,Commissions,Gross Income After Comm,Lead Cost,Net Income\n";
       projs.filter(p => p.contractsTotal > 0 || p.totalBillsReceived > 0).forEach(p => {
-        const gi = p.contractsTotal - p.totalBillsReceived;
+        const netRev = p.contractsTotal - p.totalRefunded;
+        const gi = netRev - p.totalBillsReceived;
         const giac = gi - p.totalCommission;
-        csv += `${p.project_number},"${p.project_name}",${fmt(p.contractsTotal)},${fmt(p.totalBillsPaid)},${fmt(p.totalBillsReceived - p.totalBillsPaid)},${fmt(p.totalBillsReceived)},${fmt(gi)},${fmt(p.totalCommission)},${fmt(giac)},${fmt(p.leadCostAmount)},${fmt(giac + p.leadCostAmount)}\n`;
+        csv += `${p.project_number},"${p.project_name}",${fmt(p.contractsTotal)},${fmt(-p.totalRefunded)},${fmt(netRev)},${fmt(p.totalBillsPaid)},${fmt(p.totalBillsReceived - p.totalBillsPaid)},${fmt(p.totalBillsReceived)},${fmt(gi)},${fmt(p.totalCommission)},${fmt(giac)},${fmt(p.leadCostAmount)},${fmt(giac + p.leadCostAmount)}\n`;
       });
     }
     return csv;

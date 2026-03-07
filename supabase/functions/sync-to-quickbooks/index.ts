@@ -1159,7 +1159,7 @@ Deno.serve(async (req) => {
             PrivateNote: bill.memo || null,
           };
 
-          let syncRes: Response;
+          let syncRes: Response | undefined;
           let syncData: any;
 
           if (existingQbId) {
@@ -1250,7 +1250,7 @@ Deno.serve(async (req) => {
             }
           }
 
-          if (syncRes.ok && syncData) {
+          if (syncRes && syncRes.ok && syncData) {
             const newQbId = syncData.Bill.Id;
             
             // Track this bill's QB ID for bill payment sync later in this request
@@ -1265,7 +1265,7 @@ Deno.serve(async (req) => {
               synced_at: new Date().toISOString(),
             }, { onConflict: "company_id,record_type,record_id" });
             results.synced++;
-          } else {
+          } else if (syncRes) {
             const errText = await syncRes.text();
             console.error(`Failed to sync bill ${bill.id}:`, errText);
             results.failed++;
