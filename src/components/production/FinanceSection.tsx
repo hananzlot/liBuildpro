@@ -6195,7 +6195,7 @@ function AgreementDialog({
         total_price: parseFloat(formData.total_price) || 0,
         description_of_work: formData.description_of_work || null,
         attachment_url: formData.attachment_url,
-      } as any,
+      },
       { closeOnSuccess: true }
     );
   };
