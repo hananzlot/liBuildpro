@@ -2613,6 +2613,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             totalCOGS={totalBills}
             totalBillsPaid={totalBillsPaid}
             totalCollected={totalPaymentsReceived}
+            totalRefunded={totalRefunds}
             totalInvoiced={totalInvoiced}
             leadCostPercent={leadCostPercent}
             commissionSplitPct={commissionSplitPct}
@@ -9007,6 +9008,7 @@ function ProjectFinancialStatements({
   totalCOGS,
   totalBillsPaid,
   totalCollected,
+  totalRefunded,
   totalInvoiced,
   leadCostPercent,
   commissionSplitPct,
@@ -9019,6 +9021,7 @@ function ProjectFinancialStatements({
   totalCOGS: number;
   totalBillsPaid: number;
   totalCollected: number;
+  totalRefunded: number;
   totalInvoiced: number;
   leadCostPercent: number;
   commissionSplitPct: number;
@@ -9066,17 +9069,19 @@ function ProjectFinancialStatements({
   }, []);
 
   const billsOutstanding = totalCOGS - totalBillsPaid;
-  const grossIncome = totalRevenue - totalCOGS;
+  const netRevenue = totalRevenue - totalRefunded;
+  const grossIncome = netRevenue - totalCOGS;
   const leadCost = totalRevenue * (leadCostPercent / 100);
-  const commissionBase = totalRevenue - leadCost - totalCOGS;
+  const commissionBase = netRevenue - leadCost - totalCOGS;
   const commission = commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0;
   const grossIncomeAfterCommission = grossIncome - commission;
   const netIncome = grossIncomeAfterCommission + leadCost;
 
+  const netCollected = totalCollected - totalRefunded;
   const ar = totalInvoiced - totalCollected;
   const ap = totalCOGS - totalBillsPaid;
-  const netCash = totalCollected - totalBillsPaid;
-  const totalAssets = totalCollected + Math.max(ar, 0);
+  const netCash = netCollected - totalBillsPaid;
+  const totalAssets = netCollected + Math.max(ar, 0);
   const totalLiabilities = Math.max(ap, 0);
   const equity = totalAssets - totalLiabilities;
 
@@ -9112,6 +9117,8 @@ function ProjectFinancialStatements({
               <table className="w-full text-sm">
                 <tbody>
                   {lineRow("Revenues (Contracts Invoiced)", totalRevenue)}
+                  {totalRefunded > 0 && lineRow("Customer Refunds", -totalRefunded, { indent: true })}
+                  {totalRefunded > 0 && lineRow("Net Revenue", netRevenue, { bold: true })}
                   {lineRow("Bills Paid", -totalBillsPaid, { indent: true })}
                   {lineRow("Bills Outstanding", -billsOutstanding, { indent: true })}
                   {lineRow("Cost of Sales Total", -totalCOGS, { bold: true })}
@@ -9149,8 +9156,9 @@ function ProjectFinancialStatements({
               <table className="w-full text-sm">
                 <tbody>
                   {lineRow("Cash (Payments Collected)", totalCollected, { indent: true })}
+                  {totalRefunded > 0 && lineRow("Less: Customer Refunds", -totalRefunded, { indent: true })}
                   {lineRow("Less: Bills Paid", -totalBillsPaid, { indent: true })}
-                  {lineRow("Net Cash (Collected − Paid)", netCash, { bold: true })}
+                  {lineRow("Net Cash", netCash, { bold: true })}
                   {lineRow("Accounts Receivable", Math.max(ar, 0), { indent: true })}
                   {lineRow("Total Assets", totalAssets, { bold: true })}
                 </tbody>
