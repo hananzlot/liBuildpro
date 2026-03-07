@@ -65,6 +65,20 @@ export function QBDuplicateReviewDialog({
   isLinking,
 }: QBDuplicateReviewDialogProps) {
   const [selectedQbId, setSelectedQbId] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  const handleCancelClick = () => {
+    setShowCancelConfirm(true);
+  };
+
+  const handleConfirmCancel = () => {
+    setShowCancelConfirm(false);
+    onCancel();
+  };
+
+  const handleKeepEntry = () => {
+    setShowCancelConfirm(false);
+  };
 
   const handleLink = () => {
     if (selectedQbId) {
@@ -76,7 +90,7 @@ export function QBDuplicateReviewDialog({
   const recordLabel = recordType === "bill_payment" ? "Bill Payment" : recordType === "payment" ? "Payment" : recordType === "invoice" ? "Invoice" : recordType;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onCancel(); onOpenChange(o); }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleCancelClick(); else onOpenChange(o); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -151,7 +165,7 @@ export function QBDuplicateReviewDialog({
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
-            onClick={onCancel}
+            onClick={handleCancelClick}
             disabled={isLinking}
           >
             Cancel
@@ -178,6 +192,24 @@ export function QBDuplicateReviewDialog({
             Link to Selected
           </Button>
         </DialogFooter>
+
+        {/* Cancel confirmation inline */}
+        {showCancelConfirm && (
+          <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+            <p className="text-sm font-medium">Do you want to cancel this entry entirely?</p>
+            <p className="text-xs text-muted-foreground">
+              The {recordLabel.toLowerCase()} will be removed and nothing will be saved.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={handleKeepEntry}>
+                No, Keep Entry
+              </Button>
+              <Button variant="destructive" size="sm" onClick={handleConfirmCancel}>
+                Yes, Cancel Entry
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
