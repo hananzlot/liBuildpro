@@ -2054,11 +2054,22 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         });
         qbSynced = qbResult.synced;
         qbNewEntities = qbResult.newEntities || [];
+        // If user cancelled the entry from the duplicate dialog, the record was already deleted
+        if (qbResult.message === "Entry cancelled by user") {
+          return { qbSynced: false, isEdit: !!editingRefund?.id, qbNewEntities: [], cancelled: true };
+        }
       }
 
-      return { qbSynced, isEdit: !!editingRefund?.id, qbNewEntities };
+      return { qbSynced, isEdit: !!editingRefund?.id, qbNewEntities, cancelled: false };
     },
     onSuccess: (result) => {
+      // If user cancelled from duplicate dialog, don't show success toast
+      if (result?.cancelled) {
+        queryClient.invalidateQueries({ queryKey: ["project-refunds", projectId] });
+        setRefundDialogOpen(false);
+        setEditingRefund(null);
+        return;
+      }
       const baseMsg = result?.isEdit ? "Refund updated" : "Refund created";
       if (result?.qbSynced) {
         const newCustomer = result.qbNewEntities?.find(e => e.type === "customer");
