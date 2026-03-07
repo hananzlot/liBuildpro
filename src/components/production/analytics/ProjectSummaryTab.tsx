@@ -796,7 +796,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                             {row.unpaidProgress > 0 ? (
                               <Badge
                                 variant="secondary"
-                                className="cursor-pointer hover:bg-primary/20 bg-warning/15 text-warning border border-warning/30 font-semibold text-[11px] px-2 py-0.5"
+                                className="cursor-pointer hover:bg-primary/20 bg-primary/10 text-primary border border-primary/30 font-semibold text-[11px] px-2 py-0.5"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleSingleProjectUnpaidReport(row);
