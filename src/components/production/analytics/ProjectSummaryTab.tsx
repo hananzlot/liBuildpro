@@ -40,6 +40,7 @@ interface ProjectSummaryTabProps {
 type SortKey =
   | "project_number"
   | "customer"
+  | "projectName"
   | "contractAmount"
   | "totalInvoiced"
   | "totalCollected"
