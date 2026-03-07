@@ -44,6 +44,7 @@ export interface ProjectWithFinancials {
   totalCommission: number;
   expectedNetProfit: number;
   cashPosition: number;
+  totalRefunded: number;
   // Flags
   hasMissingContract: boolean;
   cashStatus: 'positive' | 'low' | 'negative' | 'overdue';
@@ -476,6 +477,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         totalCommission,
         expectedNetProfit,
         cashPosition,
+        totalRefunded,
         hasMissingContract: projectAgreements.length === 0,
         cashStatus,
       };

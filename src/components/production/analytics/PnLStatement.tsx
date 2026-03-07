@@ -64,6 +64,7 @@ function PctLabel({ text, pct, isAvg }: { text: string; pct?: number | null; isA
 
 function buildPnLLines(data: {
   totalRevenue: number;
+  totalRefunded: number;
   totalBillsPaid: number;
   billsOutstanding: number;
   totalCOGS: number;
@@ -76,8 +77,14 @@ function buildPnLLines(data: {
   avgLeadCostPct?: number | null;
   isAvg?: boolean;
 }): PnLLineItem[] {
-  return [
+  const lines: PnLLineItem[] = [
     { label: "Revenues (Contracts Invoiced)", amount: data.totalRevenue },
+  ];
+  if (data.totalRefunded > 0) {
+    lines.push({ label: "Customer Refunds", amount: -data.totalRefunded, indent: true });
+    lines.push({ label: "Net Revenue", amount: data.totalRevenue - data.totalRefunded, isTotal: true });
+  }
+  lines.push(
     { label: "Bills Paid", amount: -data.totalBillsPaid, indent: true },
     { label: "Bills Outstanding", amount: -data.billsOutstanding, indent: true },
     { label: "Cost of Sales Total", amount: -data.totalCOGS, isTotal: true },
@@ -86,15 +93,18 @@ function buildPnLLines(data: {
     { label: "Gross Income After Commission", amount: data.grossIncomeAfterCommission, isTotal: true },
     { label: <PctLabel text="Lead Fee" pct={data.avgLeadCostPct} isAvg={data.isAvg} />, amount: data.totalLeadCost, indent: true },
     { label: "Net Income", amount: data.netIncome, isGrandTotal: true },
-  ];
+  );
+  return lines;
 }
 
 function computeAggregate(projects: ProjectWithFinancials[]) {
   const totalRevenue = projects.reduce((s, p) => s + p.contractsTotal, 0);
+  const totalRefunded = projects.reduce((s, p) => s + p.totalRefunded, 0);
+  const netRevenue = totalRevenue - totalRefunded;
   const totalCOGS = projects.reduce((s, p) => s + p.totalBillsReceived, 0);
   const totalBillsPaid = projects.reduce((s, p) => s + p.totalBillsPaid, 0);
   const billsOutstanding = totalCOGS - totalBillsPaid;
-  const grossIncome = totalRevenue - totalCOGS;
+  const grossIncome = netRevenue - totalCOGS;
   const totalCommission = projects.reduce((s, p) => s + p.totalCommission, 0);
   const grossIncomeAfterCommission = grossIncome - totalCommission;
   const totalLeadCost = projects.reduce((s, p) => s + p.leadCostAmount, 0);
@@ -110,7 +120,7 @@ function computeAggregate(projects: ProjectWithFinancials[]) {
     ? revenueProjects.reduce((s, p) => s + p.contractsTotal * (p.lead_cost_percent ?? 18), 0) / weightedRevenue
     : null;
 
-  return { totalRevenue, totalBillsPaid, billsOutstanding, totalCOGS, grossIncome, totalCommission, grossIncomeAfterCommission, totalLeadCost, netIncome, avgCommissionPct, avgLeadCostPct };
+  return { totalRevenue, totalRefunded, totalBillsPaid, billsOutstanding, totalCOGS, grossIncome, totalCommission, grossIncomeAfterCommission, totalLeadCost, netIncome, avgCommissionPct, avgLeadCostPct };
 }
 
 export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }: PnLStatementProps) {
@@ -121,14 +131,16 @@ export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }
       .filter(p => p.contractsTotal > 0 || p.totalBillsReceived > 0)
       .sort((a, b) => b.contractsTotal - a.contractsTotal)
       .map(p => {
+        const netRevenue = p.contractsTotal - p.totalRefunded;
         const billsOutstanding = p.totalBillsReceived - p.totalBillsPaid;
-        const grossIncome = p.contractsTotal - p.totalBillsReceived;
+        const grossIncome = netRevenue - p.totalBillsReceived;
         const grossIncomeAfterCommission = grossIncome - p.totalCommission;
         const netIncome = grossIncomeAfterCommission + p.leadCostAmount;
         return {
           project: p,
           lines: buildPnLLines({
             totalRevenue: p.contractsTotal,
+            totalRefunded: p.totalRefunded,
             totalBillsPaid: p.totalBillsPaid,
             billsOutstanding,
             totalCOGS: p.totalBillsReceived,

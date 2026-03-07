@@ -128,10 +128,10 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: true, duplicates: [], message: `Record type '${recordType}' not yet supported` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error finding duplicates:", error);
     return new Response(
-      JSON.stringify({ error: error.message, duplicates: [] }),
+      JSON.stringify({ error: (error as Error).message, duplicates: [] }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

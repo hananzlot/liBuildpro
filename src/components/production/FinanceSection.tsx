@@ -1049,7 +1049,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   };
 
   // Helper to sync a record to QuickBooks after create/update - returns true if synced successfully
-  const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill" | "bill_payment", recordId: string): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
+  const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill" | "bill_payment" | "refund", recordId: string): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
     if (!companyId || !isQBConnectedMain) return { synced: false };
     
     try {

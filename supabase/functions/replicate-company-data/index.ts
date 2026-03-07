@@ -183,8 +183,8 @@ Deno.serve(async (req) => {
       });
       await batchInsert("trades", newTrades);
       log(`  Copied ${newTrades.length} trades`);
-    } catch (e) {
-      log(`  WARN trades: ${e.message}`);
+    } catch (e: unknown) {
+      log(`  WARN trades: ${(e as Error).message}`);
     }
 
     // banks
@@ -216,8 +216,8 @@ Deno.serve(async (req) => {
       });
       await batchInsert("lead_sources", newLeadSources);
       log(`  Copied ${newLeadSources.length} lead_sources`);
-    } catch (e) {
-      log(`  WARN lead_sources: ${e.message}`);
+    } catch (e: unknown) {
+      log(`  WARN lead_sources: ${(e as Error).message}`);
     }
 
     // project_statuses
@@ -229,8 +229,8 @@ Deno.serve(async (req) => {
       });
       await batchInsert("project_statuses", newStatuses);
       log(`  Copied ${newStatuses.length} project_statuses`);
-    } catch (e) {
-      log(`  WARN project_statuses: ${e.message}`);
+    } catch (e: unknown) {
+      log(`  WARN project_statuses: ${(e as Error).message}`);
     }
 
     // project_types
@@ -243,7 +243,7 @@ Deno.serve(async (req) => {
       await batchInsert("project_types", newTypes);
       log(`  Copied ${newTypes.length} project_types`);
     } catch (e) {
-      log(`  WARN project_types: ${e.message}`);
+      log(`  WARN project_types: ${(e as Error).message}`);
     }
 
     // compliance_document_templates
@@ -647,8 +647,8 @@ Deno.serve(async (req) => {
       });
       await batchInsert("scope_submissions", newScopeSubs);
       log(`  Copied ${newScopeSubs.length} scope_submissions`);
-    } catch (e) {
-      log(`  WARN scope_submissions: ${e.message}`);
+    } catch (e: unknown) {
+      log(`  WARN scope_submissions: ${(e as Error).message}`);
     }
 
     log("=== REPLICATION COMPLETE ===");
@@ -661,10 +661,10 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: true, logs }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
-    log(`FATAL ERROR: ${error.message}`);
+  } catch (error: unknown) {
+    log(`FATAL ERROR: ${(error as Error).message}`);
     return new Response(
-      JSON.stringify({ success: false, error: error.message, logs }),
+      JSON.stringify({ success: false, error: (error as Error).message, logs }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

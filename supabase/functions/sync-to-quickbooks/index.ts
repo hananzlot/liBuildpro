@@ -1159,7 +1159,7 @@ Deno.serve(async (req) => {
             PrivateNote: bill.memo || null,
           };
 
-          let syncRes: Response;
+          let syncRes: Response | undefined;
           let syncData: any;
 
           if (existingQbId) {
