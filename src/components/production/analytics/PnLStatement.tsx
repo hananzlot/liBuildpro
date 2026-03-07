@@ -146,26 +146,31 @@ export function PnLStatement({ projects, allProjects, viewMode, onProjectClick }
       .filter(p => p.contractsTotal > 0 || p.totalBillsReceived > 0)
       .sort((a, b) => b.contractsTotal - a.contractsTotal)
       .map(p => {
-        const netRevenue = p.contractsTotal - p.totalRefunded;
+        const isCancelled = p.project_status?.toLowerCase() === "cancelled";
+        const cancelledWriteOff = isCancelled ? Math.max(0, p.contractsTotal - p.totalRefunded) : 0;
+        const netRevenue = p.contractsTotal - p.totalRefunded - cancelledWriteOff;
         const billsOutstanding = p.totalBillsReceived - p.totalBillsPaid;
         const grossIncome = netRevenue - p.totalBillsReceived;
-        const grossIncomeAfterCommission = grossIncome - p.totalCommission;
-        const netIncome = grossIncomeAfterCommission + p.leadCostAmount;
+        const commission = isCancelled ? 0 : p.totalCommission;
+        const grossIncomeAfterCommission = grossIncome - commission;
+        const leadCost = isCancelled ? 0 : p.leadCostAmount;
+        const netIncome = grossIncomeAfterCommission + leadCost;
         return {
           project: p,
           lines: buildPnLLines({
             totalRevenue: p.contractsTotal,
             totalRefunded: p.totalRefunded,
+            cancelledWriteOff,
             totalBillsPaid: p.totalBillsPaid,
             billsOutstanding,
             totalCOGS: p.totalBillsReceived,
             grossIncome,
-            totalCommission: p.totalCommission,
+            totalCommission: commission,
             grossIncomeAfterCommission,
-            totalLeadCost: p.leadCostAmount,
+            totalLeadCost: leadCost,
             netIncome,
-            avgCommissionPct: p.commission_split_pct ?? 50,
-            avgLeadCostPct: p.lead_cost_percent ?? 18,
+            avgCommissionPct: isCancelled ? 0 : (p.commission_split_pct ?? 50),
+            avgLeadCostPct: isCancelled ? 0 : (p.lead_cost_percent ?? 18),
           }),
         };
       });
