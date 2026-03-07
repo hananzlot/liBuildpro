@@ -761,15 +761,16 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                           </TableCell>
                           <TableCell className="tabular-nums whitespace-nowrap">
                             {row.unpaidProgress > 0 ? (
-                              <button
-                                className="text-primary hover:underline font-medium cursor-pointer"
+                              <Badge
+                                variant="secondary"
+                                className="cursor-pointer hover:bg-primary/20 bg-warning/15 text-warning border border-warning/30 font-semibold text-[11px] px-2 py-0.5"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleSingleProjectUnpaidReport(row);
                                 }}
                               >
                                 {formatCurrency(row.unpaidProgress)}
-                              </button>
+                              </Badge>
                             ) : (
                               <span className="text-muted-foreground">{formatCurrency(0)}</span>
                             )}
