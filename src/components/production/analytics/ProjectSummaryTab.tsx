@@ -135,7 +135,7 @@ function projectStatusIntent(status: string): "success" | "primary" | "warning" 
   }
 }
 
-export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
+export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSummaryTabProps) {
   const { companyId } = useCompanyContext();
   const { isAdmin, isSuperAdmin } = useAuth();
   const { openTab } = useAppTabs();
