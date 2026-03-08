@@ -1120,15 +1120,6 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
           placeholder="All Projects"
           icon={<Filter className="h-3.5 w-3.5" />}
         />
-        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showUnpaidOnly}
-            onChange={(e) => setShowUnpaidOnly(e.target.checked)}
-            className="rounded border-border"
-          />
-          Unpaid progress payments only
-        </label>
       </div>
 
       {/* KPI Cards */}
