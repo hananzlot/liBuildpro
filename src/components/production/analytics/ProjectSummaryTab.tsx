@@ -1509,6 +1509,19 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           </ScrollArea>
         </SheetContent>
       </Sheet>
+
+      {/* Import Projects Dialog */}
+      <ProjectImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+      />
+
+      {/* Merge Projects Dialog */}
+      <MergeProjectsDialog
+        open={mergeProjectsDialogOpen}
+        onOpenChange={setMergeProjectsDialogOpen}
+        projects={(allProjects || []) as any}
+      />
     </div>
   );
 }
