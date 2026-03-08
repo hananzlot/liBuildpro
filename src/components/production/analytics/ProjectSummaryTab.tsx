@@ -1,4 +1,5 @@
-import { useMemo, useState, useCallback, Fragment, useEffect, useRef } from "react";
+import { useMemo, useState, useCallback, Fragment, useEffect, useRef, RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -63,6 +64,7 @@ import { cn } from "@/lib/utils";
 
 interface ProjectSummaryTabProps {
   onProjectClick?: (projectId: string, initialTab?: string) => void;
+  headerPortalRef?: RefObject<HTMLDivElement | null>;
 }
 
 type SortKey =
@@ -133,7 +135,7 @@ function projectStatusIntent(status: string): "success" | "primary" | "warning" 
   }
 }
 
-export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
+export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSummaryTabProps) {
   const { companyId } = useCompanyContext();
   const { isAdmin, isSuperAdmin } = useAuth();
   const { openTab } = useAppTabs();
@@ -1029,8 +1031,9 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Action buttons — aligned with page title */}
-      <div className="flex items-center justify-end gap-2 -mt-2">
+      {/* Action buttons — portaled into page header */}
+      {headerPortalRef?.current && createPortal(
+        <div className="flex items-center gap-2">
           <WarningsDialog
             warningCounts={warningCounts}
             bookkeepingWarningCounts={bookkeepingWarningCounts}
@@ -1079,7 +1082,9 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-      </div>
+        </div>,
+        headerPortalRef.current
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
