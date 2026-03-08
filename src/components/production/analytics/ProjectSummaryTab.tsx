@@ -1140,12 +1140,12 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
           icon={Wallet}
         />
         <MetricCard
-          title="Outstanding AR"
+          title="Outstanding A/R"
           value={formatCompactCurrency(totals.outstandingAR)}
           icon={AlertCircle}
         />
         <MetricCard
-          title="Outstanding AP"
+          title="Outstanding A/P"
           value={formatCompactCurrency(totals.outstandingAP)}
           icon={Receipt}
         />
