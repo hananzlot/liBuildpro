@@ -470,7 +470,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
 
         {canViewProjectSummary && (
           <TabsContent value="project_summary" className="mt-6">
-            <ProjectSummaryTab onProjectClick={onProjectClick} />
+            <ProjectSummaryTab onProjectClick={onProjectClick} headerPortalRef={filtersContainerRef} />
           </TabsContent>
         )}
       </Tabs>
