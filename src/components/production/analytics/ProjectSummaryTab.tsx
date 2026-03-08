@@ -1164,7 +1164,7 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
                    <SortableHeader label="Customer" sortKeyName="customer" />
                    <SortableHeader label="Project Name" sortKeyName="projectName" />
                    <SortableHeader label="Contract" sortKeyName="initialContract" />
-                   <SortableHeader label="CO" sortKeyName="changeOrderTotal" />
+                   <SortableHeader label="Change Order" sortKeyName="changeOrderTotal" />
                   <SortableHeader label="Invoiced" sortKeyName="totalInvoiced" />
                   <SortableHeader label="Collected" sortKeyName="totalCollected" />
                   <SortableHeader label="A/R" sortKeyName="outstandingAR" />
