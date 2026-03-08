@@ -106,7 +106,7 @@ export function AppTabBar() {
               className={cn(
                 "group flex items-center gap-1 px-3 py-1 rounded-md text-xs font-medium cursor-grab transition-all max-w-[200px] relative",
                 activeTabId === tab.id
-                  ? "bg-background text-foreground shadow-xs after:absolute after:bottom-0 after:left-2 after:right-2 after:h-[2px] after:bg-primary after:rounded-full"
+                  ? "bg-primary/10 text-primary border border-primary/30 shadow-sm"
                   : "text-muted-foreground hover:bg-background/50 hover:text-foreground",
                 draggedTabId === tab.id && "opacity-50 cursor-grabbing",
                 dragOverTabId === tab.id && "ring-2 ring-primary ring-offset-1"
