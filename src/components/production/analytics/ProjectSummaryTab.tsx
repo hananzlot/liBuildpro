@@ -128,6 +128,7 @@ function projectStatusIntent(status: string): "success" | "primary" | "warning" 
 export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const { companyId } = useCompanyContext();
   const { isAdmin, isSuperAdmin } = useAuth();
+  const { openTab } = useAppTabs();
   const queryClient = useQueryClient();
   const [sortKey, setSortKey] = useState<SortKey>("project_number");
   const [sortAsc, setSortAsc] = useState(true);
