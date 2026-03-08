@@ -3758,7 +3758,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">Contracts & Agreements</CardTitle>
-                <Button size="sm" onClick={() => { setEditingAgreement(null); setAgreementDialogOpen(true); }}>
+                <Button size="sm" variant="outline" className="border-primary text-primary bg-background shadow-sm hover:bg-primary/5" onClick={() => { setEditingAgreement(null); setAgreementDialogOpen(true); }}>
                   <Plus className="h-3 w-3 mr-1" />
                   {agreements.some(a => a.agreement_type === "Contract") ? "Add Change Order / Addendum" : "Add"}
                 </Button>
