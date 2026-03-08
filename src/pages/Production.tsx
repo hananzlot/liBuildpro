@@ -1780,7 +1780,10 @@ export default function Production() {
                     onDateRangeChange={setKpiDateRange}
                   />
                   <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <Card className="p-0">
+                    <Card 
+                      className="p-0 cursor-pointer hover:border-primary/50 transition-colors"
+                      onClick={() => openTab('/analytics/project_summary', 'Projects - Production')}
+                    >
                       <CardHeader className="pb-1 pt-3 px-4">
                         <CardDescription className="text-xs">Total Projects</CardDescription>
                       </CardHeader>
@@ -1788,7 +1791,10 @@ export default function Production() {
                         <p className="text-2xl font-bold">{totalProjects}</p>
                       </CardContent>
                     </Card>
-                    <Card className="p-0">
+                    <Card 
+                      className="p-0 cursor-pointer hover:border-primary/50 transition-colors"
+                      onClick={() => openTab('/analytics/project_summary', 'Projects - Production')}
+                    >
                       <CardHeader className="pb-1 pt-3 px-4">
                         <CardDescription className="text-xs">In Progress</CardDescription>
                       </CardHeader>
@@ -1796,7 +1802,10 @@ export default function Production() {
                         <p className="text-2xl font-bold text-amber-500">{inProgressProjects}</p>
                       </CardContent>
                     </Card>
-                    <Card className="p-0">
+                    <Card 
+                      className="p-0 cursor-pointer hover:border-primary/50 transition-colors"
+                      onClick={() => openTab('/analytics/project_summary', 'Projects - Production')}
+                    >
                       <CardHeader className="pb-1 pt-3 px-4">
                         <CardDescription className="text-xs">Completed</CardDescription>
                       </CardHeader>
