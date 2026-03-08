@@ -55,7 +55,7 @@ const Home = () => {
       title: "Operations",
       description: "Manage projects, analytics, and subcontractors",
       icon: FolderKanban,
-      path: "/production",
+      path: "/analytics/project_summary",
       visible: (isAdmin || isProduction || isSuperAdmin) && canUseFeature('production'),
       color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
     },
