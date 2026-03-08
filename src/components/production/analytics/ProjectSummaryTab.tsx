@@ -1080,7 +1080,6 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
       </div>
 
       {/* Filters */}
