@@ -1019,6 +1019,14 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           Unpaid progress payments only
         </label>
         <div className="ml-auto flex items-center gap-2">
+          <WarningsDialog
+            warningCounts={warningCounts}
+            bookkeepingWarningCounts={bookkeepingWarningCounts}
+            totalWarnings={totalWarnings}
+            totalBookkeepingWarnings={totalBookkeepingWarnings}
+            onOpenWarningSheet={handleOpenWarningSheet}
+            onOpenPendingDeposits={() => setPendingDepositsSheetOpen(true)}
+          />
           <Button variant="outline" size="sm" onClick={() => handlePreview(false)}>
             <Download className="h-3.5 w-3.5 mr-1.5" />
             Summary Report
