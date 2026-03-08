@@ -884,12 +884,13 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                   <SortableHeader label="Paid" sortKeyName="billsPaid" />
                   <SortableHeader label="AP" sortKeyName="outstandingAP" />
                   <SortableHeader label="Net Cash" sortKeyName="netCash" />
+                  {canDelete && <TableHead className="w-10" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={canDelete ? 14 : 13} className="text-center text-muted-foreground py-12">
                       No in-progress projects found
                     </TableCell>
                   </TableRow>
@@ -978,6 +979,21 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                               {formatCurrency(row.netCash)}
                             </span>
                           </TableCell>
+                          {canDelete && (
+                            <TableCell className="w-10">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteProject(row);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                        </Fragment>
                     );
