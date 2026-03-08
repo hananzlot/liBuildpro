@@ -1151,17 +1151,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     aria-selected={activeTab === tab.value}
                     tabIndex={activeTab === tab.value ? 0 : -1}
                     className={cn(
-                      "relative inline-flex items-center whitespace-nowrap px-4 py-1.5 text-xs rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                    "relative inline-flex items-center whitespace-nowrap px-4 py-1.5 text-xs rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                       activeTab === tab.value
-                        ? "bg-background shadow-sm text-foreground font-medium"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                    onClick={() => handleActiveTabChange(tab.value)}
-                  >
-                    <Icon className="h-3 w-3 mr-1" />
-                    {tab.label}
-                    {activeTab === tab.value && (
-                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-0.5 rounded-full bg-primary" />
+                        ? "bg-primary text-primary-foreground font-medium shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-background/60"
                     )}
                   </button>
                 );
