@@ -31,12 +31,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MetricCard } from "./MetricCard";
+import { WarningsDialog } from "../WarningsDialog";
 import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
 import {
   DollarSign,
   FileText,
   Wallet,
   AlertCircle,
+  AlertTriangle,
   Receipt,
   Trash2,
   Loader2,
@@ -44,6 +46,9 @@ import {
   Filter,
   Download,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
