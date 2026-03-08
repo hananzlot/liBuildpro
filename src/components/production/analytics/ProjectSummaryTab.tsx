@@ -1,13 +1,25 @@
 import { useMemo, useState, useCallback, Fragment, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { logAudit } from "@/hooks/useAuditLog";
 import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BadgePill } from "@/components/ui/badge-pill";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -26,11 +38,13 @@ import {
   Wallet,
   AlertCircle,
   Receipt,
-  
+  Trash2,
+  Loader2,
   ArrowUpDown,
   Filter,
   Download,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface ProjectSummaryTabProps {
@@ -106,6 +120,8 @@ function projectStatusIntent(status: string): "success" | "primary" | "warning" 
 
 export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const { companyId } = useCompanyContext();
+  const { isAdmin, isSuperAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [sortKey, setSortKey] = useState<SortKey>("project_number");
   const [sortAsc, setSortAsc] = useState(true);
   
@@ -113,6 +129,115 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
   const [coDrillRow, setCODrillRow] = useState<ProjectSummaryRow | null>(null);
+
+  // Delete project state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<ProjectSummaryRow | null>(null);
+  const [projectHasRecords, setProjectHasRecords] = useState<boolean | null>(null);
+  const [checkingRecords, setCheckingRecords] = useState(false);
+
+  const canDelete = isAdmin || isSuperAdmin;
+
+  const isTestProject = (name: string): boolean => {
+    const lower = name?.toLowerCase() || "";
+    return lower.includes("test") || lower.includes("test project");
+  };
+
+  const checkProjectHasRecords = async (projectId: string): Promise<boolean> => {
+    const tables = [
+      'project_agreements', 'project_bills', 'project_payments',
+      'project_invoices', 'project_payment_phases', 'project_documents',
+      'project_commissions', 'project_notes', 'commission_payments',
+    ];
+    for (const table of tables) {
+      const { count } = await supabase
+        .from(table as any)
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', projectId);
+      if (count && count > 0) return true;
+    }
+    return false;
+  };
+
+  const deleteProjectCascade = async (projectId: string) => {
+    try {
+      const { data: files } = await supabase.storage.from('project-attachments').list(projectId);
+      if (files?.length) await supabase.storage.from('project-attachments').remove(files.map(f => `${projectId}/${f.name}`));
+      const { data: proposalFiles } = await supabase.storage.from('project-attachments').list(`proposal-docs/${projectId}`);
+      if (proposalFiles?.length) await supabase.storage.from('project-attachments').remove(proposalFiles.map(f => `proposal-docs/${projectId}/${f.name}`));
+    } catch (e) { console.error('Storage cleanup error:', e); }
+
+    await supabase.from('estimates').update({ project_id: null }).eq('project_id', projectId);
+    const { data: bills } = await supabase.from('project_bills').select('id').eq('project_id', projectId);
+    if (bills?.length) await supabase.from('bill_payments').delete().in('bill_id', bills.map(b => b.id));
+    const { data: notes } = await supabase.from('project_notes').select('id').eq('project_id', projectId);
+    if (notes?.length) await supabase.from('project_note_comments').delete().in('note_id', notes.map(n => n.id));
+
+    for (const t of ['project_payments','project_invoices','project_payment_phases','project_agreements','project_bills','portal_chat_messages','portal_chat_messages_archived','portal_view_logs','client_comments'] as const) {
+      await supabase.from(t as any).delete().eq('project_id', projectId);
+    }
+
+    const { data: tokens } = await supabase.from('client_portal_tokens').select('id').eq('project_id', projectId);
+    if (tokens?.length) await supabase.from('estimate_signatures').delete().in('portal_token_id', tokens.map(t => t.id));
+
+    for (const t of ['client_portal_tokens','project_notification_log','project_documents','project_commissions','commission_payments','project_notes','project_checklists','project_messages','project_feedback','project_finance'] as const) {
+      await supabase.from(t as any).delete().eq('project_id', projectId);
+    }
+  };
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async ({ projectId, projectNumber, projectName, permanentDelete }: { projectId: string; projectNumber: number; projectName: string; permanentDelete: boolean }) => {
+      if (permanentDelete) {
+        await logAudit({
+          tableName: 'projects', recordId: projectId, action: 'DELETE',
+          oldValues: { project_number: projectNumber, project_name: projectName },
+          description: `Permanently deleted project #${projectNumber} - ${projectName} (and all related records)`,
+        });
+        await deleteProjectCascade(projectId);
+        const { error } = await supabase.from("projects").delete().eq("id", projectId);
+        if (error) throw error;
+      } else {
+        await logAudit({
+          tableName: 'projects', recordId: projectId, action: 'UPDATE',
+          oldValues: { deleted_at: null }, newValues: { deleted_at: new Date().toISOString() },
+          description: `Archived project #${projectNumber} - ${projectName}`,
+        });
+        const { error } = await supabase.from("projects").update({ deleted_at: new Date().toISOString() }).eq("id", projectId);
+        if (error) throw error;
+      }
+    },
+    onSuccess: (_, { permanentDelete }) => {
+      toast.success(permanentDelete ? "Project permanently deleted" : "Project archived");
+      queryClient.invalidateQueries({ queryKey: ["project-summary-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setDeleteDialogOpen(false);
+      setProjectToDelete(null);
+      setProjectHasRecords(null);
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
+  const handleDeleteProject = async (row: ProjectSummaryRow) => {
+    setProjectToDelete(row);
+    setProjectHasRecords(null);
+    setCheckingRecords(true);
+    setDeleteDialogOpen(true);
+
+    if (isTestProject(row.projectName)) {
+      setProjectHasRecords(false);
+      setCheckingRecords(false);
+      return;
+    }
+
+    try {
+      const hasRecords = await checkProjectHasRecords(row.id);
+      setProjectHasRecords(hasRecords);
+    } catch {
+      setProjectHasRecords(true);
+    } finally {
+      setCheckingRecords(false);
+    }
+  };
 
   // Fetch ALL non-deleted projects (filter client-side by status)
   const { data: allProjects, isLoading: projectsLoading } = useQuery({
@@ -759,12 +884,13 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                   <SortableHeader label="Paid" sortKeyName="billsPaid" />
                   <SortableHeader label="AP" sortKeyName="outstandingAP" />
                   <SortableHeader label="Net Cash" sortKeyName="netCash" />
+                  {canDelete && <TableHead className="w-10" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center text-muted-foreground py-12">
+                    <TableCell colSpan={canDelete ? 14 : 13} className="text-center text-muted-foreground py-12">
                       No in-progress projects found
                     </TableCell>
                   </TableRow>
@@ -853,6 +979,21 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                               {formatCurrency(row.netCash)}
                             </span>
                           </TableCell>
+                          {canDelete && (
+                            <TableCell className="w-10">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteProject(row);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                        </Fragment>
                     );
@@ -885,6 +1026,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                       {formatCurrency(totals.netCash)}
                     </span>
                   </TableCell>
+                  {canDelete && <TableCell />}
                 </TableRow>
               </TableFooter>
             </Table>
@@ -961,6 +1103,89 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Project Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        setDeleteDialogOpen(open);
+        if (!open) { setProjectHasRecords(null); setProjectToDelete(null); }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {checkingRecords ? (
+                "Checking project..."
+              ) : projectToDelete && isTestProject(projectToDelete.projectName) ? (
+                `Delete Test Project #${projectToDelete.project_number}?`
+              ) : projectHasRecords === false ? (
+                `Permanently Delete Project #${projectToDelete?.project_number}?`
+              ) : (
+                `Delete Project #${projectToDelete?.project_number} (and all related records)?`
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                {checkingRecords ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Checking if project has any records...</span>
+                  </div>
+                ) : projectToDelete && isTestProject(projectToDelete.projectName) ? (
+                  <>
+                    <p>This is a <strong>test project</strong>. All associated records will be permanently deleted.</p>
+                    <span className="block mt-2 font-medium text-destructive">This action cannot be undone.</span>
+                  </>
+                ) : projectHasRecords === false ? (
+                  <>
+                    <p>This project has <strong>no financial records</strong>.</p>
+                    <p className="mt-2">You can <strong>permanently delete</strong> it or archive it for records.</p>
+                    <span className="block mt-2 font-medium text-destructive">Permanent deletion cannot be undone.</span>
+                  </>
+                ) : (
+                  <>
+                    <p>This project has associated records (agreements, invoices, payments, bills, etc.).</p>
+                    <p className="mt-2"><strong>Deleting will permanently remove the project and all related records.</strong></p>
+                    <span className="block mt-2 font-medium text-destructive">This action cannot be undone.</span>
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            {!checkingRecords && projectToDelete && (
+              <AlertDialogAction
+                onClick={() => deleteProjectMutation.mutate({
+                  projectId: projectToDelete.id,
+                  projectNumber: projectToDelete.project_number,
+                  projectName: projectToDelete.projectName,
+                  permanentDelete: true,
+                })}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteProjectMutation.isPending}
+              >
+                {deleteProjectMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</>
+                ) : "Delete Permanently"}
+              </AlertDialogAction>
+            )}
+            {!checkingRecords && projectToDelete && !isTestProject(projectToDelete.projectName) && (
+              <AlertDialogAction
+                onClick={() => deleteProjectMutation.mutate({
+                  projectId: projectToDelete.id,
+                  projectNumber: projectToDelete.project_number,
+                  projectName: projectToDelete.projectName,
+                  permanentDelete: false,
+                })}
+                disabled={deleteProjectMutation.isPending}
+              >
+                {deleteProjectMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Archiving...</>
+                ) : "Archive Project"}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
