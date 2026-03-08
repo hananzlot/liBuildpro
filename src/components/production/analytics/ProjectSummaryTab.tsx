@@ -45,6 +45,7 @@ import {
   Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface ProjectSummaryTabProps {
@@ -83,6 +84,7 @@ interface ProjectSummaryRow {
   address: string;
   salesperson: string;
   startDate: string;
+  completionDate: string;
   initialContract: number;
   changeOrderTotal: number;
   changeOrders: ChangeOrderDetail[];
@@ -245,7 +247,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, project_number, project_name, customer_first_name, customer_last_name, project_status, project_address, primary_salesperson, install_start_date")
+        .select("id, project_number, project_name, customer_first_name, customer_last_name, project_status, project_address, primary_salesperson, install_start_date, completion_date")
         .eq("company_id", companyId!)
         .is("deleted_at", null);
       if (error) throw error;
@@ -486,6 +488,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
         address: p.project_address || "",
         salesperson: p.primary_salesperson || "",
         startDate: p.install_start_date || "",
+        completionDate: p.completion_date || "",
         initialContract,
         changeOrderTotal,
         changeOrders,
@@ -914,9 +917,28 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                                 </BadgePill>
                               )}
                             </div>
-                            {row.address && (
-                              <div className="text-xs text-muted-foreground truncate max-w-[200px]">{row.address}</div>
-                            )}
+                             {row.address && (
+                               <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">{row.address}</div>
+                             )}
+                             {row.startDate && (
+                               <div className="text-[9px] text-muted-foreground tabular-nums">
+                                 {format(parseISO(row.startDate), "M/d/yy")}
+                                 {row.projectStatus === "Completed" && row.completionDate
+                                   ? ` – ${format(parseISO(row.completionDate), "M/d/yy")}`
+                                   : null}
+                                 {" "}
+                                 <span className="text-primary font-medium">
+                                   {(() => {
+                                     const startDate = parseISO(row.startDate);
+                                     const endDate = row.completionDate
+                                       ? parseISO(row.completionDate)
+                                       : new Date();
+                                     const diffDays = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                                     return `${diffDays}d`;
+                                   })()}
+                                 </span>
+                               </div>
+                             )}
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground truncate max-w-[180px]">
                             {row.projectName || "—"}
