@@ -3770,99 +3770,145 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               ) : agreements.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">No agreements yet</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs text-center">Agreement<br />#</TableHead>
-                      <TableHead className="text-xs">Type</TableHead>
-                      <TableHead className="text-xs">Nickname</TableHead>
-                      <TableHead className="text-xs text-center">Date<br />Signed</TableHead>
-                      <TableHead className="text-xs text-center">Contract<br />Value</TableHead>
-                      <TableHead className="text-xs text-center">Progress Payments<br />Total</TableHead>
-                      <TableHead className="text-xs text-center">Total Collected<br />To Date</TableHead>
-                      <TableHead className="text-xs text-center">Unpaid<br />Balance</TableHead>
-                      <TableHead className="text-xs w-10"></TableHead>
-                      <TableHead className="text-xs w-20"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {[...agreements].sort((a, b) => {
-                      // Contract type first, then by signed date ascending
-                      const aIsContract = a.agreement_type === 'Contract';
-                      const bIsContract = b.agreement_type === 'Contract';
-                      if (aIsContract && !bIsContract) return -1;
-                      if (!aIsContract && bIsContract) return 1;
-                      const dateA = new Date(a.agreement_signed_date || a.created_at).getTime();
-                      const dateB = new Date(b.agreement_signed_date || b.created_at).getTime();
-                      return dateA - dateB;
-                    }).map((agreement) => {
-                      const phasesTotal = paymentPhases
-                        .filter(p => p.agreement_id === agreement.id)
-                        .reduce((sum, p) => sum + (p.amount || 0), 0);
-                      const contractValue = agreement.total_price || 0;
-                      const isBalanced = Math.abs(contractValue - phasesTotal) < 0.05;
-                      const agreementPhaseIds = paymentPhases
-                        .filter(p => p.agreement_id === agreement.id)
-                        .map(p => p.id);
-                      const totalCollected = activePayments
-                        .filter(p => p.payment_phase_id && agreementPhaseIds.includes(p.payment_phase_id) && p.payment_status === "Received")
-                        .reduce((sum, p) => sum + (p.payment_amount || 0), 0);
-                      
-                      return (
-                      <TableRow 
-                        key={agreement.id} 
-                        className={`cursor-pointer hover:bg-muted/50 ${!isBalanced ? 'bg-red-50 dark:bg-red-950/20' : ''}`}
-                        onClick={() => {
-                          setSelectedAgreementFilter(agreement.id);
-                          setActiveSubTab("phases");
-                        }}
-                      >
-                        <TableCell className="text-xs text-center font-medium text-primary underline">{agreement.agreement_number || "-"}</TableCell>
-                        <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
-                        <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
-                          <InlineNicknameEdit
-                            value={agreement.nickname || ""}
-                            agreementId={agreement.id}
-                            companyId={companyId}
-                          />
-                        </TableCell>
-                        <TableCell className="text-xs text-center">{formatDate(agreement.agreement_signed_date)}</TableCell>
-                        <TableCell className="text-xs text-center">{formatCurrencyWithDecimals(agreement.total_price)}</TableCell>
-                        <TableCell className={`text-xs text-center ${isBalanced ? 'text-emerald-600' : phasesTotal > contractValue ? 'text-red-600' : 'text-amber-600'}`}>
-                          {formatCurrencyWithDecimals(phasesTotal)}
-                        </TableCell>
-                        <TableCell className="text-xs text-center font-medium">
-                          {formatCurrencyWithDecimals(totalCollected)}
-                        </TableCell>
-                        <TableCell className={`text-xs text-center font-medium ${(contractValue - totalCollected) > 0 ? 'text-amber-600' : ''}`}>
-                          {formatCurrencyWithDecimals(contractValue - totalCollected)}
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          {agreement.attachment_url && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => {
-                                setSelectedAttachment({ url: agreement.attachment_url!, name: agreement.agreement_number ? `Agreement #${agreement.agreement_number}` : (agreement.agreement_type || "Agreement") });
-                                setPdfViewerOpen(true);
-                              }}
-                            >
-                              <Paperclip className="h-3 w-3" />
-                            </Button>
+                {(() => {
+                  const tolerance = 0.01;
+
+                  const phaseAgg = paymentPhases.reduce(
+                    (acc: { totals: Record<string, number>; ids: Record<string, string[]> }, p: any) => {
+                      const agreementId = p.agreement_id as string | null | undefined;
+                      if (!agreementId) return acc;
+                      acc.totals[agreementId] = (acc.totals[agreementId] || 0) + (p.amount || 0);
+                      (acc.ids[agreementId] ||= []).push(p.id);
+                      return acc;
+                    },
+                    { totals: {}, ids: {} },
+                  );
+
+                  const showProgressPaymentsTotalCol = agreements.some((a) => {
+                    const contractValue = a.total_price || 0;
+                    const phasesTotal = phaseAgg.totals[a.id] || 0;
+                    return Math.abs(contractValue - phasesTotal) > tolerance;
+                  });
+
+                  return (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs text-center">Agreement<br />#</TableHead>
+                          <TableHead className="text-xs">Type</TableHead>
+                          <TableHead className="text-xs">Nickname</TableHead>
+                          <TableHead className="text-xs text-center">Date<br />Signed</TableHead>
+                          <TableHead className="text-xs text-center">Contract<br />Value</TableHead>
+                          {showProgressPaymentsTotalCol && (
+                            <TableHead className="text-xs text-center">Progress Payments<br />Total</TableHead>
                           )}
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => { setEditingAgreement(agreement); setAgreementDialogOpen(true); }}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Edit
+                          <TableHead className="text-xs text-center">Total Collected<br />To Date</TableHead>
+                          <TableHead className="text-xs text-center">Unpaid<br />Balance</TableHead>
+                          <TableHead className="text-xs w-10"></TableHead>
+                          <TableHead className="text-xs w-20"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {[...agreements]
+                          .sort((a, b) => {
+                            // Contract type first, then by signed date ascending
+                            const aIsContract = a.agreement_type === "Contract";
+                            const bIsContract = b.agreement_type === "Contract";
+                            if (aIsContract && !bIsContract) return -1;
+                            if (!aIsContract && bIsContract) return 1;
+                            const dateA = new Date(a.agreement_signed_date || a.created_at).getTime();
+                            const dateB = new Date(b.agreement_signed_date || b.created_at).getTime();
+                            return dateA - dateB;
+                          })
+                          .map((agreement) => {
+                            const phasesTotal = phaseAgg.totals[agreement.id] || 0;
+                            const contractValue = agreement.total_price || 0;
+                            const isBalanced = Math.abs(contractValue - phasesTotal) <= tolerance;
+                            const agreementPhaseIds = phaseAgg.ids[agreement.id] || [];
+                            const totalCollected = activePayments
+                              .filter(
+                                (p) =>
+                                  p.payment_phase_id &&
+                                  agreementPhaseIds.includes(p.payment_phase_id) &&
+                                  p.payment_status === "Received",
+                              )
+                              .reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+
+                            return (
+                              <TableRow
+                                key={agreement.id}
+                                className={cn(
+                                  "cursor-pointer hover:bg-muted/50",
+                                  !isBalanced && showProgressPaymentsTotalCol && "bg-destructive/10 dark:bg-destructive/15",
+                                )}
+                                onClick={() => {
+                                  setSelectedAgreementFilter(agreement.id);
+                                  setActiveSubTab("phases");
+                                }}
+                              >
+                                <TableCell className="text-xs text-center font-medium text-primary underline">
+                                  {agreement.agreement_number || "-"}
+                                </TableCell>
+                                <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
+                                <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
+                                  <InlineNicknameEdit value={agreement.nickname || ""} agreementId={agreement.id} companyId={companyId} />
+                                </TableCell>
+                                <TableCell className="text-xs text-center">{formatDate(agreement.agreement_signed_date)}</TableCell>
+                                <TableCell className="text-xs text-center">{formatCurrencyWithDecimals(agreement.total_price)}</TableCell>
+
+                                {showProgressPaymentsTotalCol && (
+                                  <TableCell
+                                    className={cn(
+                                      "text-xs text-center",
+                                      isBalanced
+                                        ? "text-success"
+                                        : phasesTotal > contractValue
+                                          ? "text-destructive"
+                                          : "text-warning",
+                                    )}
+                                  >
+                                    <span className="inline-flex items-center justify-center gap-2">
+                                      <span className="font-medium">{formatCurrencyWithDecimals(phasesTotal)}</span>
+                                      {!isBalanced && (
+                                        <Badge
+                                          variant="outline"
+                                          className="gap-1 text-[10px] bg-warning/10 text-warning border-warning/30"
+                                        >
+                                          <AlertCircle className="h-3 w-3" />
+                                          Mismatch
+                                        </Badge>
+                                      )}
+                                    </span>
+                                  </TableCell>
+                                )}
+
+                                <TableCell className="text-xs text-center font-medium">{formatCurrencyWithDecimals(totalCollected)}</TableCell>
+                                <TableCell
+                                  className={`text-xs text-center font-medium ${(contractValue - totalCollected) > 0 ? "text-amber-600" : ""}`}
+                                >
+                                  {formatCurrencyWithDecimals(contractValue - totalCollected)}
+                                </TableCell>
+                                <TableCell onClick={(e) => e.stopPropagation()}>
+                                  {agreement.attachment_url && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => {
+                                        setSelectedAttachment({
+                                          url: agreement.attachment_url!,
+                                          name: agreement.agreement_number
+                                            ? `Agreement #${agreement.agreement_number}`
+                                            : agreement.agreement_type || "Agreement",
+                                        });
+                                        setPdfViewerOpen(true);
+                                      }}
+                                    >
+                                      <Paperclip className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </TableCell>
+
                               </DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("agreement", agreement.id)}>
                                 <Trash2 className="h-4 w-4 mr-2" />
