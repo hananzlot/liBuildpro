@@ -1103,6 +1103,89 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Project Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        setDeleteDialogOpen(open);
+        if (!open) { setProjectHasRecords(null); setProjectToDelete(null); }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {checkingRecords ? (
+                "Checking project..."
+              ) : projectToDelete && isTestProject(projectToDelete.projectName) ? (
+                `Delete Test Project #${projectToDelete.project_number}?`
+              ) : projectHasRecords === false ? (
+                `Permanently Delete Project #${projectToDelete?.project_number}?`
+              ) : (
+                `Delete Project #${projectToDelete?.project_number} (and all related records)?`
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                {checkingRecords ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Checking if project has any records...</span>
+                  </div>
+                ) : projectToDelete && isTestProject(projectToDelete.projectName) ? (
+                  <>
+                    <p>This is a <strong>test project</strong>. All associated records will be permanently deleted.</p>
+                    <span className="block mt-2 font-medium text-destructive">This action cannot be undone.</span>
+                  </>
+                ) : projectHasRecords === false ? (
+                  <>
+                    <p>This project has <strong>no financial records</strong>.</p>
+                    <p className="mt-2">You can <strong>permanently delete</strong> it or archive it for records.</p>
+                    <span className="block mt-2 font-medium text-destructive">Permanent deletion cannot be undone.</span>
+                  </>
+                ) : (
+                  <>
+                    <p>This project has associated records (agreements, invoices, payments, bills, etc.).</p>
+                    <p className="mt-2"><strong>Deleting will permanently remove the project and all related records.</strong></p>
+                    <span className="block mt-2 font-medium text-destructive">This action cannot be undone.</span>
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            {!checkingRecords && projectToDelete && (
+              <AlertDialogAction
+                onClick={() => deleteProjectMutation.mutate({
+                  projectId: projectToDelete.id,
+                  projectNumber: projectToDelete.project_number,
+                  projectName: projectToDelete.projectName,
+                  permanentDelete: true,
+                })}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteProjectMutation.isPending}
+              >
+                {deleteProjectMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</>
+                ) : "Delete Permanently"}
+              </AlertDialogAction>
+            )}
+            {!checkingRecords && projectToDelete && !isTestProject(projectToDelete.projectName) && (
+              <AlertDialogAction
+                onClick={() => deleteProjectMutation.mutate({
+                  projectId: projectToDelete.id,
+                  projectNumber: projectToDelete.project_number,
+                  projectName: projectToDelete.projectName,
+                  permanentDelete: false,
+                })}
+                disabled={deleteProjectMutation.isPending}
+              >
+                {deleteProjectMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Archiving...</>
+                ) : "Archive Project"}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
