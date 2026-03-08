@@ -1031,7 +1031,6 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     <div className="space-y-6">
       {/* Action buttons — aligned with page title */}
       <div className="flex items-center justify-end gap-2 -mt-2">
-        <div className="flex items-center gap-2">
           <WarningsDialog
             warningCounts={warningCounts}
             bookkeepingWarningCounts={bookkeepingWarningCounts}
