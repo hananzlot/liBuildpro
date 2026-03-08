@@ -1029,10 +1029,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header row: title + action buttons */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-tight">Projects - Production</h2>
-        <div className="flex items-center gap-2">
+      {/* Action buttons — aligned with page title */}
+      <div className="flex items-center justify-end gap-2 -mt-2">
           <WarningsDialog
             warningCounts={warningCounts}
             bookkeepingWarningCounts={bookkeepingWarningCounts}
@@ -1081,7 +1079,6 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
       </div>
 
       {/* Filters */}
