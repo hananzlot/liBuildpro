@@ -1071,6 +1071,38 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
             <Download className="h-3.5 w-3.5 mr-1.5" />
             Unpaid Progress Payments Report
           </Button>
+          <Button size="sm" onClick={() => openTab('/project/new', 'Project-New')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Project
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {isAdmin && (
+                <DropdownMenuItem
+                  onClick={() => createTestProjectMutation.mutate()}
+                  disabled={createTestProjectMutation.isPending}
+                >
+                  <FlaskConical className="h-4 w-4 mr-2" />
+                  Add Test Project
+                </DropdownMenuItem>
+              )}
+              {isAdmin && (
+                <DropdownMenuItem onClick={() => setMergeProjectsDialogOpen(true)}>
+                  <Merge className="h-4 w-4 mr-2" />
+                  Merge Projects
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => setImportDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
