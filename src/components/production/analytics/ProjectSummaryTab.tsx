@@ -1031,8 +1031,9 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
 
   return (
     <div className="space-y-6">
-      {/* Action buttons — aligned with page title */}
-      <div className="flex items-center justify-end gap-2 -mt-2">
+      {/* Action buttons — portaled into page header */}
+      {headerPortalRef?.current && createPortal(
+        <div className="flex items-center gap-2">
           <WarningsDialog
             warningCounts={warningCounts}
             bookkeepingWarningCounts={bookkeepingWarningCounts}
@@ -1081,7 +1082,9 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-      </div>
+        </div>,
+        headerPortalRef.current
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
