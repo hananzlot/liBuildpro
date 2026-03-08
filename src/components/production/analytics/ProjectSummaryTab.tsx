@@ -1408,6 +1408,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
             )}
           </AlertDialogFooter>
         </AlertDialogContent>
+      </AlertDialog>
 
       {/* Warning Detail Sheet */}
       <Sheet open={warningSheetOpen} onOpenChange={setWarningSheetOpen}>
