@@ -1408,7 +1408,38 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
             )}
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+
+      {/* Warning Detail Sheet */}
+      <Sheet open={warningSheetOpen} onOpenChange={setWarningSheetOpen}>
+        <SheetContent className="w-full sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              {warningSheetType && warningSheetTitle[warningSheetType]}
+            </SheetTitle>
+            <SheetDescription>
+              {warningSheetType && `${getWarningProjects(warningSheetType).length} project(s) with this issue`}
+            </SheetDescription>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(100vh-140px)] mt-4">
+            <div className="space-y-2 pr-4">
+              {warningSheetType && getWarningProjects(warningSheetType).map((project) => (
+                <div
+                  key={project.id}
+                  className="p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                  onClick={() => {
+                    setWarningSheetOpen(false);
+                    onProjectClick?.(project.id, "finance");
+                  }}
+                >
+                  <p className="font-medium">#{project.project_number} - {project.project_address || project.project_name}</p>
+                  <p className="text-sm text-muted-foreground">{project.primary_salesperson || 'No salesperson'}</p>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
