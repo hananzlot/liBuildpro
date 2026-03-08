@@ -152,6 +152,8 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [projectHasRecords, setProjectHasRecords] = useState<boolean | null>(null);
   const [checkingRecords, setCheckingRecords] = useState(false);
 
+  const canDelete = isAdmin || isSuperAdmin;
+
   // Add Project / Test Project / Merge / Import state
   const [mergeProjectsDialogOpen, setMergeProjectsDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
