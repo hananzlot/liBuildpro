@@ -394,6 +394,193 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     enabled: !!companyId && projectIds.length > 0,
   });
 
+  // ──── Warning data (uses ALL projects, not filtered) ────
+  const allProjectIds = useMemo(() => (allProjects || []).map(p => p.id), [allProjects]);
+
+  const EXCLUDED_WARNING_STATUSES = ['Proposal', 'Pre-Estimate', 'Estimate'];
+
+  // Fetch agreements for ALL projects (for warning computation)
+  const { data: allAgreements } = useQuery({
+    queryKey: ["project-summary-all-agreements", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_agreements")
+        .select("id, project_id, total_price, agreement_type")
+        .eq("company_id", companyId!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Fetch phases for ALL projects (for warning computation)
+  const { data: allPhases } = useQuery({
+    queryKey: ["project-summary-all-phases", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_payment_phases")
+        .select("id, project_id, amount, agreement_id")
+        .eq("company_id", companyId!)
+        .not("agreement_id", "is", null);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Checklists for overdue warning
+  const { data: allChecklists = [] } = useQuery({
+    queryKey: ["project-summary-checklists", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_checklists")
+        .select("project_id, due_date, completed")
+        .eq("company_id", companyId!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Payments for pending deposits warning
+  const { data: allPaymentsForWarnings = [] } = useQuery({
+    queryKey: ["project-summary-all-payments-warnings", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_payments")
+        .select("payment_status, is_voided, deposit_verified")
+        .eq("company_id", companyId!)
+        .eq("payment_status", "Received")
+        .is("is_voided", false);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Compute financial warning counts
+  const warningCounts = useMemo(() => {
+    const counts = { missingContract: 0, missingPhases: 0, phaseMismatch: 0, contractMismatch: 0 };
+    if (!allProjects || !allAgreements || !allPhases) return counts;
+
+    const activeProjects = allProjects.filter(p => !EXCLUDED_WARNING_STATUSES.includes(p.project_status || ''));
+    
+    activeProjects.forEach(project => {
+      const projectAgrs = allAgreements.filter(a => a.project_id === project.id);
+      if (projectAgrs.length === 0) { counts.missingContract++; return; }
+
+      let hasMissingPhases = false;
+      let hasPhaseMismatch = false;
+
+      projectAgrs.forEach(agr => {
+        const agrPhases = allPhases.filter(ph => ph.agreement_id === agr.id);
+        if (agrPhases.length === 0) {
+          hasMissingPhases = true;
+        } else {
+          const phasesTotal = agrPhases.reduce((s, p) => s + (p.amount || 0), 0);
+          if (phasesTotal !== (agr.total_price || 0)) hasPhaseMismatch = true;
+        }
+      });
+
+      if (hasMissingPhases) counts.missingPhases++;
+      if (hasPhaseMismatch) counts.phaseMismatch++;
+
+      // Contract type total vs sold_dispatch_value
+      const contractTypeTotal = projectAgrs
+        .filter(a => a.agreement_type === 'Contract')
+        .reduce((s, a) => s + (a.total_price || 0), 0);
+      const soldValue = (project as any).sold_dispatch_value ?? 0;
+      if (soldValue > 0 && contractTypeTotal > 0 && contractTypeTotal !== soldValue) {
+        counts.contractMismatch++;
+      }
+    });
+    return counts;
+  }, [allProjects, allAgreements, allPhases]);
+
+  // Compute bookkeeping warning counts
+  const bookkeepingWarningCounts = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const counts = { missingSalesperson: 0, missingCompletionDate: 0, overdueChecklists: 0, pendingDeposits: 0 };
+    if (!allProjects) return counts;
+
+    const activeProjects = allProjects.filter(p => !EXCLUDED_WARNING_STATUSES.includes(p.project_status || ''));
+    activeProjects.forEach(p => {
+      if (!p.primary_salesperson || p.primary_salesperson.trim() === '') counts.missingSalesperson++;
+      if (p.project_status === 'Completed' && !p.completion_date) counts.missingCompletionDate++;
+    });
+
+    const projectsWithOverdue = new Set<string>();
+    allChecklists.forEach(item => {
+      if (item.due_date && !item.completed) {
+        if (new Date(item.due_date) < today) projectsWithOverdue.add(item.project_id);
+      }
+    });
+    counts.overdueChecklists = projectsWithOverdue.size;
+
+    counts.pendingDeposits = allPaymentsForWarnings.filter(p => 
+      p.deposit_verified === null || p.deposit_verified === false
+    ).length;
+
+    return counts;
+  }, [allProjects, allChecklists, allPaymentsForWarnings]);
+
+  const totalWarnings = warningCounts.missingContract + warningCounts.missingPhases + warningCounts.phaseMismatch + warningCounts.contractMismatch;
+  const totalBookkeepingWarnings = bookkeepingWarningCounts.missingSalesperson + bookkeepingWarningCounts.missingCompletionDate + bookkeepingWarningCounts.overdueChecklists + bookkeepingWarningCounts.pendingDeposits;
+
+  // Warning sheet state
+  const [warningSheetOpen, setWarningSheetOpen] = useState(false);
+  const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | 'overdueChecklists' | null>(null);
+  const [pendingDepositsSheetOpen, setPendingDepositsSheetOpen] = useState(false);
+
+  const warningSheetTitle: Record<string, string> = {
+    missingContract: 'Missing Contract',
+    missingPhases: 'Missing Progress Payments',
+    phaseMismatch: 'Progress Payment Amount Mismatch',
+    contractMismatch: 'Contract ≠ Estimated Sale',
+    missingSalesperson: 'Missing Salesperson',
+    missingCompletionDate: 'Missing Completion Date',
+    overdueChecklists: 'Overdue Checklists',
+  };
+
+  const getWarningProjects = useCallback((type: string) => {
+    if (!allProjects || !allAgreements || !allPhases) return [];
+    const activeProjects = allProjects.filter(p => !EXCLUDED_WARNING_STATUSES.includes(p.project_status || ''));
+
+    if (type === 'overdueChecklists') {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const overdueSet = new Set<string>();
+      allChecklists.forEach(item => {
+        if (item.due_date && !item.completed && new Date(item.due_date) < today) overdueSet.add(item.project_id);
+      });
+      return activeProjects.filter(p => overdueSet.has(p.id));
+    }
+
+    return activeProjects.filter(project => {
+      const projectAgrs = allAgreements.filter(a => a.project_id === project.id);
+      switch (type) {
+        case 'missingContract': return projectAgrs.length === 0;
+        case 'missingPhases': return projectAgrs.some(agr => allPhases.filter(ph => ph.agreement_id === agr.id).length === 0);
+        case 'phaseMismatch': return projectAgrs.some(agr => {
+          const agrPhases = allPhases.filter(ph => ph.agreement_id === agr.id);
+          return agrPhases.length > 0 && agrPhases.reduce((s, p) => s + (p.amount || 0), 0) !== (agr.total_price || 0);
+        });
+        case 'contractMismatch': {
+          const contractTotal = projectAgrs.filter(a => a.agreement_type === 'Contract').reduce((s, a) => s + (a.total_price || 0), 0);
+          const soldValue = (project as any).sold_dispatch_value ?? 0;
+          return soldValue > 0 && contractTotal > 0 && contractTotal !== soldValue;
+        }
+        case 'missingSalesperson': return !project.primary_salesperson || project.primary_salesperson.trim() === '';
+        case 'missingCompletionDate': return project.project_status === 'Completed' && !project.completion_date;
+        default: return false;
+      }
+    });
+  }, [allProjects, allAgreements, allPhases, allChecklists]);
+
+  const handleOpenWarningSheet = (type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | 'overdueChecklists') => {
+    setWarningSheetType(type);
+    setWarningSheetOpen(true);
+  };
+
   const isLoading =
     projectsLoading || agreementsLoading || invoicesLoading || paymentsLoading || billsLoading || phasesLoading || refundsLoading;
 
