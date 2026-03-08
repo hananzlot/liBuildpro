@@ -938,7 +938,7 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
       html += `</tbody></table>`;
     }
     return { html, title, dateStr };
-  }, [sortedRows, rows, totals]);
+  }, [sortedRows, rows, totals, selectedStatuses, selectedProjectIds, showUnpaidOnly, allProjects]);
 
   const handlePreview = useCallback((unpaidOnly: boolean) => {
     const { html, title } = buildReportHtml(unpaidOnly);
