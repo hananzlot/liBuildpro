@@ -1125,7 +1125,8 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <MetricCard
-          title="Total Contract Value"
+          title="Total Contract"
+          subValue="* including Change Orders"
           value={formatCompactCurrency(totals.initialContract + totals.changeOrderTotal)}
           icon={DollarSign}
         />
