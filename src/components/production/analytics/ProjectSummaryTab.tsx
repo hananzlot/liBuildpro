@@ -152,7 +152,33 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [projectHasRecords, setProjectHasRecords] = useState<boolean | null>(null);
   const [checkingRecords, setCheckingRecords] = useState(false);
 
-  const canDelete = isAdmin || isSuperAdmin;
+  // Add Project / Test Project / Merge / Import state
+  const [mergeProjectsDialogOpen, setMergeProjectsDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+  const createTestProjectMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("projects")
+        .insert({
+          project_name: "TEST PROJECT - Delete Me",
+          project_status: "New Job",
+          project_type: "Other",
+          location_id: "pVeFrqvtYWNIPRIi0Fmr",
+          customer_first_name: "Test",
+          customer_last_name: "Customer",
+          project_address: "123 Test Street, Test City, CA 90210",
+          company_id: companyId,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Test project created");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (error: any) => toast.error(`Failed to create test project: ${error.message}`),
+  });
+
 
   const isTestProject = (name: string): boolean => {
     const lower = name?.toLowerCase() || "";
