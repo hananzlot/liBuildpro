@@ -1,4 +1,5 @@
-import { useMemo, useState, useCallback, Fragment, useEffect, useRef } from "react";
+import { useMemo, useState, useCallback, Fragment, useEffect, useRef, RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -63,6 +64,7 @@ import { cn } from "@/lib/utils";
 
 interface ProjectSummaryTabProps {
   onProjectClick?: (projectId: string, initialTab?: string) => void;
+  headerPortalRef?: RefObject<HTMLDivElement | null>;
 }
 
 type SortKey =
