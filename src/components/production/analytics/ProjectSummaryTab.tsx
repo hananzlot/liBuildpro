@@ -45,7 +45,15 @@ import {
   ArrowUpDown,
   Filter,
   Download,
+  Plus,
+  MoreVertical,
+  FlaskConical,
+  Merge,
+  Upload,
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MergeProjectsDialog } from "../MergeProjectsDialog";
+import { ProjectImportDialog } from "../ProjectImportDialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppTabs } from "@/contexts/AppTabsContext";
@@ -145,6 +153,34 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const [checkingRecords, setCheckingRecords] = useState(false);
 
   const canDelete = isAdmin || isSuperAdmin;
+
+  // Add Project / Test Project / Merge / Import state
+  const [mergeProjectsDialogOpen, setMergeProjectsDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+
+  const createTestProjectMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("projects")
+        .insert({
+          project_name: "TEST PROJECT - Delete Me",
+          project_status: "New Job",
+          project_type: "Other",
+          location_id: "pVeFrqvtYWNIPRIi0Fmr",
+          customer_first_name: "Test",
+          customer_last_name: "Customer",
+          project_address: "123 Test Street, Test City, CA 90210",
+          company_id: companyId,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Test project created");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (error: any) => toast.error(`Failed to create test project: ${error.message}`),
+  });
+
 
   const isTestProject = (name: string): boolean => {
     const lower = name?.toLowerCase() || "";
@@ -1035,6 +1071,38 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
             <Download className="h-3.5 w-3.5 mr-1.5" />
             Unpaid Progress Payments Report
           </Button>
+          <Button size="sm" onClick={() => openTab('/project/new', 'Project-New')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Project
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {isAdmin && (
+                <DropdownMenuItem
+                  onClick={() => createTestProjectMutation.mutate()}
+                  disabled={createTestProjectMutation.isPending}
+                >
+                  <FlaskConical className="h-4 w-4 mr-2" />
+                  Add Test Project
+                </DropdownMenuItem>
+              )}
+              {isAdmin && (
+                <DropdownMenuItem onClick={() => setMergeProjectsDialogOpen(true)}>
+                  <Merge className="h-4 w-4 mr-2" />
+                  Merge Projects
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => setImportDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -1441,6 +1509,19 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           </ScrollArea>
         </SheetContent>
       </Sheet>
+
+      {/* Import Projects Dialog */}
+      <ProjectImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+      />
+
+      {/* Merge Projects Dialog */}
+      <MergeProjectsDialog
+        open={mergeProjectsDialogOpen}
+        onOpenChange={setMergeProjectsDialogOpen}
+        projects={(allProjects || []) as any}
+      />
     </div>
   );
 }
