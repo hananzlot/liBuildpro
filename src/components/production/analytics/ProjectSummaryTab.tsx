@@ -1026,6 +1026,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
                       {formatCurrency(totals.netCash)}
                     </span>
                   </TableCell>
+                  {canDelete && <TableCell />}
                 </TableRow>
               </TableFooter>
             </Table>
