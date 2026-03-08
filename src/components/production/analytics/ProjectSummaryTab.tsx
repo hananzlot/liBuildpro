@@ -804,9 +804,27 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
   const buildReportHtml = useCallback((unpaidOnly: boolean) => {
     const title = unpaidOnly ? "Unpaid Progress Payments Report" : "Projects Summary";
     const dateStr = new Date().toLocaleDateString();
+
+    // Build active filters summary
+    const filterParts: string[] = [];
+    if (selectedStatuses.length > 0) {
+      filterParts.push(`<b>Status:</b> ${selectedStatuses.join(', ')}`);
+    }
+    if (selectedProjectIds.length > 0) {
+      const selectedNames = (allProjects || [])
+        .filter(p => selectedProjectIds.includes(p.id))
+        .map(p => `#${p.project_number} ${p.project_name || ''}`.trim());
+      filterParts.push(`<b>Projects:</b> ${selectedNames.join(', ')}`);
+    }
+    if (showUnpaidOnly) {
+      filterParts.push(`<b>Unpaid progress payments only</b>`);
+    }
     
     let html = `<h2 style="margin:0 0 4px;font-size:18px">${title}</h2>`;
-    html += `<p style="margin:0 0 16px;font-size:12px;color:#666">Generated ${dateStr}</p>`;
+    html += `<p style="margin:0 0 ${filterParts.length > 0 ? '6' : '16'}px;font-size:12px;color:#666">Generated ${dateStr}</p>`;
+    if (filterParts.length > 0) {
+      html += `<p style="margin:0 0 16px;font-size:11px;color:#888">Filters: ${filterParts.join(' &nbsp;|&nbsp; ')}</p>`;
+    }
     
     if (unpaidOnly) {
       let grandTotalAmount = 0, grandTotalInvoiced = 0, grandTotalCollected = 0;
