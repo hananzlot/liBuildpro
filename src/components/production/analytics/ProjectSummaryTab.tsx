@@ -45,7 +45,15 @@ import {
   ArrowUpDown,
   Filter,
   Download,
+  Plus,
+  MoreVertical,
+  FlaskConical,
+  Merge,
+  Upload,
 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MergeProjectsDialog } from "../MergeProjectsDialog";
+import { ProjectImportDialog } from "../ProjectImportDialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppTabs } from "@/contexts/AppTabsContext";
