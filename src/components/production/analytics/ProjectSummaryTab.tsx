@@ -31,12 +31,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MetricCard } from "./MetricCard";
+import { WarningsDialog } from "../WarningsDialog";
 import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
 import {
   DollarSign,
   FileText,
   Wallet,
   AlertCircle,
+  AlertTriangle,
   Receipt,
   Trash2,
   Loader2,
@@ -44,6 +46,9 @@ import {
   Filter,
   Download,
 } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAppTabs } from "@/contexts/AppTabsContext";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -123,6 +128,7 @@ function projectStatusIntent(status: string): "success" | "primary" | "warning" 
 export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
   const { companyId } = useCompanyContext();
   const { isAdmin, isSuperAdmin } = useAuth();
+  const { openTab } = useAppTabs();
   const queryClient = useQueryClient();
   const [sortKey, setSortKey] = useState<SortKey>("project_number");
   const [sortAsc, setSortAsc] = useState(true);
@@ -247,7 +253,7 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, project_number, project_name, customer_first_name, customer_last_name, project_status, project_address, primary_salesperson, install_start_date, completion_date")
+        .select("id, project_number, project_name, customer_first_name, customer_last_name, project_status, project_address, primary_salesperson, install_start_date, completion_date, sold_dispatch_value")
         .eq("company_id", companyId!)
         .is("deleted_at", null);
       if (error) throw error;
@@ -387,6 +393,193 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
     },
     enabled: !!companyId && projectIds.length > 0,
   });
+
+  // ──── Warning data (uses ALL projects, not filtered) ────
+  const allProjectIds = useMemo(() => (allProjects || []).map(p => p.id), [allProjects]);
+
+  const EXCLUDED_WARNING_STATUSES = ['Proposal', 'Pre-Estimate', 'Estimate'];
+
+  // Fetch agreements for ALL projects (for warning computation)
+  const { data: allAgreements } = useQuery({
+    queryKey: ["project-summary-all-agreements", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_agreements")
+        .select("id, project_id, total_price, agreement_type")
+        .eq("company_id", companyId!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Fetch phases for ALL projects (for warning computation)
+  const { data: allPhases } = useQuery({
+    queryKey: ["project-summary-all-phases", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_payment_phases")
+        .select("id, project_id, amount, agreement_id")
+        .eq("company_id", companyId!)
+        .not("agreement_id", "is", null);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Checklists for overdue warning
+  const { data: allChecklists = [] } = useQuery({
+    queryKey: ["project-summary-checklists", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_checklists")
+        .select("project_id, due_date, completed")
+        .eq("company_id", companyId!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Payments for pending deposits warning
+  const { data: allPaymentsForWarnings = [] } = useQuery({
+    queryKey: ["project-summary-all-payments-warnings", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_payments")
+        .select("payment_status, is_voided, deposit_verified")
+        .eq("company_id", companyId!)
+        .eq("payment_status", "Received")
+        .is("is_voided", false);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  // Compute financial warning counts
+  const warningCounts = useMemo(() => {
+    const counts = { missingContract: 0, missingPhases: 0, phaseMismatch: 0, contractMismatch: 0 };
+    if (!allProjects || !allAgreements || !allPhases) return counts;
+
+    const activeProjects = allProjects.filter(p => !EXCLUDED_WARNING_STATUSES.includes(p.project_status || ''));
+    
+    activeProjects.forEach(project => {
+      const projectAgrs = allAgreements.filter(a => a.project_id === project.id);
+      if (projectAgrs.length === 0) { counts.missingContract++; return; }
+
+      let hasMissingPhases = false;
+      let hasPhaseMismatch = false;
+
+      projectAgrs.forEach(agr => {
+        const agrPhases = allPhases.filter(ph => ph.agreement_id === agr.id);
+        if (agrPhases.length === 0) {
+          hasMissingPhases = true;
+        } else {
+          const phasesTotal = agrPhases.reduce((s, p) => s + (p.amount || 0), 0);
+          if (phasesTotal !== (agr.total_price || 0)) hasPhaseMismatch = true;
+        }
+      });
+
+      if (hasMissingPhases) counts.missingPhases++;
+      if (hasPhaseMismatch) counts.phaseMismatch++;
+
+      // Contract type total vs sold_dispatch_value
+      const contractTypeTotal = projectAgrs
+        .filter(a => a.agreement_type === 'Contract')
+        .reduce((s, a) => s + (a.total_price || 0), 0);
+      const soldValue = (project as any).sold_dispatch_value ?? 0;
+      if (soldValue > 0 && contractTypeTotal > 0 && contractTypeTotal !== soldValue) {
+        counts.contractMismatch++;
+      }
+    });
+    return counts;
+  }, [allProjects, allAgreements, allPhases]);
+
+  // Compute bookkeeping warning counts
+  const bookkeepingWarningCounts = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const counts = { missingSalesperson: 0, missingCompletionDate: 0, overdueChecklists: 0, pendingDeposits: 0 };
+    if (!allProjects) return counts;
+
+    const activeProjects = allProjects.filter(p => !EXCLUDED_WARNING_STATUSES.includes(p.project_status || ''));
+    activeProjects.forEach(p => {
+      if (!p.primary_salesperson || p.primary_salesperson.trim() === '') counts.missingSalesperson++;
+      if (p.project_status === 'Completed' && !p.completion_date) counts.missingCompletionDate++;
+    });
+
+    const projectsWithOverdue = new Set<string>();
+    allChecklists.forEach(item => {
+      if (item.due_date && !item.completed) {
+        if (new Date(item.due_date) < today) projectsWithOverdue.add(item.project_id);
+      }
+    });
+    counts.overdueChecklists = projectsWithOverdue.size;
+
+    counts.pendingDeposits = allPaymentsForWarnings.filter(p => 
+      p.deposit_verified === null || p.deposit_verified === false
+    ).length;
+
+    return counts;
+  }, [allProjects, allChecklists, allPaymentsForWarnings]);
+
+  const totalWarnings = warningCounts.missingContract + warningCounts.missingPhases + warningCounts.phaseMismatch + warningCounts.contractMismatch;
+  const totalBookkeepingWarnings = bookkeepingWarningCounts.missingSalesperson + bookkeepingWarningCounts.missingCompletionDate + bookkeepingWarningCounts.overdueChecklists + bookkeepingWarningCounts.pendingDeposits;
+
+  // Warning sheet state
+  const [warningSheetOpen, setWarningSheetOpen] = useState(false);
+  const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | 'overdueChecklists' | null>(null);
+  const [pendingDepositsSheetOpen, setPendingDepositsSheetOpen] = useState(false);
+
+  const warningSheetTitle: Record<string, string> = {
+    missingContract: 'Missing Contract',
+    missingPhases: 'Missing Progress Payments',
+    phaseMismatch: 'Progress Payment Amount Mismatch',
+    contractMismatch: 'Contract ≠ Estimated Sale',
+    missingSalesperson: 'Missing Salesperson',
+    missingCompletionDate: 'Missing Completion Date',
+    overdueChecklists: 'Overdue Checklists',
+  };
+
+  const getWarningProjects = useCallback((type: string) => {
+    if (!allProjects || !allAgreements || !allPhases) return [];
+    const activeProjects = allProjects.filter(p => !EXCLUDED_WARNING_STATUSES.includes(p.project_status || ''));
+
+    if (type === 'overdueChecklists') {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const overdueSet = new Set<string>();
+      allChecklists.forEach(item => {
+        if (item.due_date && !item.completed && new Date(item.due_date) < today) overdueSet.add(item.project_id);
+      });
+      return activeProjects.filter(p => overdueSet.has(p.id));
+    }
+
+    return activeProjects.filter(project => {
+      const projectAgrs = allAgreements.filter(a => a.project_id === project.id);
+      switch (type) {
+        case 'missingContract': return projectAgrs.length === 0;
+        case 'missingPhases': return projectAgrs.some(agr => allPhases.filter(ph => ph.agreement_id === agr.id).length === 0);
+        case 'phaseMismatch': return projectAgrs.some(agr => {
+          const agrPhases = allPhases.filter(ph => ph.agreement_id === agr.id);
+          return agrPhases.length > 0 && agrPhases.reduce((s, p) => s + (p.amount || 0), 0) !== (agr.total_price || 0);
+        });
+        case 'contractMismatch': {
+          const contractTotal = projectAgrs.filter(a => a.agreement_type === 'Contract').reduce((s, a) => s + (a.total_price || 0), 0);
+          const soldValue = (project as any).sold_dispatch_value ?? 0;
+          return soldValue > 0 && contractTotal > 0 && contractTotal !== soldValue;
+        }
+        case 'missingSalesperson': return !project.primary_salesperson || project.primary_salesperson.trim() === '';
+        case 'missingCompletionDate': return project.project_status === 'Completed' && !project.completion_date;
+        default: return false;
+      }
+    });
+  }, [allProjects, allAgreements, allPhases, allChecklists]);
+
+  const handleOpenWarningSheet = (type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | 'overdueChecklists') => {
+    setWarningSheetType(type);
+    setWarningSheetOpen(true);
+  };
 
   const isLoading =
     projectsLoading || agreementsLoading || invoicesLoading || paymentsLoading || billsLoading || phasesLoading || refundsLoading;
@@ -826,6 +1019,14 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           Unpaid progress payments only
         </label>
         <div className="ml-auto flex items-center gap-2">
+          <WarningsDialog
+            warningCounts={warningCounts}
+            bookkeepingWarningCounts={bookkeepingWarningCounts}
+            totalWarnings={totalWarnings}
+            totalBookkeepingWarnings={totalBookkeepingWarnings}
+            onOpenWarningSheet={handleOpenWarningSheet}
+            onOpenPendingDeposits={() => setPendingDepositsSheetOpen(true)}
+          />
           <Button variant="outline" size="sm" onClick={() => handlePreview(false)}>
             <Download className="h-3.5 w-3.5 mr-1.5" />
             Summary Report
@@ -1208,6 +1409,38 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Warning Detail Sheet */}
+      <Sheet open={warningSheetOpen} onOpenChange={setWarningSheetOpen}>
+        <SheetContent className="w-full sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              {warningSheetType && warningSheetTitle[warningSheetType]}
+            </SheetTitle>
+            <SheetDescription>
+              {warningSheetType && `${getWarningProjects(warningSheetType).length} project(s) with this issue`}
+            </SheetDescription>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(100vh-140px)] mt-4">
+            <div className="space-y-2 pr-4">
+              {warningSheetType && getWarningProjects(warningSheetType).map((project) => (
+                <div
+                  key={project.id}
+                  className="p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                  onClick={() => {
+                    setWarningSheetOpen(false);
+                    onProjectClick?.(project.id, "finance");
+                  }}
+                >
+                  <p className="font-medium">#{project.project_number} - {project.project_address || project.project_name}</p>
+                  <p className="text-sm text-muted-foreground">{project.primary_salesperson || 'No salesperson'}</p>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
