@@ -1029,32 +1029,10 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Status Filter */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <MultiSelectFilter
-          options={statusOptions}
-          selected={selectedStatuses}
-          onChange={setSelectedStatuses}
-          placeholder="All Statuses"
-          icon={<Filter className="h-3.5 w-3.5" />}
-        />
-        <MultiSelectFilter
-          options={projectFilterOptions}
-          selected={selectedProjectIds}
-          onChange={setSelectedProjectIds}
-          placeholder="All Projects"
-          icon={<Filter className="h-3.5 w-3.5" />}
-        />
-        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showUnpaidOnly}
-            onChange={(e) => setShowUnpaidOnly(e.target.checked)}
-            className="rounded border-border"
-          />
-          Unpaid progress payments only
-        </label>
-        <div className="ml-auto flex items-center gap-2">
+      {/* Header row: title + action buttons */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold tracking-tight">Projects - Production</h2>
+        <div className="flex items-center gap-2">
           <WarningsDialog
             warningCounts={warningCounts}
             bookkeepingWarningCounts={bookkeepingWarningCounts}
@@ -1104,6 +1082,33 @@ export function ProjectSummaryTab({ onProjectClick }: ProjectSummaryTabProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <MultiSelectFilter
+          options={statusOptions}
+          selected={selectedStatuses}
+          onChange={setSelectedStatuses}
+          placeholder="All Statuses"
+          icon={<Filter className="h-3.5 w-3.5" />}
+        />
+        <MultiSelectFilter
+          options={projectFilterOptions}
+          selected={selectedProjectIds}
+          onChange={setSelectedProjectIds}
+          placeholder="All Projects"
+          icon={<Filter className="h-3.5 w-3.5" />}
+        />
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showUnpaidOnly}
+            onChange={(e) => setShowUnpaidOnly(e.target.checked)}
+            className="rounded border-border"
+          />
+          Unpaid progress payments only
+        </label>
       </div>
 
       {/* KPI Cards */}
