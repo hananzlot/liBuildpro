@@ -1140,12 +1140,12 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
           icon={Wallet}
         />
         <MetricCard
-          title="Outstanding AR"
+          title="Outstanding A/R"
           value={formatCompactCurrency(totals.outstandingAR)}
           icon={AlertCircle}
         />
         <MetricCard
-          title="Outstanding AP"
+          title="Outstanding A/P"
           value={formatCompactCurrency(totals.outstandingAP)}
           icon={Receipt}
         />
@@ -1166,11 +1166,11 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
                    <SortableHeader label="CO" sortKeyName="changeOrderTotal" />
                   <SortableHeader label="Invoiced" sortKeyName="totalInvoiced" />
                   <SortableHeader label="Collected" sortKeyName="totalCollected" />
-                  <SortableHeader label="AR" sortKeyName="outstandingAR" />
+                  <SortableHeader label="A/R" sortKeyName="outstandingAR" />
                   <SortableHeader label="Unpaid PP" sortKeyName="unpaidProgress" />
                   <SortableHeader label="Bills" sortKeyName="totalBills" />
                   <SortableHeader label="Paid" sortKeyName="billsPaid" />
-                  <SortableHeader label="AP" sortKeyName="outstandingAP" />
+                  <SortableHeader label="A/P" sortKeyName="outstandingAP" />
                   <SortableHeader label="Net Cash" sortKeyName="netCash" />
                   {canDelete && <TableHead className="w-10" />}
                 </TableRow>
