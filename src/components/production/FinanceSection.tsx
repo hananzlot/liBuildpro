@@ -2992,7 +2992,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                             <TableHead className="text-xs text-center w-[12%]">Date</TableHead>
                             <TableHead className="text-xs text-center w-[10%]">Invoice #</TableHead>
                             <TableHead className="text-xs text-left w-[18%]">Contract #<br />/ Nickname</TableHead>
-                            <TableHead className="text-xs text-center w-[18%]">Progress<br />Payment</TableHead>
+                            <TableHead className="text-xs text-left w-[18%]">Progress<br />Payment</TableHead>
                             <TableHead className="text-xs text-center w-[12%]">Amount</TableHead>
                             <TableHead className="text-xs text-center w-[12%]">Balance<br />Due</TableHead>
                             {isQBConnectedMain && <TableHead className="text-xs text-center w-[10%]">QB</TableHead>}
