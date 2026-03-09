@@ -471,10 +471,61 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
         .update({ auto_sync_to_quickbooks: enabled })
         .eq("id", project.id);
       if (error) throw error;
+
+      // If re-enabling auto-sync, replay any queued_while_paused entries
+      if (enabled) {
+        const { data: queuedEntries } = await supabase
+          .from("quickbooks_sync_log")
+          .select("id, record_type, quickbooks_id, record_id")
+          .eq("company_id", project.company_id)
+          .eq("sync_status", "queued_while_paused");
+
+        if (queuedEntries && queuedEntries.length > 0) {
+          // Filter to entries that belong to this project
+          const projectRecordIds = new Set<string>();
+
+          // Get all record IDs for this project across entity types
+          const [invoices, payments, bills] = await Promise.all([
+            supabase.from("project_invoices").select("id").eq("project_id", project.id),
+            supabase.from("project_payments").select("id").eq("project_id", project.id),
+            supabase.from("project_bills").select("id").eq("project_id", project.id),
+          ]);
+
+          (invoices.data || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
+          (payments.data || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
+          (bills.data || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
+
+          // Also get bill_payment record IDs via bills
+          if (bills.data && bills.data.length > 0) {
+            const billIds = bills.data.map((b: { id: string }) => b.id);
+            const { data: billPayments } = await supabase
+              .from("bill_payments")
+              .select("id")
+              .in("bill_id", billIds);
+            (billPayments || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
+          }
+
+          const relevantEntries = queuedEntries.filter(
+            (e: { record_id: string | null }) => e.record_id && projectRecordIds.has(e.record_id)
+          );
+
+          if (relevantEntries.length > 0) {
+            // Mark them as pending_refresh so the next sync picks them up
+            const entryIds = relevantEntries.map((e: { id: string }) => e.id);
+            await supabase
+              .from("quickbooks_sync_log")
+              .update({
+                sync_status: "pending_refresh",
+                sync_error: "Auto-sync re-enabled — queued change now pending refresh",
+              })
+              .in("id", entryIds);
+          }
+        }
+      }
     },
     onSuccess: (_, enabled) => {
       queryClient.invalidateQueries({ queryKey: ["project-detail", project?.id] });
-      toast.success(enabled ? "Auto-sync enabled" : "Auto-sync disabled");
+      toast.success(enabled ? "Auto-sync enabled — queued changes will be refreshed" : "Auto-sync disabled");
     },
     onError: () => {
       toast.error("Failed to update auto-sync setting");
