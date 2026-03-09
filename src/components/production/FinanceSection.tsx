@@ -4188,7 +4188,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                               variant="outline" 
                                               className={isFullyInvoiced ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground"}
                                             >
-                                              {isFullyInvoiced ? "Invoiced" : invoiceStatus.totalInvoiced > 0 ? `Invoiced: ${formatCurrency(invoiceStatus.totalInvoiced)}` : "Not Invoiced"}
+                                              {isFullyInvoiced ? "Invoiced" : invoiceStatus.totalInvoiced > 0 ? `Invoiced: ${formatCurrency(invoiceStatus.totalInvoiced)}` : "Not Sent to Customer Yet"}
                                             </Badge>
                                             {(isFullyPaid || paymentStatus.totalReceived > 0 || invoiceStatus.totalInvoiced > 0) && (
                                             <Badge 
