@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, ZoomIn, ZoomOut, RotateCw, X } from "lucide-react";
-import { downloadOrOpenBlob } from "@/utils/downloadBlob";
+import { downloadOrOpenBlob, openFileInNewTab } from "@/utils/downloadBlob";
 
 interface PdfViewerDialogProps {
   open: boolean;

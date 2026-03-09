@@ -123,6 +123,9 @@ export function ComplianceDocViewerDialog({ open, onOpenChange, doc }: Complianc
                   <RotateCw className="h-3 w-3" />
                 </Button>
               </div>
+              <Button variant="outline" size="sm" onClick={() => openFileInNewTab(pdfUrl)}>
+                <ExternalLink className="h-4 w-4 mr-1" /> Open
+              </Button>
               <Button variant="outline" size="sm" onClick={() => downloadOrOpenBlob(pdfUrl, doc.document_name || "document.pdf")}>
                 <ExternalLink className="h-4 w-4 mr-1" /> Download
               </Button>

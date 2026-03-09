@@ -128,6 +128,10 @@ export function PortalPdfViewerDialog({ open, onOpenChange, fileUrl, fileName }:
                   <RotateCw className="h-3 w-3" />
                 </Button>
               </div>
+              <Button variant="outline" size="sm" onClick={() => openFileInNewTab(fileUrl)}>
+                <ExternalLink className="h-4 w-4 mr-1" />
+                Open
+              </Button>
               <Button variant="outline" size="sm" onClick={() => downloadOrOpenBlob(fileUrl, fileName || "document.pdf")}>
                 <ExternalLink className="h-4 w-4 mr-1" />
                 Download
