@@ -156,6 +156,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const [leadSourceSearch, setLeadSourceSearch] = useState("");
   const [portalLinkCopied, setPortalLinkCopied] = useState(false);
   const [headerPortalLink, setHeaderPortalLink] = useState<string | null>(null);
+  const [headerPortalLongLink, setHeaderPortalLongLink] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [isFinancePdfPreviewOpen, setIsFinancePdfPreviewOpen] = useState(false);
@@ -410,9 +411,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
     async function generateHeaderPortalLink() {
       if (!headerPortalToken?.token || !appBaseUrl) {
         setHeaderPortalLink(null);
+        setHeaderPortalLongLink(null);
         return;
       }
       const longLink = `${appBaseUrl}/portal?token=${headerPortalToken.token}`;
+      setHeaderPortalLongLink(longLink);
       if (isShortLinksEnabled) {
         const shortLink = await createPortalShortLink(longLink, project?.project_name || "Customer");
         setHeaderPortalLink(shortLink);
@@ -1110,7 +1113,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 <>
                   <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
                   <a 
-                    href={headerPortalLink} 
+                    href={headerPortalLongLink || headerPortalLink} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-xs text-primary hover:underline truncate max-w-[250px]"
@@ -1134,7 +1137,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
-                    onClick={() => window.open(headerPortalLink, "_blank")}
+                    onClick={() => window.open(headerPortalLongLink || headerPortalLink, "_blank")}
                   >
                     <ExternalLink className="h-3 w-3" />
                   </Button>
