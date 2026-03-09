@@ -7233,10 +7233,12 @@ function PhaseDialog({
   // Check remaining balance for each agreement
   const getAgreementRemaining = (agreement: typeof agreements[0]) => {
     const contractTotal = agreement.total_price || 0;
-    const phasesTotal = paymentPhases
+    const otherPhasesTotal = paymentPhases
       .filter(p => p.agreement_id === agreement.id && p.id !== phase?.id)
       .reduce((sum, p) => sum + (p.amount || 0), 0);
-    return contractTotal - phasesTotal;
+    // Subtract the current form amount so remaining reflects what's left after this edit
+    const currentAmount = agreement.id === formData.agreement_id ? (parseFloat(formData.amount) || 0) : 0;
+    return contractTotal - otherPhasesTotal - currentAmount;
   };
 
   const isAgreementFullyAllocated = (agreement: typeof agreements[0]) => {
