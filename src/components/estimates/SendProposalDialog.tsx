@@ -680,13 +680,22 @@ export function SendProposalDialog({
           }
         }
 
-        // Update project status to "Proposal" if linked
+        // Update project status to "Proposal" only if still in early stage
+        // (Don't regress status for change orders on projects already in production)
         if (estimateData?.project_id) {
-          await supabase
+          const { data: proj } = await supabase
             .from('projects')
-            .update({ project_status: 'Proposal' })
-            .eq('id', estimateData.project_id);
-
+            .select('project_status')
+            .eq('id', estimateData.project_id)
+            .single();
+          
+          const earlyStatuses = ['pre-estimate', 'estimate'];
+          if (proj && earlyStatuses.includes((proj.project_status || '').toLowerCase())) {
+            await supabase
+              .from('projects')
+              .update({ project_status: 'Proposal' })
+              .eq('id', estimateData.project_id);
+          }
         }
       }
     },
