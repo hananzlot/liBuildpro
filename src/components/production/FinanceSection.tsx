@@ -8970,7 +8970,7 @@ function CommissionTab({
       // Sync to QuickBooks if connected
       let qbSynced = false;
       let qbMessage: string | undefined;
-      if (isQBConnected && savedRecordId) {
+      if (isQBSyncEnabled && savedRecordId) {
         const qbResult = await syncCommissionToQuickBooks(savedRecordId);
         qbSynced = qbResult.synced;
         qbMessage = qbResult.message;
