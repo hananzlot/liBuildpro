@@ -91,7 +91,15 @@ export function PdfViewerDialog({ open, onOpenChange, fileUrl, fileName, notes }
                 onClick={handleOpenInNewTab}
               >
                 <ExternalLink className="h-4 w-4 mr-1" />
-                Open in New Tab
+                Open
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+              >
+                <ExternalLink className="h-4 w-4 mr-1" />
+                Download
               </Button>
               <Button
                 variant="ghost"
