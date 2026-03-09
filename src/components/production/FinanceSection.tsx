@@ -5352,26 +5352,11 @@ function InvoiceDialog({
     
     if (invoice) {
       let agreementId = invoice.agreement_id || "";
-      let phaseId = invoice.payment_phase_id || "";
-      
-      // Try to resolve agreement from phase if not set on invoice
-      if (!agreementId && phaseId) {
-        const phase = paymentPhases.find(p => p.id === phaseId);
+      if (!agreementId && invoice.payment_phase_id) {
+        const phase = paymentPhases.find(p => p.id === invoice.payment_phase_id);
         if (phase) agreementId = phase.agreement_id || "";
       }
-      
-      // Auto-detect phase if not set on invoice but agreement is known
-      if (!phaseId && agreementId) {
-        const agreementPhases = paymentPhases.filter(p => p.agreement_id === agreementId);
-        // Try to match by exact amount
-        const matchingPhase = agreementPhases.find(p => Math.abs((p.amount || 0) - (invoice.amount || 0)) < 0.01);
-        if (matchingPhase) {
-          phaseId = matchingPhase.id;
-        } else if (agreementPhases.length === 1) {
-          // Only one phase — auto-select
-          phaseId = agreementPhases[0].id;
-        }
-      }
+      const phaseId = resolvePhaseId(invoice, agreementId);
       
       clearDraft();
       setFormData({
