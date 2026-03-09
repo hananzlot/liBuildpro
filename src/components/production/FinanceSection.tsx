@@ -8918,9 +8918,9 @@ function CommissionTab({
     enabled: !!companyId && isQBConnected,
   });
 
-  // Calculations: (Total Contracts - Lead Cost - Bills) × Split%
+  // Calculations: (Total Contracts - Lead Cost - Total Bills) × Split%
   const leadCostAmount = isCancelled ? 0 : totalContracts * (leadCostPercent / 100);
-  const profit = isCancelled ? 0 : totalContracts - leadCostAmount - totalBillsPaid;
+  const profit = isCancelled ? 0 : totalContracts - leadCostAmount - totalBills;
   const commissionPool = isCancelled ? 0 : (profit > 0 ? profit * (commissionSplitPct / 100) : 0);
   
   // Earned to date: (Amount Received - Bills Paid - Lead Cost on Received) × Split%
