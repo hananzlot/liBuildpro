@@ -4183,10 +4183,10 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                         <TableCell className="text-xs">{formatDate(phase.due_date)}</TableCell>
                                         <TableCell className="text-xs text-right">{formatCurrency(phase.amount)}</TableCell>
                                         <TableCell className="text-xs">
-                                          <div className="flex flex-col gap-1">
+                                          <div className="flex flex-col items-start gap-1">
                                             <Badge 
                                               variant="outline" 
-                                              className={isFullyInvoiced ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground"}
+                                              className={isFullyInvoiced ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground text-[10px] px-1.5 py-0"}
                                             >
                                               {isFullyInvoiced ? "Invoiced" : invoiceStatus.totalInvoiced > 0 ? `Invoiced: ${formatCurrency(invoiceStatus.totalInvoiced)}` : "Not Sent to Customer Yet"}
                                             </Badge>
