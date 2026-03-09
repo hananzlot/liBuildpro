@@ -15,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { SignatureCanvas } from '../SignatureCanvas';
 import { ComplianceSigningFlow } from '../ComplianceSigningFlow';
 import { updateOpportunityValueFromEstimates } from '@/lib/estimateValueUtils';
-import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
+import { downloadOrOpenBlob, openFileInNewTab } from '@/utils/downloadBlob';
 import { InsuranceDocsSection, LicenseCertsSection } from '@/components/proposals/ProposalContent';
 import { 
   FileText, 
