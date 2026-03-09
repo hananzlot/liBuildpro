@@ -411,9 +411,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
     async function generateHeaderPortalLink() {
       if (!headerPortalToken?.token || !appBaseUrl) {
         setHeaderPortalLink(null);
+        setHeaderPortalLongLink(null);
         return;
       }
       const longLink = `${appBaseUrl}/portal?token=${headerPortalToken.token}`;
+      setHeaderPortalLongLink(longLink);
       if (isShortLinksEnabled) {
         const shortLink = await createPortalShortLink(longLink, project?.project_name || "Customer");
         setHeaderPortalLink(shortLink);
