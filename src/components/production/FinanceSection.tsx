@@ -9185,7 +9185,7 @@ function CommissionTab({
         </Card>
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Total Bills</div>
-          <p className="text-lg font-semibold text-amber-600">-{formatCurrency(totalBillsPaid)}</p>
+          <p className="text-lg font-semibold text-amber-600">{totalBills > 0 ? `-${formatCurrency(totalBills)}` : '--'}</p>
         </Card>
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Project Profit</div>
