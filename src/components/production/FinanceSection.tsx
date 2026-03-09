@@ -416,6 +416,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [voidRefundDialogOpen, setVoidRefundDialogOpen] = useState(false);
   const [voidingRefund, setVoidingRefund] = useState<Refund | null>(null);
   const [deleteRefundDialogOpen, setDeleteRefundDialogOpen] = useState(false);
+  const [autoCreatePhaseDialog, setAutoCreatePhaseDialog] = useState<{ agreementId: string; missingAmount: number } | null>(null);
   const [deletingRefund, setDeletingRefund] = useState<Refund | null>(null);
   const [voidRefundReason, setVoidRefundReason] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
@@ -4077,10 +4078,21 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs">
                                     Balanced
                                   </Badge>
+                                ) : balance > 0 ? (
+                                    <Badge 
+                                      variant="outline" 
+                                      className="text-xs font-bold bg-destructive/10 text-destructive border-destructive/30 cursor-pointer hover:bg-destructive/20 transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAutoCreatePhaseDialog({ agreementId: agreement.id, missingAmount: balance });
+                                      }}
+                                    >
+                                      ⚠ Warning! Missing: {formatCurrency(balance)}
+                                    </Badge>
                                 ) : (
-                                  <Badge variant="outline" className={`text-xs font-bold ${balance > 0 ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-destructive/10 text-destructive border-destructive/30'}`}>
-                                    {balance > 0 ? `⚠ Warning! Missing: ${formatCurrency(balance)}` : `⚠ Warning! Over: ${formatCurrency(Math.abs(balance))}`}
-                                  </Badge>
+                                    <Badge variant="outline" className="text-xs font-bold bg-destructive/10 text-destructive border-destructive/30">
+                                      ⚠ Warning! Over: {formatCurrency(Math.abs(balance))}
+                                    </Badge>
                                 )}
                               </div>
                             </div>
@@ -4684,6 +4696,55 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                   : invoicePaymentsToDelete.length > 0 
                     ? "Delete Invoice & Payments" 
                     : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Auto-Create Phase Dialog */}
+      <AlertDialog open={!!autoCreatePhaseDialog} onOpenChange={(open) => { if (!open) setAutoCreatePhaseDialog(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Auto-Create Progress Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              This contract is missing {autoCreatePhaseDialog ? formatCurrency(autoCreatePhaseDialog.missingAmount) : ''} in progress payments. Would you like to automatically create a progress payment named <strong>"System Auto Entry"</strong> for the missing amount?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!autoCreatePhaseDialog) return;
+                try {
+                  const { data: newPhase, error } = await supabase
+                    .from("project_payment_phases")
+                    .insert({
+                      project_id: projectId,
+                      phase_name: "System Auto Entry",
+                      amount: autoCreatePhaseDialog.missingAmount,
+                      agreement_id: autoCreatePhaseDialog.agreementId,
+                      company_id: companyId,
+                    })
+                    .select()
+                    .single();
+                  if (error) throw error;
+                  await logAudit({
+                    tableName: 'project_payment_phases',
+                    recordId: newPhase.id,
+                    action: 'INSERT',
+                    newValues: newPhase,
+                    description: `Auto-created phase "System Auto Entry" for missing ${formatCurrency(autoCreatePhaseDialog.missingAmount)}`,
+                  });
+                  toast.success("Progress payment created successfully");
+                  queryClient.invalidateQueries({ queryKey: ["project-payment-phases", projectId] });
+                  queryClient.invalidateQueries({ queryKey: ["all-project-phases"] });
+                } catch (err: any) {
+                  toast.error("Failed to create progress payment: " + err.message);
+                }
+                setAutoCreatePhaseDialog(null);
+              }}
+            >
+              Create Phase
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
