@@ -98,6 +98,7 @@ import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
 import { SkippedSyncEntries } from "./SkippedSyncEntries";
+import { PdfCanvasViewer } from "@/components/portal/PdfCanvasViewer";
 
 interface SalespersonData {
   name: string | null;
