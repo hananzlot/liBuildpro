@@ -4079,10 +4079,22 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                     Balanced
                                   </Badge>
                                 ) : (
-                                  <Badge variant="outline" className={`text-xs font-bold ${balance > 0 ? 'bg-destructive/10 text-destructive border-destructive/30' : 'bg-destructive/10 text-destructive border-destructive/30'}`}>
-                                    {balance > 0 ? `⚠ Warning! Missing: ${formatCurrency(balance)}` : `⚠ Warning! Over: ${formatCurrency(Math.abs(balance))}`}
-                                  </Badge>
-                                )}
+                                  {balance > 0 ? (
+                                    <Badge 
+                                      variant="outline" 
+                                      className="text-xs font-bold bg-destructive/10 text-destructive border-destructive/30 cursor-pointer hover:bg-destructive/20 transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAutoCreatePhaseDialog({ agreementId: agreement.id, missingAmount: balance });
+                                      }}
+                                    >
+                                      ⚠ Warning! Missing: {formatCurrency(balance)}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-xs font-bold bg-destructive/10 text-destructive border-destructive/30">
+                                      ⚠ Warning! Over: {formatCurrency(Math.abs(balance))}
+                                    </Badge>
+                                  )}
                               </div>
                             </div>
                           </CollapsibleTrigger>
