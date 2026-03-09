@@ -302,17 +302,36 @@ export function PortalDocuments({ documents, agreements = [], projectId, uploadL
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Button variant="ghost" size="icon" asChild className="hidden sm:flex hover:bg-slate-100">
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                      <Button variant="outline" size="sm" asChild className="shadow-sm">
-                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                          <Download className="h-4 w-4 sm:mr-2" />
-                          <span className="hidden sm:inline">View</span>
-                        </a>
-                      </Button>
+                      {(doc.file_type?.includes('pdf') || doc.file_name?.endsWith('.pdf')) ? (
+                        <>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="shadow-sm"
+                            onClick={() => {
+                              setPdfViewerUrl(doc.file_url);
+                              setPdfViewerName(doc.file_name);
+                            }}
+                          >
+                            <Eye className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">View</span>
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="ghost" size="icon" asChild className="hidden sm:flex hover:bg-slate-100">
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                          <Button variant="outline" size="sm" asChild className="shadow-sm">
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                              <Download className="h-4 w-4 sm:mr-2" />
+                              <span className="hidden sm:inline">View</span>
+                            </a>
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
