@@ -347,48 +347,50 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
           </div>
 
           <CardContent className="p-6 sm:p-8 space-y-6">
-            <div className="grid sm:grid-cols-3 gap-6">
-              <div className="bg-slate-50 rounded-xl p-5">
-                <div className="flex items-center gap-2 text-slate-500 mb-2">
-                  <FileCheck className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wider font-medium">Contract</span>
-                </div>
-                <p className="font-semibold text-slate-900 mb-3">
-                  {mainContract.description_of_work || mainContract.agreement_type || 'Contract'}
-                </p>
-                {mainContract.attachment_url && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openAgreementPdf(mainContract)}
-                      disabled={generatingAgreementId === mainContract.id}
-                      className="flex-1"
-                    >
-                      {generatingAgreementId === mainContract.id ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Eye className="h-4 w-4 mr-2" />
-                      )}
-                      View
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => downloadAgreementPdf(mainContract)}
-                      disabled={generatingAgreementId === mainContract.id}
-                      aria-label="Download PDF"
-                    >
-                      {generatingAgreementId === mainContract.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                )}
+            {/* Contract Description - Full Width */}
+            <div className="bg-slate-50 rounded-xl p-5">
+              <div className="flex items-center gap-2 text-slate-500 mb-2">
+                <FileCheck className="h-4 w-4" />
+                <span className="text-xs uppercase tracking-wider font-medium">Contract</span>
               </div>
+              <p className="font-semibold text-slate-900 mb-3">
+                {mainContract.description_of_work || mainContract.agreement_type || 'Contract'}
+              </p>
+              {mainContract.attachment_url && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openAgreementPdf(mainContract)}
+                    disabled={generatingAgreementId === mainContract.id}
+                    className="flex-1 max-w-[200px]"
+                  >
+                    {generatingAgreementId === mainContract.id ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Eye className="h-4 w-4 mr-2" />
+                    )}
+                    View
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => downloadAgreementPdf(mainContract)}
+                    disabled={generatingAgreementId === mainContract.id}
+                    aria-label="Download PDF"
+                  >
+                    {generatingAgreementId === mainContract.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
 
+            {/* Contract Value & Signed Date - One Line */}
+            <div className="grid grid-cols-2 gap-6">
               <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-5 border border-primary/10">
                 <div className="flex items-center gap-2 text-primary/70 mb-2">
                   <span className="text-xs uppercase tracking-wider font-medium">Contract Value</span>
