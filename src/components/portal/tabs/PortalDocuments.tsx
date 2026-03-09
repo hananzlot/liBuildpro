@@ -13,13 +13,15 @@ import {
   ExternalLink,
   FileCheck,
   FilePlus,
-  FileSignature
+  FileSignature,
+  Eye
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
+import { PortalPdfViewerDialog } from './PortalPdfViewerDialog';
 
 interface PortalDocumentsProps {
   documents: any[];
