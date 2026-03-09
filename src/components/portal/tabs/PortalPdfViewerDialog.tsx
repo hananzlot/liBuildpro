@@ -28,20 +28,28 @@ export function PortalPdfViewerDialog({ open, onOpenChange, fileUrl, fileName }:
   const [pageRendering, setPageRendering] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !fileUrl) return;
     let cancelled = false;
     setLoading(true);
+    setError(null);
     const loadPdf = async () => {
       try {
-        const pdf = await pdfjsLib.getDocument({ url: fileUrl }).promise;
+        // Fetch the PDF as ArrayBuffer first to avoid cross-origin blocking
+        const response = await fetch(fileUrl);
+        if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.status}`);
+        const arrayBuffer = await response.arrayBuffer();
+        if (cancelled) return;
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         if (cancelled) return;
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
         setCurrentPage(1);
       } catch (err) {
         console.error("Failed to load PDF:", err);
+        if (!cancelled) setError("Could not load PDF. Try opening in a new tab.");
       } finally {
         if (!cancelled) setLoading(false);
       }
