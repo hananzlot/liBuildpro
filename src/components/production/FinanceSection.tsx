@@ -2992,7 +2992,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                             <TableHead className="text-xs text-center w-[12%]">Date</TableHead>
                             <TableHead className="text-xs text-center w-[10%]">Invoice #</TableHead>
                             <TableHead className="text-xs text-left w-[18%]">Contract #<br />/ Nickname</TableHead>
-                            <TableHead className="text-xs text-center w-[18%]">Progress<br />Payment</TableHead>
+                            <TableHead className="text-xs text-left w-[18%]">Progress<br />Payment</TableHead>
                             <TableHead className="text-xs text-center w-[12%]">Amount</TableHead>
                             <TableHead className="text-xs text-center w-[12%]">Balance<br />Due</TableHead>
                             {isQBConnectedMain && <TableHead className="text-xs text-center w-[10%]">QB</TableHead>}
@@ -3035,7 +3035,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   return agr ? `${agr.agreement_number || ""}${agr.nickname ? ` / ${agr.nickname}` : ""}`.trim() || "-" : "-";
                                 })()}
                               </TableCell>
-                              <TableCell className="text-xs text-center text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
+                              <TableCell className="text-xs text-left text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
                               <TableCell className="text-xs text-center">{formatCurrency2(inv.amount)}</TableCell>
                               <TableCell className="text-xs text-center">{formatCurrency2(inv.open_balance)}</TableCell>
                               {isQBConnectedMain && (
