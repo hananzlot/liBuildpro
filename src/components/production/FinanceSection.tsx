@@ -1020,7 +1020,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   // Helper to check if QB sync will create new entities (customer/vendor)
   const checkQbSyncEntities = async (recordType: "invoice" | "payment" | "bill" | "bill_payment" | "refund", recordId: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[]; unmappedEntities: { type: string; name: string }[] }> => {
-    if (!companyId || !isQBConnectedMain) return { requiresConfirmation: false, pendingEntities: [], unmappedEntities: [] };
+    if (!companyId || !isProjectQBSyncEnabled) return { requiresConfirmation: false, pendingEntities: [], unmappedEntities: [] };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
