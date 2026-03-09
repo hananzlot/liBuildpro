@@ -4486,6 +4486,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         paymentPhases={paymentPhases}
         payments={payments}
         existingInvoices={invoices}
+        customerName={customerName}
+        projectName={projectName}
+        projectAddress={projectAddress}
       />
 
       {/* Invoice PDF Preview Dialog */}
