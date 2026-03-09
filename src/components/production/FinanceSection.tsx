@@ -2327,9 +2327,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           if (linkedInvoices && linkedInvoices.length > 0) {
             for (const inv of linkedInvoices) {
               // Only auto-adjust if the invoice was for the full phase amount (within $0.01)
-              // and hasn't been overpaid
               const paymentsReceived = inv.payments_received || 0;
-              if (Math.abs((inv.amount || 0) - oldAmount) < 0.02 && paymentsReceived <= newAmount) {
+              if (Math.abs((inv.amount || 0) - oldAmount) < 0.02) {
                 const newOpenBalance = Math.max(0, newAmount - paymentsReceived);
                 await supabase
                   .from("project_invoices")
