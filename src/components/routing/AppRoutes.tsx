@@ -450,6 +450,9 @@ export function AppRoutes() {
         {/* Help pages - public */}
         <Route path="/help/quickbooks" element={<QuickBooksHelp />} />
         
+        {/* File viewer - public, bypasses ad blockers */}
+        <Route path="/view-file" element={<ViewFile />} />
+        
         {/* Marketing deck - public */}
         <Route path="/deck" element={<Deck />} />
         
