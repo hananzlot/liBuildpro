@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { PortalPdfViewerDialog } from './PortalPdfViewerDialog';
+import { downloadOrOpenBlob, openFileInNewTab } from '@/utils/downloadBlob';
 
 interface PortalDocumentsProps {
   documents: any[];
