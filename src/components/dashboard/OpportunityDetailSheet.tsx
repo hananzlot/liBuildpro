@@ -2981,7 +2981,7 @@ export function OpportunityDetailSheet({
                 className="h-7" 
                 onClick={() => {
                   onOpenChange(false);
-                  navigate(`/production/${associatedProjects[0].id}?returnTo=${encodeURIComponent(location.pathname)}`);
+                  openTab(`/project/${associatedProjects[0].id}`, associatedProjects[0].project_name || 'Project');
                 }}
               >
                 <FolderOpen className="h-3.5 w-3.5 mr-1" />
