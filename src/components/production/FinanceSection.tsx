@@ -5250,6 +5250,18 @@ function InvoiceDialog({
   payments: Payment[];
   existingInvoices: Invoice[];
 }) {
+  const resolvePhaseId = (inv: Invoice, agrId: string): string => {
+    if (inv.payment_phase_id) return inv.payment_phase_id;
+    if (!agrId) return "";
+    // Auto-detect: match by exact amount
+    const agreementPhases = paymentPhases.filter(p => p.agreement_id === agrId);
+    const matchingPhase = agreementPhases.find(p => Math.abs((p.amount || 0) - (inv.amount || 0)) < 0.01);
+    if (matchingPhase) return matchingPhase.id;
+    // Only one phase → auto-select
+    if (agreementPhases.length === 1) return agreementPhases[0].id;
+    return "";
+  };
+
   const getInitialFormData = () => {
     if (invoice) {
       let agreementId = invoice.agreement_id || "";
@@ -5257,12 +5269,13 @@ function InvoiceDialog({
         const phase = paymentPhases.find(p => p.id === invoice.payment_phase_id);
         if (phase) agreementId = phase.agreement_id || "";
       }
+      const phaseId = resolvePhaseId(invoice, agreementId);
       return {
         invoice_number: invoice.invoice_number || "",
         invoice_date: invoice.invoice_date || "",
         amount: invoice.amount?.toString() || "",
         agreement_id: agreementId,
-        payment_phase_id: invoice.payment_phase_id || "",
+        payment_phase_id: phaseId,
       };
     }
     return {
