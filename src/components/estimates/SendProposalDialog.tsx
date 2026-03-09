@@ -757,12 +757,21 @@ export function SendProposalDialog({
       })
       .eq('id', estimateId);
     
-    // Also update project status if linked
+    // Only update project status if still in early stage
     if (estimateData?.project_id) {
-      await supabase
+      const { data: proj } = await supabase
         .from('projects')
-        .update({ project_status: 'Proposal' })
-        .eq('id', estimateData.project_id);
+        .select('project_status')
+        .eq('id', estimateData.project_id)
+        .single();
+      
+      const earlyStatuses = ['pre-estimate', 'estimate'];
+      if (proj && earlyStatuses.includes((proj.project_status || '').toLowerCase())) {
+        await supabase
+          .from('projects')
+          .update({ project_status: 'Proposal' })
+          .eq('id', estimateData.project_id);
+      }
     }
 
     queryClient.invalidateQueries({ queryKey: ['estimates'] });
