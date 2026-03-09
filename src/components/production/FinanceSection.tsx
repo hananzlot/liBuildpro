@@ -1050,7 +1050,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   // Pre-save check for vendor existence (before bill is created)
   const checkVendorBeforeSave = async (vendorName: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[] }> => {
-    if (!companyId || !vendorName || !isQBConnectedMain) return { requiresConfirmation: false, pendingEntities: [] };
+    if (!companyId || !vendorName || !isProjectQBSyncEnabled) return { requiresConfirmation: false, pendingEntities: [] };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
