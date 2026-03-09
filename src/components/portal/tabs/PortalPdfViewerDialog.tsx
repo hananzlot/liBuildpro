@@ -127,7 +127,16 @@ export function PortalPdfViewerDialog({ open, onOpenChange, fileUrl, fileName }:
                   <RotateCw className="h-3 w-3" />
                 </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={() => window.open(fileUrl, "_blank")}>
+              <Button variant="outline" size="sm" onClick={async () => {
+                try {
+                  const res = await fetch(fileUrl);
+                  const blob = await res.blob();
+                  const blobUrl = URL.createObjectURL(blob);
+                  window.open(blobUrl, "_blank");
+                } catch {
+                  window.open(fileUrl, "_blank");
+                }
+              }}>
                 <ExternalLink className="h-4 w-4 mr-1" />
                 Open
               </Button>
