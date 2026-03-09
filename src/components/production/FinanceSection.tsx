@@ -404,8 +404,38 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [prePopulatedInvoice, setPrePopulatedInvoice] = useState<Partial<Invoice> | null>(null);
-  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
-  const [prePopulatedPayment, setPrePopulatedPayment] = useState<Partial<Payment> | null>(null);
+  const [editingPayment, setEditingPaymentRaw] = useState<Payment | null>(() => {
+    try {
+      const stored = sessionStorage.getItem(`editing-payment:${projectId}`);
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
+  const setEditingPayment = useCallback((p: Payment | null) => {
+    setEditingPaymentRaw(p);
+    try {
+      if (p) {
+        sessionStorage.setItem(`editing-payment:${projectId}`, JSON.stringify(p));
+      } else {
+        sessionStorage.removeItem(`editing-payment:${projectId}`);
+      }
+    } catch { /* ignore */ }
+  }, [projectId]);
+  const [prePopulatedPayment, setPrePopulatedPaymentRaw] = useState<Partial<Payment> | null>(() => {
+    try {
+      const stored = sessionStorage.getItem(`prepop-payment:${projectId}`);
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
+  const setPrePopulatedPayment = useCallback((p: Partial<Payment> | null) => {
+    setPrePopulatedPaymentRaw(p);
+    try {
+      if (p) {
+        sessionStorage.setItem(`prepop-payment:${projectId}`, JSON.stringify(p));
+      } else {
+        sessionStorage.removeItem(`prepop-payment:${projectId}`);
+      }
+    } catch { /* ignore */ }
+  }, [projectId]);
   const [invoiceSelectForPayment, setInvoiceSelectForPayment] = useState<Invoice[] | null>(null);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [editingAgreement, setEditingAgreement] = useState<Agreement | null>(null);
