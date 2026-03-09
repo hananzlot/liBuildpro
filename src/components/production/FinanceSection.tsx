@@ -4423,6 +4423,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               leadCostPercent={leadCostPercent}
               commissionSplitPct={commissionSplitPct}
               totalBillsPaid={totalBillsPaid}
+              totalBills={totalBills}
               totalPaymentsReceived={totalPaymentsReceived}
               totalRefunds={totalRefunds}
               salespeople={salespeople}
@@ -8816,6 +8817,7 @@ function CommissionTab({
   leadCostPercent,
   commissionSplitPct,
   totalBillsPaid,
+  totalBills,
   totalPaymentsReceived,
   totalRefunds,
   salespeople,
@@ -8829,6 +8831,7 @@ function CommissionTab({
   leadCostPercent: number;
   commissionSplitPct: number;
   totalBillsPaid: number;
+  totalBills: number;
   totalPaymentsReceived: number;
   totalRefunds: number;
   salespeople: SalespersonData[];
@@ -8915,9 +8918,9 @@ function CommissionTab({
     enabled: !!companyId && isQBConnected,
   });
 
-  // Calculations: (Total Contracts - Lead Cost - Bills) × Split%
+  // Calculations: (Total Contracts - Lead Cost - Total Bills) × Split%
   const leadCostAmount = isCancelled ? 0 : totalContracts * (leadCostPercent / 100);
-  const profit = isCancelled ? 0 : totalContracts - leadCostAmount - totalBillsPaid;
+  const profit = isCancelled ? 0 : totalContracts - leadCostAmount - totalBills;
   const commissionPool = isCancelled ? 0 : (profit > 0 ? profit * (commissionSplitPct / 100) : 0);
   
   // Earned to date: (Amount Received - Bills Paid - Lead Cost on Received) × Split%
@@ -9182,7 +9185,7 @@ function CommissionTab({
         </Card>
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Total Bills</div>
-          <p className="text-lg font-semibold text-amber-600">-{formatCurrency(totalBillsPaid)}</p>
+          <p className="text-lg font-semibold text-amber-600">{totalBills > 0 ? `-${formatCurrency(totalBills)}` : '--'}</p>
         </Card>
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Project Profit</div>
