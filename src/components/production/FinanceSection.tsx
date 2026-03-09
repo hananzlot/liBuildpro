@@ -2379,6 +2379,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       toast.success(editingPhase?.id ? "Progress payment updated" : "Progress payment created");
       queryClient.invalidateQueries({ queryKey: ["project-payment-phases", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-phases"] });
+      queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
       setPhaseDialogOpen(false);
       setEditingPhase(null);
     },
