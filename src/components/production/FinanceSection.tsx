@@ -2993,6 +2993,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                             <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                               <Receipt className="h-3.5 w-3.5" />
                               Invoiced ({invoices.filter(inv => {
+                                if (inv.invoice_number?.startsWith('DELETED-')) return false;
                                 if (invoiceContractFilter === "all") return true;
                                 const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
                                 const agrId = inv.agreement_id || phase?.agreement_id;
@@ -3019,6 +3020,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         <TableBody>
                           {[...invoices]
                             .filter(inv => {
+                              if (inv.invoice_number?.startsWith('DELETED-')) return false;
                               if (invoiceContractFilter === "all") return true;
                               const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
                               const agrId = inv.agreement_id || phase?.agreement_id;
@@ -3055,7 +3057,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                               <TableCell className="text-xs text-left text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
                               <TableCell className="text-xs text-center">{formatCurrency2(inv.amount)}</TableCell>
                               <TableCell className="text-xs text-center">
-                                {(inv.open_balance || 0) <= 0 ? (
+                                {(inv.open_balance || 0) <= 0 && ((inv.payments_received || 0) > 0 || (inv.amount || 0) === 0) ? (
                                   <span className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 border border-emerald-500 dark:border-emerald-500 rounded rotate-[-2deg] opacity-80">
                                     Paid in Full
                                   </span>
