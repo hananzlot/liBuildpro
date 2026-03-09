@@ -1113,7 +1113,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                 <>
                   <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
                   <a 
-                    href={headerPortalLink} 
+                    href={headerPortalLongLink || headerPortalLink} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-xs text-primary hover:underline truncate max-w-[250px]"
@@ -1137,7 +1137,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
-                    onClick={() => window.open(headerPortalLink, "_blank")}
+                    onClick={() => window.open(headerPortalLongLink || headerPortalLink, "_blank")}
                   >
                     <ExternalLink className="h-3 w-3" />
                   </Button>
