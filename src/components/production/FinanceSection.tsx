@@ -97,6 +97,7 @@ import { usePersistedDialog } from "@/hooks/usePersistedDialog";
 import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
+import { SkippedSyncEntries } from "./SkippedSyncEntries";
 
 interface SalespersonData {
   name: string | null;
@@ -4373,6 +4374,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           </ErrorBoundary>
         </TabsContent>
       </Tabs>
+
+      {/* Skipped QB Sync Entries */}
+      {isQBConnectedMain && (
+        <SkippedSyncEntries projectId={projectId} companyId={companyId} />
+      )}
 
       {/* Invoice Dialog */}
       <InvoiceDialog

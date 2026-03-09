@@ -1,5 +1,3 @@
-
-
 ## Plan: Revamp Salesperson Portal Estimate Creator
 
 This is a significant refactor of the `PortalEstimateCreator` component to modernize linking, add manual estimate creation, and support change orders.
@@ -87,3 +85,38 @@ When "Prepare Manually" is clicked, expand a form below with:
 - Manual path collects total price, estimated costs, and progress payments with live validation
 - Before sending a proposal, the sales rep sees a preview and must confirm
 
+## Plan: Respect `auto_sync_to_quickbooks` in QB Webhooks + Re-sync on Re-enable
+
+### Status: ✅ Implemented
+
+### What was built
+
+#### Part 1: Gate inbound webhooks by project auto-sync flag
+- Added `getProjectAutoSyncStatus()` helper in `quickbooks-webhook/index.ts`
+- Before processing any Create/Update/Delete, checks the associated project's `auto_sync_to_quickbooks` flag
+- If disabled, skips processing and logs `queued_while_paused` status in `quickbooks_sync_log`
+- Lookup paths: Invoice→project_invoices, Payment→project_payments, Bill→project_bills, BillPayment→bill_payments→project_bills
+
+#### Part 2: Review dialog on re-enable (cherry-pick sync entries)
+- When toggling auto-sync ON, if queued entries exist, a full-screen **QueuedSyncReviewDialog** opens
+- Toggle is **blocked** until user reviews — auto-sync only enables after confirmation
+- Shows all queued entries with enriched details (invoice #, amounts, bill refs, etc.)
+- User can check/uncheck entries individually or use Select All / Deselect All
+- **Approved entries** → marked `pending_refresh` for next sync
+- **Dismissed entries** → marked `sync_dismissed` with `dismissed_by` (user UUID) and `dismissed_at` (timestamp) for audit
+
+#### Part 3: Skipped Sync section in Finance tab
+- `SkippedSyncEntries` component rendered below the Finance tabs when QB is connected
+- Shows all `sync_dismissed` entries for the project in a collapsible section
+- Each entry shows type badge, description, amount, dismissal date, and who dismissed it
+- **Undo button** allows restoring a dismissed entry to `pending_refresh` with confirmation dialog
+
+### Migration
+- Added `dismissed_by` (uuid FK → auth.users) and `dismissed_at` (timestamptz) to `quickbooks_sync_log`
+
+### Files Created/Modified
+- `supabase/functions/quickbooks-webhook/index.ts` — added auto-sync gate
+- `src/components/production/QueuedSyncReviewDialog.tsx` — new review dialog
+- `src/components/production/SkippedSyncEntries.tsx` — new skipped entries section
+- `src/components/production/ProjectDetailSheet.tsx` — wired toggle to review flow
+- `src/components/production/FinanceSection.tsx` — added SkippedSyncEntries import/render
