@@ -326,17 +326,17 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
       {/* Main Contract from project_agreements (when no accepted estimate) */}
       {showMainContractHero && mainContract && (
         <Card className="border-0 shadow-xl overflow-hidden">
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <Award className="h-7 w-7" />
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-5 py-4 text-white">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Award className="h-5 w-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-bold">Signed Contract</h3>
-                  <Badge className="bg-white/20 text-white border-0">Active</Badge>
+                  <h3 className="text-lg font-bold">Signed Contract</h3>
+                  <Badge className="bg-white/20 text-white border-0 text-[10px]">Active</Badge>
                 </div>
-                <p className="text-green-100 text-sm mt-1">
+                <p className="text-green-100 text-xs mt-0.5">
                   {mainContract.agreement_type || 'Contract'}
                   {mainContract.agreement_number ? ` #${mainContract.agreement_number}` : ''}
                 </p>
@@ -344,14 +344,14 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
             </div>
           </div>
 
-          <CardContent className="p-6 sm:p-8 space-y-6">
+          <CardContent className="p-4 sm:p-5 space-y-3">
             {/* Contract Description - Full Width */}
-            <div className="bg-slate-50 rounded-xl p-5">
-              <div className="flex items-center gap-2 text-slate-500 mb-2">
-                <FileCheck className="h-4 w-4" />
-                <span className="text-xs uppercase tracking-wider font-medium">Contract</span>
+            <div className="bg-slate-50 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-slate-500 mb-1.5">
+                <FileCheck className="h-3.5 w-3.5" />
+                <span className="text-[10px] uppercase tracking-wider font-medium">Contract</span>
               </div>
-              <p className="font-semibold text-slate-900 mb-3">
+              <p className="font-semibold text-sm text-slate-900 mb-2">
                 {mainContract.description_of_work || mainContract.agreement_type || 'Contract'}
               </p>
               {mainContract.attachment_url && (
@@ -361,12 +361,12 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
                     size="sm"
                     onClick={() => openAgreementPdf(mainContract)}
                     disabled={generatingAgreementId === mainContract.id}
-                    className="flex-1 max-w-[200px]"
+                    className="h-8 text-xs"
                   >
                     {generatingAgreementId === mainContract.id ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                     ) : (
-                      <Eye className="h-4 w-4 mr-2" />
+                      <Eye className="h-3.5 w-3.5 mr-1.5" />
                     )}
                     View
                   </Button>
@@ -376,11 +376,12 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
                     onClick={() => downloadAgreementPdf(mainContract)}
                     disabled={generatingAgreementId === mainContract.id}
                     aria-label="Download PDF"
+                    className="h-8"
                   >
                     {generatingAgreementId === mainContract.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      <Download className="h-4 w-4" />
+                      <Download className="h-3.5 w-3.5" />
                     )}
                   </Button>
                 </div>
@@ -388,22 +389,20 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
             </div>
 
             {/* Contract Value & Signed Date - One Line */}
-            <div className="grid grid-cols-2 gap-6">
-              <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-5 border border-primary/10">
-                <div className="flex items-center gap-2 text-primary/70 mb-2">
-                  <span className="text-xs uppercase tracking-wider font-medium">Contract Value</span>
-                </div>
-                <p className="text-2xl font-bold text-primary">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg p-4 border border-primary/10">
+                <span className="text-[10px] uppercase tracking-wider font-medium text-primary/70">Contract Value</span>
+                <p className="text-xl font-bold text-primary mt-1">
                   {formatCurrency(mainContract.total_price)}
                 </p>
               </div>
 
-              <div className="bg-slate-50 rounded-xl p-5">
-                <div className="flex items-center gap-2 text-slate-500 mb-2">
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wider font-medium">Signed Date</span>
+              <div className="bg-slate-50 rounded-lg p-4">
+                <div className="flex items-center gap-1.5 text-slate-500">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span className="text-[10px] uppercase tracking-wider font-medium">Signed Date</span>
                 </div>
-                <p className="font-semibold text-slate-900">
+                <p className="font-semibold text-sm text-slate-900 mt-1">
                   {mainContract.agreement_signed_date
                     ? format(new Date(mainContract.agreement_signed_date + 'T00:00:00'), 'MMMM d, yyyy')
                     : 'N/A'}
@@ -411,17 +410,17 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
               </div>
             </div>
 
-            <div className="flex items-center gap-4 bg-green-50 border border-green-100 rounded-xl p-4">
-              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                <Shield className="h-6 w-6 text-green-600" />
+            <div className="flex items-center gap-3 bg-green-50 border border-green-100 rounded-lg px-4 py-3">
+              <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                <Shield className="h-4 w-4 text-green-600" />
               </div>
-              <div className="flex-1">
-                <p className="font-semibold text-green-800">Signed & Verified</p>
-                <p className="text-sm text-green-600">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm text-green-800">Signed & Verified</p>
+                <p className="text-xs text-green-600">
                   This contract has been signed and is legally binding.
                 </p>
               </div>
-              <CheckCircle2 className="h-6 w-6 text-green-500" />
+              <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
             </div>
           </CardContent>
         </Card>
