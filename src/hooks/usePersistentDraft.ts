@@ -31,11 +31,12 @@ export function usePersistentDraft<T extends Record<string, any>>(
   // When setFullDraft is called, skip the next useEffect reload to avoid overwriting explicit values
   const skipNextLoadRef = useRef(false);
 
-  // Load draft from sessionStorage or fall back to initialValues
+  // Load draft from storage or fall back to initialValues
+  // Try localStorage first (persists across tabs), then sessionStorage (legacy)
   const [draft, setDraft] = useState<T>(() => {
     if (!enabled) return initialValues;
     try {
-      const raw = sessionStorage.getItem(storageKey);
+      const raw = localStorage.getItem(storageKey) || sessionStorage.getItem(storageKey);
       if (raw) {
         const parsed = JSON.parse(raw) as T;
         return { ...initialValues, ...parsed };
