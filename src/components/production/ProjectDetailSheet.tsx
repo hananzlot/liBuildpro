@@ -477,7 +477,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
         const { data: queuedEntries } = await supabase
           .from("quickbooks_sync_log")
           .select("id, record_type, quickbooks_id, record_id")
-          .eq("company_id", project.company_id)
+          .eq("company_id", companyId)
           .eq("sync_status", "queued_while_paused");
 
         if (queuedEntries && queuedEntries.length > 0) {
