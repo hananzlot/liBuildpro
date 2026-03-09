@@ -3020,6 +3020,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         <TableBody>
                           {[...invoices]
                             .filter(inv => {
+                              if (inv.invoice_number?.startsWith('DELETED-')) return false;
                               if (invoiceContractFilter === "all") return true;
                               const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
                               const agrId = inv.agreement_id || phase?.agreement_id;
