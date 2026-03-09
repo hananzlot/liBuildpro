@@ -69,14 +69,14 @@ export function usePersistentDraft<T extends Record<string, any>>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, enabled]);
 
-  // Debounced save to sessionStorage
+  // Debounced save to localStorage (persists across tabs)
   const saveToStorage = useCallback(
     (values: T) => {
       if (!enabled) return;
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         try {
-          sessionStorage.setItem(storageKeyRef.current, JSON.stringify(values));
+          localStorage.setItem(storageKeyRef.current, JSON.stringify(values));
         } catch {
           // Storage full — silently ignore
         }
