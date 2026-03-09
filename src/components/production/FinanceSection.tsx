@@ -4106,11 +4106,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                 <TableHeader>
                                   <TableRow>
                                     <TableHead className="text-xs w-8"></TableHead>
-                                    <TableHead className="text-xs text-left">Progress Payment</TableHead>
-                                    <TableHead className="text-xs text-left w-28">Due Date</TableHead>
-                                    <TableHead className="text-xs text-right w-32">Amount</TableHead>
-                                    <TableHead className="text-xs text-left w-48">Status</TableHead>
-                                    <TableHead className="text-xs w-20"></TableHead>
+                                    <TableHead className="text-xs text-left w-[40%]">Progress Payment</TableHead>
+                                    <TableHead className="text-xs text-left w-[15%]">Due Date</TableHead>
+                                    <TableHead className="text-xs text-right w-[15%]">Amount</TableHead>
+                                    <TableHead className="text-xs text-left w-[22%]">Status</TableHead>
+                                    <TableHead className="text-xs w-10"></TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
