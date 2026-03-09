@@ -1031,17 +1031,22 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                 <CardContent>
                   <div className="space-y-2">
                     {files.map((file: { id: string; file_url: string; file_name: string; file_type: string | null }) => (
-                      <a
+                      <button
                         key={file.id}
-                        href={file.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+                        type="button"
+                        onClick={() => {
+                          if (file.file_type?.includes('pdf') || file.file_name?.endsWith('.pdf')) {
+                            openFileInNewTab(file.file_url, file.file_name);
+                          } else {
+                            downloadOrOpenBlob(file.file_url, file.file_name);
+                          }
+                        }}
+                        className="flex items-center gap-3 p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors w-full text-left"
                       >
                         <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                         <span className="text-sm font-medium flex-1 min-w-0 truncate">{file.file_name}</span>
                         <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </CardContent>

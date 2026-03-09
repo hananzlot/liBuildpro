@@ -209,10 +209,7 @@ export function PortalSignedDocuments({ estimateId, projectId }: PortalSignedDoc
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = doc.signed_file_url || doc.file_url;
-                        link.download = `${doc.document_name}.pdf`;
-                        link.click();
+                        downloadOrOpenBlob(doc.signed_file_url || doc.file_url, `${doc.document_name}.pdf`);
                       }}
                     >
                       <Download className="h-4 w-4" />

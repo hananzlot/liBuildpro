@@ -319,16 +319,12 @@ export function PortalDocuments({ documents, agreements = [], projectId, uploadL
                         </>
                       ) : (
                         <>
-                          <Button variant="ghost" size="icon" asChild className="hidden sm:flex hover:bg-slate-100">
-                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
+                          <Button variant="ghost" size="icon" className="hidden sm:flex hover:bg-slate-100" onClick={() => openFileInNewTab(doc.file_url, doc.file_name)}>
+                            <ExternalLink className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" size="sm" asChild className="shadow-sm">
-                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4 sm:mr-2" />
-                              <span className="hidden sm:inline">View</span>
-                            </a>
+                          <Button variant="outline" size="sm" className="shadow-sm" onClick={() => downloadOrOpenBlob(doc.file_url, doc.file_name)}>
+                            <Download className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Download</span>
                           </Button>
                         </>
                       )}
