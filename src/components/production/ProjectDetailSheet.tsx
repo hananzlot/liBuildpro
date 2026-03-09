@@ -156,6 +156,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
   const [leadSourceSearch, setLeadSourceSearch] = useState("");
   const [portalLinkCopied, setPortalLinkCopied] = useState(false);
   const [headerPortalLink, setHeaderPortalLink] = useState<string | null>(null);
+  const [headerPortalLongLink, setHeaderPortalLongLink] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [isFinancePdfPreviewOpen, setIsFinancePdfPreviewOpen] = useState(false);
