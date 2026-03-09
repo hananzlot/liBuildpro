@@ -56,7 +56,7 @@ export function usePersistentDraft<T extends Record<string, any>>(
       return;
     }
     try {
-      const raw = sessionStorage.getItem(storageKey);
+      const raw = localStorage.getItem(storageKey) || sessionStorage.getItem(storageKey);
       if (raw) {
         const parsed = JSON.parse(raw) as T;
         setDraft((prev) => ({ ...initialValues, ...parsed }));
