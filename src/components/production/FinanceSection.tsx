@@ -2978,20 +2978,30 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                 })}
                               </TableBody>
                             </Table>
-                          </div>
+                            </CollapsibleContent>
+                          </Collapsible>
                         );
                       })()}
 
                       {invoices.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">No invoices yet</p>
                       ) : (
-                      <>
-                      <p className="text-xs font-semibold text-muted-foreground mb-2 mt-1">Invoiced ({invoices.filter(inv => {
-                        if (invoiceContractFilter === "all") return true;
-                        const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
-                        const agrId = inv.agreement_id || phase?.agreement_id;
-                        return agrId === invoiceContractFilter;
-                      }).length})</p>
+                      <Collapsible defaultOpen={false}>
+                        <CollapsibleTrigger className="w-full">
+                          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 px-3 py-2 hover:bg-muted transition-colors cursor-pointer mb-2">
+                            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                              <Receipt className="h-3.5 w-3.5" />
+                              Invoiced ({invoices.filter(inv => {
+                                if (invoiceContractFilter === "all") return true;
+                                const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
+                                const agrId = inv.agreement_id || phase?.agreement_id;
+                                return agrId === invoiceContractFilter;
+                              }).length})
+                            </p>
+                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="rounded-lg border border-border bg-card overflow-hidden">
                       <Table>
                         <TableHeader>
                           <TableRow>
