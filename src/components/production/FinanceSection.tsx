@@ -4180,9 +4180,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                             {phase.description && <p className="text-muted-foreground">{phase.description}</p>}
                                           </div>
                                         </TableCell>
-                                        <TableCell className="text-xs w-28">{formatDate(phase.due_date)}</TableCell>
-                                        <TableCell className="text-xs text-right w-32">{formatCurrency(phase.amount)}</TableCell>
-                                        <TableCell className="text-xs w-48">
+                                        <TableCell className="text-xs w-[15%]">{formatDate(phase.due_date)}</TableCell>
+                                        <TableCell className="text-xs text-right w-[15%]">{formatCurrency(phase.amount)}</TableCell>
+                                        <TableCell className="text-xs w-[22%]">
                                           <div className="flex flex-col items-start gap-1">
                                             <Badge 
                                               variant="outline" 
