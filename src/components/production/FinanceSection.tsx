@@ -4078,8 +4078,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs">
                                     Balanced
                                   </Badge>
-                                ) : (
-                                  {balance > 0 ? (
+                                ) : balance > 0 ? (
                                     <Badge 
                                       variant="outline" 
                                       className="text-xs font-bold bg-destructive/10 text-destructive border-destructive/30 cursor-pointer hover:bg-destructive/20 transition-colors"
@@ -4090,11 +4089,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                     >
                                       ⚠ Warning! Missing: {formatCurrency(balance)}
                                     </Badge>
-                                  ) : (
+                                ) : (
                                     <Badge variant="outline" className="text-xs font-bold bg-destructive/10 text-destructive border-destructive/30">
                                       ⚠ Warning! Over: {formatCurrency(Math.abs(balance))}
                                     </Badge>
-                                  )}
+                                )}
                               </div>
                             </div>
                           </CollapsibleTrigger>
