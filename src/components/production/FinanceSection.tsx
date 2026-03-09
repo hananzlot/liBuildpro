@@ -5611,11 +5611,14 @@ function InvoiceDialog({
                           </SelectContent>
                         </Select>
                         {phaseError && <p className="text-xs text-destructive">{phaseError}</p>}
-                        {selectedAgreement && (
-                          <p className="text-xs text-muted-foreground pl-1">
-                            Contract #{selectedAgreement.agreement_number} • {formatCurrency(selectedAgreement.total_price)}
-                          </p>
-                        )}
+                        {selectedAgreement && (() => {
+                          const typeAbbr = selectedAgreement.agreement_type === 'Change Order' ? 'CO' : selectedAgreement.agreement_type === 'Addendum' ? 'ADD' : 'CNT';
+                          return (
+                            <p className="text-xs text-muted-foreground pl-1">
+                              {selectedAgreement.agreement_number} • {typeAbbr}{selectedAgreement.nickname ? ` • ${selectedAgreement.nickname}` : ''} • {formatCurrency(selectedAgreement.total_price)}
+                            </p>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="py-3 px-3 text-right align-top">
