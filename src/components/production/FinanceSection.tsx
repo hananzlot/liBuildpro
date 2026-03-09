@@ -5258,6 +5258,9 @@ function InvoiceDialog({
   paymentPhases,
   payments,
   existingInvoices,
+  customerName,
+  projectName,
+  projectAddress,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -5269,15 +5272,18 @@ function InvoiceDialog({
   paymentPhases: PaymentPhase[];
   payments: Payment[];
   existingInvoices: Invoice[];
+  customerName?: string | null;
+  projectName?: string | null;
+  projectAddress?: string | null;
 }) {
+  const { company } = useAuth();
+
   const resolvePhaseId = (inv: Invoice, agrId: string): string => {
     if (inv.payment_phase_id) return inv.payment_phase_id;
     if (!agrId) return "";
-    // Auto-detect: match by exact amount
     const agreementPhases = paymentPhases.filter(p => p.agreement_id === agrId);
     const matchingPhase = agreementPhases.find(p => Math.abs((p.amount || 0) - (inv.amount || 0)) < 0.01);
     if (matchingPhase) return matchingPhase.id;
-    // Only one phase → auto-select
     if (agreementPhases.length === 1) return agreementPhases[0].id;
     return "";
   };
@@ -5319,22 +5325,16 @@ function InvoiceDialog({
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const { companyId: dialogCompanyId } = useCompanyContext();
 
-  // Query to get the next invoice number for new invoices
   const { data: nextInvoiceNumber } = useQuery({
     queryKey: ["next-invoice-number", dialogCompanyId],
     queryFn: async () => {
       if (!dialogCompanyId) return "1001";
-      
-      // Get invoice numbers for this company
       const { data } = await supabase
         .from("project_invoices")
         .select("invoice_number")
         .eq("company_id", dialogCompanyId)
         .not("invoice_number", "is", null);
-      
       if (!data || data.length === 0) return "1001";
-      
-      // Find the highest numeric invoice number
       let maxNumber = 1000;
       for (const inv of data) {
         const numMatch = inv.invoice_number?.match(/\d+/);
@@ -5343,21 +5343,18 @@ function InvoiceDialog({
           if (num > maxNumber) maxNumber = num;
         }
       }
-      
       return (maxNumber + 1).toString();
     },
     enabled: open && !invoice && !!dialogCompanyId,
-    staleTime: 0, // Always fetch fresh
+    staleTime: 0,
   });
 
-  // Auto-fill invoice number for new invoices when nextInvoiceNumber loads
   useEffect(() => {
     if (open && !invoice && !prePopulatedData && nextInvoiceNumber && !formData.invoice_number) {
       updateFormData({ invoice_number: nextInvoiceNumber, invoice_date: formData.invoice_date || new Date().toISOString().split('T')[0] });
     }
   }, [open, invoice, prePopulatedData, nextInvoiceNumber]);
 
-  // Reset form when invoice identity changes (not on every open — draft handles persistence)
   const lastInvoiceIdRef = useRef<string | null | undefined>(undefined);
   const prePopulatedKey = prePopulatedData ? JSON.stringify(prePopulatedData) : null;
   
@@ -5369,7 +5366,6 @@ function InvoiceDialog({
     const currentId = invoice?.id ?? (prePopulatedKey ?? null);
     if (lastInvoiceIdRef.current === currentId) return;
     lastInvoiceIdRef.current = currentId;
-    
     if (invoice) {
       let agreementId = invoice.agreement_id || "";
       if (!agreementId && invoice.payment_phase_id) {
@@ -5377,7 +5373,6 @@ function InvoiceDialog({
         if (phase) agreementId = phase.agreement_id || "";
       }
       const phaseId = resolvePhaseId(invoice, agreementId);
-      
       clearDraft();
       setFormData({
         invoice_number: invoice.invoice_number || "",
@@ -5396,34 +5391,26 @@ function InvoiceDialog({
         payment_phase_id: prePopulatedData.payment_phase_id || "",
       });
     }
-    // For new invoices, draft will auto-load from sessionStorage — no reset needed
     setAmountError("");
     setPhaseError("");
   }, [open, invoice, prePopulatedKey, paymentPhases, nextInvoiceNumber]);
 
-  // Filter phases by selected agreement, but always include the currently selected phase
   const filteredPhases = useMemo(() => {
     const baseFiltered = formData.agreement_id 
       ? paymentPhases.filter(p => p.agreement_id === formData.agreement_id)
       : [];
-    
-    // Ensure currently selected phase is included for display purposes
     if (formData.payment_phase_id && !baseFiltered.some(p => p.id === formData.payment_phase_id)) {
       const selectedPhase = paymentPhases.find(p => p.id === formData.payment_phase_id);
-      if (selectedPhase) {
-        return [selectedPhase, ...baseFiltered];
-      }
+      if (selectedPhase) return [selectedPhase, ...baseFiltered];
     }
     return baseFiltered;
   }, [formData.agreement_id, formData.payment_phase_id, paymentPhases]);
 
-  // Calculate payments received for this invoice from payment records
   const paymentsReceivedForInvoice = invoice?.id 
-    ? payments.filter(p => p.invoice_id === invoice.id && p.payment_status === "Received")
+    ? payments.filter(p => p.invoice_id === invoice.id && p.payment_status === "Received" && !p.is_voided)
         .reduce((sum, p) => sum + (p.payment_amount || 0), 0)
     : 0;
 
-  // Calculate uninvoiced balance for selected phase
   const selectedPhase = paymentPhases.find(p => p.id === formData.payment_phase_id);
   const phaseAmount = selectedPhase?.amount || 0;
   const alreadyInvoicedForPhase = existingInvoices
@@ -5431,7 +5418,6 @@ function InvoiceDialog({
     .reduce((sum, inv) => sum + (inv.amount || 0), 0);
   const uninvoicedBalance = phaseAmount - alreadyInvoicedForPhase;
 
-  // Clear payment phase when agreement changes
   const handleAgreementChange = (value: string) => {
     updateFormData({ agreement_id: value, payment_phase_id: "" });
     setAmountError("");
@@ -5448,50 +5434,31 @@ function InvoiceDialog({
     setAmountError("");
   };
 
-  // Wrap onOpenChange to clear draft when closing
   const handleOpenChange = (value: boolean) => {
     if (!value) clearDraft();
     onOpenChange(value);
   };
 
-
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(formData.amount) || 0;
     const errors: Record<string, string> = {};
-
-    if (!formData.invoice_number.trim()) {
-      errors.invoice_number = "Invoice number is required";
-    }
-    if (!formData.invoice_date) {
-      errors.invoice_date = "Invoice date is required";
-    }
-    if (!formData.agreement_id) {
-      errors.agreement_id = "Agreement is required";
-    }
-    if (!formData.payment_phase_id) {
-      errors.payment_phase_id = "Payment phase is required";
-    }
-    if (!formData.amount || amount <= 0) {
-      errors.amount = "Amount is required";
-    }
-
+    if (!formData.invoice_number.trim()) errors.invoice_number = "Invoice number is required";
+    if (!formData.invoice_date) errors.invoice_date = "Invoice date is required";
+    if (!formData.agreement_id) errors.agreement_id = "Agreement is required";
+    if (!formData.payment_phase_id) errors.payment_phase_id = "Payment phase is required";
+    if (!formData.amount || amount <= 0) errors.amount = "Amount is required";
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       if (errors.payment_phase_id) setPhaseError(errors.payment_phase_id);
       if (errors.amount) setAmountError(errors.amount);
       return;
     }
-
     setFormErrors({});
-    
-    // Validate amount doesn't exceed uninvoiced balance for the phase
     if (formData.payment_phase_id && amount > uninvoicedBalance) {
       setAmountError(`Amount cannot exceed uninvoiced balance of ${formatCurrency(uninvoicedBalance)}`);
       return;
     }
-    
     onSave({
       invoice_number: formData.invoice_number,
       invoice_date: formData.invoice_date,
@@ -5506,124 +5473,219 @@ function InvoiceDialog({
 
   const invoiceAmount = parseFloat(formData.amount) || 0;
   const openBalance = invoiceAmount - paymentsReceivedForInvoice;
+  const selectedAgreement = agreements.find(a => a.id === formData.agreement_id);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{invoice ? "Edit Invoice" : "Add Invoice"}</DialogTitle>
-          <DialogDescription>Enter invoice details below.</DialogDescription>
+      <DialogContent className="max-w-2xl p-0 overflow-hidden">
+        <DialogHeader className="sr-only">
+          <DialogTitle>{invoice ? "Edit Invoice" : "New Invoice"}</DialogTitle>
+          <DialogDescription>Invoice details</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Invoice Number <span className="text-destructive">*</span></Label>
-              <Input 
-                value={formData.invoice_number} 
-                onChange={(e) => { updateFormData({ invoice_number: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_number: "" })); }}
-                aria-invalid={!!formErrors.invoice_number}
-              />
-              {formErrors.invoice_number && <p className="text-xs text-destructive mt-1">{formErrors.invoice_number}</p>}
-            </div>
-            <div>
-              <Label>Invoice Date <span className="text-destructive">*</span></Label>
-              <Input 
-                type="date" 
-                value={formData.invoice_date} 
-                onChange={(e) => { updateFormData({ invoice_date: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_date: "" })); }}
-                aria-invalid={!!formErrors.invoice_date}
-              />
-              {formErrors.invoice_date && <p className="text-xs text-destructive mt-1">{formErrors.invoice_date}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Agreement <span className="text-destructive">*</span></Label>
-              <Select 
-                value={formData.agreement_id} 
-                onValueChange={(v) => { handleAgreementChange(v); setFormErrors(prev => ({ ...prev, agreement_id: "" })); }}
-                disabled={!!prePopulatedData}
-              >
-                <SelectTrigger className={prePopulatedData ? "opacity-70" : ""} aria-invalid={!!formErrors.agreement_id}>
-                  <SelectValue placeholder="Select agreement" />
-                </SelectTrigger>
-                <SelectContent>
-                  {agreements.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.agreement_number} - {formatCurrency(a.total_price)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {formErrors.agreement_id && <p className="text-xs text-destructive mt-1">{formErrors.agreement_id}</p>}
-            </div>
-            <div>
-              <Label>Payment Phase <span className="text-destructive">*</span></Label>
-              <Select 
-                value={formData.payment_phase_id} 
-                onValueChange={(v) => { handlePhaseChange(v); setFormErrors(prev => ({ ...prev, payment_phase_id: "" })); setPhaseError(""); }}
-                disabled={!formData.agreement_id || !!prePopulatedData}
-              >
-                <SelectTrigger className={prePopulatedData ? "opacity-70" : ""}>
-                  <SelectValue placeholder={formData.agreement_id ? "Select phase" : "Select agreement first"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredPhases.map((p) => {
-                    const invoicedForThisPhase = existingInvoices
-                      .filter(inv => inv.payment_phase_id === p.id && inv.id !== invoice?.id)
-                      .reduce((sum, inv) => sum + (inv.amount || 0), 0);
-                    const remaining = (p.amount || 0) - invoicedForThisPhase;
-                    return (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.phase_name} - {formatCurrency(p.amount)} (Avail: {formatCurrency(remaining)})
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-              {phaseError && <p className="text-xs text-destructive mt-1">{phaseError}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Amount ($) <span className="text-destructive">*</span></Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={formData.amount} 
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                    handleAmountChange(val);
-                  }
-                }}
-                disabled={!!prePopulatedData}
-                className={prePopulatedData ? "opacity-70 bg-muted" : ""}
-              />
-              {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
-              {formData.payment_phase_id && !prePopulatedData && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Max: {formatCurrency(uninvoicedBalance)}
-                </p>
-              )}
-              {prePopulatedData && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Amount set from phase
-                </p>
-              )}
-            </div>
-            {invoice && (
-              <div>
-                <Label>Payments Received</Label>
-                <p className="text-sm font-medium mt-2">{formatCurrency(paymentsReceivedForInvoice)}</p>
-                <p className="text-xs text-muted-foreground">Balance: {formatCurrency(openBalance)}</p>
+        <form onSubmit={handleSubmit}>
+          <div className="bg-background">
+            {/* Header Bar */}
+            <div className="bg-primary/5 border-b px-8 py-5 flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                {company?.logo_url && (
+                  <img 
+                    src={company.logo_url} 
+                    alt={company?.name || "Company"} 
+                    className="h-12 w-auto object-contain rounded"
+                  />
+                )}
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">{company?.name || "Company"}</h2>
+                  {company?.address && <p className="text-xs text-muted-foreground mt-0.5">{company.address}</p>}
+                  <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
+                    {company?.phone && <span>{company.phone}</span>}
+                    {company?.email && <span>{company.email}</span>}
+                  </div>
+                </div>
               </div>
-            )}
+              <div className="text-right">
+                <h1 className="text-2xl font-bold tracking-tight text-primary">INVOICE</h1>
+                <div className="mt-1 flex items-center justify-end gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">#</span>
+                  <Input 
+                    value={formData.invoice_number} 
+                    onChange={(e) => { updateFormData({ invoice_number: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_number: "" })); }}
+                    className="h-7 w-28 text-right text-sm font-semibold border-dashed"
+                    aria-invalid={!!formErrors.invoice_number}
+                    placeholder="Number"
+                  />
+                </div>
+                {formErrors.invoice_number && <p className="text-xs text-destructive mt-0.5 text-right">{formErrors.invoice_number}</p>}
+              </div>
+            </div>
+
+            {/* Info Row: Bill To + Invoice Details */}
+            <div className="px-8 py-5 grid grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Bill To</p>
+                  <p className="text-sm font-semibold text-foreground">{customerName || "—"}</p>
+                  {projectAddress && <p className="text-xs text-muted-foreground mt-0.5">{projectAddress}</p>}
+                </div>
+                {projectName && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Project</p>
+                    <p className="text-sm text-foreground">{projectName}</p>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Invoice Date</span>
+                  <Input 
+                    type="date" 
+                    value={formData.invoice_date} 
+                    onChange={(e) => { updateFormData({ invoice_date: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_date: "" })); }}
+                    className="h-7 w-40 text-sm text-right border-dashed"
+                    aria-invalid={!!formErrors.invoice_date}
+                  />
+                </div>
+                {formErrors.invoice_date && <p className="text-xs text-destructive text-right">{formErrors.invoice_date}</p>}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Agreement</span>
+                  <div className="w-40">
+                    <Select 
+                      value={formData.agreement_id} 
+                      onValueChange={(v) => { handleAgreementChange(v); setFormErrors(prev => ({ ...prev, agreement_id: "" })); }}
+                      disabled={!!prePopulatedData}
+                    >
+                      <SelectTrigger className={cn("h-7 text-sm border-dashed", prePopulatedData ? "opacity-70" : "")} aria-invalid={!!formErrors.agreement_id}>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agreements.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.agreement_number} - {formatCurrency(a.total_price)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {formErrors.agreement_id && <p className="text-xs text-destructive text-right">{formErrors.agreement_id}</p>}
+              </div>
+            </div>
+
+            {/* Line Items Table */}
+            <div className="px-8">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-y bg-muted/40">
+                    <th className="text-left py-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Description</th>
+                    <th className="text-right py-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground w-40">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b">
+                    <td className="py-3 px-3">
+                      <div className="space-y-1">
+                        <Select 
+                          value={formData.payment_phase_id} 
+                          onValueChange={(v) => { handlePhaseChange(v); setFormErrors(prev => ({ ...prev, payment_phase_id: "" })); setPhaseError(""); }}
+                          disabled={!formData.agreement_id || !!prePopulatedData}
+                        >
+                          <SelectTrigger className={cn("h-8 text-sm border-dashed", prePopulatedData ? "opacity-70" : "")}>
+                            <SelectValue placeholder={formData.agreement_id ? "Select payment phase" : "Select agreement first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredPhases.map((p) => {
+                              const invoicedForThisPhase = existingInvoices
+                                .filter(inv => inv.payment_phase_id === p.id && inv.id !== invoice?.id)
+                                .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+                              const remaining = (p.amount || 0) - invoicedForThisPhase;
+                              return (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.phase_name} - {formatCurrency(p.amount)} (Avail: {formatCurrency(remaining)})
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                        {phaseError && <p className="text-xs text-destructive">{phaseError}</p>}
+                        {selectedAgreement && (
+                          <p className="text-xs text-muted-foreground pl-1">
+                            Contract #{selectedAgreement.agreement_number} • {formatCurrency(selectedAgreement.total_price)}
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-right align-top">
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.amount} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d*\.?\d*$/.test(val)) handleAmountChange(val);
+                        }}
+                        disabled={!!prePopulatedData}
+                        className={cn("h-8 text-sm text-right border-dashed w-full", prePopulatedData ? "opacity-70 bg-muted" : "")}
+                        placeholder="0.00"
+                      />
+                      {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
+                      {formData.payment_phase_id && !prePopulatedData && (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Max: {formatCurrency(uninvoicedBalance)}
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totals Section */}
+            <div className="px-8 py-5">
+              <div className="flex justify-end">
+                <div className="w-64 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium">{formatCurrency(invoiceAmount)}</span>
+                  </div>
+                  {invoice && paymentsReceivedForInvoice > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Payments Received</span>
+                      <span className="font-medium">−{formatCurrency(paymentsReceivedForInvoice)}</span>
+                    </div>
+                  )}
+                  <div className="border-t pt-2 flex justify-between">
+                    <span className="text-sm font-bold">
+                      {invoice && paymentsReceivedForInvoice > 0 ? "Balance Due" : "Total Due"}
+                    </span>
+                    <span className={cn(
+                      "text-lg font-bold",
+                      invoice && openBalance <= 0 && paymentsReceivedForInvoice > 0 
+                        ? "text-green-600" 
+                        : "text-foreground"
+                    )}>
+                      {invoice && openBalance <= 0 && paymentsReceivedForInvoice > 0 
+                        ? "PAID" 
+                        : formatCurrency(invoice ? openBalance : invoiceAmount)
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="border-t bg-muted/20 px-8 py-4 flex items-center justify-between">
+              <p className="text-[10px] text-muted-foreground">
+                {invoice ? `Last updated ${invoice.invoice_date ? new Date(invoice.invoice_date + 'T12:00:00').toLocaleDateString() : ''}` : 'New invoice'}
+              </p>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button type="submit" size="sm" disabled={isPending}>
+                  {isPending ? "Saving..." : invoice ? "Update Invoice" : "Create Invoice"}
+                </Button>
+              </div>
+            </div>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
-          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
