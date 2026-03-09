@@ -8867,7 +8867,7 @@ function CommissionTab({
 
   // Helper to sync commission payment to QuickBooks
   const syncCommissionToQuickBooks = async (paymentId: string): Promise<{ synced: boolean; message?: string }> => {
-    if (!companyId || !isQBConnected) return { synced: false };
+    if (!companyId || !isQBSyncEnabled) return { synced: false };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
