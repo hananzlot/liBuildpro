@@ -4701,6 +4701,55 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Auto-Create Phase Dialog */}
+      <AlertDialog open={!!autoCreatePhaseDialog} onOpenChange={(open) => { if (!open) setAutoCreatePhaseDialog(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Auto-Create Progress Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              This contract is missing {autoCreatePhaseDialog ? formatCurrency(autoCreatePhaseDialog.missingAmount) : ''} in progress payments. Would you like to automatically create a progress payment named <strong>"System Auto Entry"</strong> for the missing amount?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!autoCreatePhaseDialog) return;
+                try {
+                  const { data: newPhase, error } = await supabase
+                    .from("project_payment_phases")
+                    .insert({
+                      project_id: projectId,
+                      phase_name: "System Auto Entry",
+                      amount: autoCreatePhaseDialog.missingAmount,
+                      agreement_id: autoCreatePhaseDialog.agreementId,
+                      company_id: companyId,
+                    })
+                    .select()
+                    .single();
+                  if (error) throw error;
+                  await logAudit({
+                    tableName: 'project_payment_phases',
+                    recordId: newPhase.id,
+                    action: 'INSERT',
+                    newValues: newPhase,
+                    description: `Auto-created phase "System Auto Entry" for missing ${formatCurrency(autoCreatePhaseDialog.missingAmount)}`,
+                  });
+                  toast.success("Progress payment created successfully");
+                  queryClient.invalidateQueries({ queryKey: ["project-payment-phases", projectId] });
+                  queryClient.invalidateQueries({ queryKey: ["all-project-phases"] });
+                } catch (err: any) {
+                  toast.error("Failed to create progress payment: " + err.message);
+                }
+                setAutoCreatePhaseDialog(null);
+              }}
+            >
+              Create Phase
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Quick Pay Dialog */}
       <QuickPayDialog
         open={quickPayDialogOpen}
