@@ -4374,6 +4374,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         </TabsContent>
       </Tabs>
 
+      {/* Skipped QB Sync Entries */}
+      {isQBConnectedMain && (
+        <SkippedSyncEntries projectId={projectId} companyId={companyId} />
+      )}
+
       {/* Invoice Dialog */}
       <InvoiceDialog
         open={invoiceDialogOpen}
