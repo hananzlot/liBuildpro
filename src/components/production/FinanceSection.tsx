@@ -2313,6 +2313,44 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           })
           .eq("id", editingPhase.id);
         if (error) throw error;
+
+        // If the phase amount changed, cascade update to linked invoices
+        const oldAmount = editingPhase.amount || 0;
+        const newAmount = phase.amount || 0;
+        if (newAmount !== oldAmount) {
+          // Find invoices linked to this phase that were invoiced for the full old amount
+          const { data: linkedInvoices } = await supabase
+            .from("project_invoices")
+            .select("id, amount, payments_received")
+            .eq("payment_phase_id", editingPhase.id);
+
+          if (linkedInvoices && linkedInvoices.length > 0) {
+            for (const inv of linkedInvoices) {
+              // Only auto-adjust if the invoice was for the full phase amount (within $0.01)
+              // and hasn't been overpaid
+              const paymentsReceived = inv.payments_received || 0;
+              if (Math.abs((inv.amount || 0) - oldAmount) < 0.02 && paymentsReceived <= newAmount) {
+                const newOpenBalance = Math.max(0, newAmount - paymentsReceived);
+                await supabase
+                  .from("project_invoices")
+                  .update({
+                    amount: newAmount,
+                    open_balance: newOpenBalance,
+                  })
+                  .eq("id", inv.id);
+
+                await logAudit({
+                  tableName: 'project_invoices',
+                  recordId: inv.id,
+                  action: 'UPDATE',
+                  oldValues: { amount: inv.amount, open_balance: (inv.amount || 0) - paymentsReceived },
+                  newValues: { amount: newAmount, open_balance: newOpenBalance },
+                  description: `Invoice amount auto-adjusted from ${formatCurrency(inv.amount || 0)} to ${formatCurrency(newAmount)} due to phase amount change`,
+                });
+              }
+            }
+          }
+        }
       } else {
         const { data: newPhase, error } = await supabase
           .from("project_payment_phases")
