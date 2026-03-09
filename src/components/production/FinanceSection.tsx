@@ -2657,7 +2657,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 className={cn(
                   "relative whitespace-nowrap px-4 py-1.5 text-xs rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
                   activeSubTab === tab.value
-                    ? "bg-background shadow-sm text-foreground font-medium"
+                    ? "bg-primary/15 shadow-sm text-primary font-medium"
                     : "text-muted-foreground hover:text-foreground"
                 )}
                 onClick={() => handleSubTabChange(tab.value)}
