@@ -5570,38 +5570,27 @@ function InvoiceDialog({
               <div className="space-y-4">
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Bill To</p>
-                  <p className="text-sm font-semibold text-foreground">{customerName || "—"}</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {customerName ? customerName.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()) : "—"}
+                  </p>
                   {projectAddress && <p className="text-xs text-muted-foreground mt-0.5">{projectAddress}</p>}
                 </div>
-                {projectName && (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Project</p>
-                    <p className="text-sm text-foreground">{projectName}</p>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Invoice Date</span>
-                  <Input 
-                    type="date" 
-                    value={formData.invoice_date} 
-                    onChange={(e) => { updateFormData({ invoice_date: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_date: "" })); }}
-                    className="h-7 w-40 text-sm text-right border-dashed"
-                    aria-invalid={!!formErrors.invoice_date}
-                  />
-                </div>
-                {formErrors.invoice_date && <p className="text-xs text-destructive text-right">{formErrors.invoice_date}</p>}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Agreement</span>
-                  <div className="w-40">
+                <div className="flex items-start gap-4">
+                  {projectName && (
+                    <div className="shrink-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Project</p>
+                      <p className="text-sm text-foreground">{projectName}</p>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">Agreement</p>
                     <Select 
                       value={formData.agreement_id} 
                       onValueChange={(v) => { handleAgreementChange(v); setFormErrors(prev => ({ ...prev, agreement_id: "" })); }}
                       disabled={!!prePopulatedData}
                     >
-                      <SelectTrigger className={cn("h-7 text-sm border-dashed", prePopulatedData ? "opacity-70" : "")} aria-invalid={!!formErrors.agreement_id}>
-                        <SelectValue placeholder="Select" />
+                      <SelectTrigger className={cn("h-7 text-sm border-2 border-primary/50 focus:border-primary bg-background w-full", prePopulatedData ? "opacity-70" : "")} aria-invalid={!!formErrors.agreement_id}>
+                        <SelectValue placeholder="Select agreement" />
                       </SelectTrigger>
                       <SelectContent>
                         {agreements.map((a) => {
@@ -5615,9 +5604,22 @@ function InvoiceDialog({
                         })}
                       </SelectContent>
                     </Select>
+                    {formErrors.agreement_id && <p className="text-xs text-destructive mt-0.5">{formErrors.agreement_id}</p>}
                   </div>
                 </div>
-                {formErrors.agreement_id && <p className="text-xs text-destructive text-right">{formErrors.agreement_id}</p>}
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Invoice Date</span>
+                  <Input 
+                    type="date" 
+                    value={formData.invoice_date} 
+                    onChange={(e) => { updateFormData({ invoice_date: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_date: "" })); }}
+                    className="h-7 w-40 text-sm text-right border-2 border-primary/50 focus:border-primary bg-background"
+                    aria-invalid={!!formErrors.invoice_date}
+                  />
+                </div>
+                {formErrors.invoice_date && <p className="text-xs text-destructive text-right">{formErrors.invoice_date}</p>}
               </div>
             </div>
 
