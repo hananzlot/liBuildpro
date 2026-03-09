@@ -3001,7 +3001,7 @@ export function OpportunityDetailSheet({
                   {associatedProjects.map((proj) => (
                     <DropdownMenuItem
                       key={proj.id}
-                      onClick={() => { onOpenChange(false); navigate(`/production/${proj.id}?returnTo=${encodeURIComponent(location.pathname)}`); }}
+                      onClick={() => { onOpenChange(false); openTab(`/project/${proj.id}`, proj.project_name || `Project ${proj.id.slice(0, 8)}`); }}
                     >
                       {proj.project_name || `Project ${proj.id.slice(0, 8)}`}
                     </DropdownMenuItem>
