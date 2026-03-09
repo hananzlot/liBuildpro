@@ -416,6 +416,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [voidRefundDialogOpen, setVoidRefundDialogOpen] = useState(false);
   const [voidingRefund, setVoidingRefund] = useState<Refund | null>(null);
   const [deleteRefundDialogOpen, setDeleteRefundDialogOpen] = useState(false);
+  const [autoCreatePhaseDialog, setAutoCreatePhaseDialog] = useState<{ agreementId: string; missingAmount: number } | null>(null);
   const [deletingRefund, setDeletingRefund] = useState<Refund | null>(null);
   const [voidRefundReason, setVoidRefundReason] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
