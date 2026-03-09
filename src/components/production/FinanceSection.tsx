@@ -4472,6 +4472,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
       {/* Invoice Dialog */}
       <InvoiceDialog
+        key={editingInvoice?.id || 'new-invoice'}
         open={invoiceDialogOpen}
         onOpenChange={(open) => {
           setInvoiceDialogOpen(open);
