@@ -1104,24 +1104,6 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
         headerPortalRef.current
       )}
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <MultiSelectFilter
-          options={statusOptions}
-          selected={selectedStatuses}
-          onChange={setSelectedStatuses}
-          placeholder="All Statuses"
-          icon={<Filter className="h-3.5 w-3.5" />}
-        />
-        <MultiSelectFilter
-          options={projectFilterOptions}
-          selected={selectedProjectIds}
-          onChange={setSelectedProjectIds}
-          placeholder="All Projects"
-          icon={<Filter className="h-3.5 w-3.5" />}
-        />
-      </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <MetricCard
@@ -1149,6 +1131,24 @@ export function ProjectSummaryTab({ onProjectClick, headerPortalRef }: ProjectSu
           title="Outstanding A/P"
           value={formatCompactCurrency(totals.outstandingAP)}
           icon={Receipt}
+        />
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <MultiSelectFilter
+          options={statusOptions}
+          selected={selectedStatuses}
+          onChange={setSelectedStatuses}
+          placeholder="All Statuses"
+          icon={<Filter className="h-3.5 w-3.5" />}
+        />
+        <MultiSelectFilter
+          options={projectFilterOptions}
+          selected={selectedProjectIds}
+          onChange={setSelectedProjectIds}
+          placeholder="All Projects"
+          icon={<Filter className="h-3.5 w-3.5" />}
         />
       </div>
 
