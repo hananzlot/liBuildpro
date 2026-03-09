@@ -4304,7 +4304,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                               variant="outline" 
                                               className={isFullyInvoiced ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground text-[10px] px-1.5 py-0"}
                                             >
-                                              {isFullyInvoiced ? "Invoiced" : invoiceStatus.totalInvoiced > 0 ? `Invoiced: ${formatCurrency(invoiceStatus.totalInvoiced)}` : "Not Sent to Customer Yet"}
+                                              {isFullyInvoiced 
+                                                ? `Invoiced #${invoiceStatus.invoices.map(i => i.invoice_number || '?').join(', #')}` 
+                                                : invoiceStatus.totalInvoiced > 0 
+                                                  ? `Invoiced: ${formatCurrency(invoiceStatus.totalInvoiced)} #${invoiceStatus.invoices.map(i => i.invoice_number || '?').join(', #')}` 
+                                                  : "Not Sent to Customer Yet"}
                                             </Badge>
                                             {(isFullyPaid || paymentStatus.totalReceived > 0 || invoiceStatus.totalInvoiced > 0) && (
                                             <Badge 
