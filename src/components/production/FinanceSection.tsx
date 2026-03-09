@@ -804,6 +804,23 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   });
   const isQBConnectedMain = !!mainQbConnection?.is_active;
 
+  // Fetch project's auto_sync_to_quickbooks flag
+  const { data: projectAutoSync } = useQuery({
+    queryKey: ["project-auto-sync-qb", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("auto_sync_to_quickbooks")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.auto_sync_to_quickbooks ?? false;
+    },
+    enabled: !!projectId,
+    staleTime: 30000,
+  });
+  const isProjectQBSyncEnabled = isQBConnectedMain && (projectAutoSync === true);
+
   // Fetch QB sync status for bill payments (only when QB is connected)
   const { data: billPaymentSyncStatuses = {} } = useQuery({
     queryKey: ["bill-payment-sync-statuses", projectId, companyId, allBillPayments.map((p: any) => p.id).join(",")],
@@ -1003,7 +1020,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   // Helper to check if QB sync will create new entities (customer/vendor)
   const checkQbSyncEntities = async (recordType: "invoice" | "payment" | "bill" | "bill_payment" | "refund", recordId: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[]; unmappedEntities: { type: string; name: string }[] }> => {
-    if (!companyId || !isQBConnectedMain) return { requiresConfirmation: false, pendingEntities: [], unmappedEntities: [] };
+    if (!companyId || !isProjectQBSyncEnabled) return { requiresConfirmation: false, pendingEntities: [], unmappedEntities: [] };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
@@ -1033,7 +1050,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   // Pre-save check for vendor existence (before bill is created)
   const checkVendorBeforeSave = async (vendorName: string): Promise<{ requiresConfirmation: boolean; pendingEntities: { type: string; name: string }[] }> => {
-    if (!companyId || !vendorName || !isQBConnectedMain) return { requiresConfirmation: false, pendingEntities: [] };
+    if (!companyId || !vendorName || !isProjectQBSyncEnabled) return { requiresConfirmation: false, pendingEntities: [] };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
@@ -1062,7 +1079,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   // Helper to sync a record to QuickBooks after create/update - returns true if synced successfully
   const syncRecordToQuickBooks = async (recordType: "invoice" | "payment" | "bill" | "bill_payment" | "refund", recordId: string): Promise<{ synced: boolean; message?: string; newEntities?: { type: string; name: string }[] }> => {
-    if (!companyId || !isQBConnectedMain) return { synced: false };
+    if (!companyId || !isProjectQBSyncEnabled) return { synced: false };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
@@ -1328,7 +1345,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   const syncDeleteToQuickBooks = async (recordType: string, recordId: string): Promise<{ synced: boolean; message?: string }> => {
 
-    if (!companyId || !isQBConnectedMain) {
+    if (!companyId || !isProjectQBSyncEnabled) {
 
       return { synced: false };
     }
@@ -4321,6 +4338,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               projectName={projectName}
               projectAddress={projectAddress}
               isCancelled={projectStatus === "Cancelled"}
+              isProjectQBSyncEnabled={isProjectQBSyncEnabled}
             />
           </ErrorBoundary>
         </TabsContent>
@@ -4770,7 +4788,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         companyId={companyId}
         isAdmin={isAdmin}
         isSuperAdmin={isSuperAdmin}
-        isQBConnected={isQBConnectedMain}
+        isQBConnected={isProjectQBSyncEnabled}
         onSyncPayment={async (paymentId, paymentDetails) => {
           if (paymentDetails) {
             const billForVendor = bills.find(b => b.id === historyBill?.id);
@@ -8708,6 +8726,7 @@ function CommissionTab({
   projectName,
   projectAddress,
   isCancelled,
+  isProjectQBSyncEnabled: isProjectQBSyncEnabledProp,
 }: {
   projectId: string;
   totalContracts: number;
@@ -8720,6 +8739,7 @@ function CommissionTab({
   projectName?: string | null;
   projectAddress?: string | null;
   isCancelled?: boolean;
+  isProjectQBSyncEnabled?: boolean;
 }) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -8781,6 +8801,7 @@ function CommissionTab({
     enabled: !!companyId,
   });
   const isQBConnected = !!qbConnection?.is_active;
+  const isQBSyncEnabled = isProjectQBSyncEnabledProp ?? isQBConnected;
 
   // Fetch salesperson vendor mappings
   const { data: salespersonVendorMappings = [] } = useQuery({
@@ -8846,7 +8867,7 @@ function CommissionTab({
 
   // Helper to sync commission payment to QuickBooks
   const syncCommissionToQuickBooks = async (paymentId: string): Promise<{ synced: boolean; message?: string }> => {
-    if (!companyId || !isQBConnected) return { synced: false };
+    if (!companyId || !isQBSyncEnabled) return { synced: false };
     
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-quickbooks", {
@@ -8879,7 +8900,7 @@ function CommissionTab({
     const salespersonRecord = salespeopleRecords.find(sr => sr.name === payment.salesperson_name);
     
     // If QB is connected, check if salesperson has vendor mapping
-    if (isQBConnected && salespersonRecord) {
+    if (isQBSyncEnabled && salespersonRecord) {
       const hasMapping = salespersonVendorMappings.some(m => m.source_value === salespersonRecord.id);
       
       if (!hasMapping) {
@@ -8949,7 +8970,7 @@ function CommissionTab({
       // Sync to QuickBooks if connected
       let qbSynced = false;
       let qbMessage: string | undefined;
-      if (isQBConnected && savedRecordId) {
+      if (isQBSyncEnabled && savedRecordId) {
         const qbResult = await syncCommissionToQuickBooks(savedRecordId);
         qbSynced = qbResult.synced;
         qbMessage = qbResult.message;
