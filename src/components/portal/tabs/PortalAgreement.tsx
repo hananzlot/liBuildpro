@@ -606,8 +606,8 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
         </div>
       )}
 
-      {/* PDF Viewer Dialog */}
-      <PdfViewerDialog
+      {/* PDF Viewer Dialog - Canvas-based for portal compatibility */}
+      <PortalPdfViewerDialog
         open={!!pdfUrl}
         onOpenChange={(open) => !open && setPdfUrl(null)}
         fileUrl={pdfUrl || ''}
