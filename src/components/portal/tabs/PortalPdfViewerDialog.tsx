@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, ZoomIn, ZoomOut, RotateCw, X, ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { downloadOrOpenBlob } from "@/utils/downloadBlob";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import pdfjsWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
