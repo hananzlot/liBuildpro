@@ -1,0 +1,1 @@
+DELETE FROM project_invoices WHERE invoice_number LIKE 'DELETED-%';
