@@ -8900,7 +8900,7 @@ function CommissionTab({
     const salespersonRecord = salespeopleRecords.find(sr => sr.name === payment.salesperson_name);
     
     // If QB is connected, check if salesperson has vendor mapping
-    if (isQBConnected && salespersonRecord) {
+    if (isQBSyncEnabled && salespersonRecord) {
       const hasMapping = salespersonVendorMappings.some(m => m.source_value === salespersonRecord.id);
       
       if (!hasMapping) {
