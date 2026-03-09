@@ -2918,11 +2918,17 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         if (uninvoicedPhases.length === 0) return null;
 
                         return (
-                          <div className="mb-4">
-                            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1.5">
-                              <AlertCircle className="h-3.5 w-3.5" />
-                              Uninvoiced Phases
-                            </p>
+                          <Collapsible defaultOpen={false} className="mb-4">
+                            <CollapsibleTrigger className="w-full">
+                              <div className="flex items-center justify-between rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-900/20 px-3 py-2 hover:bg-amber-100/70 dark:hover:bg-amber-900/30 transition-colors cursor-pointer">
+                                <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                                  <AlertCircle className="h-3.5 w-3.5" />
+                                  Uninvoiced Phases ({uninvoicedPhases.length})
+                                </p>
+                                <ChevronDown className="h-3.5 w-3.5 text-amber-500 transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                              </div>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="mt-2 rounded-lg border border-border bg-card overflow-hidden">
                             <Table>
                               <TableHeader>
                                 <TableRow>
