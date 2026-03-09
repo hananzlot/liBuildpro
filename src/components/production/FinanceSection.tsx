@@ -1345,7 +1345,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   const syncDeleteToQuickBooks = async (recordType: string, recordId: string): Promise<{ synced: boolean; message?: string }> => {
 
-    if (!companyId || !isQBConnectedMain) {
+    if (!companyId || !isProjectQBSyncEnabled) {
 
       return { synced: false };
     }
