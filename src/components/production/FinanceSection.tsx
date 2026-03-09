@@ -4338,6 +4338,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               projectName={projectName}
               projectAddress={projectAddress}
               isCancelled={projectStatus === "Cancelled"}
+              isProjectQBSyncEnabled={isProjectQBSyncEnabled}
             />
           </ErrorBoundary>
         </TabsContent>
