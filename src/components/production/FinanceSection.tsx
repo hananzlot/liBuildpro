@@ -4107,9 +4107,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   <TableRow>
                                     <TableHead className="text-xs w-8"></TableHead>
                                     <TableHead className="text-xs text-left">Progress Payment</TableHead>
-                                    <TableHead className="text-xs text-left">Due Date</TableHead>
-                                    <TableHead className="text-xs text-right">Amount</TableHead>
-                                    <TableHead className="text-xs text-left">Status</TableHead>
+                                    <TableHead className="text-xs text-left w-28">Due Date</TableHead>
+                                    <TableHead className="text-xs text-right w-32">Amount</TableHead>
+                                    <TableHead className="text-xs text-left w-48">Status</TableHead>
                                     <TableHead className="text-xs w-20"></TableHead>
                                   </TableRow>
                                 </TableHeader>
@@ -4180,9 +4180,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                             {phase.description && <p className="text-muted-foreground">{phase.description}</p>}
                                           </div>
                                         </TableCell>
-                                        <TableCell className="text-xs">{formatDate(phase.due_date)}</TableCell>
-                                        <TableCell className="text-xs text-right">{formatCurrency(phase.amount)}</TableCell>
-                                        <TableCell className="text-xs">
+                                        <TableCell className="text-xs w-28">{formatDate(phase.due_date)}</TableCell>
+                                        <TableCell className="text-xs text-right w-32">{formatCurrency(phase.amount)}</TableCell>
+                                        <TableCell className="text-xs w-48">
                                           <div className="flex flex-col items-start gap-1">
                                             <Badge 
                                               variant="outline" 
