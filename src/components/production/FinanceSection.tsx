@@ -4106,11 +4106,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                 <TableHeader>
                                   <TableRow>
                                     <TableHead className="text-xs w-8"></TableHead>
-                                    <TableHead className="text-xs text-left">Progress Payment</TableHead>
-                                    <TableHead className="text-xs text-left w-28">Due Date</TableHead>
-                                    <TableHead className="text-xs text-right w-32">Amount</TableHead>
-                                    <TableHead className="text-xs text-left w-48">Status</TableHead>
-                                    <TableHead className="text-xs w-20"></TableHead>
+                                    <TableHead className="text-xs text-left w-[40%]">Progress Payment</TableHead>
+                                    <TableHead className="text-xs text-left w-[15%]">Due Date</TableHead>
+                                    <TableHead className="text-xs text-right w-[15%]">Amount</TableHead>
+                                    <TableHead className="text-xs text-left w-[22%]">Status</TableHead>
+                                    <TableHead className="text-xs w-10"></TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -4180,9 +4180,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                             {phase.description && <p className="text-muted-foreground">{phase.description}</p>}
                                           </div>
                                         </TableCell>
-                                        <TableCell className="text-xs w-28">{formatDate(phase.due_date)}</TableCell>
-                                        <TableCell className="text-xs text-right w-32">{formatCurrency(phase.amount)}</TableCell>
-                                        <TableCell className="text-xs w-48">
+                                        <TableCell className="text-xs w-[15%]">{formatDate(phase.due_date)}</TableCell>
+                                        <TableCell className="text-xs text-right w-[15%]">{formatCurrency(phase.amount)}</TableCell>
+                                        <TableCell className="text-xs w-[22%]">
                                           <div className="flex flex-col items-start gap-1">
                                             <Badge 
                                               variant="outline" 
