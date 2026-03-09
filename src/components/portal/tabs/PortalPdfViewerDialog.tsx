@@ -155,7 +155,16 @@ export function PortalPdfViewerDialog({ open, onOpenChange, fileUrl, fileName }:
             <div className="flex flex-col items-center justify-center h-full gap-4">
               <AlertCircle className="h-10 w-10 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">{error}</p>
-              <Button variant="outline" onClick={() => window.open(fileUrl, "_blank")}>
+              <Button variant="outline" onClick={async () => {
+                try {
+                  const res = await fetch(fileUrl);
+                  const blob = await res.blob();
+                  const blobUrl = URL.createObjectURL(blob);
+                  window.open(blobUrl, "_blank");
+                } catch {
+                  window.open(fileUrl, "_blank");
+                }
+              }}>
                 <ExternalLink className="h-4 w-4 mr-1" />
                 Open in New Tab
               </Button>
