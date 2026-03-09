@@ -313,7 +313,7 @@ export function CashFlowTab({
           onClick={() => handleKPIClick('billsPaid')}
         />
         <MetricCard
-          title="Outstanding AR"
+          title="Outstanding A/R"
           value={formatCurrency(totals.totalReceivables)}
           subValue="To collect"
           icon={Wallet}
