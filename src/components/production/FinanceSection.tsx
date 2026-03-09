@@ -3037,7 +3037,15 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                               </TableCell>
                               <TableCell className="text-xs text-left text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
                               <TableCell className="text-xs text-center">{formatCurrency2(inv.amount)}</TableCell>
-                              <TableCell className="text-xs text-center">{formatCurrency2(inv.open_balance)}</TableCell>
+                              <TableCell className="text-xs text-center">
+                                {(inv.open_balance || 0) <= 0 ? (
+                                  <span className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 border border-emerald-500 dark:border-emerald-500 rounded rotate-[-2deg] opacity-80">
+                                    Paid in Full
+                                  </span>
+                                ) : (
+                                  formatCurrency2(inv.open_balance)
+                                )}
+                              </TableCell>
                               {isQBConnectedMain && (
                                 <TableCell className="text-xs">
                                   {(() => {
