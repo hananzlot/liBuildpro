@@ -4787,7 +4787,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         companyId={companyId}
         isAdmin={isAdmin}
         isSuperAdmin={isSuperAdmin}
-        isQBConnected={isQBConnectedMain}
+        isQBConnected={isProjectQBSyncEnabled}
         onSyncPayment={async (paymentId, paymentDetails) => {
           if (paymentDetails) {
             const billForVendor = bills.find(b => b.id === historyBill?.id);
