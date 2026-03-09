@@ -87,31 +87,31 @@ export function QueuedSyncReviewDialog({
         if (entry.record_type === "invoice" && entry.record_id) {
           const { data } = await supabase
             .from("project_invoices")
-            .select("invoice_number, amount, description")
+            .select("invoice_number, amount")
             .eq("id", entry.record_id)
             .maybeSingle();
           if (data) {
-            e.description = `Invoice #${data.invoice_number || "—"}${data.description ? ` — ${data.description}` : ""}`;
+            e.description = `Invoice #${data.invoice_number || "—"}`;
             e.amount = data.amount ?? undefined;
           }
         } else if (entry.record_type === "payment" && entry.record_id) {
           const { data } = await supabase
             .from("project_payments")
-            .select("payment_amount, payment_method, payment_reference")
+            .select("payment_amount, payment_method, check_number")
             .eq("id", entry.record_id)
             .maybeSingle();
           if (data) {
-            e.description = `Payment${data.payment_reference ? ` #${data.payment_reference}` : ""}${data.payment_method ? ` (${data.payment_method})` : ""}`;
+            e.description = `Payment${data.check_number ? ` #${data.check_number}` : ""}${data.payment_method ? ` (${data.payment_method})` : ""}`;
             e.amount = data.payment_amount ?? undefined;
           }
         } else if (entry.record_type === "bill" && entry.record_id) {
           const { data } = await supabase
             .from("project_bills")
-            .select("bill_number, bill_amount, vendor_name")
+            .select("bill_ref, bill_amount, installer_company")
             .eq("id", entry.record_id)
             .maybeSingle();
           if (data) {
-            e.description = `Bill #${data.bill_number || "—"}${data.vendor_name ? ` — ${data.vendor_name}` : ""}`;
+            e.description = `Bill #${data.bill_ref || "—"}${data.installer_company ? ` — ${data.installer_company}` : ""}`;
             e.amount = data.bill_amount ?? undefined;
           }
         } else if (entry.record_type === "bill_payment" && entry.record_id) {
