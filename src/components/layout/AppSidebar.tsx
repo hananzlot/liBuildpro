@@ -95,8 +95,8 @@ const navSections: NavSection[] = [
       
       { title: "Pending Deposits", url: "/pending-deposits", icon: Landmark, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production', dynamicSuffix: 'pendingDeposits' },
       { title: "Vendors & Subs", url: "/production?view=subcontractors", icon: HardHat, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production' },
-      { title: "Outstanding AR", url: "/outstanding-ar", icon: FileText, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production', dynamicSuffix: 'ar' },
-      { title: "Outstanding AP", url: "/outstanding-ap?tab=scheduled", icon: Briefcase, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production', dynamicSuffix: 'ap' },
+      { title: "Outstanding A/R", url: "/outstanding-ar", icon: FileText, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production', dynamicSuffix: 'ar' },
+      { title: "Outstanding A/P", url: "/outstanding-ap?tab=scheduled", icon: Briefcase, roles: ['super_admin', 'admin', 'production'], requiredFeature: 'production', dynamicSuffix: 'ap' },
     ],
   },
   {

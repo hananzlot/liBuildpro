@@ -313,7 +313,7 @@ export function CashFlowTab({
           onClick={() => handleKPIClick('billsPaid')}
         />
         <MetricCard
-          title="Outstanding AR"
+          title="Outstanding A/R"
           value={formatCurrency(totals.totalReceivables)}
           subValue="To collect"
           icon={Wallet}
@@ -321,7 +321,7 @@ export function CashFlowTab({
           onClick={() => handleKPIClick('outstandingAR')}
         />
         <MetricCard
-          title="Outstanding AP"
+          title="Outstanding A/P"
           value={formatCurrency(totals.totalPayables)}
           subValue="Bills unpaid"
           icon={AlertTriangle}

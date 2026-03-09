@@ -13,8 +13,8 @@ export const ANALYTICS_REPORTS = [
   { key: "commission", label: "Commission Report", route: "/analytics/commission" },
   { key: "pnl", label: "P&L Statement", route: "/analytics/pnl" },
   { key: "balance_sheet", label: "Balance Sheet", route: "/analytics/balance-sheet" },
-  { key: "outstanding_ap", label: "Outstanding AP", route: "/outstanding-ap" },
-  { key: "outstanding_ar", label: "Outstanding AR", route: "/outstanding-ar" },
+  { key: "outstanding_ap", label: "Outstanding A/P", route: "/outstanding-ap" },
+  { key: "outstanding_ar", label: "Outstanding A/R", route: "/outstanding-ar" },
 ] as const;
 
 export type AnalyticsReportKey = typeof ANALYTICS_REPORTS[number]["key"];
