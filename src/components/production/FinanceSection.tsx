@@ -5556,7 +5556,7 @@ function InvoiceDialog({
                   <Input 
                     value={formData.invoice_number} 
                     onChange={(e) => { updateFormData({ invoice_number: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_number: "" })); }}
-                    className="h-7 w-28 text-right text-sm font-semibold border-dashed"
+                    className="h-7 w-28 text-right text-sm font-semibold border-primary/50 border-2 focus:border-primary bg-background"
                     aria-invalid={!!formErrors.invoice_number}
                     placeholder="Number"
                   />
