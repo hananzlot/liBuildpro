@@ -31,11 +31,12 @@ export function usePersistentDraft<T extends Record<string, any>>(
   // When setFullDraft is called, skip the next useEffect reload to avoid overwriting explicit values
   const skipNextLoadRef = useRef(false);
 
-  // Load draft from sessionStorage or fall back to initialValues
+  // Load draft from storage or fall back to initialValues
+  // Try localStorage first (persists across tabs), then sessionStorage (legacy)
   const [draft, setDraft] = useState<T>(() => {
     if (!enabled) return initialValues;
     try {
-      const raw = sessionStorage.getItem(storageKey);
+      const raw = localStorage.getItem(storageKey) || sessionStorage.getItem(storageKey);
       if (raw) {
         const parsed = JSON.parse(raw) as T;
         return { ...initialValues, ...parsed };
@@ -55,7 +56,7 @@ export function usePersistentDraft<T extends Record<string, any>>(
       return;
     }
     try {
-      const raw = sessionStorage.getItem(storageKey);
+      const raw = localStorage.getItem(storageKey) || sessionStorage.getItem(storageKey);
       if (raw) {
         const parsed = JSON.parse(raw) as T;
         setDraft((prev) => ({ ...initialValues, ...parsed }));
@@ -68,14 +69,14 @@ export function usePersistentDraft<T extends Record<string, any>>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, enabled]);
 
-  // Debounced save to sessionStorage
+  // Debounced save to localStorage (persists across tabs)
   const saveToStorage = useCallback(
     (values: T) => {
       if (!enabled) return;
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         try {
-          sessionStorage.setItem(storageKeyRef.current, JSON.stringify(values));
+          localStorage.setItem(storageKeyRef.current, JSON.stringify(values));
         } catch {
           // Storage full — silently ignore
         }
@@ -106,11 +107,12 @@ export function usePersistentDraft<T extends Record<string, any>>(
     [saveToStorage]
   );
 
-  /** Clear draft from sessionStorage (call on submit success or explicit discard) */
+  /** Clear draft from storage (call on submit success or explicit discard) */
   const clearDraft = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     try {
-      sessionStorage.removeItem(storageKeyRef.current);
+      localStorage.removeItem(storageKeyRef.current);
+      sessionStorage.removeItem(storageKeyRef.current); // clean up legacy
     } catch {
       // ignore
     }
