@@ -4144,7 +4144,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 </div>
                 <Button size="sm" onClick={() => { setEditingPhase(null); setPhaseDialogOpen(true); }}>
                   <Plus className="h-3 w-3 mr-1" />
-                  Add
+                  Add Progress Payment
                 </Button>
               </div>
             </CardHeader>
