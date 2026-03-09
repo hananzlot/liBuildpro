@@ -78,6 +78,7 @@ import { DebouncedInput, DebouncedTextarea, DebouncedNumberInput } from "@/compo
 import { CustomLeadCostsDialog, WeightedAverageTooltip } from "./CustomLeadCostsDialog";
 import { CustomerPortalCard } from "./CustomerPortalCard";
 import { useShortLinks } from "@/hooks/useShortLinks";
+import { QueuedSyncReviewDialog } from "./QueuedSyncReviewDialog";
 
 interface Project {
   id: string;
