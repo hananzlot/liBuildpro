@@ -804,6 +804,23 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   });
   const isQBConnectedMain = !!mainQbConnection?.is_active;
 
+  // Fetch project's auto_sync_to_quickbooks flag
+  const { data: projectAutoSync } = useQuery({
+    queryKey: ["project-auto-sync-qb", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("auto_sync_to_quickbooks")
+        .eq("id", projectId)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.auto_sync_to_quickbooks ?? false;
+    },
+    enabled: !!projectId,
+    staleTime: 30000,
+  });
+  const isProjectQBSyncEnabled = isQBConnectedMain && (projectAutoSync === true);
+
   // Fetch QB sync status for bill payments (only when QB is connected)
   const { data: billPaymentSyncStatuses = {} } = useQuery({
     queryKey: ["bill-payment-sync-statuses", projectId, companyId, allBillPayments.map((p: any) => p.id).join(",")],
