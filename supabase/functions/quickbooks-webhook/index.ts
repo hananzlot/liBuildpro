@@ -344,6 +344,75 @@ Deno.serve(async (req) => {
   }
 });
 
+// Helper: Check if the project associated with a record has auto_sync_to_quickbooks disabled
+// deno-lint-ignore no-explicit-any
+async function getProjectAutoSyncStatus(
+  supabase: any,
+  companyId: string,
+  recordType: string,
+  recordId: string | null,
+  log: (level: string, message: string, data?: unknown) => void
+): Promise<{ projectId: string | null; autoSyncDisabled: boolean }> {
+  if (!recordId) return { projectId: null, autoSyncDisabled: false };
+
+  try {
+    let projectId: string | null = null;
+
+    if (recordType === "invoice") {
+      const { data } = await supabase
+        .from("project_invoices")
+        .select("project_id")
+        .eq("id", recordId)
+        .maybeSingle();
+      projectId = data?.project_id;
+    } else if (recordType === "payment") {
+      const { data } = await supabase
+        .from("project_payments")
+        .select("project_id")
+        .eq("id", recordId)
+        .maybeSingle();
+      projectId = data?.project_id;
+    } else if (recordType === "bill") {
+      const { data } = await supabase
+        .from("project_bills")
+        .select("project_id")
+        .eq("id", recordId)
+        .maybeSingle();
+      projectId = data?.project_id;
+    } else if (recordType === "bill_payment") {
+      const { data } = await supabase
+        .from("bill_payments")
+        .select("bill_id")
+        .eq("id", recordId)
+        .maybeSingle();
+      if (data?.bill_id) {
+        const { data: bill } = await supabase
+          .from("project_bills")
+          .select("project_id")
+          .eq("id", data.bill_id)
+          .maybeSingle();
+        projectId = bill?.project_id;
+      }
+    }
+
+    if (!projectId) return { projectId: null, autoSyncDisabled: false };
+
+    const { data: project } = await supabase
+      .from("projects")
+      .select("auto_sync_to_quickbooks")
+      .eq("id", projectId)
+      .maybeSingle();
+
+    const autoSyncDisabled = project ? project.auto_sync_to_quickbooks === false : false;
+    return { projectId, autoSyncDisabled };
+  } catch (err) {
+    log("warn", `Failed to check project auto-sync status for ${recordType} ${recordId}`, {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return { projectId: null, autoSyncDisabled: false };
+  }
+}
+
 // deno-lint-ignore no-explicit-any
 async function processEntityChange(
   supabase: any,
@@ -380,6 +449,31 @@ async function processEntityChange(
     .maybeSingle();
 
   log("info", `Sync log lookup for ${entityType} ${qbId}`, { found: !!syncLog });
+
+  // === AUTO-SYNC GATE ===
+  // If the record is linked to a project with auto_sync_to_quickbooks = false,
+  // skip processing and log as queued_while_paused for later replay.
+  if (syncLog?.record_id && ["invoice", "payment", "bill", "bill_payment"].includes(recordType)) {
+    const { projectId, autoSyncDisabled } = await getProjectAutoSyncStatus(
+      supabase, companyId, recordType, syncLog.record_id, log
+    );
+
+    if (autoSyncDisabled) {
+      log("info", `⏸ Skipping ${operation} for ${entityType} ${qbId} — project ${projectId} has auto-sync disabled`);
+
+      // Upsert a queued_while_paused entry so we can replay later
+      await supabase
+        .from("quickbooks_sync_log")
+        .update({
+          sync_status: "queued_while_paused",
+          sync_error: `${operation} from QB at ${entity.lastUpdated} — project auto-sync disabled`,
+          synced_at: new Date().toISOString(),
+        })
+        .eq("id", syncLog.id);
+
+      return;
+    }
+  }
 
   if (operation === "Delete") {
     // Handle deletion - update the local record and sync log

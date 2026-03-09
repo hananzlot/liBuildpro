@@ -1,59 +1,89 @@
 
 
-## Plan: Respect `auto_sync_to_quickbooks` in QB Webhooks + Re-sync on Re-enable
+## Plan: Revamp Salesperson Portal Estimate Creator
 
-### Problem
+This is a significant refactor of the `PortalEstimateCreator` component to modernize linking, add manual estimate creation, and support change orders.
 
-Two issues identified:
+### Current State
+- Links use a mix of UUIDs and GHL IDs (`opportunity_id`, `contact_id`)
+- No check for existing projects when selecting an opportunity
+- Only AI estimate creation path exists
+- No manual estimate creation (total, estimated cost, progress payments)
+- No change order awareness (signed contract detection)
 
-1. **Inbound webhooks ignore project auto-sync flag**: The `quickbooks-webhook` function processes all entity changes (create/update/delete) regardless of whether the associated project has `auto_sync_to_quickbooks = false`. This means QB-side changes still modify local records for projects that should not be syncing.
+### Database Changes
 
-2. **No catch-up mechanism on re-enable**: When auto-sync is turned back on, outbound unsynced records will sync on next "Sync Now", but inbound QB changes that occurred during the off period are lost (webhooks already fired and were processed or missed).
+**Migration: Add `estimated_cost` column to `estimates` table**
+```sql
+ALTER TABLE estimates ADD COLUMN IF NOT EXISTS estimated_cost numeric;
+```
 
-### Proposed Solution
-
-#### Part 1: Gate inbound webhooks by project auto-sync flag
-
-In `supabase/functions/quickbooks-webhook/index.ts`, inside `processEntityChange()`:
-
-- After finding the `syncLog` entry (which contains `record_id`), look up the associated project's `auto_sync_to_quickbooks` flag
-- For records linked to a project with `auto_sync_to_quickbooks = false`:
-  - **Skip** processing the webhook change
-  - Log a `queued_while_paused` status in `quickbooks_sync_log` so it can be replayed later
-- For **Create** operations (new QB entities with no sync log): still skip import if the target project can be identified and has auto-sync off; otherwise log for later processing
-
-The lookup path varies by entity type:
-- Invoice → `project_invoices.project_id → projects.auto_sync_to_quickbooks`
-- Payment → `project_payments.project_id → projects.auto_sync_to_quickbooks`
-- Bill → `project_bills.project_id → projects.auto_sync_to_quickbooks`
-- BillPayment → `bill_payments.bill_id → project_bills.project_id → projects.auto_sync_to_quickbooks`
-
-For new creates where no local record exists yet, the webhook cannot determine the project — these will continue to import as-is (since there's no project association to check against).
-
-#### Part 2: Replay queued changes when auto-sync is re-enabled
-
-When `auto_sync_to_quickbooks` is toggled from `false` to `true` on a project:
-
-- Add logic in the client (or a small edge function) to find any `quickbooks_sync_log` entries with `sync_status = 'queued_while_paused'` for records belonging to that project
-- Re-trigger the appropriate fetch functions for those queued entries
-- This ensures no QB changes are lost during the paused period
-
-### Files/Tables Affected
-
-- `supabase/functions/quickbooks-webhook/index.ts` — add project auto-sync check in `processEntityChange()`
-- `quickbooks_sync_log` table — new status value `queued_while_paused`
-- `src/components/production/FinanceSection.tsx` — optionally trigger catch-up sync when auto-sync is re-enabled
-
-### Risks
-
-- **Performance**: Each webhook event will now require an additional DB query to look up the project's auto-sync status. Mitigated by the fact that we already query `quickbooks_sync_log` per entity.
-- **New creates without project association**: For newly created QB entities with no local record, we can't determine the project. These will still be imported. This is acceptable since the project mapping happens during import.
-- **Migration**: Existing `sync_status` values don't include `queued_while_paused`. This is additive (text column), no migration needed.
+The `estimate_payment_schedule` table already exists with `estimate_id`, `phase_name`, `amount`, `percent`, `sort_order` — perfect for storing manual progress payments.
 
 ### Implementation Steps
 
-1. Update `processEntityChange()` in `quickbooks-webhook` to check project auto-sync flag before processing
-2. Add `queued_while_paused` sync log entries for skipped webhook events
-3. Add catch-up logic when `auto_sync_to_quickbooks` is toggled back on
-4. Deploy updated edge function
+#### 1. Remove GHL ID linking, use UUIDs only
+- Stop passing `opportunityGhlId`, `contactId` (GHL) to `create-portal-estimate`
+- Only pass `opportunityUuid`, `contactUuid`, `projectId` (all internal UUIDs)
+- Update `create-portal-estimate` edge function to stop writing `opportunity_id` and `contact_id` GHL fields — use only UUID columns
+
+#### 2. Check for existing project when selecting an opportunity
+- On opportunity selection, query `projects` table for `opportunity_uuid = selectedOppId` where `project_status NOT IN ('Completed', 'Cancelled')` and `deleted_at IS NULL`
+- If a project exists: show an alert saying "This customer already has Project #X on file" and auto-switch to project association (store the `project_id`)
+- The estimate will then link to the project UUID via `project_id` column
+
+#### 3. Check for signed contract (Change Order detection)
+- When an opportunity/project is selected, query `project_agreements` for the linked project where `agreement_type = 'Contract'`
+- If a signed contract exists:
+  - Change the card title to "Create Change Order"
+  - The estimate title defaults to "Change Order for [Customer]"
+  - Button labels become "Prepare Change Order by AI" and "Prepare Change Order Manually"
+- If no signed contract: standard "Create Estimate" labels
+
+#### 4. Restructure the flow into steps
+After selection (Step 1), show:
+- **Step 2**: Work scope textarea (already exists, keep it)
+- **Step 3**: Two buttons side by side:
+  - "Prepare with AI" (or "Prepare Change Order by AI") — current AI workflow
+  - "Prepare Manually" (or "Prepare Change Order Manually") — new manual workflow
+
+#### 5. Manual estimate creation flow
+When "Prepare Manually" is clicked, expand a form below with:
+- **Estimate Total Price** (`Input`, number) → saved to `estimates.total` and `estimates.manual_total`
+- **Estimated Costs** (`Input`, number) → saved to `estimates.estimated_cost` (new column)
+- **Progress Payments** — dynamic list (up to 10 rows):
+  - Each row: Phase Name (`Input`) + Amount (`Input`, number)
+  - Running total displayed, with validation:
+    - If sum != Estimate Total: show warning in amber
+    - Disable submit until sum matches
+  - "Add Payment" button to add rows
+- **Submit button** ("Create Estimate" / "Create Change Order"):
+  - Creates estimate record in DB (via `create-portal-estimate` edge function or direct insert)
+  - Inserts rows into `estimate_payment_schedule`
+  - Does NOT trigger AI generation
+
+#### 6. Proposal preview before sending
+- In `PortalEstimateDetailSheet`, before the "Send as Proposal" action completes, show the `EstimatePreviewDialog` first
+- Add a confirmation step: "Preview" → "Confirm & Send"
+- This already partially exists (there's a View button with `EstimatePreviewDialog`); wire the send flow through it
+
+#### 7. Update `create-portal-estimate` edge function
+- Accept optional `projectId` parameter
+- Write `project_id` to the estimate when provided
+- Accept `isManual` flag — when true, skip AI job creation
+- Accept `estimatedCost` — write to new `estimated_cost` column
+- Stop writing GHL ID fields (`opportunity_id`, `contact_id`) — use only UUID columns
+
+### Files to Modify
+1. **`src/components/salesperson-portal/PortalEstimateCreator.tsx`** — Major refactor: UUID-only linking, project detection, change order awareness, manual creation form, two-button flow
+2. **`supabase/functions/create-portal-estimate/index.ts`** — Add `projectId`, `isManual`, `estimatedCost` params; remove GHL ID writes; conditionally skip AI job
+3. **`src/components/salesperson-portal/PortalEstimateDetailSheet.tsx`** — Add preview-before-send confirmation flow
+4. **New migration** — Add `estimated_cost` column to `estimates`
+
+### Summary of User-Facing Changes
+- Selecting an opportunity auto-detects if a project already exists and alerts the sales rep
+- If a signed contract exists on the project, labels switch to "Change Order" terminology
+- After entering work scope, two clear paths: AI or Manual
+- Manual path collects total price, estimated costs, and progress payments with live validation
+- Before sending a proposal, the sales rep sees a preview and must confirm
 
