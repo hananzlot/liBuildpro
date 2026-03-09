@@ -45,6 +45,8 @@ const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.
 
 export function PortalDocuments({ documents, agreements = [], projectId, uploadLimitMb = 15, companyId }: PortalDocumentsProps) {
   const [isUploading, setIsUploading] = useState(false);
+  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
+  const [pdfViewerName, setPdfViewerName] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
