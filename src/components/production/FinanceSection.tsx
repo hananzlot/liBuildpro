@@ -2314,27 +2314,36 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
           .eq("id", editingPhase.id);
         if (error) throw error;
 
-        // If the phase amount changed, cascade update to linked invoices
+        // If the phase amount changed, block if there are payments received on linked invoices
         const oldAmount = editingPhase.amount || 0;
         const newAmount = phase.amount || 0;
         if (newAmount !== oldAmount) {
-          // Find invoices linked to this phase that were invoiced for the full old amount
           const { data: linkedInvoices } = await supabase
             .from("project_invoices")
-            .select("id, amount, payments_received")
+            .select("id, invoice_number, amount, payments_received")
             .eq("payment_phase_id", editingPhase.id);
 
           if (linkedInvoices && linkedInvoices.length > 0) {
+            const invoicesWithPayments = linkedInvoices.filter(
+              (inv) => (inv.payments_received || 0) > 0
+            );
+            if (invoicesWithPayments.length > 0) {
+              const invoiceRefs = invoicesWithPayments
+                .map((inv) => `#${inv.invoice_number || inv.id.slice(0, 8)}`)
+                .join(", ");
+              throw new Error(
+                `Cannot change the amount because invoice${invoicesWithPayments.length > 1 ? "s" : ""} ${invoiceRefs} already ${invoicesWithPayments.length > 1 ? "have" : "has"} payment(s) recorded. Please delete the payment(s) first before changing this amount.`
+              );
+            }
+
+            // No payments — safe to cascade update invoice amounts
             for (const inv of linkedInvoices) {
-              // Only auto-adjust if the invoice was for the full phase amount (within $0.01)
-              const paymentsReceived = inv.payments_received || 0;
               if (Math.abs((inv.amount || 0) - oldAmount) < 0.02) {
-                const newOpenBalance = Math.max(0, newAmount - paymentsReceived);
                 await supabase
                   .from("project_invoices")
                   .update({
                     amount: newAmount,
-                    open_balance: newOpenBalance,
+                    open_balance: newAmount,
                   })
                   .eq("id", inv.id);
 
@@ -2342,8 +2351,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                   tableName: 'project_invoices',
                   recordId: inv.id,
                   action: 'UPDATE',
-                  oldValues: { amount: inv.amount, open_balance: (inv.amount || 0) - paymentsReceived },
-                  newValues: { amount: newAmount, open_balance: newOpenBalance },
+                  oldValues: { amount: inv.amount, open_balance: inv.amount },
+                  newValues: { amount: newAmount, open_balance: newAmount },
                   description: `Invoice amount auto-adjusted from ${formatCurrency(inv.amount || 0)} to ${formatCurrency(newAmount)} due to phase amount change`,
                 });
               }
