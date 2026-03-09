@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
-import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
+import { PortalPdfViewerDialog } from './PortalPdfViewerDialog';
 
 interface PortalAgreementProps {
   agreements: any[];
@@ -606,8 +606,8 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
         </div>
       )}
 
-      {/* PDF Viewer Dialog */}
-      <PdfViewerDialog
+      {/* PDF Viewer Dialog - Canvas-based for portal compatibility */}
+      <PortalPdfViewerDialog
         open={!!pdfUrl}
         onOpenChange={(open) => !open && setPdfUrl(null)}
         fileUrl={pdfUrl || ''}
