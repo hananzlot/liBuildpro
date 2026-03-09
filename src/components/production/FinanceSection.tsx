@@ -8726,6 +8726,7 @@ function CommissionTab({
   projectName,
   projectAddress,
   isCancelled,
+  isProjectQBSyncEnabled: isProjectQBSyncEnabledProp,
 }: {
   projectId: string;
   totalContracts: number;
@@ -8738,6 +8739,7 @@ function CommissionTab({
   projectName?: string | null;
   projectAddress?: string | null;
   isCancelled?: boolean;
+  isProjectQBSyncEnabled?: boolean;
 }) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
