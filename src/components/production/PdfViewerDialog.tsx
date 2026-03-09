@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, ZoomIn, ZoomOut, RotateCw, X } from "lucide-react";
+import { downloadOrOpenBlob } from "@/utils/downloadBlob";
 
 interface PdfViewerDialogProps {
   open: boolean;
@@ -32,7 +33,7 @@ export function PdfViewerDialog({ open, onOpenChange, fileUrl, fileName, notes }
   const handleResetZoom = () => setZoom(100);
 
   const handleOpenInNewTab = () => {
-    window.open(fileUrl, "_blank");
+    downloadOrOpenBlob(fileUrl, fileName || "document.pdf");
   };
 
   return (

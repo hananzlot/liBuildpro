@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, ZoomIn, ZoomOut, RotateCw, X, ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { downloadOrOpenBlob } from "@/utils/downloadBlob";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import pdfjsWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
@@ -127,18 +128,9 @@ export function PortalPdfViewerDialog({ open, onOpenChange, fileUrl, fileName }:
                   <RotateCw className="h-3 w-3" />
                 </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={async () => {
-                try {
-                  const res = await fetch(fileUrl);
-                  const blob = await res.blob();
-                  const blobUrl = URL.createObjectURL(blob);
-                  window.open(blobUrl, "_blank");
-                } catch {
-                  window.open(fileUrl, "_blank");
-                }
-              }}>
+              <Button variant="outline" size="sm" onClick={() => downloadOrOpenBlob(fileUrl, fileName || "document.pdf")}>
                 <ExternalLink className="h-4 w-4 mr-1" />
-                Open
+                Download
               </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>
                 <X className="h-4 w-4" />
@@ -155,18 +147,9 @@ export function PortalPdfViewerDialog({ open, onOpenChange, fileUrl, fileName }:
             <div className="flex flex-col items-center justify-center h-full gap-4">
               <AlertCircle className="h-10 w-10 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">{error}</p>
-              <Button variant="outline" onClick={async () => {
-                try {
-                  const res = await fetch(fileUrl);
-                  const blob = await res.blob();
-                  const blobUrl = URL.createObjectURL(blob);
-                  window.open(blobUrl, "_blank");
-                } catch {
-                  window.open(fileUrl, "_blank");
-                }
-              }}>
+              <Button variant="outline" onClick={() => downloadOrOpenBlob(fileUrl, fileName || "document.pdf")}>
                 <ExternalLink className="h-4 w-4 mr-1" />
-                Open in New Tab
+                Download
               </Button>
             </div>
           ) : (

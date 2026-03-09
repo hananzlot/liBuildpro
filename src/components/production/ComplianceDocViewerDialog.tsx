@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ExternalLink, ZoomIn, ZoomOut, RotateCw, X, Shield, User, Mail, Clock, Globe, Monitor, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { downloadOrOpenBlob } from "@/utils/downloadBlob";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import pdfjsWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
@@ -122,17 +123,8 @@ export function ComplianceDocViewerDialog({ open, onOpenChange, doc }: Complianc
                   <RotateCw className="h-3 w-3" />
                 </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={async () => {
-                try {
-                  const res = await fetch(pdfUrl);
-                  const blob = await res.blob();
-                  const blobUrl = URL.createObjectURL(blob);
-                  window.open(blobUrl, "_blank");
-                } catch {
-                  window.open(pdfUrl, "_blank");
-                }
-              }}>
-                <ExternalLink className="h-4 w-4 mr-1" /> Open
+              <Button variant="outline" size="sm" onClick={() => downloadOrOpenBlob(pdfUrl, doc.document_name || "document.pdf")}>
+                <ExternalLink className="h-4 w-4 mr-1" /> Download
               </Button>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>
                 <X className="h-4 w-4" />
