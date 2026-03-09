@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ComplianceDocViewerDialog } from '@/components/production/ComplianceDocViewerDialog';
+import { downloadOrOpenBlob } from '@/utils/downloadBlob';
 
 interface PortalSignedDocumentsProps {
   estimateId: string;
