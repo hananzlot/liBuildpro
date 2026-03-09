@@ -5558,11 +5558,15 @@ function InvoiceDialog({
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
-                        {agreements.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.agreement_number} - {formatCurrency(a.total_price)}
-                          </SelectItem>
-                        ))}
+                        {agreements.map((a) => {
+                          const typeAbbr = a.agreement_type === 'Change Order' ? 'CO' : a.agreement_type === 'Addendum' ? 'ADD' : 'CNT';
+                          const label = [a.agreement_number, typeAbbr, a.nickname].filter(Boolean).join(' • ');
+                          return (
+                            <SelectItem key={a.id} value={a.id}>
+                              {label} - {formatCurrency(a.total_price)}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -5607,11 +5611,14 @@ function InvoiceDialog({
                           </SelectContent>
                         </Select>
                         {phaseError && <p className="text-xs text-destructive">{phaseError}</p>}
-                        {selectedAgreement && (
-                          <p className="text-xs text-muted-foreground pl-1">
-                            Contract #{selectedAgreement.agreement_number} • {formatCurrency(selectedAgreement.total_price)}
-                          </p>
-                        )}
+                        {selectedAgreement && (() => {
+                          const typeAbbr = selectedAgreement.agreement_type === 'Change Order' ? 'CO' : selectedAgreement.agreement_type === 'Addendum' ? 'ADD' : 'CNT';
+                          return (
+                            <p className="text-xs text-muted-foreground pl-1">
+                              {selectedAgreement.agreement_number} • {typeAbbr}{selectedAgreement.nickname ? ` • ${selectedAgreement.nickname}` : ''} • {formatCurrency(selectedAgreement.total_price)}
+                            </p>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="py-3 px-3 text-right align-top">
