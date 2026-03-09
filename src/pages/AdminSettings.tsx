@@ -1594,6 +1594,42 @@ export default function AdminSettings() {
               </Card>
             </Collapsible>
 
+            {/* Auto-Create Missing Phases */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wrench className="h-5 w-5" />
+                  Auto-Create Missing Progress Payments
+                </CardTitle>
+                <CardDescription>
+                  Automatically create "System Auto Entry" progress payments for contracts with missing balances. Runs nightly at midnight.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Enable Nightly Auto-Create</Label>
+                    <p className="text-xs text-muted-foreground">
+                      When enabled, contracts with missing progress payment balances will have a "System Auto Entry" phase auto-created each night.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={
+                      (editedSettings["auto_create_missing_phases"] ??
+                        settings?.find(s => s.setting_key === "auto_create_missing_phases")?.setting_value ??
+                        "true") === "true"
+                    }
+                    onCheckedChange={(checked) => {
+                      updateSetting.mutate({
+                        key: "auto_create_missing_phases",
+                        value: checked ? "true" : "false",
+                      });
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Bank Management */}
             <BankManagement />
           </TabsContent>
