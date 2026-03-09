@@ -1024,7 +1024,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
   // Helper functions to check phase status
   const getPhaseInvoiceStatus = (phaseId: string) => {
-    const phaseInvoices = invoices.filter(inv => inv.payment_phase_id === phaseId);
+    const phaseInvoices = invoices.filter(inv => inv.payment_phase_id === phaseId && !inv.invoice_number?.startsWith('DELETED-'));
     const totalInvoicedForPhase = phaseInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
     return { invoices: phaseInvoices, totalInvoiced: totalInvoicedForPhase };
   };
