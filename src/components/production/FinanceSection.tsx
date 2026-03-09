@@ -8801,6 +8801,7 @@ function CommissionTab({
     enabled: !!companyId,
   });
   const isQBConnected = !!qbConnection?.is_active;
+  const isQBSyncEnabled = isProjectQBSyncEnabledProp ?? isQBConnected;
 
   // Fetch salesperson vendor mappings
   const { data: salespersonVendorMappings = [] } = useQuery({
