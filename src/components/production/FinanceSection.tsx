@@ -8817,6 +8817,7 @@ function CommissionTab({
   leadCostPercent,
   commissionSplitPct,
   totalBillsPaid,
+  totalBills,
   totalPaymentsReceived,
   totalRefunds,
   salespeople,
@@ -8830,6 +8831,7 @@ function CommissionTab({
   leadCostPercent: number;
   commissionSplitPct: number;
   totalBillsPaid: number;
+  totalBills: number;
   totalPaymentsReceived: number;
   totalRefunds: number;
   salespeople: SalespersonData[];
