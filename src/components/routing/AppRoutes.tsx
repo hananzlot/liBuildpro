@@ -28,6 +28,7 @@ import NotFound from "@/pages/NotFound";
 import SalespersonCalendarPortal from "@/pages/SalespersonCalendarPortal";
 import SalesPortalGuide from "@/pages/SalesPortalGuide";
 import ShortLinkRedirect from "@/pages/ShortLinkRedirect";
+import ViewFile from "@/pages/ViewFile";
 import SuperAdminDashboard from "@/pages/super-admin/SuperAdminDashboard";
 import SuperAdminTenants from "@/pages/super-admin/SuperAdminTenants";
 import AppDefaultSettings from "@/pages/super-admin/AppDefaultSettings";
@@ -448,6 +449,9 @@ export function AppRoutes() {
         
         {/* Help pages - public */}
         <Route path="/help/quickbooks" element={<QuickBooksHelp />} />
+        
+        {/* File viewer - public, bypasses ad blockers */}
+        <Route path="/view-file" element={<ViewFile />} />
         
         {/* Marketing deck - public */}
         <Route path="/deck" element={<Deck />} />
