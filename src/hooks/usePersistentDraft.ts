@@ -97,14 +97,20 @@ export function usePersistentDraft<T extends Record<string, any>>(
     [saveToStorage]
   );
 
-  /** Replace the entire draft */
+  /** Replace the entire draft and immediately persist (no debounce) */
   const setFullDraft = useCallback(
     (values: T) => {
       skipNextLoadRef.current = true;
+      if (timerRef.current) clearTimeout(timerRef.current);
       setDraft(values);
-      saveToStorage(values);
+      // Save immediately for setFullDraft to avoid race with effect reloads
+      try {
+        localStorage.setItem(storageKeyRef.current, JSON.stringify(values));
+      } catch {
+        // Storage full — silently ignore
+      }
     },
-    [saveToStorage]
+    []
   );
 
   /** Clear draft from storage (call on submit success or explicit discard) */
@@ -116,8 +122,7 @@ export function usePersistentDraft<T extends Record<string, any>>(
     } catch {
       // ignore
     }
-    setDraft(initialValues);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Don't reset state here — caller should use setFullDraft if they want specific values
   }, []);
 
   /** Whether draft differs from initialValues */
