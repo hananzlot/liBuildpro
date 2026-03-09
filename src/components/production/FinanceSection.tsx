@@ -3035,7 +3035,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                   return agr ? `${agr.agreement_number || ""}${agr.nickname ? ` / ${agr.nickname}` : ""}`.trim() || "-" : "-";
                                 })()}
                               </TableCell>
-                              <TableCell className="text-xs text-center text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
+                              <TableCell className="text-xs text-left text-muted-foreground">{inv.payment_phase_id ? (paymentPhases.find(p => p.id === inv.payment_phase_id)?.phase_name || "-") : "-"}</TableCell>
                               <TableCell className="text-xs text-center">{formatCurrency2(inv.amount)}</TableCell>
                               <TableCell className="text-xs text-center">{formatCurrency2(inv.open_balance)}</TableCell>
                               {isQBConnectedMain && (
