@@ -340,6 +340,14 @@ export function PortalDocuments({ documents, agreements = [], projectId, uploadL
           </CardContent>
         </Card>
       )}
+
+      {/* PDF Viewer Dialog - Canvas-based for portal compatibility */}
+      <PortalPdfViewerDialog
+        open={!!pdfViewerUrl}
+        onOpenChange={(open) => { if (!open) { setPdfViewerUrl(null); setPdfViewerName(''); } }}
+        fileUrl={pdfViewerUrl || ''}
+        fileName={pdfViewerName}
+      />
     </div>
   );
 }
