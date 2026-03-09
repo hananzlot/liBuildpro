@@ -4423,6 +4423,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
               leadCostPercent={leadCostPercent}
               commissionSplitPct={commissionSplitPct}
               totalBillsPaid={totalBillsPaid}
+              totalBills={totalBills}
               totalPaymentsReceived={totalPaymentsReceived}
               totalRefunds={totalRefunds}
               salespeople={salespeople}
