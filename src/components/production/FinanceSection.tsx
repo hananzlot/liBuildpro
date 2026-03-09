@@ -2993,6 +2993,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                             <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                               <Receipt className="h-3.5 w-3.5" />
                               Invoiced ({invoices.filter(inv => {
+                                if (inv.invoice_number?.startsWith('DELETED-')) return false;
                                 if (invoiceContractFilter === "all") return true;
                                 const phase = paymentPhases.find(p => p.id === inv.payment_phase_id);
                                 const agrId = inv.agreement_id || phase?.agreement_id;
