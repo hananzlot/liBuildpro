@@ -9303,10 +9303,10 @@ function CommissionTab({
                               balanceToDate: sp.earnedToDate - sp.paid,
                               balance: sp.balance,
                             })}
-                            className="inline-flex items-center rounded bg-primary/10 px-1 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20 transition-colors"
+                            className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/20 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
                             title="Generate commission invoice"
                           >
-                            <FileText className="h-3 w-3" />
+                            <FileText className="h-4 w-4" />
                           </button>
                         )}
                       </span>
