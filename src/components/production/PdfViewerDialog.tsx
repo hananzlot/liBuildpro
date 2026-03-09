@@ -33,7 +33,7 @@ export function PdfViewerDialog({ open, onOpenChange, fileUrl, fileName, notes }
   const handleResetZoom = () => setZoom(100);
 
   const handleOpenInNewTab = () => {
-    window.open(fileUrl, "_blank");
+    downloadOrOpenBlob(fileUrl, fileName || "document.pdf");
   };
 
   return (
