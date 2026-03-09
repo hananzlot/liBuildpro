@@ -88,6 +88,7 @@ export function PortalPdfViewerDialog({ open, onOpenChange, fileUrl, fileName }:
       setPdfDoc(null);
       setCurrentPage(1);
       setZoom(1);
+      setError(null);
     }
   }, [open]);
 
