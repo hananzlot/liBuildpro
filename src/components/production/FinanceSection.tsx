@@ -3969,7 +3969,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                         <TableRow>
                           <TableHead className="text-xs text-center">Agreement<br />#</TableHead>
                           <TableHead className="text-xs">Type</TableHead>
-                          <TableHead className="text-xs">Nickname</TableHead>
+                          <TableHead className="text-xs w-[22%]">Nickname</TableHead>
                           <TableHead className="text-xs text-center">Date<br />Signed</TableHead>
                           <TableHead className="text-xs text-center">Contract<br />Value</TableHead>
                           {showProgressPaymentsTotalCol && (
