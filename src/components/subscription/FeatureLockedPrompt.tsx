@@ -12,7 +12,7 @@ interface FeatureLockedPromptProps {
 const FEATURE_DETAILS: Record<string, { name: string; description: string; icon: React.ReactNode }> = {
   production: {
     name: "Production Management",
-    description: "Track projects, manage subcontractors, and monitor outstanding AR/AP.",
+    description: "Track projects, manage subcontractors, and monitor outstanding A/R & A/P.",
     icon: <span className="text-2xl">🏗️</span>
   },
   analytics: {
