@@ -107,11 +107,12 @@ export function usePersistentDraft<T extends Record<string, any>>(
     [saveToStorage]
   );
 
-  /** Clear draft from sessionStorage (call on submit success or explicit discard) */
+  /** Clear draft from storage (call on submit success or explicit discard) */
   const clearDraft = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     try {
-      sessionStorage.removeItem(storageKeyRef.current);
+      localStorage.removeItem(storageKeyRef.current);
+      sessionStorage.removeItem(storageKeyRef.current); // clean up legacy
     } catch {
       // ignore
     }
