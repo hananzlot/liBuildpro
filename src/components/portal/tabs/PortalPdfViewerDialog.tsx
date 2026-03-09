@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, ZoomIn, ZoomOut, RotateCw, X, ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react";
-import { downloadOrOpenBlob } from "@/utils/downloadBlob";
+import { downloadOrOpenBlob, openFileInNewTab } from "@/utils/downloadBlob";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import pdfjsWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
@@ -128,6 +128,10 @@ export function PortalPdfViewerDialog({ open, onOpenChange, fileUrl, fileName }:
                   <RotateCw className="h-3 w-3" />
                 </Button>
               </div>
+              <Button variant="outline" size="sm" onClick={() => openFileInNewTab(fileUrl)}>
+                <ExternalLink className="h-4 w-4 mr-1" />
+                Open
+              </Button>
               <Button variant="outline" size="sm" onClick={() => downloadOrOpenBlob(fileUrl, fileName || "document.pdf")}>
                 <ExternalLink className="h-4 w-4 mr-1" />
                 Download
