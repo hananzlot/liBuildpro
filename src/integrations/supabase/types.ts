@@ -5986,6 +5986,8 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string | null
+          dismissed_at: string | null
+          dismissed_by: string | null
           id: string
           qb_doc_number: string | null
           quickbooks_id: string | null
@@ -5999,6 +6001,8 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string | null
+          dismissed_at?: string | null
+          dismissed_by?: string | null
           id?: string
           qb_doc_number?: string | null
           quickbooks_id?: string | null
@@ -6012,6 +6016,8 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string | null
+          dismissed_at?: string | null
+          dismissed_by?: string | null
           id?: string
           qb_doc_number?: string | null
           quickbooks_id?: string | null
