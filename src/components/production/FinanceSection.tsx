@@ -4302,7 +4302,16 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                           <div className="flex flex-col items-start gap-1">
                                             <Badge 
                                               variant="outline" 
-                                              className={isFullyInvoiced ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground text-[10px] px-1.5 py-0"}
+                                              className={cn(
+                                                isFullyInvoiced ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground text-[10px] px-1.5 py-0",
+                                                invoiceStatus.invoices.length > 0 && "cursor-pointer hover:opacity-80"
+                                              )}
+                                              onClick={() => {
+                                                if (invoiceStatus.invoices.length > 0) {
+                                                  setEditingInvoice(invoiceStatus.invoices[0]);
+                                                  setInvoiceDialogOpen(true);
+                                                }
+                                              }}
                                             >
                                               {isFullyInvoiced 
                                                 ? `Invoiced #${invoiceStatus.invoices.map(i => i.invoice_number || '?').join(', #')}` 
