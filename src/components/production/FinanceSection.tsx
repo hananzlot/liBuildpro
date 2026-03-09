@@ -3766,11 +3766,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
             </CardHeader>
             <CardContent>
               {loadingAgreements ? (
-                <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
               ) : agreements.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">No agreements yet</p>
               ) : (
-                {(() => {
+                (() => {
                   const tolerance = 0.01;
 
                   const phaseAgg = paymentPhases.reduce(
@@ -3824,6 +3826,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                             const phasesTotal = phaseAgg.totals[agreement.id] || 0;
                             const contractValue = agreement.total_price || 0;
                             const isBalanced = Math.abs(contractValue - phasesTotal) <= tolerance;
+
                             const agreementPhaseIds = phaseAgg.ids[agreement.id] || [];
                             const totalCollected = activePayments
                               .filter(
@@ -3875,16 +3878,18 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                           className="gap-1 text-[10px] bg-warning/10 text-warning border-warning/30"
                                         >
                                           <AlertCircle className="h-3 w-3" />
-                                          Mismatch
+                                          Warning
                                         </Badge>
                                       )}
                                     </span>
                                   </TableCell>
                                 )}
 
-                                <TableCell className="text-xs text-center font-medium">{formatCurrencyWithDecimals(totalCollected)}</TableCell>
+                                <TableCell className="text-xs text-center font-medium">
+                                  {formatCurrencyWithDecimals(totalCollected)}
+                                </TableCell>
                                 <TableCell
-                                  className={`text-xs text-center font-medium ${(contractValue - totalCollected) > 0 ? "text-amber-600" : ""}`}
+                                  className={`text-xs text-center font-medium ${(contractValue - totalCollected) > 0 ? 'text-amber-600' : ''}`}
                                 >
                                   {formatCurrencyWithDecimals(contractValue - totalCollected)}
                                 </TableCell>
@@ -3908,20 +3913,40 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                     </Button>
                                   )}
                                 </TableCell>
-
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("agreement", agreement.id)}>
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                                <TableCell onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setEditingAgreement(agreement);
+                                          setAgreementDialogOpen(true);
+                                        }}
+                                      >
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="text-destructive focus:text-destructive"
+                                        onClick={() => handleDeleteClick("agreement", agreement.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
+                  );
+                })()
               )}
             </CardContent>
           </Card>
