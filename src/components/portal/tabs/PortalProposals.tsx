@@ -302,6 +302,19 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
 
       const selectedEstimate = estimates.find(e => e.id === selectedEstimateId);
 
+      // ── Guard: prevent duplicate acceptance ──
+      // If estimate is already accepted, skip the entire mutation silently
+      const { data: currentEstimate } = await supabase
+        .from('estimates')
+        .select('status')
+        .eq('id', selectedEstimateId)
+        .single();
+
+      if (currentEstimate?.status === 'accepted') {
+        // Already accepted — don't create duplicate agreements/phases
+        return;
+      }
+
       const { error: sigError } = await supabase.from('estimate_signatures').insert({
         estimate_id: selectedEstimateId,
         signer_name: signerName,
