@@ -523,7 +523,16 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6"
-                        onClick={() => window.open(doc.file_url, "_blank")}
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(doc.file_url);
+                            const blob = await response.blob();
+                            const blobUrl = URL.createObjectURL(blob);
+                            window.open(blobUrl, "_blank");
+                          } catch {
+                            window.open(doc.file_url, "_blank");
+                          }
+                        }}
                         title="Open in new tab"
                       >
                         <ExternalLink className="h-3 w-3" />
