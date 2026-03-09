@@ -5679,7 +5679,7 @@ function InvoiceDialog({
                           if (val === '' || /^\d*\.?\d*$/.test(val)) handleAmountChange(val);
                         }}
                         disabled={!!prePopulatedData}
-                        className={cn("h-8 text-sm text-right border-dashed w-full", prePopulatedData ? "opacity-70 bg-muted" : "")}
+                        className={cn("h-8 text-sm text-right border-2 border-primary/50 focus:border-primary bg-background w-full", prePopulatedData ? "opacity-70 bg-muted" : "")}
                         placeholder="0.00"
                       />
                       {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
