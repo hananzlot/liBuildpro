@@ -3058,9 +3058,55 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                               <TableCell className="text-xs text-center">{formatCurrency2(inv.amount)}</TableCell>
                               <TableCell className="text-xs text-center">
                                 {(inv.open_balance || 0) <= 0 && ((inv.payments_received || 0) > 0 || (inv.amount || 0) === 0) ? (
-                                  <span className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 border border-emerald-500 dark:border-emerald-500 rounded rotate-[-2deg] opacity-80">
-                                    Paid in Full
-                                  </span>
+                                  (() => {
+                                    const invPayments = payments.filter(p => p.invoice_id === inv.id && p.payment_status === "Received" && !p.is_voided);
+                                    return (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 border border-emerald-500 dark:border-emerald-500 rounded rotate-[-2deg] opacity-80 cursor-pointer hover:opacity-100 hover:scale-105 transition-all">
+                                            Paid in Full
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-80 p-0" align="center">
+                                          <div className="px-3 py-2 border-b bg-muted/50">
+                                            <div className="text-xs font-semibold">Payment Details — Invoice #{inv.invoice_number}</div>
+                                          </div>
+                                          {invPayments.length === 0 ? (
+                                            <div className="px-3 py-3 text-xs text-muted-foreground">No payment records found.</div>
+                                          ) : (
+                                            <div className="divide-y">
+                                              {invPayments.map((pmt) => (
+                                                <div key={pmt.id} className="px-3 py-2 space-y-1">
+                                                  <div className="flex justify-between text-xs">
+                                                    <span className="text-muted-foreground">Date</span>
+                                                    <span className="font-medium">{pmt.projected_received_date ? formatDate(pmt.projected_received_date) : "-"}</span>
+                                                  </div>
+                                                  <div className="flex justify-between text-xs">
+                                                    <span className="text-muted-foreground">Amount</span>
+                                                    <span className="font-medium text-emerald-600">{formatCurrency2(pmt.payment_amount)}</span>
+                                                  </div>
+                                                  <div className="flex justify-between text-xs">
+                                                    <span className="text-muted-foreground">Method</span>
+                                                    <span className="font-medium">{pmt.payment_method || "-"}</span>
+                                                  </div>
+                                                  <div className="flex justify-between text-xs">
+                                                    <span className="text-muted-foreground">Bank</span>
+                                                    <span className="font-medium">{pmt.bank?.name || pmt.bank_name || "-"}</span>
+                                                  </div>
+                                                  <div className="flex justify-between text-xs">
+                                                    <span className="text-muted-foreground">Deposit Verified</span>
+                                                    <span className={cn("font-medium", pmt.deposit_verified ? "text-emerald-600" : "text-amber-600")}>
+                                                      {pmt.deposit_verified ? "✓ Yes" : "✗ No"}
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </PopoverContent>
+                                      </Popover>
+                                    );
+                                  })()
                                 ) : (
                                   formatCurrency2(inv.open_balance)
                                 )}
