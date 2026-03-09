@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
-import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
+import { PortalPdfViewerDialog } from './PortalPdfViewerDialog';
 
 interface PortalAgreementProps {
   agreements: any[];
