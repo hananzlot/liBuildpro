@@ -98,6 +98,7 @@ import { usePersistentDraft } from "@/hooks/usePersistentDraft";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
 import { SkippedSyncEntries } from "./SkippedSyncEntries";
+import { PdfCanvasViewer } from "@/components/portal/PdfCanvasViewer";
 
 interface SalespersonData {
   name: string | null;
@@ -5221,12 +5222,8 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                 </Button>
               </div>
             </div>
-            <div className="flex-1 min-h-0">
-              <iframe
-                src={`${selectedAttachment.url}#toolbar=0&navpanes=0`}
-                className="w-full h-full border-0 bg-white"
-                title={selectedAttachment.name}
-              />
+            <div className="flex-1 min-h-0 overflow-auto">
+              <PdfCanvasViewer fileUrl={selectedAttachment.url} className="bg-white" />
             </div>
           </div>
         </ResizablePanel>
