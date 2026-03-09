@@ -463,75 +463,99 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
     enabled: open && !!companyId,
   });
 
+  // Queued sync review dialog state
+  const [syncReviewOpen, setSyncReviewOpen] = useState(false);
+  const [queuedSyncEntries, setQueuedSyncEntries] = useState<Array<{
+    id: string;
+    record_type: string;
+    quickbooks_id: string | null;
+    record_id: string;
+    sync_error: string | null;
+    synced_at: string | null;
+    qb_doc_number: string | null;
+  }>>([]);
+
   // Auto-sync to QuickBooks mutation
   const toggleAutoSyncMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
       if (!project?.id) throw new Error("No project");
-      const { error } = await supabase
-        .from("projects")
-        .update({ auto_sync_to_quickbooks: enabled })
-        .eq("id", project.id);
-      if (error) throw error;
 
-      // If re-enabling auto-sync, replay any queued_while_paused entries
-      if (enabled) {
-        const { data: queuedEntries } = await supabase
-          .from("quickbooks_sync_log")
-          .select("id, record_type, quickbooks_id, record_id")
-          .eq("company_id", companyId)
-          .eq("sync_status", "queued_while_paused");
+      if (!enabled) {
+        // Disabling — straightforward
+        const { error } = await supabase
+          .from("projects")
+          .update({ auto_sync_to_quickbooks: false })
+          .eq("id", project.id);
+        if (error) throw error;
+        return { action: "disabled" as const };
+      }
 
-        if (queuedEntries && queuedEntries.length > 0) {
-          // Filter to entries that belong to this project
-          const projectRecordIds = new Set<string>();
+      // Enabling — check for queued entries first
+      const { data: queuedEntries } = await supabase
+        .from("quickbooks_sync_log")
+        .select("id, record_type, quickbooks_id, record_id, sync_error, synced_at, qb_doc_number")
+        .eq("company_id", companyId)
+        .eq("sync_status", "queued_while_paused");
 
-          // Get all record IDs for this project across entity types
-          const [invoices, payments, bills] = await Promise.all([
-            supabase.from("project_invoices").select("id").eq("project_id", project.id),
-            supabase.from("project_payments").select("id").eq("project_id", project.id),
-            supabase.from("project_bills").select("id").eq("project_id", project.id),
-          ]);
+      if (queuedEntries && queuedEntries.length > 0) {
+        // Filter to entries belonging to this project
+        const projectRecordIds = new Set<string>();
 
-          (invoices.data || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
-          (payments.data || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
-          (bills.data || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
+        const [invoices, payments, bills] = await Promise.all([
+          supabase.from("project_invoices").select("id").eq("project_id", project.id),
+          supabase.from("project_payments").select("id").eq("project_id", project.id),
+          supabase.from("project_bills").select("id").eq("project_id", project.id),
+        ]);
 
-          // Also get bill_payment record IDs via bills
-          if (bills.data && bills.data.length > 0) {
-            const billIds = bills.data.map((b: { id: string }) => b.id);
-            const { data: billPayments } = await supabase
-              .from("bill_payments")
-              .select("id")
-              .in("bill_id", billIds);
-            (billPayments || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
-          }
+        (invoices.data || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
+        (payments.data || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
+        (bills.data || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
 
-          const relevantEntries = queuedEntries.filter(
-            (e: { record_id: string | null }) => e.record_id && projectRecordIds.has(e.record_id)
-          );
+        if (bills.data && bills.data.length > 0) {
+          const billIds = bills.data.map((b: { id: string }) => b.id);
+          const { data: billPayments } = await supabase
+            .from("bill_payments")
+            .select("id")
+            .in("bill_id", billIds);
+          (billPayments || []).forEach((r: { id: string }) => projectRecordIds.add(r.id));
+        }
 
-          if (relevantEntries.length > 0) {
-            // Mark them as pending_refresh so the next sync picks them up
-            const entryIds = relevantEntries.map((e: { id: string }) => e.id);
-            await supabase
-              .from("quickbooks_sync_log")
-              .update({
-                sync_status: "pending_refresh",
-                sync_error: "Auto-sync re-enabled — queued change now pending refresh",
-              })
-              .in("id", entryIds);
-          }
+        const relevantEntries = queuedEntries.filter(
+          (e) => e.record_id && projectRecordIds.has(e.record_id)
+        );
+
+        if (relevantEntries.length > 0) {
+          // Open review dialog instead of auto-enabling
+          setQueuedSyncEntries(relevantEntries);
+          setSyncReviewOpen(true);
+          return { action: "review_needed" as const };
         }
       }
+
+      // No queued entries — just enable
+      const { error } = await supabase
+        .from("projects")
+        .update({ auto_sync_to_quickbooks: true })
+        .eq("id", project.id);
+      if (error) throw error;
+      return { action: "enabled" as const };
     },
-    onSuccess: (_, enabled) => {
+    onSuccess: (result) => {
+      if (result.action === "review_needed") return; // Dialog handles the rest
       queryClient.invalidateQueries({ queryKey: ["project-detail", project?.id] });
-      toast.success(enabled ? "Auto-sync enabled — queued changes will be refreshed" : "Auto-sync disabled");
+      toast.success(result.action === "enabled" ? "Auto-sync enabled" : "Auto-sync disabled");
     },
     onError: () => {
       toast.error("Failed to update auto-sync setting");
     },
   });
+
+  const handleSyncReviewComplete = (approved: boolean) => {
+    if (approved) {
+      queryClient.invalidateQueries({ queryKey: ["project-detail", project?.id] });
+    }
+    setQueuedSyncEntries([]);
+  };
 
   // Calculate total commission percentage
   const totalCommission = (fullProject?.primary_commission_pct || 0) + 
