@@ -5658,10 +5658,10 @@ function InvoiceDialog({
                       <SelectContent>
                         {agreements.map((a) => {
                           const typeAbbr = a.agreement_type === 'Change Order' ? 'CO' : a.agreement_type === 'Addendum' ? 'ADD' : 'CNT';
-                          const label = [a.agreement_number, typeAbbr, a.nickname].filter(Boolean).join(' • ');
+                          const label = [a.agreement_number, typeAbbr, a.nickname, formatCurrency(a.total_price)].filter(Boolean).join(' • ');
                           return (
                             <SelectItem key={a.id} value={a.id}>
-                              {label} - {formatCurrency(a.total_price)}
+                              {label}
                             </SelectItem>
                           );
                         })}
