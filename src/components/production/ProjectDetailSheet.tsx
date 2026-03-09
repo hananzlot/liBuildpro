@@ -2568,6 +2568,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    {project?.id && (
+      <QueuedSyncReviewDialog
+        open={syncReviewOpen}
+        onOpenChange={setSyncReviewOpen}
+        projectId={project.id}
+        companyId={companyId}
+        entries={queuedSyncEntries}
+        onComplete={handleSyncReviewComplete}
+      />
+    )}
     </>
   );
 }
