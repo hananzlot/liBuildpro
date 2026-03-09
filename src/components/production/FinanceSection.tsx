@@ -406,7 +406,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
   const [prePopulatedInvoice, setPrePopulatedInvoice] = useState<Partial<Invoice> | null>(null);
   const [editingPayment, setEditingPaymentRaw] = useState<Payment | null>(() => {
     try {
-      const stored = sessionStorage.getItem(`editing-payment:${projectId}`);
+      const stored = localStorage.getItem(`editing-payment:${projectId}`);
       return stored ? JSON.parse(stored) : null;
     } catch { return null; }
   });
@@ -414,15 +414,15 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     setEditingPaymentRaw(p);
     try {
       if (p) {
-        sessionStorage.setItem(`editing-payment:${projectId}`, JSON.stringify(p));
+        localStorage.setItem(`editing-payment:${projectId}`, JSON.stringify(p));
       } else {
-        sessionStorage.removeItem(`editing-payment:${projectId}`);
+        localStorage.removeItem(`editing-payment:${projectId}`);
       }
     } catch { /* ignore */ }
   }, [projectId]);
   const [prePopulatedPayment, setPrePopulatedPaymentRaw] = useState<Partial<Payment> | null>(() => {
     try {
-      const stored = sessionStorage.getItem(`prepop-payment:${projectId}`);
+      const stored = localStorage.getItem(`prepop-payment:${projectId}`);
       return stored ? JSON.parse(stored) : null;
     } catch { return null; }
   });
@@ -430,9 +430,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
     setPrePopulatedPaymentRaw(p);
     try {
       if (p) {
-        sessionStorage.setItem(`prepop-payment:${projectId}`, JSON.stringify(p));
+        localStorage.setItem(`prepop-payment:${projectId}`, JSON.stringify(p));
       } else {
-        sessionStorage.removeItem(`prepop-payment:${projectId}`);
+        localStorage.removeItem(`prepop-payment:${projectId}`);
       }
     } catch { /* ignore */ }
   }, [projectId]);
