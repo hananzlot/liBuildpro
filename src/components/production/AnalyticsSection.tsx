@@ -441,7 +441,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
               invoices={invoicesWithAging}
               totals={totals}
               onNavigateToAR={() => {
-                window.location.href = '/outstanding-ar';
+                navigate('/outstanding-ar');
               }}
             />
           </TabsContent>
