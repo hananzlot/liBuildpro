@@ -35,12 +35,18 @@ const App = () => (
     persistOptions={{
       persister,
       maxAge: 1000 * 60 * 60 * 24, // 24 hours max cache age
-      buster: "v2", // Changed to bust stale mutation cache
-      // IMPORTANT: Don't persist mutations.
-      // Persisted mutation state can get stuck as "pending" across refresh/tab close,
-      // which incorrectly shows loading spinners (e.g., "Save Estimate").
+      buster: "v3", // Bump to invalidate all stale IDB caches
+      // IMPORTANT: Don't persist mutations or the app-version query.
+      // Mutations: Persisted mutation state can get stuck as "pending" across refresh/tab close.
+      // app-version: Must always fetch fresh to trigger cache-clearing on deploys.
       dehydrateOptions: {
         shouldDehydrateMutation: () => false,
+        shouldDehydrateQuery: (query) => {
+          // Don't persist the app-version query — it must always be fresh
+          const queryKey = query.queryKey;
+          if (Array.isArray(queryKey) && queryKey[0] === "app-version") return false;
+          return true;
+        },
       },
     }}
     onSuccess={() => {
