@@ -5697,7 +5697,7 @@ function InvoiceDialog({
                   {brandAddress && <p className="text-xs text-muted-foreground mt-0.5">{brandAddress}</p>}
                   <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
                     {brandPhone && <span>{brandPhone}</span>}
-                    {company?.email && <span>{company.email}</span>}
+                    {brandEmail && <span>{brandEmail}</span>}
                   </div>
                 </div>
               </div>
