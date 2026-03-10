@@ -5863,10 +5863,16 @@ function InvoiceDialog({
                 {invoice ? `Last updated ${invoice.invoice_date ? new Date(invoice.invoice_date + 'T12:00:00').toLocaleDateString() : ''}` : 'New invoice'}
               </p>
               <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit" size="sm" disabled={isPending}>
-                  {isPending ? "Saving..." : invoice ? "Update Invoice" : "Create Invoice"}
-                </Button>
+                {readOnly ? (
+                  <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>Close</Button>
+                ) : (
+                  <>
+                    <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit" size="sm" disabled={isPending}>
+                      {isPending ? "Saving..." : invoice ? "Update Invoice" : "Create Invoice"}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
