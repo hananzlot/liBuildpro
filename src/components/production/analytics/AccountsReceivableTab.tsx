@@ -239,7 +239,7 @@ export function AccountsReceivableTab({ invoices, totals, onNavigateToAR }: Acco
                     <TableRow 
                       key={invoice.id} 
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => invoice.project_id && onProjectClick?.(invoice.project_id, invoice.id)}
+                      onClick={() => onNavigateToAR?.()}
                     >
                       <TableCell className="font-medium">{invoice.project_number}</TableCell>
                       <TableCell className="max-w-[200px] truncate">
