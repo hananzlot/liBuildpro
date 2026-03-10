@@ -204,7 +204,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const [aiQueueOpen, setAiQueueOpen] = useState(false);
   const closeSidebar = () => {
     if (isMobile) { setTimeout(() => setOpenMobile(false), 100); }
-    else if (!isPinned) { setTimeout(() => setOpen(false), 100); }
   };
 
   const handleSidebarContentClickCapture = (event: React.MouseEvent) => {
