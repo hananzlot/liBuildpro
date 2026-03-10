@@ -5764,9 +5764,22 @@ function InvoiceDialog({
                         {agreements.map((a) => {
                           const typeAbbr = a.agreement_type === 'Change Order' ? 'CO' : a.agreement_type === 'Addendum' ? 'ADD' : 'CNT';
                           const label = [a.agreement_number, typeAbbr, a.nickname, formatCurrency(a.total_price)].filter(Boolean).join(' • ');
+                          // Calculate uninvoiced amount for this agreement
+                          const agreementPhases = paymentPhases.filter(p => p.agreement_id === a.id);
+                          const totalPhaseAmount = agreementPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
+                          const totalInvoicedForAgreement = agreementPhases.reduce((sum, p) => {
+                            const invoicedForPhase = existingInvoices
+                              .filter(inv => inv.payment_phase_id === p.id && inv.id !== invoice?.id)
+                              .reduce((s, inv) => s + (inv.amount || 0), 0);
+                            return sum + invoicedForPhase;
+                          }, 0);
+                          const uninvoicedAmount = totalPhaseAmount - totalInvoicedForAgreement;
+                          const isFullyInvoiced = uninvoicedAmount <= 0 && agreementPhases.length > 0;
+                          // Hide fully invoiced agreements unless it's the currently selected one
+                          if (isFullyInvoiced && formData.agreement_id !== a.id) return null;
                           return (
-                            <SelectItem key={a.id} value={a.id}>
-                              {label}
+                            <SelectItem key={a.id} value={a.id} className={isFullyInvoiced ? "opacity-50" : ""}>
+                              {label}{isFullyInvoiced ? " (Fully Invoiced)" : ""}
                             </SelectItem>
                           );
                         })}
