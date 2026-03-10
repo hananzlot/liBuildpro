@@ -5686,6 +5686,7 @@ function InvoiceDialog({
                     className="h-7 w-28 text-right text-sm font-semibold border-primary/50 border-2 focus:border-primary bg-background"
                     aria-invalid={!!formErrors.invoice_number}
                     placeholder="Number"
+                    disabled={readOnly}
                   />
                 </div>
                 {formErrors.invoice_number && <p className="text-xs text-destructive mt-0.5 text-right">{formErrors.invoice_number}</p>}
