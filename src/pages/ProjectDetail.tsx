@@ -93,6 +93,7 @@ export default function ProjectDetail() {
             initialTab={initialTab}
             initialFinanceSectionTab={initialFinanceSection}
             initialFinanceSubTab={initialFinanceSubTab}
+            autoOpenFinanceDialog={autoOpenFinanceDialog}
             highlightInvoiceId={highlightInvoiceId}
             highlightBillId={highlightBillId}
             highlightPaymentId={highlightPaymentId}
