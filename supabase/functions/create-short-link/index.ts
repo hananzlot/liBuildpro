@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 // Base62 characters for short code generation
@@ -277,25 +277,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use service role client to validate the JWT (avoids session-missing errors)
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    // Validate the JWT using the user's token
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    
+    // Create client with user's JWT for auth validation and RLS-scoped queries
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-    if (userError || !user) {
-      console.error("Auth validation error:", userError);
+    // Use getClaims for token validation (works with signing-keys)
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims?.sub) {
+      console.error("Auth validation error:", claimsError);
       return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userId = user.id;
-
-    // Create client with user's JWT for RLS-scoped queries
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const userId = claimsData.claims.sub as string;
 
     // Get user's company from profile OR from request body (for super admins)
     const { data: profile, error: profileError } = await supabaseUser
