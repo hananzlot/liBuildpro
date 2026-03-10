@@ -4659,6 +4659,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         customerName={customerName}
         projectName={projectName}
         projectAddress={projectAddress}
+        readOnly={!!editingInvoice && (editingInvoice.payments_received || 0) > 0}
       />
 
       {/* Invoice PDF Preview Dialog */}
