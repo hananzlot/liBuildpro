@@ -734,7 +734,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onClose, onUpd
         .from("project_types")
         .select("*")
         .eq("company_id", companyId)
-        .order("name", { ascending: true });
+        .order("sort_order", { ascending: true });
       if (error) throw error;
       return data;
     },
