@@ -60,7 +60,7 @@
     --sidebar-accent-foreground: 220 14% 96%;
     --sidebar-border: 222 20% 22%;
     --sidebar-ring: 220 90% 56%;
-    --sidebar-muted-foreground: 220 10% 52%;
+    --sidebar-muted-foreground: 220 12% 72%;
     --sidebar-surface-hover: 222 24% 18%;
     --sidebar-surface-active: 222 24% 22%;
     --sidebar: 222 28% 14%;
@@ -142,7 +142,7 @@
     --sidebar-accent-foreground: 220 90% 68%;
     --sidebar-border: 224 20% 14%;
     --sidebar-ring: 220 90% 56%;
-    --sidebar-muted-foreground: 220 10% 50%;
+    --sidebar-muted-foreground: 220 12% 70%;
     --sidebar-surface-hover: 224 24% 12%;
     --sidebar-surface-active: 224 24% 16%;
     --sidebar: 224 32% 8%;
