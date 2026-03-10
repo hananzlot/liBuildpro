@@ -440,8 +440,8 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             <AccountsReceivableTab
               invoices={invoicesWithAging}
               totals={totals}
-              onNavigateToAR={() => {
-                navigate('/outstanding-ar');
+              onProjectClick={(projectId, invoiceId) => {
+                onProjectClick?.(projectId, 'finance', undefined, undefined, invoiceId);
               }}
             />
           </TabsContent>
