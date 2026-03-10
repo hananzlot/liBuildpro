@@ -55,6 +55,14 @@ export function AppLayout({
     return pinned === null ? true : pinned === "true";
   });
 
+  // Handle sidebar open/close — respect pinned state on desktop
+  const handleSidebarOpenChange = (open: boolean) => {
+    const pinned = localStorage.getItem(SIDEBAR_PINNED_KEY) === "true";
+    // If pinned and trying to close, ignore (unless explicitly unpinned)
+    if (pinned && !open) return;
+    setSidebarOpen(open);
+  };
+
   // Listen for pinned state changes from the sidebar
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
@@ -95,7 +103,7 @@ export function AppLayout({
   };
 
   return (
-    <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+    <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarOpenChange}>
       <div className="h-screen flex w-full overflow-hidden">
         <AppSidebar 
           onAdminAction={onAdminAction} 
