@@ -5768,7 +5768,7 @@ function InvoiceDialog({
                         <Select 
                           value={formData.payment_phase_id} 
                           onValueChange={(v) => { handlePhaseChange(v); setFormErrors(prev => ({ ...prev, payment_phase_id: "" })); setPhaseError(""); }}
-                          disabled={!formData.agreement_id || !!prePopulatedData}
+                          disabled={readOnly || !formData.agreement_id || !!prePopulatedData}
                         >
                           <SelectTrigger className={cn("h-8 text-sm border-2 border-primary/50 focus:border-primary bg-background", prePopulatedData ? "opacity-70" : "")}>
                             <SelectValue placeholder={formData.agreement_id ? "Select payment phase" : "Select agreement first"} />
