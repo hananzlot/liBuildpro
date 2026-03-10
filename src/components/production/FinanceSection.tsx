@@ -5461,7 +5461,7 @@ function InvoiceDialog({
         .from('company_settings')
         .select('setting_key, setting_value')
         .eq('company_id', brandingCompanyId)
-        .in('setting_key', ['company_logo_url', 'company_name', 'company_address', 'company_phone']);
+        .in('setting_key', ['company_logo_url', 'company_name', 'company_address', 'company_phone', 'company_email']);
       if (!data || data.length === 0) return null;
       const settings: Record<string, string> = {};
       data.forEach(item => { if (item.setting_value) settings[item.setting_key] = item.setting_value; });
@@ -5474,6 +5474,7 @@ function InvoiceDialog({
   const brandName = companyBranding?.company_name || company?.name || 'Company';
   const brandAddress = companyBranding?.company_address || company?.address;
   const brandPhone = companyBranding?.company_phone || company?.phone;
+  const brandEmail = companyBranding?.company_email || company?.email;
 
   const resolvePhaseId = (inv: Invoice, agrId: string): string => {
     if (inv.payment_phase_id) return inv.payment_phase_id;
@@ -5696,7 +5697,7 @@ function InvoiceDialog({
                   {brandAddress && <p className="text-xs text-muted-foreground mt-0.5">{brandAddress}</p>}
                   <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
                     {brandPhone && <span>{brandPhone}</span>}
-                    {company?.email && <span>{company.email}</span>}
+                    {brandEmail && <span>{brandEmail}</span>}
                   </div>
                 </div>
               </div>

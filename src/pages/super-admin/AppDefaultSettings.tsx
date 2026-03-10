@@ -142,7 +142,7 @@ export default function AppDefaultSettings() {
   );
 
   const companySettings = settings?.filter((s) =>
-    ["company_name", "company_address", "company_phone", "company_website", "license_type", "license_number", "license_holder_name"].includes(s.setting_key)
+    ["company_name", "company_address", "company_phone", "company_email", "company_website", "license_type", "license_number", "license_holder_name"].includes(s.setting_key)
   );
 
   const portalSettings = settings?.filter((s) =>
