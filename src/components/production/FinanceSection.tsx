@@ -5715,7 +5715,7 @@ function InvoiceDialog({
                     <Select 
                       value={formData.agreement_id} 
                       onValueChange={(v) => { handleAgreementChange(v); setFormErrors(prev => ({ ...prev, agreement_id: "" })); }}
-                      disabled={!!prePopulatedData}
+                      disabled={readOnly || !!prePopulatedData}
                     >
                       <SelectTrigger className={cn("h-7 text-sm border-2 border-primary/50 focus:border-primary bg-background w-full min-w-[420px]", prePopulatedData ? "opacity-70" : "")} aria-invalid={!!formErrors.agreement_id}>
                         <SelectValue placeholder="Select agreement" />
