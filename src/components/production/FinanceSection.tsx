@@ -5684,18 +5684,18 @@ function InvoiceDialog({
             {/* Header Bar */}
             <div className="bg-primary/5 border-b px-8 py-5 flex items-start justify-between">
               <div className="flex items-center gap-4">
-                {company?.logo_url && (
+                {brandLogo && (
                   <img 
-                    src={company.logo_url} 
-                    alt={company?.name || "Company"} 
+                    src={brandLogo} 
+                    alt={brandName} 
                     className="h-12 w-auto object-contain rounded"
                   />
                 )}
                 <div>
-                  <h2 className="text-lg font-bold text-foreground">{company?.name || "Company"}</h2>
-                  {company?.address && <p className="text-xs text-muted-foreground mt-0.5">{company.address}</p>}
+                  <h2 className="text-lg font-bold text-foreground">{brandName}</h2>
+                  {brandAddress && <p className="text-xs text-muted-foreground mt-0.5">{brandAddress}</p>}
                   <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
-                    {company?.phone && <span>{company.phone}</span>}
+                    {brandPhone && <span>{brandPhone}</span>}
                     {company?.email && <span>{company.email}</span>}
                   </div>
                 </div>
