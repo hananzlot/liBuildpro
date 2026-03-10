@@ -578,7 +578,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           const sectionOpen = isSectionOpen(section.label);
           return (
             <Collapsible key={section.label} open={collapsed || sectionOpen} onOpenChange={() => toggleSection(section.label)}>
-              <SidebarGroup className="px-2 py-0.5 mx-1 my-0.5 rounded-md bg-sidebar-surface-hover/40">
+              <SidebarGroup className="px-2 py-0.5 mx-1 my-0.5 rounded-md bg-white/[0.06]">
                 <CollapsibleTrigger asChild>
                   <SidebarGroupLabel className={cn("h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-foreground/90 select-none", !collapsed && "cursor-pointer hover:text-sidebar-foreground transition-colors")}>
                     {section.label}
