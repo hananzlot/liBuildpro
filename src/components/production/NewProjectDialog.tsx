@@ -130,6 +130,23 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
     enabled: !!companyId,
   });
 
+  // Fetch project types for selected company
+  const { data: projectTypes = [] } = useQuery({
+    queryKey: ["project-types-for-project", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("project_types")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
+
   // Add new salesperson mutation
   const addSalespersonMutation = useMutation({
     mutationFn: async (name: string) => {
