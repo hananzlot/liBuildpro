@@ -103,7 +103,7 @@ export function AppLayout({
   };
 
   return (
-    <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+    <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarOpenChange}>
       <div className="h-screen flex w-full overflow-hidden">
         <AppSidebar 
           onAdminAction={onAdminAction} 
