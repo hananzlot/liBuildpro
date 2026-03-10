@@ -5807,8 +5807,8 @@ function InvoiceDialog({
                           const val = e.target.value;
                           if (val === '' || /^\d*\.?\d*$/.test(val)) handleAmountChange(val);
                         }}
-                        disabled={readOnly || !!prePopulatedData}
-                        className={cn("h-8 text-sm text-right border-2 border-primary/50 focus:border-primary bg-background w-full", (readOnly || prePopulatedData) ? "opacity-70 bg-muted" : "")}
+                        disabled={readOnly}
+                        className={cn("h-8 text-sm text-right border-2 border-primary/50 focus:border-primary bg-background w-full", readOnly ? "opacity-70 bg-muted" : "")}
                         placeholder="0.00"
                       />
                       {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
