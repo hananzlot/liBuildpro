@@ -134,7 +134,22 @@ export function ProjectEditorContent({
     enabled: !!companyId,
   });
 
-   // Fetch lead sources for company
+  // Fetch project types for company
+  const { data: projectTypes = [] } = useQuery({
+    queryKey: ["project-types", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("project_types")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
   const { data: leadSources = [] } = useQuery({
     queryKey: ["lead-sources-for-project-editor", companyId],
     queryFn: async () => {
@@ -495,12 +510,19 @@ export function ProjectEditorContent({
               </div>
               <div>
                 <Label htmlFor="project_type">Project Type</Label>
-                <Input
-                  id="project_type"
+                <Select
                   value={formData.project_type}
-                  onChange={(e) => updateField("project_type", e.target.value)}
-                  placeholder="e.g., Roofing, HVAC"
-                />
+                  onValueChange={(value) => updateField("project_type", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projectTypes.map((pt) => (
+                      <SelectItem key={pt.id} value={pt.name}>{pt.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="project_status">Status</Label>

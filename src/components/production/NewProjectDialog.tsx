@@ -130,6 +130,23 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
     enabled: !!companyId,
   });
 
+  // Fetch project types for selected company
+  const { data: projectTypes = [] } = useQuery({
+    queryKey: ["project-types-for-project", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("project_types")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
+
   // Add new salesperson mutation
   const addSalespersonMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -364,12 +381,19 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                 </div>
                 <div>
                   <Label htmlFor="project_type">Project Type</Label>
-                  <Input
-                    id="project_type"
+                  <Select
                     value={draft.project_type}
-                    onChange={(e) => updateDraft({ project_type: e.target.value })}
-                    placeholder="e.g., Roofing, HVAC"
-                  />
+                    onValueChange={(value) => updateDraft({ project_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select project type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projectTypes.map((pt) => (
+                        <SelectItem key={pt.id} value={pt.name}>{pt.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="project_status">Status</Label>
