@@ -5432,6 +5432,7 @@ function InvoiceDialog({
   customerName,
   projectName,
   projectAddress,
+  readOnly = false,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -5446,6 +5447,7 @@ function InvoiceDialog({
   customerName?: string | null;
   projectName?: string | null;
   projectAddress?: string | null;
+  readOnly?: boolean;
 }) {
   const { company } = useAuth();
 
