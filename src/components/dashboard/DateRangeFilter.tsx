@@ -1,6 +1,6 @@
 import * as React from "react";
 import { format } from "date-fns";
-import { CalendarIcon, ChevronDown } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ interface DateRangeFilterProps {
 }
 
 const PRESETS = [
+  { label: "All Dates", value: "all", days: -2 },
   { label: "Today", value: "today", days: 0 },
   { label: "Last 7 Days", value: "7d", days: 7 },
   { label: "Last 14 Days", value: "14d", days: 14 },
@@ -32,6 +33,7 @@ const PRESETS = [
   { label: "Last 60 Days", value: "60d", days: 60 },
   { label: "Last 90 Days", value: "90d", days: 90 },
   { label: "Year to Date", value: "ytd", days: -1 },
+  { label: "Custom Range", value: "custom", days: -3 },
 ];
 
 export function DateRangeFilter({ 
@@ -39,7 +41,18 @@ export function DateRangeFilter({
   onDateRangeChange, 
   className 
 }: DateRangeFilterProps) {
+  const [customPickerOpen, setCustomPickerOpen] = React.useState(false);
+
   const handlePresetChange = (value: string) => {
+    if (value === "all") {
+      onDateRangeChange(undefined);
+      return;
+    }
+
+    if (value === "custom") {
+      setCustomPickerOpen(true);
+      return;
+    }
 
     if (value === "ytd") {
       const end = new Date();
@@ -66,7 +79,7 @@ export function DateRangeFilter({
   };
 
   const getActivePreset = (): string => {
-    if (!dateRange?.from || !dateRange?.to) return "custom";
+    if (!dateRange?.from || !dateRange?.to) return "all";
     
     const today = new Date();
     const fromDate = dateRange.from;
@@ -109,37 +122,47 @@ export function DateRangeFilter({
   const activePreset = getActivePreset();
 
   const getDisplayLabel = (): string => {
+    if (activePreset === "all") return "All Dates";
     if (activePreset === "custom" && dateRange?.from && dateRange?.to) {
       return `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d, yyyy")}`;
     }
     const preset = PRESETS.find(p => p.value === activePreset);
-    return preset?.label || "Select range";
+    return preset?.label || "All Dates";
   };
 
   return (
     <div className={cn("flex items-center gap-2 flex-wrap", className)}>
       <Select value={activePreset} onValueChange={handlePresetChange}>
-        <SelectTrigger className="w-[180px] h-9">
-          <SelectValue placeholder="Select range">{getDisplayLabel()}</SelectValue>
+        <SelectTrigger className="w-[200px] h-9">
+          <SelectValue placeholder="All Dates">{getDisplayLabel()}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {PRESETS.map((preset) => (
             <SelectItem key={preset.value} value={preset.value}>
-              {preset.label}
+              {preset.value === "custom" ? (
+                <span className="flex items-center gap-1.5">
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  {preset.label}
+                </span>
+              ) : (
+                preset.label
+              )}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
-      <Popover>
+      <Popover open={customPickerOpen} onOpenChange={setCustomPickerOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             size="sm"
-            className="h-9"
+            className={cn("h-9", activePreset !== "custom" && "hidden")}
           >
             <CalendarIcon className="h-4 w-4 mr-1" />
-            Custom
+            {dateRange?.from && dateRange?.to
+              ? `${format(dateRange.from, "MMM d")} - ${format(dateRange.to, "MMM d")}`
+              : "Pick dates"}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
@@ -148,7 +171,12 @@ export function DateRangeFilter({
             mode="range"
             defaultMonth={dateRange?.from}
             selected={dateRange}
-            onSelect={onDateRangeChange}
+            onSelect={(range) => {
+              onDateRangeChange(range);
+              if (range?.from && range?.to) {
+                setCustomPickerOpen(false);
+              }
+            }}
             numberOfMonths={2}
             className="p-3 pointer-events-auto"
           />
