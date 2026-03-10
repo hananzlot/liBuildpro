@@ -5652,8 +5652,8 @@ function InvoiceDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl p-0 overflow-hidden">
         <DialogHeader className="sr-only">
-          <DialogTitle>{invoice ? "Edit Invoice" : "New Invoice"}</DialogTitle>
-          <DialogDescription>Invoice details</DialogDescription>
+          <DialogTitle>{readOnly ? "View Invoice" : invoice ? "Edit Invoice" : "New Invoice"}</DialogTitle>
+          <DialogDescription>{readOnly ? "This invoice has payments applied and cannot be edited." : "Invoice details"}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="bg-background">
