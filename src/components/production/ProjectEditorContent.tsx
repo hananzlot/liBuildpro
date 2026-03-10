@@ -134,7 +134,22 @@ export function ProjectEditorContent({
     enabled: !!companyId,
   });
 
-   // Fetch lead sources for company
+  // Fetch project types for company
+  const { data: projectTypes = [] } = useQuery({
+    queryKey: ["project-types", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("project_types")
+        .select("id, name")
+        .eq("company_id", companyId)
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
   const { data: leadSources = [] } = useQuery({
     queryKey: ["lead-sources-for-project-editor", companyId],
     queryFn: async () => {
