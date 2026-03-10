@@ -395,11 +395,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         .filter(r => r.refund_status === "Issued")
         .reduce((sum, r) => sum + (r.refund_amount || 0), 0);
       const invoicesCollected = grossCollected - totalRefunded;
-      // Use computed balance (amount - payments_received) to handle stale open_balance values
-      const invoiceBalanceDue = projectInvoices.reduce((sum, i) => {
-        const effectiveBalance = Math.max(0, (i.amount || 0) - (i.payments_received || 0));
-        return sum + effectiveBalance;
-      }, 0);
+      const invoiceBalanceDue = projectInvoices.reduce((sum, i) => sum + (i.open_balance || 0), 0);
 
       // Calculate bill payments from bill_payments table
       const projectBillIds = projectBills.map(b => b.id);
