@@ -5450,6 +5450,30 @@ function InvoiceDialog({
   readOnly?: boolean;
 }) {
   const { company } = useAuth();
+  const { companyId: brandingCompanyId } = useCompanyContext();
+
+  // Fetch company branding from company_settings (same source as client portal)
+  const { data: companyBranding } = useQuery({
+    queryKey: ['company-branding-invoice', brandingCompanyId],
+    queryFn: async () => {
+      if (!brandingCompanyId) return null;
+      const { data } = await supabase
+        .from('company_settings')
+        .select('setting_key, setting_value')
+        .eq('company_id', brandingCompanyId)
+        .in('setting_key', ['company_logo_url', 'company_name', 'company_address', 'company_phone']);
+      if (!data || data.length === 0) return null;
+      const settings: Record<string, string> = {};
+      data.forEach(item => { if (item.setting_value) settings[item.setting_key] = item.setting_value; });
+      return settings;
+    },
+    enabled: !!brandingCompanyId,
+  });
+
+  const brandLogo = companyBranding?.company_logo_url || company?.logo_url;
+  const brandName = companyBranding?.company_name || company?.name || 'Company';
+  const brandAddress = companyBranding?.company_address || company?.address;
+  const brandPhone = companyBranding?.company_phone || company?.phone;
 
   const resolvePhaseId = (inv: Invoice, agrId: string): string => {
     if (inv.payment_phase_id) return inv.payment_phase_id;
@@ -5660,18 +5684,18 @@ function InvoiceDialog({
             {/* Header Bar */}
             <div className="bg-primary/5 border-b px-8 py-5 flex items-start justify-between">
               <div className="flex items-center gap-4">
-                {company?.logo_url && (
+                {brandLogo && (
                   <img 
-                    src={company.logo_url} 
-                    alt={company?.name || "Company"} 
+                    src={brandLogo} 
+                    alt={brandName} 
                     className="h-12 w-auto object-contain rounded"
                   />
                 )}
                 <div>
-                  <h2 className="text-lg font-bold text-foreground">{company?.name || "Company"}</h2>
-                  {company?.address && <p className="text-xs text-muted-foreground mt-0.5">{company.address}</p>}
+                  <h2 className="text-lg font-bold text-foreground">{brandName}</h2>
+                  {brandAddress && <p className="text-xs text-muted-foreground mt-0.5">{brandAddress}</p>}
                   <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
-                    {company?.phone && <span>{company.phone}</span>}
+                    {brandPhone && <span>{brandPhone}</span>}
                     {company?.email && <span>{company.email}</span>}
                   </div>
                 </div>
