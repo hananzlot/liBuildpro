@@ -258,7 +258,7 @@ export function AccountsReceivableTab({ invoices, totals, onProjectClick }: Acco
                         {formatCurrency(invoice.open_balance || 0)}
                       </TableCell>
                       <TableCell className="text-right">{invoice.daysOutstanding}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <Badge 
                           variant="outline" 
                           className={cn("text-xs", getAgingColor(invoice.agingBucket))}
