@@ -28,6 +28,7 @@ export default function ProjectDetail() {
   const highlightInvoiceId = searchParams.get("highlightInvoiceId") || searchParams.get("highlightInvoice") || undefined;
   const highlightBillId = searchParams.get("highlightBillId") || searchParams.get("highlightBill") || undefined;
   const highlightPaymentId = searchParams.get("highlightPaymentId") || searchParams.get("highlightPayment") || undefined;
+  const autoOpenFinanceDialog = searchParams.get("autoOpen") as 'invoice' | 'payment' | 'bill' | 'change-order' | 'refund' | null;
   
   // Fetch project data
   const { data: project, isLoading, refetch } = useQuery({
