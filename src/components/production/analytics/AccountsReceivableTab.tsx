@@ -213,18 +213,18 @@ export function AccountsReceivableTab({ invoices, totals, onProjectClick }: Acco
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="table-fixed w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[60px]">#</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Invoice #</TableHead>
-                  <TableHead>Invoice Date</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="text-right">Paid</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-right">Days Out</TableHead>
-                  <TableHead>Aging</TableHead>
+                  <TableHead className="w-[5%]">#</TableHead>
+                  <TableHead className="w-[18%]">Project</TableHead>
+                  <TableHead className="w-[10%]">Invoice #</TableHead>
+                  <TableHead className="w-[12%]">Invoice Date</TableHead>
+                  <TableHead className="w-[12%] text-right">Amount</TableHead>
+                  <TableHead className="w-[12%] text-right">Paid</TableHead>
+                  <TableHead className="w-[12%] text-right">Balance</TableHead>
+                  <TableHead className="w-[9%] text-right">Days Out</TableHead>
+                  <TableHead className="w-[10%] text-center">Aging</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
