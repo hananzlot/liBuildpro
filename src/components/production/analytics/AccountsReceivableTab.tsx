@@ -35,7 +35,7 @@ interface AccountsReceivableTabProps {
       days90Plus: number;
     };
   };
-  onProjectClick?: (projectId: string, invoiceId: string) => void;
+  onNavigateToAR?: () => void;
 }
 
 
@@ -56,7 +56,7 @@ const getAgingColor = (bucket: string) => {
 
 const AGING_COLORS = ['#10b981', '#f59e0b', '#f97316', '#ef4444'];
 
-export function AccountsReceivableTab({ invoices, totals, onProjectClick }: AccountsReceivableTabProps) {
+export function AccountsReceivableTab({ invoices, totals, onNavigateToAR }: AccountsReceivableTabProps) {
   // Pie chart data
   const pieData = useMemo(() => [
     { name: '0-30 Days', value: totals.aging.current, color: AGING_COLORS[0] },
@@ -239,7 +239,7 @@ export function AccountsReceivableTab({ invoices, totals, onProjectClick }: Acco
                     <TableRow 
                       key={invoice.id} 
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => invoice.project_id && onProjectClick?.(invoice.project_id, invoice.id)}
+                      onClick={() => onNavigateToAR?.()}
                     >
                       <TableCell className="font-medium">{invoice.project_number}</TableCell>
                       <TableCell className="max-w-[200px] truncate">
