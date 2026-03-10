@@ -282,18 +282,19 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Validate JWT and get claims
+    // Validate JWT and get user
     const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: claimsError } = await supabaseUser.auth.getClaims(token);
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(token);
 
-    if (claimsError || !claims?.claims) {
+    if (userError || !user) {
+      console.error("Auth validation error:", userError);
       return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userId = claims.claims.sub as string;
+    const userId = user.id;
 
     // Get user's company from profile OR from request body (for super admins)
     const { data: profile, error: profileError } = await supabaseUser
