@@ -58,6 +58,7 @@ import { UUIDRouteGuard } from "./UUIDRouteGuard";
 export function AppRoutes() {
   return (
     <Routes>
+        <Route path="/refresh" element={<RefreshPage />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<DefaultPageRedirect />} />
         
