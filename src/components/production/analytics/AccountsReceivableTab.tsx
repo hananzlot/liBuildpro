@@ -56,7 +56,7 @@ const getAgingColor = (bucket: string) => {
 
 const AGING_COLORS = ['#10b981', '#f59e0b', '#f97316', '#ef4444'];
 
-export function AccountsReceivableTab({ invoices, totals, onNavigateToAR }: AccountsReceivableTabProps) {
+export function AccountsReceivableTab({ invoices, totals, onProjectClick }: AccountsReceivableTabProps) {
   // Pie chart data
   const pieData = useMemo(() => [
     { name: '0-30 Days', value: totals.aging.current, color: AGING_COLORS[0] },
