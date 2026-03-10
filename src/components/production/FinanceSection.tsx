@@ -5461,7 +5461,7 @@ function InvoiceDialog({
         .from('company_settings')
         .select('setting_key, setting_value')
         .eq('company_id', brandingCompanyId)
-        .in('setting_key', ['company_logo_url', 'company_name', 'company_address', 'company_phone']);
+        .in('setting_key', ['company_logo_url', 'company_name', 'company_address', 'company_phone', 'company_email']);
       if (!data || data.length === 0) return null;
       const settings: Record<string, string> = {};
       data.forEach(item => { if (item.setting_value) settings[item.setting_key] = item.setting_value; });
