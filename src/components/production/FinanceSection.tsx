@@ -5474,6 +5474,7 @@ function InvoiceDialog({
   const brandName = companyBranding?.company_name || company?.name || 'Company';
   const brandAddress = companyBranding?.company_address || company?.address;
   const brandPhone = companyBranding?.company_phone || company?.phone;
+  const brandEmail = companyBranding?.company_email || company?.email;
 
   const resolvePhaseId = (inv: Invoice, agrId: string): string => {
     if (inv.payment_phase_id) return inv.payment_phase_id;
