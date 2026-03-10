@@ -1451,6 +1451,9 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
       invoice_number: invoiceNumber,
       invoice_date: invoiceDate,
       amount: amount,
+      total_expected: amount,
+      payments_received: 0,
+      open_balance: amount,
       agreement_id: agreement?.id || null,
       payment_phase_id: invoiceConfirmPhase.id,
     };
