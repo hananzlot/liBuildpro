@@ -6837,7 +6837,7 @@ function InlineNicknameEdit({ value, agreementId, companyId }: { value: string; 
   if (!editing) {
     return (
       <span
-        className="text-muted-foreground cursor-pointer hover:text-foreground hover:underline truncate max-w-[120px] inline-block"
+        className="text-muted-foreground cursor-pointer hover:text-foreground hover:underline truncate max-w-[240px] inline-block"
         onClick={() => setEditing(true)}
         title="Click to edit nickname"
       >
@@ -6853,7 +6853,7 @@ function InlineNicknameEdit({ value, agreementId, companyId }: { value: string; 
       onChange={(e) => setText(e.target.value)}
       onBlur={save}
       onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setText(value); setEditing(false); } }}
-      className="h-6 text-xs px-1 py-0 w-[120px]"
+      className="h-6 text-xs px-1 py-0 w-[240px]"
       placeholder="Add nickname"
     />
   );
