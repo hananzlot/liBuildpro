@@ -71,6 +71,14 @@ async function clearAllCaches(): Promise<void> {
     );
   }
 
+  // Clear React Query IndexedDB persisted cache
+  try {
+    const { del } = await import("idb-keyval");
+    await del("react-query-cache");
+  } catch (e) {
+    console.warn("Failed to clear IDB query cache:", e);
+  }
+
   // Clear session storage
   sessionStorage.clear();
 
