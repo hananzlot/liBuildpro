@@ -6837,7 +6837,7 @@ function InlineNicknameEdit({ value, agreementId, companyId }: { value: string; 
   if (!editing) {
     return (
       <span
-        className="text-muted-foreground cursor-pointer hover:text-foreground hover:underline truncate max-w-[120px] inline-block"
+        className="text-muted-foreground cursor-pointer hover:text-foreground hover:underline truncate max-w-[240px] inline-block"
         onClick={() => setEditing(true)}
         title="Click to edit nickname"
       >
