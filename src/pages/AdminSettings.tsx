@@ -1117,6 +1117,7 @@ export default function AdminSettings() {
                   {settingsCategory === "operations" && (
                     <>
                       <ProjectStatusesManager />
+                      <ProjectTypesManager />
                       <Collapsible defaultOpen={false} className="group">
                         <Card>
                           <CollapsibleTrigger asChild>
