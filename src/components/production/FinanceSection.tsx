@@ -3164,8 +3164,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                       Preview Invoice
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
-                                      <Pencil className="h-4 w-4 mr-2" />
-                                      Edit
+                                      {(inv.payments_received || 0) > 0 ? (
+                                        <><Eye className="h-4 w-4 mr-2" />View</>
+                                      ) : (
+                                        <><Pencil className="h-4 w-4 mr-2" />Edit</>
+                                      )}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("invoice", inv.id)}>
                                       <Trash2 className="h-4 w-4 mr-2" />
@@ -4656,6 +4659,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
         customerName={customerName}
         projectName={projectName}
         projectAddress={projectAddress}
+        readOnly={!!editingInvoice && (editingInvoice.payments_received || 0) > 0}
       />
 
       {/* Invoice PDF Preview Dialog */}
@@ -5428,6 +5432,7 @@ function InvoiceDialog({
   customerName,
   projectName,
   projectAddress,
+  readOnly = false,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -5442,6 +5447,7 @@ function InvoiceDialog({
   customerName?: string | null;
   projectName?: string | null;
   projectAddress?: string | null;
+  readOnly?: boolean;
 }) {
   const { company } = useAuth();
 
@@ -5646,8 +5652,8 @@ function InvoiceDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl p-0 overflow-hidden">
         <DialogHeader className="sr-only">
-          <DialogTitle>{invoice ? "Edit Invoice" : "New Invoice"}</DialogTitle>
-          <DialogDescription>Invoice details</DialogDescription>
+          <DialogTitle>{readOnly ? "View Invoice" : invoice ? "Edit Invoice" : "New Invoice"}</DialogTitle>
+          <DialogDescription>{readOnly ? "This invoice has payments applied and cannot be edited." : "Invoice details"}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="bg-background">
@@ -5680,6 +5686,7 @@ function InvoiceDialog({
                     className="h-7 w-28 text-right text-sm font-semibold border-primary/50 border-2 focus:border-primary bg-background"
                     aria-invalid={!!formErrors.invoice_number}
                     placeholder="Number"
+                    disabled={readOnly}
                   />
                 </div>
                 {formErrors.invoice_number && <p className="text-xs text-destructive mt-0.5 text-right">{formErrors.invoice_number}</p>}
@@ -5708,7 +5715,7 @@ function InvoiceDialog({
                     <Select 
                       value={formData.agreement_id} 
                       onValueChange={(v) => { handleAgreementChange(v); setFormErrors(prev => ({ ...prev, agreement_id: "" })); }}
-                      disabled={!!prePopulatedData}
+                      disabled={readOnly || !!prePopulatedData}
                     >
                       <SelectTrigger className={cn("h-7 text-sm border-2 border-primary/50 focus:border-primary bg-background w-full min-w-[420px]", prePopulatedData ? "opacity-70" : "")} aria-invalid={!!formErrors.agreement_id}>
                         <SelectValue placeholder="Select agreement" />
@@ -5732,12 +5739,13 @@ function InvoiceDialog({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Invoice Date</span>
-                  <Input 
+                   <Input 
                     type="date" 
                     value={formData.invoice_date} 
                     onChange={(e) => { updateFormData({ invoice_date: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_date: "" })); }}
                     className="h-7 w-40 text-sm text-right border-2 border-primary/50 focus:border-primary bg-background"
                     aria-invalid={!!formErrors.invoice_date}
+                    disabled={readOnly}
                   />
                 </div>
                 {formErrors.invoice_date && <p className="text-xs text-destructive text-right">{formErrors.invoice_date}</p>}
@@ -5760,7 +5768,7 @@ function InvoiceDialog({
                         <Select 
                           value={formData.payment_phase_id} 
                           onValueChange={(v) => { handlePhaseChange(v); setFormErrors(prev => ({ ...prev, payment_phase_id: "" })); setPhaseError(""); }}
-                          disabled={!formData.agreement_id || !!prePopulatedData}
+                          disabled={readOnly || !formData.agreement_id || !!prePopulatedData}
                         >
                           <SelectTrigger className={cn("h-8 text-sm border-2 border-primary/50 focus:border-primary bg-background", prePopulatedData ? "opacity-70" : "")}>
                             <SelectValue placeholder={formData.agreement_id ? "Select payment phase" : "Select agreement first"} />
@@ -5799,8 +5807,8 @@ function InvoiceDialog({
                           const val = e.target.value;
                           if (val === '' || /^\d*\.?\d*$/.test(val)) handleAmountChange(val);
                         }}
-                        disabled={!!prePopulatedData}
-                        className={cn("h-8 text-sm text-right border-2 border-primary/50 focus:border-primary bg-background w-full", prePopulatedData ? "opacity-70 bg-muted" : "")}
+                        disabled={readOnly || !!prePopulatedData}
+                        className={cn("h-8 text-sm text-right border-2 border-primary/50 focus:border-primary bg-background w-full", (readOnly || prePopulatedData) ? "opacity-70 bg-muted" : "")}
                         placeholder="0.00"
                       />
                       {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
@@ -5855,10 +5863,16 @@ function InvoiceDialog({
                 {invoice ? `Last updated ${invoice.invoice_date ? new Date(invoice.invoice_date + 'T12:00:00').toLocaleDateString() : ''}` : 'New invoice'}
               </p>
               <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button type="submit" size="sm" disabled={isPending}>
-                  {isPending ? "Saving..." : invoice ? "Update Invoice" : "Create Invoice"}
-                </Button>
+                {readOnly ? (
+                  <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>Close</Button>
+                ) : (
+                  <>
+                    <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit" size="sm" disabled={isPending}>
+                      {isPending ? "Saving..." : invoice ? "Update Invoice" : "Create Invoice"}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
