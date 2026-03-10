@@ -230,8 +230,10 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     closeSidebar();
   };
   const handleProjectSelectedForQuickCreate = (projectId: string, action: QuickCreateAction) => {
-    openTab(`/production/${projectId}?autoOpen=${action.replace('new-', '')}`, 'Project');
-    navigate(`/production/${projectId}?autoOpen=${action.replace('new-', '')}`);
+    const dialogType = action.replace('new-', '');
+    // Navigate to full-page project route (not sheet) so the dialog opens cleanly
+    openTab(`/project/${projectId}?tab=finance&autoOpen=${dialogType}`, 'Project');
+    navigate(`/project/${projectId}?tab=finance&autoOpen=${dialogType}`);
   };
 
   // Collapsible sidebar sections (default collapsed, persisted to localStorage)
