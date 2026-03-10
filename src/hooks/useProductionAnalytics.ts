@@ -493,7 +493,14 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     const filteredProjectIds = new Set(filteredProjects.map(p => p.id));
     
     return invoices
-      .filter(inv => (inv.open_balance || 0) > 0 && (
+      .filter(inv => {
+        // Exclude soft-deleted invoices
+        if (inv.invoice_number?.startsWith('DELETED-')) return false;
+        // Compute effective balance to handle stale open_balance
+        const effectiveBalance = Math.max(0, (inv.amount || 0) - (inv.payments_received || 0));
+        return effectiveBalance > 0;
+      })
+      .filter(inv => (
         // Include invoices linked to filtered projects OR unlinked invoices (no project_id)
         (inv.project_id && filteredProjectIds.has(inv.project_id)) || !inv.project_id
       ))
