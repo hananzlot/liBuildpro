@@ -5565,7 +5565,6 @@ function InvoiceDialog({
   }, [open, invoice, prePopulatedData, nextInvoiceNumber]);
 
   const lastInvoiceIdRef = useRef<string | null | undefined>(undefined);
-  const prePopulatedKey = prePopulatedData ? JSON.stringify(prePopulatedData) : null;
   
   useEffect(() => {
     if (!open) {
