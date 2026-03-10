@@ -5781,7 +5781,7 @@ function InvoiceDialog({
                               const remaining = (p.amount || 0) - invoicedForThisPhase;
                               return (
                                 <SelectItem key={p.id} value={p.id}>
-                                  {p.phase_name} - {formatCurrency(p.amount)} (Avail: {formatCurrency(remaining)})
+                                  {p.phase_name} - {formatCurrency(p.amount)} (Still not invoiced: {formatCurrency(remaining)})
                                 </SelectItem>
                               );
                             })}
