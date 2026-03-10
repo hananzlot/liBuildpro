@@ -5502,6 +5502,15 @@ function InvoiceDialog({
         payment_phase_id: phaseId,
       };
     }
+    if (prePopulatedData) {
+      return {
+        invoice_number: "",
+        invoice_date: prePopulatedData.invoice_date || new Date().toISOString().split('T')[0],
+        amount: prePopulatedData.amount?.toString() || "",
+        agreement_id: prePopulatedData.agreement_id || "",
+        payment_phase_id: prePopulatedData.payment_phase_id || "",
+      };
+    }
     return {
       invoice_number: "",
       invoice_date: "",
@@ -5511,11 +5520,13 @@ function InvoiceDialog({
     };
   };
 
+  const prePopulatedKey = prePopulatedData ? JSON.stringify(prePopulatedData) : null;
   const initialFormData = getInitialFormData();
+  const draftKey = invoice?.id || (prePopulatedData?.payment_phase_id ? `pre-${prePopulatedData.payment_phase_id}` : "new");
   const { draft: formData, updateDraft: updateFormData, setFullDraft: setFormData, clearDraft } = usePersistentDraft(
     "invoice-dialog",
     initialFormData,
-    invoice?.id || "new",
+    draftKey,
     open
   );
   const [amountError, setAmountError] = useState("");
