@@ -25,6 +25,7 @@ import Appointments from "@/pages/Appointments";
 import Calendar from "@/pages/Calendar";
 import Contacts from "@/pages/Contacts";
 import NotFound from "@/pages/NotFound";
+import RefreshPage from "@/pages/RefreshPage";
 import SalespersonCalendarPortal from "@/pages/SalespersonCalendarPortal";
 import SalesPortalGuide from "@/pages/SalesPortalGuide";
 import ShortLinkRedirect from "@/pages/ShortLinkRedirect";
