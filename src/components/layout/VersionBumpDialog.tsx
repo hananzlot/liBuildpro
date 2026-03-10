@@ -94,17 +94,20 @@ export function VersionBumpDialog({ currentVersion }: VersionBumpDialogProps) {
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Bump Version</DialogTitle>
+            <DialogTitle>Bump Version & Force Cache Clear</DialogTitle>
             <DialogDescription>
-              Increment the app version before deploying. This will trigger a cache refresh for all users.
+              Changing the version number will force all users to clear their local cache and reload with fresh data on their next visit.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex items-center justify-center gap-4 text-lg font-medium">
               <span className="text-muted-foreground">v{currentVersion?.toFixed(2) ?? "2.20"}</span>
               <span className="text-muted-foreground">→</span>
-              <span className="text-primary">v{newVersion.toFixed(2)}</span>
+              <span className="text-primary font-bold">v{newVersion.toFixed(2)}</span>
             </div>
+            <p className="text-xs text-center text-muted-foreground">
+              All users will have their cached data wiped and the app will reload automatically.
+            </p>
             <div className="space-y-2">
               <Label htmlFor="release-notes">Release Notes (optional)</Label>
               <Textarea

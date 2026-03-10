@@ -35,10 +35,11 @@ const App = () => (
     persistOptions={{
       persister,
       maxAge: 1000 * 60 * 60 * 24, // 24 hours max cache age
-      buster: "v3", // Bump to invalidate all stale IDB caches
-      // IMPORTANT: Don't persist mutations or the app-version query.
-      // Mutations: Persisted mutation state can get stuck as "pending" across refresh/tab close.
-      // app-version: Must always fetch fresh to trigger cache-clearing on deploys.
+      // Cache busting is now driven by the app_version table in the database.
+      // When a super_admin bumps the version via the UI, useAppVersion detects the
+      // mismatch against localStorage and clears IDB + reloads for all users.
+      // No hardcoded buster needed — the app-version query is excluded from
+      // persistence below so it always fetches fresh from the DB.
       dehydrateOptions: {
         shouldDehydrateMutation: () => false,
         shouldDehydrateQuery: (query) => {
