@@ -35,7 +35,7 @@ interface AccountsReceivableTabProps {
       days90Plus: number;
     };
   };
-  onNavigateToAR?: () => void;
+  onProjectClick?: (projectId: string, invoiceId: string) => void;
 }
 
 
