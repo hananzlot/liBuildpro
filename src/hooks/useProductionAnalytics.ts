@@ -522,8 +522,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
           invoice_date: inv.invoice_date,
           amount: inv.amount,
           payments_received: inv.payments_received,
-          // Use computed balance to handle stale open_balance in DB
-          open_balance: Math.max(0, (inv.amount || 0) - (inv.payments_received || 0)),
+          open_balance: inv.open_balance,
           daysOutstanding,
           agingBucket,
           phase_description: paymentPhase?.description || paymentPhase?.phase_name || null,
