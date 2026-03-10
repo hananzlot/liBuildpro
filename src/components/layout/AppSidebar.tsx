@@ -600,7 +600,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         {/* Super Admin */}
         {isSuperAdmin && (
           <SidebarGroup className="px-2 py-0.5">
-            <SidebarGroupLabel className="h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted-foreground select-none">
+            <SidebarGroupLabel className="h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-foreground/90 select-none">
               Super Admin
             </SidebarGroupLabel>
             <SidebarGroupContent>
