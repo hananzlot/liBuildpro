@@ -580,7 +580,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
             <Collapsible key={section.label} open={collapsed || sectionOpen} onOpenChange={() => toggleSection(section.label)}>
               <SidebarGroup className="px-2 py-0.5">
                 <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className={cn("h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted-foreground select-none", !collapsed && "cursor-pointer hover:text-sidebar-foreground transition-colors")}>
+                  <SidebarGroupLabel className={cn("h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-foreground/90 select-none", !collapsed && "cursor-pointer hover:text-sidebar-foreground transition-colors")}>
                     {section.label}
                     {!collapsed && <ChevronDown className={cn("ml-auto h-3 w-3 shrink-0 transition-transform duration-200", !sectionOpen && "-rotate-90")} />}
                   </SidebarGroupLabel>
@@ -600,7 +600,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         {/* Super Admin */}
         {isSuperAdmin && (
           <SidebarGroup className="px-2 py-0.5">
-            <SidebarGroupLabel className="h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted-foreground select-none">
+            <SidebarGroupLabel className="h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-foreground/90 select-none">
               Super Admin
             </SidebarGroupLabel>
             <SidebarGroupContent>
