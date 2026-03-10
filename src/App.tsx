@@ -35,19 +35,9 @@ const App = () => (
     persistOptions={{
       persister,
       maxAge: 1000 * 60 * 60 * 24, // 24 hours max cache age
-      // Cache busting is now driven by the app_version table in the database.
-      // When a super_admin bumps the version via the UI, useAppVersion detects the
-      // mismatch against localStorage and clears IDB + reloads for all users.
-      // No hardcoded buster needed — the app-version query is excluded from
-      // persistence below so it always fetches fresh from the DB.
+      buster: "v2.21", // Bump this string to force all clients to drop their IDB cache
       dehydrateOptions: {
         shouldDehydrateMutation: () => false,
-        shouldDehydrateQuery: (query) => {
-          // Don't persist the app-version query — it must always be fresh
-          const queryKey = query.queryKey;
-          if (Array.isArray(queryKey) && queryKey[0] === "app-version") return false;
-          return true;
-        },
       },
     }}
     onSuccess={() => {
