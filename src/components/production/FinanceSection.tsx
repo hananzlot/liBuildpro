@@ -5739,12 +5739,13 @@ function InvoiceDialog({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Invoice Date</span>
-                  <Input 
+                   <Input 
                     type="date" 
                     value={formData.invoice_date} 
                     onChange={(e) => { updateFormData({ invoice_date: e.target.value }); setFormErrors(prev => ({ ...prev, invoice_date: "" })); }}
                     className="h-7 w-40 text-sm text-right border-2 border-primary/50 focus:border-primary bg-background"
                     aria-invalid={!!formErrors.invoice_date}
+                    disabled={readOnly}
                   />
                 </div>
                 {formErrors.invoice_date && <p className="text-xs text-destructive text-right">{formErrors.invoice_date}</p>}
