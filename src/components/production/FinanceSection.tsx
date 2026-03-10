@@ -3164,8 +3164,11 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                       Preview Invoice
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
-                                      <Pencil className="h-4 w-4 mr-2" />
-                                      Edit
+                                      {(inv.payments_received || 0) > 0 ? (
+                                        <><Eye className="h-4 w-4 mr-2" />View</>
+                                      ) : (
+                                        <><Pencil className="h-4 w-4 mr-2" />Edit</>
+                                      )}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeleteClick("invoice", inv.id)}>
                                       <Trash2 className="h-4 w-4 mr-2" />
