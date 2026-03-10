@@ -510,12 +510,19 @@ export function ProjectEditorContent({
               </div>
               <div>
                 <Label htmlFor="project_type">Project Type</Label>
-                <Input
-                  id="project_type"
+                <Select
                   value={formData.project_type}
-                  onChange={(e) => updateField("project_type", e.target.value)}
-                  placeholder="e.g., Roofing, HVAC"
-                />
+                  onValueChange={(value) => updateField("project_type", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projectTypes.map((pt) => (
+                      <SelectItem key={pt.id} value={pt.name}>{pt.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="project_status">Status</Label>
