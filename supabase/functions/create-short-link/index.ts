@@ -277,14 +277,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create client with user's JWT for auth context
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    // Validate JWT and get user
+    // Use service role client to validate the JWT (avoids session-missing errors)
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(token);
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
       console.error("Auth validation error:", userError);
@@ -295,6 +291,11 @@ Deno.serve(async (req) => {
     }
 
     const userId = user.id;
+
+    // Create client with user's JWT for RLS-scoped queries
+    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     // Get user's company from profile OR from request body (for super admins)
     const { data: profile, error: profileError } = await supabaseUser
