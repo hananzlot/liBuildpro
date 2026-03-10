@@ -216,15 +216,15 @@ export function AccountsReceivableTab({ invoices, totals, onProjectClick }: Acco
             <Table className="table-fixed w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[5%]">#</TableHead>
+                  <TableHead className="w-[14%]">Salesperson</TableHead>
                   <TableHead className="w-[18%]">Project</TableHead>
-                  <TableHead className="w-[10%]">Invoice #</TableHead>
-                  <TableHead className="w-[12%]">Invoice Date</TableHead>
-                  <TableHead className="w-[12%] text-right">Amount</TableHead>
-                  <TableHead className="w-[12%] text-right">Paid</TableHead>
-                  <TableHead className="w-[12%] text-right">Balance</TableHead>
-                  <TableHead className="w-[9%] text-right">Days Out</TableHead>
-                  <TableHead className="w-[10%] text-center">Aging</TableHead>
+                  <TableHead className="w-[20%]">Progress Payment</TableHead>
+                  <TableHead className="w-[10%] whitespace-nowrap">Date</TableHead>
+                  <TableHead className="w-[10%] text-right">Amount</TableHead>
+                  <TableHead className="w-[10%] text-right">Paid</TableHead>
+                  <TableHead className="w-[11%] text-right">Balance</TableHead>
+                  <TableHead className="w-[5%] text-right">Days</TableHead>
+                  <TableHead className="w-[2%]">Aging</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -239,22 +239,27 @@ export function AccountsReceivableTab({ invoices, totals, onProjectClick }: Acco
                     <TableRow 
                       key={invoice.id} 
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => onNavigateToAR?.()}
+                      onClick={() => invoice.project_id && onProjectClick?.(invoice.project_id, invoice.id)}
                     >
-                      <TableCell className="font-medium">{invoice.project_number}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {invoice.project_name}
+                      <TableCell className="font-medium">{invoice.primary_salesperson || '-'}</TableCell>
+                      <TableCell className="max-w-[200px]">
+                        <div className="truncate font-medium">
+                          {invoice.project_name}
+                        </div>
+                        {invoice.project_address && (
+                          <div className="truncate text-xs text-muted-foreground">{invoice.project_address}</div>
+                        )}
                       </TableCell>
-                      <TableCell>{invoice.invoice_number || '-'}</TableCell>
-                      <TableCell>
+                      <TableCell>{invoice.phase_description || '-'}</TableCell>
+                      <TableCell className="whitespace-nowrap text-sm">
                         {invoice.invoice_date 
-                          ? new Date(invoice.invoice_date).toLocaleDateString() 
+                          ? new Date(invoice.invoice_date).toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: '2-digit'}) 
                           : '-'
                         }
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(invoice.amount || 0)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(invoice.payments_received || 0)}</TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-right font-medium text-amber-600">
                         {formatCurrency(invoice.open_balance || 0)}
                       </TableCell>
                       <TableCell className="text-right">{invoice.daysOutstanding}</TableCell>
