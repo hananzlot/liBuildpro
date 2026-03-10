@@ -2961,13 +2961,13 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
                                               .filter(inv => inv.payment_phase_id === phase.id)
                                               .reduce((sum, inv) => sum + (inv.amount || 0), 0);
                                             const remainingAmount = (phase.amount || 0) - totalInvoiced;
-                                            setInvoiceConfirmPhase({
-                                              id: phase.id,
-                                              name: phase.phase_name,
-                                              agreementId: phase.agreement_id,
-                                              maxAmount: remainingAmount,
+                                            setEditingInvoice(null);
+                                            setPrePopulatedInvoice({
+                                              agreement_id: phase.agreement_id || undefined,
+                                              payment_phase_id: phase.id,
+                                              amount: remainingAmount > 0 ? remainingAmount : undefined,
                                             });
-                                            setInvoiceConfirmOpen(true);
+                                            setInvoiceDialogOpen(true);
                                           }}
                                         >
                                           <Plus className="h-3 w-3 mr-1" />
