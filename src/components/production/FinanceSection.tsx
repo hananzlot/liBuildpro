@@ -4647,7 +4647,7 @@ export function FinanceSection({ projectId, estimatedCost, soldDispatchValue, es
 
       {/* Invoice Dialog */}
       <InvoiceDialog
-        key={editingInvoice?.id || 'new-invoice'}
+        key={editingInvoice?.id || (prePopulatedInvoice?.payment_phase_id ? `pre-${prePopulatedInvoice.payment_phase_id}` : 'new-invoice')}
         open={invoiceDialogOpen}
         onOpenChange={(open) => {
           setInvoiceDialogOpen(open);
