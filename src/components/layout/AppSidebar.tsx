@@ -580,7 +580,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
             <Collapsible key={section.label} open={collapsed || sectionOpen} onOpenChange={() => toggleSection(section.label)}>
               <SidebarGroup className="px-2 py-0.5 mx-1 my-0.5 rounded-md bg-white/[0.06]">
                 <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className={cn("h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-sidebar-foreground/90 select-none", !collapsed && "cursor-pointer hover:text-sidebar-foreground transition-colors")}>
+                  <SidebarGroupLabel className={cn("h-7 px-3 text-[10px] uppercase tracking-widest font-semibold text-white/90 bg-sidebar-primary/20 rounded-md select-none", !collapsed && "cursor-pointer hover:bg-sidebar-primary/30 transition-colors")}>
                     {section.label}
                     {!collapsed && <ChevronDown className={cn("ml-auto h-3 w-3 shrink-0 transition-transform duration-200", !sectionOpen && "-rotate-90")} />}
                   </SidebarGroupLabel>
