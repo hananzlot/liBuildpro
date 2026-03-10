@@ -39,6 +39,7 @@ import { LicenseCertificates } from "@/components/admin/LicenseCertificates";
 import { SocialMediaLinks } from "@/components/admin/SocialMediaLinks";
 import { BankManagement } from "@/components/admin/BankManagement";
 import { ProjectStatusesManager } from "@/components/admin/ProjectStatusesManager";
+import { ProjectTypesManager } from "@/components/admin/ProjectTypesManager";
 import { RoleAnalyticsDefaults } from "@/components/admin/RoleAnalyticsDefaults";
 import { CompanyEmailDomainSetup } from "@/components/company-settings/CompanyEmailDomainSetup";
 import { OnboardingPromptBanner } from "@/components/onboarding/OnboardingPromptBanner";
