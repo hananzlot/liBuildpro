@@ -395,11 +395,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         .filter(r => r.refund_status === "Issued")
         .reduce((sum, r) => sum + (r.refund_amount || 0), 0);
       const invoicesCollected = grossCollected - totalRefunded;
-      // Use computed balance (amount - payments_received) to handle stale open_balance values
-      const invoiceBalanceDue = projectInvoices.reduce((sum, i) => {
-        const effectiveBalance = Math.max(0, (i.amount || 0) - (i.payments_received || 0));
-        return sum + effectiveBalance;
-      }, 0);
+      const invoiceBalanceDue = projectInvoices.reduce((sum, i) => sum + (i.open_balance || 0), 0);
 
       // Calculate bill payments from bill_payments table
       const projectBillIds = projectBills.map(b => b.id);
@@ -496,9 +492,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       .filter(inv => {
         // Exclude soft-deleted invoices
         if (inv.invoice_number?.startsWith('DELETED-')) return false;
-        // Compute effective balance to handle stale open_balance
-        const effectiveBalance = Math.max(0, (inv.amount || 0) - (inv.payments_received || 0));
-        return effectiveBalance > 0;
+        return (inv.open_balance || 0) > 0;
       })
       .filter(inv => (
         // Include invoices linked to filtered projects OR unlinked invoices (no project_id)
@@ -528,8 +522,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
           invoice_date: inv.invoice_date,
           amount: inv.amount,
           payments_received: inv.payments_received,
-          // Use computed balance to handle stale open_balance in DB
-          open_balance: Math.max(0, (inv.amount || 0) - (inv.payments_received || 0)),
+          open_balance: inv.open_balance,
           daysOutstanding,
           agingBucket,
           phase_description: paymentPhase?.description || paymentPhase?.phase_name || null,
